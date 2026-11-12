@@ -14,6 +14,11 @@
       (check-equal? startup #f)
       (def owner (publication.publication initial))
       (def before (publication.snapshot owner))
+      (def unknown (publication.stage owner (list (revision.fragment [] '(absent) [])) build
+                     (lambda (_ __) (error "unknown member reached approval"))))
+      (defvalues (unchanged missing) (publication.submit-snapshot! owner unknown))
+      (check (eq? unchanged before) => #t)
+      (check-equal? (Error-message missing) "conflicting or stale component membership contributions")
       (def split-program (code.need 'quota identity))
       (def (edit program) (list (revision.fragment [] [] (list (cons 'right program)))))
       (def split-meta (.o marker: 'split))

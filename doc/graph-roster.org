@@ -92,6 +92,38 @@ Lean check: =lean +leanprover/lean4:v4.35.0 doc/graph-roster.lean=.
 The trace obligation remains OPEN. This design alone cannot qualify a new
 production path or close the Core 10K/downstream acceptance gates.
 
+** Membership preflight on an owned snapshot
+
+The coordinator carries the partition issued from the same predecessor as
+the graph's owned source. Point membership probes use its node and group
+indexes. Each addition must be absent and each removal must be present.
+=membership_preflight_exact= proves equivalence to checking a fresh index
+of the predecessor roster. The unowned entry retains that fresh index.
+
+This removes one complete roster-to-hash pass for the owned path. A valid
+membership edit still enumerates the new roster and rebuilds SCC and
+quotient support. Fixed-membership edits retain the existing local path.
+The native fixture verifies that removing an absent member returns the
+same predecessor without invoking approval. An isolated false membership
+hit reached approval and the expected refusal check failed.
+
+The optional =just test-file benchmarks/membership-preflight-test.ss= study
+used 10,000 owners, 32 refused submissions and six successful removals per
+arm. Reference and candidate used Gerbil =2591dcd= in ABBA order. Each
+submission starts from the same approved graph. Every observed random probe
+returned 888625816 after the same seeded refusal. Medians follow.
+
+| Submission | CPU ref | CPU candidate | Wall ref | Wall candidate | GC CPU ref | GC CPU candidate |
+|------------+---------+---------------+----------+----------------+------------+------------------|
+| Refused    | 618 µs  | 44 µs         | 618 µs   | 44 µs          | 0          | 0                |
+| Accepted   | 2.503 s | 2.457 s       | 2.728 s  | 2.481 s        | 0.665 s    | 0.670 s          |
+
+The GC-free refusal allocation median fell from 1,263,160 to 513,952
+bytes. Accepted submissions collected and have no qualified allocation
+figure. Whole-command peak RSS was 1,762–1,832 MiB for the reference and
+1,824–1,825 MiB for the candidate. The timing shows a faster refusal.
+Successful support changes still pay the full rebuild cost.
+
 * Native backend comparison: candidates not adopted
 
 The standard-library deduplicator accepts a caller-supplied native table.

@@ -73,18 +73,24 @@
   (def (bindings field)
     (map (lambda (entry) (if (pair? entry) (cons (car entry) (cdr entry)) entry)) (collect field)))
   (values (collect 'added) (collect 'removed) (bindings 'codes) (bindings 'bases)))
-(def (component-source-edit spec added removed codes bases)
+(def (component-source-edit spec added removed codes bases (partition #f))
   (def old-keys (.@ spec keys))
-  (def old-index (make-hash-table-eq))
+  (def supports?
+    (if partition
+      ;; The private owned predecessor already has an exact node index.
+      ;; Query cardinality rather than copying a component's member list.
+      (cut scc.partition-group-size partition <>)
+      (let (old-index (make-hash-table-eq))
+        (for-each (lambda (key) (hash-put! old-index key #t)) old-keys)
+        (cut hash-key? old-index <>))))
   (def removed-index (make-hash-table-eq))
-  (for-each (lambda (key) (hash-put! old-index key #t)) old-keys)
   ;; Membership validation applies across all services, not just each descriptor.
   (def (distinct-symbols? names)
     (and (list? names) (andmap symbol? names)
       (= (length names) (length (delete-duplicates/hash names)))))
   (unless (and (distinct-symbols? added) (distinct-symbols? removed)
-               (andmap (lambda (key) (not (hash-key? old-index key))) added)
-               (andmap (cut hash-key? old-index <>) removed))
+               (andmap (lambda (key) (not (supports? key))) added)
+               (andmap supports? removed))
     (error "conflicting or stale component membership contributions"))
   (for-each (lambda (key) (hash-put! removed-index key #t)) removed)
   (def source
@@ -237,7 +243,9 @@
          (else
           (def old-source (if previous (graph.%component-source-view previous raw?: #t)
                             (graph-cache-source old)))
-          (defvalues (source edited) (component-source-edit old-source added removed codes bases))
+          (defvalues (source edited)
+            (component-source-edit old-source added removed codes bases
+              (and previous (graph-cache-partition old))))
           (def affected?
             (and invalidation (not previous) (eq? build (graph-cache-build old))
                  (let* ((partition (graph-cache-partition old))

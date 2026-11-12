@@ -189,6 +189,19 @@ theorem fresh_tail_changes_support (keys : List K) (fresh : K)
       (admit (keys ++ [fresh]) empty).2 fresh = true := by
   simp [final_membership, empty, absent]
 
+/-- Membership edits probe the complete predecessor support. A source-bound
+index may answer those probes without rebuilding a second membership table. -/
+def membershipAdmitted (supports : Membership K) (added removed : List K) : Bool :=
+  added.all (fun key => !supports key) && removed.all supports
+
+theorem membership_preflight_exact (keys added removed : List K)
+    (supports : Membership K)
+    (bound : ∀ key, supports key = decide (key ∈ keys)) :
+    membershipAdmitted supports added removed =
+      membershipAdmitted (fun key => decide (key ∈ keys)) added removed := by
+  have same : supports = (fun key => decide (key ∈ keys)) := funext bound
+  rw [same]
+
 #print axioms same_order
 #print axioms final_membership
 #print axioms firsts_membership

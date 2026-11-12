@@ -36,4 +36,10 @@ package GraphRoster {
                ownership in Scheme. Any shared support table must remain
                private; old snapshots and returned order copies stay isolated. */
     }
+    requirement def OwnedMembershipPreflight {
+        doc /* Only a partition bound to the predecessor can answer point
+               membership checks for a roster edit. Absent removals and
+               occupied additions refuse before approval. The unowned path
+               derives its membership from the original roster. */
+    }
 }
