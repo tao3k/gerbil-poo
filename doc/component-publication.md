@@ -148,3 +148,8 @@ forcing. `Functional.ComponentPublication` adds family noninterference,
 continuation rejection, no-op retirement, paired projections and guarded-read laws.
 Core's existing `GraphSnapshot` model adds metadata-head and family-isolation
 invariants with matched faults; neither model is a native compiler/mutex proof.
+
+The local [publication transition proof](component-publication.lean) separates
+the installed epoch from the restaged lineage version and composes their checks
+across the failed-replacement trace. The [refinement record](component-publication.org)
+maps the model to the lock boundaries and the native two-thread control.
