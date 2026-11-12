@@ -98,6 +98,7 @@
     "benchmarks/closure-cases"
     "benchmarks/closure-measure"
     "benchmarks/read-field-test"
+    "benchmarks/read-replay-test"
     "benchmarks/ordered-scc-study"
     "benchmarks/closure-paired-benchmark"
     "benchmarks/closure-paired-suite"

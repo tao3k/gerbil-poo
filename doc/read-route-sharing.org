@@ -214,3 +214,41 @@ This PR remains a working candidate. No Core, Lab, Ascent or Parser pin is
 changed. Compact Graph integration and the original complete 10K gate have
 not yet qualified this revision. Existing local Class diagnostic changes are
 included for continued validation in the canonical gerbil-poo checkout.
+
+* Canonical POO verification and standalone study
+
+On the canonical checkout, Gerbil 1cfb032 / Gambit ea114fc builds Core and
+passes the 35 issued-read cases and 6 Class diagnostic cases through the
+existing heap-fenced Just entrypoint. The build declaration suite also passes,
+including its deliberate backend-failure cleanup checks. Registering the Class
+suite changes total test roots from 70 to 71 and test-suffixed roots from 66
+to 67; the coverage assertion now includes the Class root explicitly.
+The local Nix-provided pkg-config requires the installed Homebrew OpenSSL
+metadata directory for the existing example-build metadata test. This is an
+environment prerequisite, not a source patch or a skipped assertion.
+
+=benchmarks/read-replay-test.ss= is a POO-only study declared in the explicit
+development build. It imports no Yuanxu fixture. After compiling the declared
+module, run its installed .ssi through =just test-file=. Both arms use the
+same current topology producer, issuance and live-state implementation. The
+per-record arm is a conservative validation oracle, not an old binary. Each
+phase runs two ABBA blocks, four samples per arm, twelve operations per sample.
+Root-spine copying is outside the cold-index measurement for both arms;
+construction and first demand are charged separately. All GC samples remain.
+
+| Shape: receivers x slots | Records | Phase | Per-record CPU ms | Shared CPU ms |
+|-------------------------+---------+-------+-------------------+---------------|
+| 128 x 1                 |     258 | warm  |            4.2635 |        2.9180 |
+| 128 x 1                 |     258 | cold  |            4.9790 |        3.5925 |
+| 64 x 128                |    8258 | warm  |          183.1710 |       70.0050 |
+| 64 x 128                |    8258 | cold  |          215.2635 |      108.7685 |
+
+These are medians per twelve operations, not per operation. Dense cold
+allocation medians are 16832880 / 16857072 bytes; the shared samples include
+one GC. Dense first demand is 51.572 CPU / 92.893 wall ms and includes one GC.
+Dense replay wall medians are 401.313 / 169.507 ms warm and 459.335 / 271.372 ms
+cold, demonstrating host contention; CPU and wall are not interchangeable.
+The study passes both cases with MODULE-OK, HARNESS-OK and final OK. Logs stay
+in ignored local qualification artifacts. Compact Graph integration, complete
+Core 10K acceptance and real downstream qualification remain open; this study
+neither replaces them nor justifies a consumer revision update.
