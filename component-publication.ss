@@ -73,9 +73,14 @@
 ;; Stage a fresh independent proposal, with no business construction. Capture
 ;; inherited metadata from the SAME snapshot as the revision action.
 (def (stage owner fragments build admit guards: (guards []) builder: (builder (.cc cache.Builder.))
-            metadata: (metadata +keep-metadata+))
-  (def expected (snapshot owner))
-  (make-request owner expected fragments build admit guards builder metadata (make-%lineage 0 #f) 0))
+            metadata: (metadata +keep-metadata+) expected: (expected #f))
+  ;; An effect may have started under an earlier snapshot. Bind that exact
+  ;; handle under the head lock before preparing any proposal.
+  (def predecessor
+    (if expected
+      (locked owner (lambda () (require-current! owner expected) expected))
+      (snapshot owner)))
+  (make-request owner predecessor fragments build admit guards builder metadata (make-%lineage 0 #f) 0))
 ;; Replace the complete proposal in one explicit family; do not append/merge
 ;; opaque fragments or callbacks. Advance before preparing the replacement so
 ;; a failure cannot reactivate the predecessor's already-issued ticket.
