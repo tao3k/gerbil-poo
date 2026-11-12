@@ -15,6 +15,12 @@
         (only-in ./object-state object-state-revision)
         (only-in :std/hash/misc hash-ensure-ref) :std/iter (only-in :std/list/list delete-duplicates/hash find))
 
+;; Carry Gambit's macro definitions in this module's static source as well as
+;; its standard make invocation. Linked programs compile the dependency closure
+;; independently of the per-module dynamic compiler command (as in io.ss).
+(begin-foreign
+  (include "~~lib/_gambit#.scm"))
+
 ;; Weak values allow unused canonical shapes to disappear; live layouts retain them.
 (def shapes (make-hash-table test: equal? weak-values: #t))
 ;; Read the existing Gerbil adapter cache; never create a replacement adapter.
