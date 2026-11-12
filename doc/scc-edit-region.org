@@ -193,6 +193,10 @@ predecessor, yielding the cold successor SCC relation. Rows and member
 groups untouched by the edit keep their old indexes. Appending any vertex
 retires the whole-functional-cycle certificate even before the first edge
 edit. Retired ordinal tombstones do not become active through append.
+If a retired name is added again, it receives a new position and no
+old program, base, route or witness. Explicit roster output checks that
+the position being enumerated equals the active position for the name,
+so the old occurrence stays hidden.
 
 The source and quotient guard trees both address witnesses by source
 position. If the existing span is too small, double it until the last
@@ -205,6 +209,16 @@ positions have no inherited witness. New ancestors must register their
 native POO dependency on their shared child before testing currentness,
 with the same already-dirty check used by the existing splice. A pending
 revision still has to pass source and publication checks independently.
+
+The Scheme splice now builds the new ancestor paths directly, borrowing the
+old subtree at its original span and registering children before parents.
+The quotient guard requests growth from the positions in its changed rows.
+The native witness test grows a span of three to twelve, checks subtree
+identity, and invalidates old and new inputs separately. It also expands
+an already-stale root to verify the new ancestor refuses it.
+In the isolated fault build, dropping the dependency edge to the reused
+root leaves the expanded sibling current after the old input changes.
+The same native assertion refuses that build with test exit 42.
 
 Scheme integration must share the position index and append only the new
 roster suffix, using one ordinal assignment for the source, partition and

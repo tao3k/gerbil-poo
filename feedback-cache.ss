@@ -4,7 +4,7 @@
         %start-feedback-guard %revise-feedback-guard %feedback-guard-current! %admit-guarded-feedback-cache)
 (import (only-in :std/list/list foldr list-sort delete-duplicates/hash) ./object ./mop ./support/option
         ./generalized-declaration ./generalized-closure ./feedback-closure ./lens-laws
-        (only-in ./generalized-graph %splice-witness-tree %witness-tree-current? %witness-tree-stamp
+        (only-in ./generalized-graph %splice-witness-tree %witness-span %witness-tree-current? %witness-tree-stamp
                  %witness-tree-left %witness-tree-right %witness-tree-evidence)
         (prefix-in ./construction-cache cache.) (prefix-in ./dependency-analysis code.)
         (prefix-in (only-in ./fun Observation.) fun.))
@@ -56,9 +56,11 @@
            (edits (map (lambda (entry)
                          (cons (car entry) (and (cdr entry) (feedback-cache-ref candidate (cdr entry)))))
                        (list-sort (lambda (a b) (< (car a) (car b))) positions)))
-           (width (guard-index-width index)))
-      (make-guard-index width
-        (%splice-witness-tree (guard-index-root index) width edits attach-guard! register)))))
+           (width (guard-index-width index))
+           (minimum (foldr (lambda (edit span) (max (1+ (car edit)) span)) width edits)))
+      (make-guard-index (%witness-span width minimum)
+        (%splice-witness-tree (guard-index-root index) width edits attach-guard! register
+          minimum-width: minimum)))))
 (def (%feedback-guard-current! index)
   ;; A stale aggregate keeps the same ordered fragment-before-lens refusal.
   (def (check node)

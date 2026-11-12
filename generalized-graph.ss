@@ -9,7 +9,7 @@
         %reverse-bucket-remove %reverse-bucket-add %for-each-reverse-bucket
         %capture-component-source %component-source-view %edit-component-source
         %component-source-current! %with-component-source
-        %splice-witness-tree %witness-tree-current? %witness-tree-stamp
+        %splice-witness-tree %witness-span %witness-tree-current? %witness-tree-stamp
         %witness-tree-left %witness-tree-right %witness-tree-evidence
         failure? failure-kind failure-key)
 (import :std/iter (only-in :std/list/list delete-duplicates/hash)
@@ -253,7 +253,9 @@
 (defstruct %witness-tree (stamp left right evidence) final: #t)
 (def (%witness-tree-current? tree)
   (or (not tree) (zero? (object-revision (%witness-tree-stamp tree)))))
-(def (%splice-witness-tree old width edits attach-leaf! register)
+(def (%witness-span width minimum)
+  (if (>= width minimum) width (%witness-span (* 2 width) minimum)))
+(def (%splice-witness-tree old width edits attach-leaf! register minimum-width: (minimum width))
   (def pending [])
   (def (node left right evidence)
     (def result (make-%witness-tree (make-object) left right evidence))
@@ -270,6 +272,14 @@
       (defvalues (left next) (walk (and old (%witness-tree-left old)) first half rest))
       (defvalues (right tail) (walk (and old (%witness-tree-right old)) (+ first half) (- width half) next))
       (values (and (or left right) (node left right #f)) tail))))
+  ;; The old tree occupies the leftmost original span. Build new ancestors
+  ;; directly with their final children so replaced roots are never registered.
+  (def (grow span rest)
+    (if (= span width) (walk old 0 width rest)
+      (let (half (quotient span 2))
+        (defvalues (left next) (grow half rest))
+        (defvalues (right tail) (walk #f half half next))
+        (values (and (or left right) (node left right #f)) tail))))
   (def (attach! tree)
     (def stamp (%witness-tree-stamp tree))
     (def evidence (%witness-tree-evidence tree))
@@ -283,7 +293,7 @@
           (and (%witness-tree-current? left) (%witness-tree-current? right)))))
     ;; Linking to an already dirty child cannot replay its past invalidation.
     (unless current? (uninstantiate-object! stamp)))
-  (defvalues (root rest) (walk old 0 width edits))
+  (defvalues (root rest) (grow (%witness-span width minimum) edits))
   (unless (null? rest) (error "witness positions disagree with owned support"))
   ;; Allocate nodes before registration. The coordinator can then link them
   ;; under its lock in child-to-parent order using only native evidence.
