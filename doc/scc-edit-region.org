@@ -175,3 +175,42 @@ reverse hub deletion and owned inverse continuation. Those are POO Graph
 workloads. Incident roster edits still use the existing full support-change
 path where an isolated retirement proof is unavailable. Real Yuanxu
 Module EVAL has its own runtime and source admission gates.
+
+* Local admission of appended owners
+
+The current Scheme publisher takes full support admission for an owner
+addition. The local design starts from the exact admitted partition,
+reserves fresh positions after its high-water mark in request order and
+initializes the new vertices as isolated singletons. No old row gains an
+edge in that step. =appended_ordinal_starts_as_singleton= establishes
+the starting SCC for a fresh position, and
+=append_preserves_old_representative= preserves every old ordered member
+list, hence its first representative. New active owners and touched rows
+then enter the existing SCC repair on the enlarged domain.
+=append_ordinals_are_fresh= establishes ordinal disjointness and
+=append_patch_exact= applies the existing region theorem to this padded
+predecessor, yielding the cold successor SCC relation. Rows and member
+groups untouched by the edit keep their old indexes. Appending any vertex
+retires the whole-functional-cycle certificate even before the first edge
+edit. Retired ordinal tombstones do not become active through append.
+
+The source and quotient guard trees both address witnesses by source
+position. If the existing span is too small, double it until the last
+appended position fits, placing the existing root under the new left
+child at each step. This works for the existing arbitrary initial span:
+=grown_left_span= proves the split recovers that span exactly.
+=witness_growth_preserves_address= proves that old lookups retain the
+same address, and =witness_growth_leaves_new_address_empty= shows new
+positions have no inherited witness. New ancestors must register their
+native POO dependency on their shared child before testing currentness,
+with the same already-dirty check used by the existing splice. A pending
+revision still has to pass source and publication checks independently.
+
+Scheme integration must share the position index and append only the new
+roster suffix, using one ordinal assignment for the source, partition and
+guard tree. An edited or added owner must enter quotient invalidation,
+including when it remains an isolated singleton. An opaque builder that
+can inspect the full roster still requires full admission. The structural
+proofs cover the padded partition and witness addressing. Native
+registration, ticket retirement and sparse value reuse require separate
+fault and cold-equivalence checks.

@@ -18,6 +18,21 @@ package SccEditRegion {
                successor roster and refuse. Such builders retain the
                original full support-change path. */
     }
+    requirement def AppendedOwnerAdmission {
+        doc /* Reserve new source ordinals after the previous high-water mark.
+               Before applying any row edit, the new owners are isolated
+               singletons. Borrow the predecessor rows and order, add empty
+               rows and singleton entries, then apply exact edited rows in the
+               enlarged domain. A whole-cycle certificate expires on append.
+               Append order and representative changes use source ordinals. */
+    }
+    requirement def AppendedWitnessSpan {
+        doc /* When positions exceed the witness span, double the existing span
+               and put its root under the new left child. Link the new ancestor
+               through existing POO dependency registration. Observe child
+               currentness after linking and refuse if it was already stale.
+               Shared old addresses and predecessor roots remain intact. */
+    }
     requirement def PrivatePreparationSeedScope {
         doc /* Private graph seeds apply only inside authenticated native
                preparation. Ordinary shape admission and application

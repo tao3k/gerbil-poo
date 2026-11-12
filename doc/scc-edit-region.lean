@@ -74,6 +74,87 @@ theorem retired_ordinal_is_isolated {active : V → Prop} {edge : V → V → Pr
   | nil => rfl
   | step e _ => exact False.elim (retired e.1)
 
+/-- Before applying edited rows, reserve each new key as an isolated
+vertex. Old routes can then be borrowed in the enlarged repair domain. -/
+theorem appended_ordinal_has_no_incoming_path {active : V → Prop}
+    {edge : V → V → Prop} {a b : V}
+    (fresh : ¬ active b) (path : Path (ActiveEdges active edge) a b) : a = b := by
+  induction path with
+  | nil => rfl
+  | @step a middle b e _ ih =>
+    have same := ih fresh
+    exact False.elim (fresh (same ▸ e.2.1))
+
+theorem appended_ordinal_starts_as_singleton {active : V → Prop}
+    {edge : V → V → Prop} {a b : V} (fresh : ¬ active a) :
+    Mutual (ActiveEdges active edge) a b ↔ a = b := by
+  constructor
+  · intro related
+    exact retired_ordinal_is_isolated fresh related.1
+  · rintro rfl
+    exact ⟨.nil _, .nil _⟩
+
+theorem append_preserves_old_representative {active : V → Prop}
+    {edge : V → V → Prop} {old fresh : List V} {a : V}
+    (present : active a)
+    (newKeys : ∀ key ∈ fresh, ¬ active key)
+    [DecidableRel (Mutual (ActiveEdges active edge))] :
+    (old ++ fresh).filter (fun key => decide (Mutual (ActiveEdges active edge) a key)) =
+      old.filter (fun key => decide (Mutual (ActiveEdges active edge) a key)) := by
+  have empty : fresh.filter (fun key => decide (Mutual (ActiveEdges active edge) a key)) = [] := by
+    apply List.eq_nil_iff_forall_not_mem.mpr
+    intro key member
+    have included := List.mem_filter.mp member
+    have related := of_decide_eq_true included.2
+    have same := appended_ordinal_has_no_incoming_path (newKeys key included.1) related.1
+    exact newKeys key included.1 (same ▸ present)
+  simp [List.filter_append, empty]
+
+#print axioms appended_ordinal_starts_as_singleton
+#print axioms append_preserves_old_representative
+
+-- The native witness split is floor(width / 2). Doubling an arbitrary
+-- old span therefore preserves its complete address map in the left child.
+def growSpan (span : Nat) : Nat → Nat
+  | 0 => span
+  | n + 1 => 2 * growSpan span n
+
+theorem grown_left_span (span : Nat) : (2 * span) / 2 = span := by omega
+
+theorem append_ordinals_are_fresh (next first second old : Nat)
+    (prior : old < next) :
+    old ≠ next + first ∧ (next + first = next + second ↔ first = second) := by
+  omega
+
+def lookupGrownWitness (span : Nat) (old : Nat → Option W) (position : Nat) : Nat → Option W
+  | 0 => if position < span then old position else none
+  | n + 1 =>
+    if position < growSpan span n then lookupGrownWitness span old position n else none
+
+theorem witness_growth_preserves_address (old : Nat → Option W) (position : Nat)
+    (within : position < span) (steps : Nat) :
+    lookupGrownWitness span old position steps = old position := by
+  have fits : ∀ n, span ≤ growSpan span n := by
+    intro n
+    induction n with
+    | zero => exact Nat.le_refl _
+    | succ n ih =>
+      simp only [growSpan]
+      omega
+  induction steps with
+  | zero => simp [lookupGrownWitness, within]
+  | succ n ih => simp [lookupGrownWitness, Nat.lt_of_lt_of_le within (fits n), ih]
+
+theorem witness_growth_leaves_new_address_empty (old : Nat → Option W) (position : Nat)
+    (fresh : span ≤ position) (steps : Nat) :
+    lookupGrownWitness span old position steps = none := by
+  induction steps with
+  | zero => simp [lookupGrownWitness, Nat.not_lt.mpr fresh]
+  | succ n ih => simp [lookupGrownWitness, ih]
+
+#print axioms witness_growth_preserves_address
+#print axioms witness_growth_leaves_new_address_empty
+
 /-- Once both incident indexes establish isolation, the repair graph is
 already the exact padded graph. Retiring owner/member entries changes only
 the public active projection. -/
@@ -455,6 +536,26 @@ theorem patch_exact {old next : V → V → Prop} {root : V → Prop} {a b : V}
     · have hb := no_crossing_component (union := Union old next) (fun _ _ => Or.inr) ha cold
       exact Or.inr ⟨ha, hb, (induced_membership_exact ha hb).mpr cold⟩
     · exact Or.inl ⟨ha, (outside_membership_exact unchanged ha).mpr cold⟩
+
+-- Padding the admitted domain does not require admitting the old rows again.
+-- The exact edited rows are the only places where the padded graph can differ.
+theorem append_patch_exact {active : V → Prop} {old next : V → V → Prop}
+    {edited : V → Prop} {a b : V}
+    (newOwnersAreEdits : ∀ owner, ¬ active owner → edited owner)
+    (unchanged : ∀ x y, ¬ edited x → (active y ∧ old x y ↔ next x y)) :
+    let padded := ActiveEdges active old
+    let inside := Region (Union padded next) edited
+    ((¬ inside a ∧ Mutual padded a b) ∨
+      (inside a ∧ inside b ∧ Mutual (Induced next inside) a b)) ↔ Mutual next a b := by
+  classical
+  apply patch_exact
+  intro x y untouched
+  have present : active x :=
+    Classical.byContradiction (fun missing => untouched (newOwnersAreEdits x missing))
+  simpa [ActiveEdges, present] using unchanged x y untouched
+
+#print axioms append_ordinals_are_fresh
+#print axioms append_patch_exact
 
 -- One changed row with deletions only: the old member index supplies the
 -- exact induced repair region without any forward or reverse walk.
