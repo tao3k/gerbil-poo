@@ -57,3 +57,23 @@ The [[file:graph-bucket-walk.org][edited reverse bucket study]] evaluates the
 separate case where streaming also avoids materializing the bucket.
 The separate [[file:graph-rank-bounds.org][DAG rank-bound contract]] instead targets redundant queries
 using certificates that the existing algorithm already maintains.
+
+* Source without a revision ticket
+
+The ordinary schedule keeps its own roster spine. A reschedule captures
+the incoming roster once and takes the cold path if that roster differs
+from the admitted roster. With the same roster, it reads each current
+program once, normalizes its row and compares that row with the admitted
+adjacency index. Only changed rows enter the repair batch. Their dependency
+support is checked before repair, which still rejects cycles and preserves
+the predecessor on failure. The owned ticket path keeps its local work bound.
+
+The Lean theorem =captured_rows_exact= shows that substituting just the
+different rows gives the fresh adjacency pointwise. =changed_support_iff=
+shows that validating changed rows suffices when the admitted roster is
+unchanged. The counterexample
+=live_getter_not_a_certificate= shows why equal return values of the two
+live program getters cannot certify a previously captured row. The Scheme
+regression changes the backing program of a shared getter, checks rejection
+of a missing dependency and edits the caller's roster spine independently
+of the admitted snapshot.

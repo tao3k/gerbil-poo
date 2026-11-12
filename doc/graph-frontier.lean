@@ -57,3 +57,40 @@ theorem frontier_exact (pred : Predicate A S E) (row tail : List A) (state : S) 
 #print axioms accumulator_exact
 #print axioms frontier_exact
 end GraphFrontier
+
+namespace GraphSourceAdmission
+
+-- Once fresh rows are captured, only changed rows need to enter rank repair.
+def replaceChanged (old fresh : K → List K) [DecidableEq K] (key : K) : List K :=
+  if fresh key = old key then old key else fresh key
+
+theorem captured_rows_exact [DecidableEq K] (old fresh : K → List K) :
+    replaceChanged old fresh = fresh := by
+  funext key
+  unfold replaceChanged
+  split <;> simp_all
+
+-- The unchanged rows already passed admission on this same roster.
+theorem changed_support_iff [DecidableEq K] (old fresh : K → List K) (supported : K → Prop)
+    (prior : ∀ key dep, dep ∈ old key → supported dep) :
+    (∀ key, fresh key ≠ old key → ∀ dep, dep ∈ fresh key → supported dep) ↔
+      (∀ key dep, dep ∈ fresh key → supported dep) := by
+  constructor
+  · intro changed key dep member
+    by_cases same : fresh key = old key
+    · exact prior key dep (same ▸ member)
+    · exact changed key same dep member
+  · intro all key _ dep member
+    exact all key dep member
+
+-- Two live getters may return the same program after the old row was captured.
+-- Equality at the effect boundary cannot authorize reusing that captured row.
+theorem live_getter_not_a_certificate :
+    ∃ (oldNow freshNow : Nat) (oldRow freshRow : List Nat),
+      oldNow = freshNow ∧ oldRow ≠ freshRow :=
+  ⟨0, 0, [], [1], rfl, by decide⟩
+
+#print axioms captured_rows_exact
+#print axioms changed_support_iff
+#print axioms live_getter_not_a_certificate
+end GraphSourceAdmission

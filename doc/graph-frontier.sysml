@@ -15,4 +15,11 @@ package GraphFrontier {
                into selection. Unknown source still requires full authentication.
                Full order output remains explicit; no new cache or loader. */
     }
+    requirement def UncertifiedSource {
+        doc /* Retain the admitted ordinary roster. An unknown successor captures
+               its roster and reads once. Compare captured rows with the admitted
+               predecessor rows and validate changed rows before repair.
+               A different roster receives cold admission. Never call the old
+               program getter to decide whether its captured row is current. */
+    }
 }

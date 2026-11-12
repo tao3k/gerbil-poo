@@ -27,7 +27,7 @@
         (only-in ./slot-observation %call-with-recorded-slot-reads %record-slot-reads!)
         ./object (only-in ./mop define-type) ./support/option)
 (defstruct %schedule (source order reads adjacency ranks reverse supported work positions position-changes
-                     rank-frontier owned) final: #t)
+                     rank-frontier owned roster) final: #t)
 (def schedule? %schedule?)
 (def schedule-source %schedule-source)
 (def (schedule-order scheduled)
@@ -128,7 +128,7 @@
              (loop (1+ index) (cdr rest)))
             (else (add (vector-ref positions index)) (loop (1+ index) rest))))))
 (def (indexed-schedule spec order reads supported receipt owned sparse-inverse? edgeless?
-                       (implicit-empty? #f))
+                       implicit-empty? roster)
   (def ranks (if owned (make-hash-table-symbolic size: (hash-length supported) seed: (%graph-table-seed))
                        (make-hash-table-eq)))
   (def readers (if (and owned (not sparse-inverse?))
@@ -149,12 +149,12 @@
   (make-%schedule spec (delay order)
     (if owned (read-projection adjacency owned) (lambda (key) (hash-ref reads key)))
     adjacency (%index ranks)
-    (%index readers) supported receipt positions #f (vector-length positions) owned))
+    (%index readers) supported receipt positions #f (vector-length positions) owned roster))
+(def (source-row spec key)
+  (def code (.call spec .code key))
+  (if code (keys! (.@ code reads)) []))
 (def (schedule spec)
-  (schedule-rows spec (.@ spec keys)
-    (lambda (key)
-      (def code (.call spec .code key))
-      (if code (keys! (.@ code reads)) []))))
+  (schedule-rows spec (list-copy (.@ spec keys)) (cut source-row spec <>)))
 (def (schedule-rows spec keys row (owned #f) (known-support #f) (footprints #f))
   ;; The empty-capture arm supplies no row reader: all authored capture has
   ;; already finished, and every admitted owner gets the implicit empty row.
@@ -193,7 +193,8 @@
         (for-each visit keys))))
   (indexed-schedule spec order reads supported
     (work (length keys) (if implicit-empty? 0 (or footprints (length keys))) 0 0 0 0 0 (length keys)) owned
-    (and owned (not (eq? inverse-root #t))) (and owned (not inverse-root)) implicit-empty?))
+    (and owned (not (eq? inverse-root #t))) (and owned (not inverse-root)) implicit-empty?
+    (and (not owned) keys)))
 
 ;; The owned entry captures structural rows once. Computations and their
 ;; evaluator bodies remain author values. The rank graph never executes them.
@@ -618,27 +619,28 @@
   (make-%schedule spec (%schedule-order prior) (schedule-reads prior)
     (%schedule-adjacency prior) (%schedule-ranks prior) (%schedule-reverse prior)
     (%schedule-supported prior) (work checked footprints 0 0 0 0 0 0 0 source-writes)
-    (%schedule-positions prior) (%schedule-position-changes prior) (%schedule-rank-frontier prior) owned))
+    (%schedule-positions prior) (%schedule-position-changes prior) (%schedule-rank-frontier prior)
+    owned (%schedule-roster prior)))
 
-;;; A captured footprint is checked once per changed program. No revision hint
-;;; or unchanged output authenticates it. Source acquisition still enumerates
-;;; support; local order repair below does not enumerate the numeric interval.
+;; An unknown declaration cannot inherit rows on the basis of two live
+;; program lookups. Read the incoming rows once against the admitted snapshot.
+;; Owned revisions use the ticket path above to avoid enumerating the roster.
 (def (reschedule prior spec)
-  (if (not (equal? (.@ spec keys) (.@ (schedule-source prior) keys)))
-    (schedule spec)
+  (def keys (list-copy (.@ spec keys)))
+  (if (not (equal? keys (%schedule-roster prior)))
+    (schedule-rows spec keys (cut source-row spec <>))
     (let ((changes []) (footprints 0))
-      (for (key (.@ spec keys))
+      (for (key keys)
         (def code (.call spec .code key))
-        (unless (eq? code (.call (schedule-source prior) .code key))
-          (let (row (if code (keys! (.@ code reads)) []))
-            (set! footprints (1+ footprints))
-            (unless (equal? row ((schedule-reads prior) key))
-              (for (dep row)
-                (unless (schedule-supports? prior dep) (raise (make-failure 'unsupported dep))))
-              (set! changes (cons (cons key row) changes))))))
+        (when code (set! footprints (1+ footprints)))
+        (def row (if code (keys! (.@ code reads)) []))
+        (unless (equal? row (%index-ref (%schedule-adjacency prior) key))
+          (for (dep row)
+            (unless (schedule-supports? prior dep) (raise (make-failure 'unsupported dep))))
+          (set! changes (cons (cons key row) changes))))
       (if (null? changes)
-        (retain-schedule prior spec (length (.@ spec keys)) footprints)
-        (repair-order prior spec (reverse changes) footprints (length (.@ spec keys)))))))
+        (retain-schedule prior spec (length keys) footprints)
+        (repair-order prior spec (reverse changes) footprints (length keys))))))
 
 ;; A deletion owns only its mask and the path-copied active insertions.
 ;; The immutable base spine stays borrowed from the prior schedule.
@@ -838,7 +840,7 @@
       (and (null? added) (null? retired) (%schedule-supported prior))
       (work checked footprints buckets edges assignments checks 0 0 patch-writes source-writes
         (length retired) retirement-readers)
-      positions (or position-changes old-positions) frontier owned)))
+      positions (or position-changes old-positions) frontier owned (%schedule-roster prior))))
 
 ;; Frames borrow immutable index rows. The sentinel is the append point for
 ;; new roots, even while an older frame is partly consumed. Only this work
