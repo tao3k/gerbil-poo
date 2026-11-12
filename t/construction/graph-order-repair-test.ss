@@ -4,7 +4,7 @@
 (import :std/test :std/iter :clan/poo/object :clan/poo/support/option
         (only-in :clan/poo/benchmarks/closure-measure measure measure-pair qualified-metrics)
         (only-in :std/error Error? Error-message UnboundKeyError?)
-        (only-in :clan/poo/support/index %index-changes %index-base)
+        (only-in :clan/poo/support/index %index-changes %index-base %roster-append)
         (only-in :clan/poo/lens-laws lens-check)
         (only-in :clan/poo/mop lens-of-get-set)
         (only-in :clan/poo/component-closure component-group-builder)
@@ -27,7 +27,7 @@
   %component-source-code-witnesses)
 (extern namespace: clan/poo/strong-components %partition-owned owned-partition-backward
   owned-partition-owner owned-partition-members owned-partition-forward
-  owned-partition-keys owned-partition-positions %retire-partition-isolates)
+  owned-partition-roster %retire-partition-isolates %append-partition-owners)
 
 (def (caught thunk) (try (thunk) #f (catch (cause) cause)))
 (def (value state key) (code.success-value (some-value (cache.cache-ref state key))))
@@ -982,7 +982,7 @@
       (def next (%retire-partition-isolates isolated '(a)))
       (def retained (%partition-owned isolated))
       (def successor (%partition-owned next))
-      (for (index [owned-partition-keys owned-partition-positions
+      (for (index [owned-partition-roster
                   owned-partition-forward owned-partition-backward])
         (check-eq? (index retained) (index successor)))
       (check-equal? (scc.partition-group-size next 'a) #f)
@@ -1276,6 +1276,29 @@
           (check-equal? (filter (cut memq <> actual) names) expected))
         (set! old next)))))
 
+(def (local-owner-append-study old count)
+  (def prior-roster (owned-partition-roster (%partition-owned old)))
+  (for (iteration (in-range 4))
+    (defvalues (next clocks)
+      (measure (lambda ()
+        (def roster (%roster-append prior-roster '(new)))
+        (def padded (%append-partition-owners old roster '(new)))
+        (defvalues (result seeds support)
+          (scc.revise-partition padded '((loop new) (new pivot)) quotient?: #t))
+        (unless (and (hash-key? seeds 'outsider)
+                     (equal? (scc.quotient-support-retired support) '(bridge loop new)))
+          (error "append quotient mismatch"))
+        result) 1))
+    (def work (scc.partition-work next))
+    (unless (and (= 4 (.get work region-owners))
+                 (= 4 (.get work quotient-reader-edges))
+                 (= 4 (scc.partition-group-size next 'new))
+                 (= 1 (scc.partition-group-size old 'loop))
+                 (eq? ((scc.partition-owner next) 'outsider) 'outsider))
+      (error "append region or snapshot mismatch" count iteration))
+    (displayln (list 'APPEND-LOCAL count iteration (qualified-metrics clocks)
+      (.get work region-owners) (.get work quotient-reader-edges)))))
+
 (def (local-components-study)
   (for (count '(100000 1000000))
     (def names
@@ -1300,7 +1323,8 @@
                    (eq? ((scc.partition-owner next) 'outsider) 'outsider))
         (error "local SCC work or snapshot discrepancy" count iteration counts))
       (displayln (list 'GRAPH-LOCAL-SCC count iteration clocks counts))
-      (set! current next)))
+      (set! current next))
+    (local-owner-append-study old count))
   (displayln "GRAPH-LOCAL-SCC-OK observations=8"))
 
 (def (quotient-roster-study part names count)

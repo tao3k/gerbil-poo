@@ -17,8 +17,9 @@
 (extern namespace: clan/poo/construction-cache %default-builder-current?)
 (extern (start-owned-cache-quotient clan/poo/construction-cache#%start-owned-quotient))
 (extern namespace: clan/poo/dependency-analysis %computation-constructor-current?)
-(extern namespace: clan/poo/generalized-graph %retire-component-source)
-(extern namespace: clan/poo/strong-components %retire-partition-isolates %isolated-partition-owner?)
+(extern namespace: clan/poo/generalized-graph %retire-component-source %component-source-roster)
+(extern namespace: clan/poo/strong-components %retire-partition-isolates %isolated-partition-owner?
+  %append-partition-owners)
 (defstruct %stock-builder (value) final: #t)
 (def (%stock-builder-current?)
   (and (%default-builder-current?) (slot-read-observers-compatible? '())))
@@ -235,20 +236,30 @@
 (def (feedback-graph-action source build admit guards: (guards []) builder: (builder (.cc cache.Builder.)))
   (graph-action source build admit guards builder #f))
 
-(def (owned-component-revision old codes bases build admit builder register invalidation stock?)
-  (def changed (graph.%edit-component-source (graph-cache-owned old) codes bases register))
+(def (owned-component-revision old added codes bases build admit builder register invalidation stock?)
+  (def changed (graph.%edit-component-source (graph-cache-owned old) codes bases register added: added))
   (def next (vector-ref changed 0))
   (graph.%with-component-source next
     (lambda ()
       (def source (graph.%component-source-view next))
+      (def old-partition (graph-cache-partition old))
+      (def padded (if (null? added) old-partition
+                    (%append-partition-owners old-partition (%component-source-roster next) added)))
       (defvalues (partition seeds support)
-        (scc.revise-partition (graph-cache-partition old) (vector-ref changed 1) quotient?: #t))
+        (scc.revise-partition padded (vector-ref changed 1) quotient?: #t))
       (def complete? (eq? support 'complete))
+      ;; The padded partition is only a repair input. Translate the quotient
+      ;; edit back to the real predecessor, which never had the new singletons.
+      (def added-groups (if complete? [] (append
+        (filter (lambda (key) (eq? key ((scc.partition-owner partition) key))) added)
+        (if support (scc.quotient-support-added support) []))))
+      (def retired-groups (if (and support (not complete?))
+        (filter (cut scc.partition-group-size old-partition <>) (scc.quotient-support-retired support)) []))
       (def complete-keys (and complete? (scc.%partition-representatives partition)))
       (def edited-keys
         (if complete? complete-keys
           (let ()
-            (for (node (vector-ref changed 2))
+            (for (node (append added (vector-ref changed 2)))
               (hash-put! seeds ((scc.partition-owner partition) node) #t))
             (scc.%partition-order-keys partition (hash-keys seeds)))))
       (def edited
@@ -257,9 +268,9 @@
       (def prior (graph-cache-values old))
       (def candidate
         (cond (complete? (cache.%rebuild-owned-support prior complete-keys edited builder))
-              (support (cache.%revise-with-builder prior edited builder
-                         added: (scc.quotient-support-added support)
-                         retired: (scc.quotient-support-retired support)
+              ((or (pair? added-groups) (pair? retired-groups))
+                (cache.%revise-with-builder prior edited builder
+                         added: added-groups retired: retired-groups
                          before?: (scc.%partition-key-before partition)))
               (else (cache.%revise-with-builder prior edited builder
                       invalidation: (and invalidation (invalidation))))))
@@ -267,7 +278,7 @@
         (if complete? (start-guard candidate complete-keys partition register)
           (%revise-feedback-guard (graph-cache-guard old) candidate
             (cut scc.%partition-key-position partition <>)
-            (if support (scc.quotient-support-retired support) []) register)))
+            retired-groups register)))
       (admit-graph old source partition build next candidate #f guard admit
         (and stock? (graph-cache-stock-builder? old))))))
 
@@ -303,8 +314,10 @@
         (defvalues (added removed codes bases) (component-edits fragments))
         (def stock? (and (%stock-builder? requested-builder) (%stock-builder-current?)))
         (cond
-         ((and previous (null? added) (null? removed) (eq? build (graph-cache-build old)))
-          (owned-component-revision old codes bases build admit builder register invalidation stock?))
+         ((and previous (null? removed) (eq? build (graph-cache-build old))
+               (or (null? added)
+                   (and stock? (graph-cache-stock-builder? old) (%component-member-builder? build))))
+          (owned-component-revision old added codes bases build admit builder register invalidation stock?))
          ((and previous stock? (graph-cache-stock-builder? old)
                (eq? build (graph-cache-build old)) (%component-member-builder? build)
                (null? added) (pair? removed) (null? codes) (null? bases)

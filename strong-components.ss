@@ -14,12 +14,13 @@
         (only-in :gerbil/runtime/table symbolic-table-ref symbolic-table-set!) (only-in :std/list/list delete-duplicates/hash foldl)
         (only-in :std/list/list-builder with-list-builder)
         (only-in ./support/base %graph-table-seed)
+        (only-in ./support/index %roster %roster-width %roster-position %roster-keys %roster-for-each %roster-project)
         (only-in ./generalized-graph %index %index-project %index-ref %index-fork %index-write!
                  %reverse-bucket-remove %reverse-bucket-add %for-each-reverse-bucket)
         ./object)
 ;; Public groups/representatives retain source order, independently of DFS order.
 (defstruct %partition (groups owner reads members work owners owned) final: #t)
-(defstruct owned-partition (keys positions forward backward owner members shape retired?) final: #t)
+(defstruct owned-partition (roster forward backward owner members shape retired?) final: #t)
 (defstruct quotient-support (added retired) final: #t)
 (def partition? %partition?)
 (def (partition-groups part)
@@ -27,12 +28,12 @@
     (if owned
       (with-list-builder (add)
         (if (eq? (owned-partition-shape owned) 'singletons)
-          (for (key (owned-partition-keys owned))
+          (%roster-for-each (lambda (key)
             (when (or (not (owned-partition-retired? owned)) (owned-active-owner owned key))
-              (add (list key))))
-          (for (key (owned-partition-keys owned))
+              (add (list key)))) (owned-partition-roster owned))
+          (%roster-for-each (lambda (key)
             (when (eq? key (owned-active-owner owned key))
-              (add (partition-members part key))))))
+              (add (partition-members part key)))) (owned-partition-roster owned))))
       (%partition-groups part))))
 (def partition-owner %partition-owner)
 (def partition-reads %partition-reads)
@@ -806,7 +807,7 @@
       (set! cycle? #f))
     (for (provider row)
       (hash-put! backward provider (cons key (hash-ref backward provider [])))))
-  (owned-snapshot (make-owned-partition keys positions (%index reads) (%index backward)
+  (owned-snapshot (make-owned-partition (%roster keys positions) (%index reads) (%index backward)
                     (%index (%partition-owners part)) (%index (%partition-members part))
                     ;; Capture already authenticated both rank-direction bits.
                     ;; Carry that structural evidence instead of scanning again.
@@ -842,22 +843,22 @@
 ;; The caller above this layer must authenticate where the replacement rows
 ;; came from. This operation detaches them, checks all keys, and runs no author.
 (def (%partition-source-count part)
-  (hash-length (owned-partition-positions (%partition-owned part))))
+  (%roster-width (owned-partition-roster (%partition-owned part))))
 (def (%partition-key-position part key)
-  (hash-ref (owned-partition-positions (%partition-owned part)) key))
+  (or (%roster-position (owned-partition-roster (%partition-owned part)) key)
+      (raise-unbound-key %partition-key-position key)))
 (def (%partition-key-before part)
-  (def positions (owned-partition-positions (%partition-owned part)))
-  (lambda (a b) (< (hash-ref positions a) (hash-ref positions b))))
+  (lambda (a b) (< (%partition-key-position part a) (%partition-key-position part b))))
 (def (%partition-order-keys part keys)
   (list-sort (%partition-key-before part) keys))
 (def (%partition-representatives part)
   (def owned (%partition-owned part))
-  (def keys (owned-partition-keys owned))
+  (def roster (owned-partition-roster owned))
   (if (and (eq? (owned-partition-shape owned) 'singletons) (not (owned-partition-retired? owned)))
-    (list-copy keys)
+    (%roster-keys roster)
     (with-list-builder (add)
-      (for (key keys)
-        (when (eq? key (owned-active-owner owned key)) (add key))))))
+      (%roster-for-each (lambda (key)
+        (when (eq? key (owned-active-owner owned key)) (add key))) roster))))
 
 ;; Retire only vertices isolated in this exact, already repaired partition.
 ;; Keep ordinal and source-order storage borrowed from the predecessor.
@@ -887,19 +888,38 @@
         (%index-write! owner key #f)
         (%index-write! members key #f))
       (owned-snapshot
-        (make-owned-partition (owned-partition-keys old) (owned-partition-positions old)
+        (make-owned-partition (owned-partition-roster old)
           (owned-partition-forward old) (owned-partition-backward old) owner members
           (owned-partition-shape old) #t)
         (.o retired-owners: (length keys) roster-materialized: 0)))))
+
+;; The component source has already reserved these exact ordinals. Seed empty
+;; rows and singleton membership before the existing replacement algorithm.
+(def (%append-partition-owners prior roster names)
+  (def old (%partition-owned prior))
+  (def forward (%index-fork (owned-partition-forward old)))
+  (def backward (%index-fork (owned-partition-backward old)))
+  (def owner (%index-fork (owned-partition-owner old)))
+  (def members (%index-fork (owned-partition-members old)))
+  (for (key names)
+    (%index-write! forward key [])
+    (%index-write! backward key [])
+    (%index-write! owner key key)
+    (%index-write! members key (list 1 key)))
+  (def shape (owned-partition-shape old))
+  (owned-snapshot
+    (make-owned-partition roster forward backward owner members
+      (and (not (eq? shape 'cycle)) shape) (owned-partition-retired? old))
+    #f))
 
 (def (revise-partition prior replacements quotient?: (quotient? #f))
   (def old (and (partition? prior) (%partition-owned prior)))
   (unless old (error "owned component partition required"))
   (unless (list? replacements) (error "finite component edit required"))
-  (def positions (owned-partition-positions old))
+  (def roster (owned-partition-roster old))
   (def retired? (owned-partition-retired? old))
   (def (supported? key)
-    (and (hash-key? positions key) (or (not retired?) (owned-active-owner old key))))
+    (and (%roster-position roster key) (or (not retired?) (owned-active-owner old key))))
   (def forward (owned-partition-forward old))
   (def backward (owned-partition-backward old))
   (def rank-mask
@@ -921,12 +941,12 @@
         (def key (car entry))
         (when (hash-key? seen key) (error "duplicate component row replacement" key))
         (hash-put! seen key #t)
-        (let (owner-rank (and (positive? rank-mask) (hash-ref positions key)))
+        (let (owner-rank (and (positive? rank-mask) (%roster-position roster key)))
           (for (dep (cdr entry))
             (unless (and (symbol? dep) (supported? dep))
               (error "unsupported component read" key dep))
             (when (positive? rank-mask)
-              (let (provider-rank (hash-ref positions dep))
+              (let (provider-rank (%roster-position roster dep))
                 (set! rank-edge-checks (1+ rank-edge-checks))
                 (cond ((< provider-rank owner-rank) (set! rank-mask (fxand rank-mask 1)))
                       ((> provider-rank owner-rank) (set! rank-mask (fxand rank-mask 2))))))))
@@ -1022,8 +1042,8 @@
           (else
            (let (smaller (if (< (hash-length to) (hash-length from)) to from))
              (%partition-order-keys prior (filter inside? (hash-keys smaller)))))))
-  (def width (if functional-cut? (hash-length positions) (length region)))
-  (def whole? (and (pair? region) (= width (hash-length positions))))
+  (def width (if functional-cut? (%roster-width roster) (length region)))
+  (def whole? (and (pair? region) (= width (%roster-width roster))))
   (def induced-readers 0)
   (def cycle? (and whole? (> width 1)))
   (def local-part
@@ -1049,11 +1069,11 @@
   ;; If the repair covers the entire graph, use the discovered native tables
   ;; as the new base. One sparse tree write per owner would only copy work.
   (def owner (cond ((or ranked? retained-components?) old-owner)
-                   (functional-cut? (%index-project positions identity))
+                   (functional-cut? (%roster-project roster identity))
                    (whole? (%index (%partition-owners local-part)))
                    (else (%index-fork old-owner))))
   (def members (cond ((or ranked? retained-components?) old-members)
-                     (functional-cut? (%index-project positions (lambda (key) (list 1 key))))
+                     (functional-cut? (%roster-project roster (lambda (key) (list 1 key))))
                      (whole? (%index (%partition-members local-part)))
                      (else (%index-fork old-members))))
   (def owner-assignments 0)
@@ -1095,7 +1115,7 @@
         (%index-ref next-backward key []))))
   (def result
     (owned-snapshot
-      (make-owned-partition (owned-partition-keys old) positions next-forward next-backward owner members
+      (make-owned-partition roster next-forward next-backward owner members
         (cond (ranked? rank-mask)
               (functional-cut? 'singletons)
               ((null? roots) (owned-partition-shape old))

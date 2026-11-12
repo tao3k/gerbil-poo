@@ -23,7 +23,8 @@
                  in-rbtree-values)
         (only-in ./support/base %compare-symbol-identity %graph-table-seed %with-application-table-seeds)
         (only-in ./support/index %index %index-project %index-ref %index-fork %index-write!
-                 %index? %index-base %index-changes)
+                 %index? %index-base %index-changes
+                 %roster %roster-width %roster-position %roster-keys %roster-append %roster-retire)
         (only-in ./slot-observation %call-with-recorded-slot-reads %record-slot-reads!)
         ./object (only-in ./mop define-type) ./support/option)
 (defstruct %schedule (source order reads adjacency ranks reverse supported work positions position-changes
@@ -302,7 +303,7 @@
       (register (lambda () (for-each attach! nodes)))))
   root)
 
-(defstruct %component-source (storage positions authority code-witnesses base-witnesses active-positions) final: #t)
+(defstruct %component-source (storage roster authority code-witnesses base-witnesses span) final: #t)
 (def (component-row! reads)
   (unless (and (list? reads) (andmap symbol? reads)) (error "component reads must be symbols"))
   (if (and (pair? reads) (pair? (cdr reads)))
@@ -333,14 +334,7 @@
   (parameterize ((active-object-constructions (cons (%component-source-authority source) active)))
     (begin0 (action) (%component-source-current! source))))
 (def (%component-source-view source raw?: (raw? #f))
-  (def storage (%component-source-storage source))
-  (def active (%component-source-active-positions source))
-  (owned-declaration
-    (if active
-      (make-%owned-source
-        (lambda () (filter (lambda (key) (%index-ref active key #f)) (%owned-source-keys storage)))
-        (%owned-source-programs storage) (%owned-source-bases storage))
-      storage) raw?))
+  (owned-declaration (%component-source-storage source) raw?))
 (def (%capture-component-source spec register)
   (defvalues (names key-reads) (capture-source-evidence (lambda () (list-copy (.get spec keys)))))
   (def count (length names))
@@ -374,17 +368,18 @@
   (when (pair? authority-reads) (register (lambda () (attach-source-evidence! stamp authority-reads))))
   (def span (max 1 count))
   (def source
-    (make-%component-source (make-%owned-source names (%index programs) (%index bases)) positions stamp
+    (make-%component-source (make-%owned-source names (%index programs) (%index bases))
+      (%roster names positions) stamp
       (%splice-witness-tree #f span (reverse code-edits) attach-source-evidence! register)
-      (%splice-witness-tree #f span (reverse base-edits) attach-source-evidence! register) #f))
+      (%splice-witness-tree #f span (reverse base-edits) attach-source-evidence! register) span))
   (%component-source-current! source)
   source)
-(def (%edit-component-source prior codes bases register)
+(def (%edit-component-source prior codes bases register added: (added []))
   (%with-component-source prior
     (lambda ()
-      (def positions (%component-source-positions prior))
-      (def active (%component-source-active-positions prior))
-      (def supported? (if active (cut %index-ref active <> #f) (cut hash-key? positions <>)))
+      (def previous (%component-source-roster prior))
+      (def roster (if (null? added) previous (%roster-append previous added)))
+      (def supported? (cut %roster-position roster <>))
       (def programs (table codes (make-hash-table-symbolic)))
       (def values (table bases (make-hash-table-symbolic)))
       (def code-keys (map car codes))
@@ -400,19 +395,23 @@
         (for/collect (key code-keys)
           (defvalues (captured reads)
             (capture-source-evidence (lambda () (capture-component-program (hash-ref programs key) supported?))))
-          (set! code-edits (cons (cons (hash-ref positions key) reads) code-edits))
+          (set! code-edits (cons (cons (supported? key) reads) code-edits))
           (%index-write! next-programs key captured)
           (cons key (program-row captured))))
       (for (key base-keys) (%index-write! next-bases key (hash-ref values key)))
+      (def span (%component-source-span prior))
+      (def minimum (%roster-width roster))
       (def (splice tree edits)
-        (%splice-witness-tree tree (max 1 (hash-length positions))
-          (list-sort (lambda (a b) (< (car a) (car b))) edits) attach-source-evidence! register))
+        (%splice-witness-tree tree span
+          (list-sort (lambda (a b) (< (car a) (car b))) edits) attach-source-evidence! register
+          minimum-width: minimum))
+      (def keys (if (eq? previous roster) (%owned-source-keys old) (cut %roster-keys roster)))
       (def result
-        (make-%component-source (make-%owned-source (%owned-source-keys old) next-programs next-bases)
-          positions (%component-source-authority prior)
+        (make-%component-source (make-%owned-source keys next-programs next-bases)
+          roster (%component-source-authority prior)
           (splice (%component-source-code-witnesses prior) code-edits)
           (splice (%component-source-base-witnesses prior)
-            (map (lambda (key) (cons (hash-ref positions key) #f)) base-keys)) active))
+            (map (lambda (key) (cons (supported? key) #f)) base-keys)) (%witness-span span minimum)))
       (%component-source-current! result)
       ;; Only this combined result can supply both successor code and rows.
       (vector result rows (append code-keys base-keys)))))
@@ -423,26 +422,26 @@
   (%with-component-source prior
     (lambda ()
       (def old (%component-source-storage prior))
-      (def positions (%component-source-positions prior))
-      (def active (%index-fork (or (%component-source-active-positions prior) (%index positions))))
+      (def previous (%component-source-roster prior))
+      (def roster (%roster-retire previous keys))
       (def programs (%index-fork (%owned-source-programs old)))
       (def bases (%index-fork (%owned-source-bases old)))
       (def removed
         (map (lambda (key)
-               (def position (and (symbol? key) (%index-ref active key #f)))
+               (def position (and (symbol? key) (%roster-position previous key)))
                (unless position (raise (make-failure 'unsupported key)))
-               (%index-write! active key #f)
                (%index-write! programs key #f)
                (%index-write! bases key #f)
                (cons position #f)) keys))
       (def edits (list-sort (lambda (a b) (< (car a) (car b))) removed))
+      (def span (%component-source-span prior))
       (def (splice tree)
-        (%splice-witness-tree tree (max 1 (hash-length positions)) edits attach-source-evidence! register))
+        (%splice-witness-tree tree span edits attach-source-evidence! register))
       (def result
-        (make-%component-source (make-%owned-source (%owned-source-keys old) programs bases)
-          positions (%component-source-authority prior)
+        (make-%component-source (make-%owned-source (cut %roster-keys roster) programs bases)
+          roster (%component-source-authority prior)
           (splice (%component-source-code-witnesses prior))
-          (splice (%component-source-base-witnesses prior)) active))
+          (splice (%component-source-base-witnesses prior)) span))
       (%component-source-current! result)
       result)))
 

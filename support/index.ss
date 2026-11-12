@@ -1,7 +1,11 @@
 ;;; Persistent structural snapshots shared by source and Graph preparation.
 (export %index %index-project %index-ref %index-fork %index-write!
-        %index? %index-base %index-changes)
+        %index? %index-base %index-changes
+        %roster %roster-width %roster-position %roster-keys %roster-for-each
+        %roster-project %roster-append %roster-retire)
 (import (only-in :std/struct/rbtree RBTree rbtree-copy rbtree-ref rbtree-put!)
+        (only-in :std/error raise-unbound-key)
+        (only-in :std/list/list-builder with-list-builder)
         (only-in ./base %compare-symbol-identity))
 
 ;; The cold owner retains its admitted table or projection. Forking shares that
@@ -34,3 +38,46 @@
 ;; Only a private fork is writable. The cold base and previously published
 ;; roots remain unchanged; callers already own that publication discipline.
 (def (%index-write! source key value) (rbtree-put! (index-changes source) key value))
+
+;; Append-only ordinal history with a sparse active position index.
+;; Old occurrences of a retired and re-added key are skipped by ordinal.
+(defstruct roster (initial suffixes positions width) final: #t)
+(def (%roster keys positions)
+  (make-roster keys [] (%index positions) (hash-length positions)))
+(def %roster-width roster-width)
+(def (%roster-position roster key)
+  (%index-ref (roster-positions roster) key #f))
+(def (%roster-project roster project)
+  (def positions (roster-positions roster))
+  (if (not (%index-changes positions)) (%index-project (%index-base positions) project)
+    (%index (lambda (key default)
+      (if (%roster-position roster key) (project key)
+        (if (eq? default missing-index-entry) (raise-unbound-key %roster-project key) default))))))
+(def (%roster-for-each visit roster)
+  (if (not (%index-changes (roster-positions roster)))
+    (for-each visit (roster-initial roster))
+    (let (ordinal 0)
+      (def (visit-chunk keys)
+        (for-each (lambda (key)
+                    (when (eqv? ordinal (%roster-position roster key)) (visit key))
+                    (set! ordinal (1+ ordinal))) keys))
+      (visit-chunk (roster-initial roster))
+      (for-each visit-chunk (reverse (roster-suffixes roster))))))
+(def (%roster-keys roster)
+  (if (not (%index-changes (roster-positions roster))) (list-copy (roster-initial roster))
+    (with-list-builder (add) (%roster-for-each add roster))))
+(def (%roster-append roster names)
+  (def positions (%index-fork (roster-positions roster)))
+  (def next (roster-width roster))
+  (for-each (lambda (key)
+              (unless (and (symbol? key) (not (%index-ref positions key #f)))
+                (error "distinct new component owner required" key))
+              (%index-write! positions key next)
+              (set! next (1+ next))) names)
+  (make-roster (roster-initial roster) (cons (list-copy names) (roster-suffixes roster)) positions next))
+(def (%roster-retire roster names)
+  (def positions (%index-fork (roster-positions roster)))
+  (for-each (lambda (key)
+              (unless (%index-ref positions key #f) (error "active component owner required" key))
+              (%index-write! positions key #f)) names)
+  (make-roster (roster-initial roster) (roster-suffixes roster) positions (roster-width roster)))

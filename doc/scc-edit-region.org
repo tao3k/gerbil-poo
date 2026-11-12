@@ -178,8 +178,8 @@ Module EVAL has its own runtime and source admission gates.
 
 * Local admission of appended owners
 
-The current Scheme publisher takes full support admission for an owner
-addition. The local design starts from the exact admitted partition,
+For an admitted owner append with the stock Builder and a certified
+member-local group builder, the Scheme publisher starts from the exact admitted partition,
 reserves fresh positions after its high-water mark in request order and
 initializes the new vertices as isolated singletons. No old row gains an
 edge in that step. =appended_ordinal_starts_as_singleton= establishes
@@ -220,11 +220,37 @@ In the isolated fault build, dropping the dependency edge to the reused
 root leaves the expanded sibling current after the old input changes.
 The same native assertion refuses that build with test exit 42.
 
-Scheme integration must share the position index and append only the new
-roster suffix, using one ordinal assignment for the source, partition and
-guard tree. An edited or added owner must enter quotient invalidation,
-including when it remains an isolated singleton. An opaque builder that
-can inspect the full roster still requires full admission. The structural
-proofs cover the padded partition and witness addressing. Native
-registration, ticket retirement and sparse value reuse require separate
-fault and cold-equivalence checks.
+The source and padded partition share one position index. The roster adds
+one suffix, and guard growth uses the same positions. The quotient compares
+the repaired groups with the real predecessor: a new singleton that merges
+immediately is never retired from the predecessor, and a surviving new
+representative must be installed. Every appended owner seeds invalidation
+through its final group. Opaque builders and batches combining addition
+with removal use full support admission. The structural proofs cover
+the padded partition and witness addressing; native registration,
+ticket retirement and value reuse have separate checks.
+
+** Native checks
+
+The component publication test appends an isolated owner, retires it and
+adds the same name again at a fresh ordinal. A second test joins two old
+groups through a new owner, compares the groups and outside reader with
+cold publication, and verifies an approval refusal preserves the old
+head. Passing the new owner's temporary representative through as a
+predecessor retirement makes the matched fault fail with =unsupported c=.
+
+The existing =local-components-benchmark-test= reports the append window
+after the old partition has been prepared. Four samples at each size:
+
+| Old vertices | Append CPU range, ms | Append wall range, ms | Repair owners | Quotient reader edges |
+|--------------+----------------------+-----------------------+---------------+-----------------------|
+|          100K |        0.060–0.068   |         0.059–0.068   |             4 |                     4 |
+|            1M |        0.070–0.143   |         0.070–0.150   |             4 |                     4 |
+
+Each append window reported zero collections and 172,160 allocated bytes.
+The 1M predecessor preparation took 4.138 s CPU, including 0.451 s GC.
+A separate run of the isolated append workload reported 1,240,121,344
+bytes peak RSS for the complete process including preparation. These
+measurements cover ordinal reservation and structural SCC/quotient
+repair. Component evaluation and joint approval are exercised by the
+publication tests.
