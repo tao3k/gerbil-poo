@@ -7,20 +7,24 @@
 ;; External reads project actual predecessor raw receipts with the same lenses.
 ;; Programs must declare every read, callbacks must be pure/locally total, lenses
 ;; lawful, and base/seed immutable. Focus objects are selected ONCE and all read
-;; lenses are registered as sources. Additional self-ref metadata belongs in sources.
+;; lenses are registered as sources. Own the family spine before calling focus;
+;; the private lens index also owns membership. Caller list edits cannot change
+;; an already prepared family. Additional self-ref metadata belongs in sources.
 ;; Whole closure plus every residual is required.
 (def (component-group-builder keys focus base seed budget cook: (cook identity)
        self-ref: (self-ref #f) sources: (sources []))
   (unless (and (list? keys) (andmap symbol? keys)
                (= (length keys) (length (delete-duplicates/hash keys))))
     (error "distinct component lens keys required"))
+  (def names (list-copy keys))
   (def lenses (make-hash-table-eq))
-  (for-each (lambda (key) (hash-put! lenses key (focus key))) keys)
+  (for-each (lambda (key) (hash-put! lenses key (focus key))) names)
   ;; Stable projection identity is part of preparation, not a per-read lens factory.
   (def (focus-of key) (hash-ref lenses key))
   (def project-self (or self-ref (lambda (key self) (.call (focus-of key) .get self))))
   (lambda (members spec external)
-    (unless (andmap (lambda (key) (memq key keys)) members) (error "unknown component group member"))
+    (unless (andmap (lambda (key) (and (symbol? key) (hash-key? lenses key))) members)
+      (error "unknown component group member"))
     (def forms (map (lambda (key)
       (def program (.call spec .code key))
       (def part (lens-fragment (focus-of key) (lambda (_ self inherited)

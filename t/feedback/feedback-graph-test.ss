@@ -2,6 +2,7 @@
 (import :std/test :std/iter :gerbil/runtime/gambit
         (only-in :std/list/list filter foldl delete-duplicates/hash take drop)
         (only-in :clan/poo/benchmarks/closure-measure measure)
+        (only-in :clan/poo/component-closure component-group-builder)
         :clan/poo/object :clan/poo/mop :clan/poo/brace :clan/poo/support/option :clan/poo/feedback-graph :clan/poo/feedback-cache
         :clan/poo/generalized-closure (prefix-in :clan/poo/strong-components scc.)
         (prefix-in :clan/poo/generalized-graph graph.) (prefix-in :clan/poo/dependency-analysis code.)
@@ -14,6 +15,28 @@
 ;; Native controls include topology changes, final approval, and independent hits.
 (def feedback-graph-test
   (test-suite "automatic SCC revision and joint service approval"
+    (test-case "prepared lens family owns keys before focus callbacks and indexed refusal"
+      (def names (list 'a 'b))
+      (def selected [])
+      (def focus (.lens))
+      (def build (component-group-builder names
+        (lambda (key)
+          (set! selected (cons key selected))
+          (when (eq? key 'a) (set-car! (cdr names) 'foreign))
+          focus) 0 0 2))
+      (check-equal? (reverse selected) '(a b))
+      (set-car! names 'replaced)
+      (def code-calls 0)
+      (def spec (.o .code: (lambda (_) (set! code-calls (1+ code-calls)) #f)
+                    .base: (lambda (_) (some (code.make-success 0)))))
+      (def (external _) (error "unexpected external family read"))
+      (check-equal? (closed-raw (group-closed (build '(a) spec external))) 0)
+      (check-equal? (closed-raw (group-closed (build '(b) spec external))) 0)
+      (let (accepted-calls code-calls)
+        (for (members '((a foreign) (replaced) (#f) (1)))
+          (check-exception (build members spec external) error-object?)
+          (check-equal? code-calls accepted-calls)))
+      (check-equal? (reverse selected) '(a b)))
     (test-case "quotient routes preserve provider order and each external node identity"
       (def source (graph.declaration '(a b x y z)
         (list (cons 'a (.o reads: '(b x z y)))

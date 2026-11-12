@@ -1,0 +1,113 @@
+#+title: Prepared component family: owned keys and one native index
+
+* Contract before Scheme
+
+=component-group-builder= already indexes every selected focus in its private
+=lenses= hash table, but checks members using =memq= against its original
+caller-owned key list. N successive singleton requests can therefore scan
+N(N+1)/2 cells. Membership and focus lookup can also disagree if the caller
+or a focus callback edits that original list.
+
+Validate the original family first, preserving its existing error/constructor
+order. Copy its list spine BEFORE the first focus callback. Select every focus
+once in captured order. That existing private table then owns BOTH membership
+and focus lookup; query =hash-key?=, never the truthiness of the focus value.
+No new table/cache, retained evaluator or public interface is added.
+
+[[file:component-family.lean][Lean]] proves successful capture has exactly the captured key sequence even
+when focus callbacks modify arbitrary caller state or fail. On that domain,
+index and list checks have identical first refusal, including non-symbol
+members, and run the same arbitrary continuation only on successful entry.
+It also proves the triangular cons-cell work of successive linear singleton
+checks. It does NOT prove O(1) native hashing, a millisecond budget, or Gerbil
+physical-copy correctness. Those are separate implementation/runtime gates.
+[[file:component-family.sysml][SysML]] records the same obligations.
+
+Ownership is an intentional correction of the old aliasing behavior: after
+preparation, editing the caller list cannot add/remove family members or
+change which focuses were selected. The normal immutable-input behavior is
+unchanged. Focus-object mutation remains subject to existing source guards;
+copying the key spine does not authenticate a lens or waive an effect check.
+
+* Native refinement and focused evidence
+
+Gerbil's lowered production module places the existing validation before
+=list-copy= and the lens-table constructor, then iterates the private names.
+No new table or constructor is added. No focus/source/program callback is
+executed by the membership query. The original forms, source guards, closure
+and residual paths remain untouched. Native hashing/copy behavior is trusted
+runtime code exercised by these checks, not proved Gerbil/compiler correctness.
+
+The five Lean theorems pass 4.35.0 with only propext/Quot.sound and no sorry.
+The initial Lean check found reserved-word/type errors; corrected before
+Scheme implementation. It is not counted as a passing proof run.
+
+The optional index study compares the ORIGINAL memq predicate with the new
+presence predicate on an ALREADY PREPARED family. Native lens index and 32
+stratified query identities are common, outside timing; each window executes
+8 batches, total 256 queries. Preparation is excluded on BOTH arms because
+production already owns the table for focus lookup. Not cold construction,
+Module loading, business .get, or one-million independent POO objects.
+
+Same-process natural-GC CPU/wall medians ms, four paired observations/arm:
+
+| Prepared names | List CPU | Indexed CPU | List wall | Indexed wall |
+|----------------+----------+-------------+-----------+--------------|
+| 100000 | 112.3275 | 0.0225 | 115.3800 | 0.02146 |
+| 1000000 | 152.8915 | 0.0290 | 153.2851 | 0.02849 |
+
+Every timed window has zero GC. Retain A/A and B/B too: 100K CPU medians
+97.8115/0.0145 ms, 1M 152.6135/0.0185 ms (two observations/arm). These tiny
+indexed timings include harness/clock resolution, not calibrated nanoseconds
+per lookup. Do not infer a physical tenfold time ratio from the family sizes.
+All names and exact cardinality are checked outside timing. Small controls
+cover duplicate requests, uninterned symbol identity, non-symbol/missing
+members, false stored values and unchanged native RNG state.
+
+The study passes two cases with all module/case/harness/final markers and
+natural exit: 7.67 s invocation wall, 4.36 user, 0.48 system; peak invocation
+RSS 646,856,704 bytes, unchanged 2GiB heap/180-second watchdog.
+
+The actual builder test selects focuses once, mutates the caller's input from
+inside focus, edits it again after preparation, then closes both original
+members successfully. Foreign/replacement/non-symbol members refuse before
+any source-code callback. It also retains the original focus-call sequence.
+An initial test used a def counter baseline captured before the earlier
+effectful checks; its real harness failure is retained. An explicit later let
+captures the correct baseline. That test repair is not an algorithm rejection.
+
+Two isolated native faults compile successfully and exit 1 on real checks:
+
+- Remove private list copying: observed focus order becomes =(a foreign)=,
+  failing the =(a b)= oracle.
+- Admit every symbol: a later missing-focus error still occurs, but source
+  callback count rises from 2 to 4. The counter rejects that misplaced failure;
+  merely seeing an exception is insufficient.
+
+The source is restored after both faults. No timeout/compiler failure counts
+as a refusal control, no failed sample is discarded, and raw logs stay local.
+
+This fixes large-family membership scaling and alias isolation. The earlier
+10K publication fixture has only TWO lens-family keys, so it cannot establish
+a total cold-publication speedup from this change. Full Module EVAL and the
+remaining complete-closure costs stay separate open gates. Publication state
+transitions are unchanged; QNT has not been rerun or claimed here.
+
+* Restored integration gates
+
+After both faults are restored and native recompilation is complete:
+
+- Feedback: 57 cases, 20.05 s invocation wall / 11.68 user / 1.32 system;
+  peak invocation RSS 597,278,720 bytes.
+- Construction/cache/order repair: 44 cases, 6.63 s wall / 3.45 user / 0.70
+  system; peak invocation RSS 430,931,968 bytes.
+- Existing frozen 1K/10K publication/revision/demand fixture: natural exit in
+  10.93 s wall / 6.26 user / 1.04 system; peak invocation RSS 899,530,752 bytes,
+  unchanged 180-second watchdog and 2GiB POO heap.
+
+All require module/case/harness/final OK and no error/overflow marker. The 10K
+edits retain one source row, two inverse buckets, two value writes and 15 guard
+node writes; no-op controls write zero. Full cold publication is 2821.471 ms
+CPU / 3624.812 ms wall, including 903.927 ms GC CPU and 12 collections. Retain
+it: this TWO-key-family fixture is not a paired scaling-performance claim for
+the new membership index. Source/currentness/approval checks remain intact.

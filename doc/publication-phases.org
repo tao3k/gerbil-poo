@@ -99,6 +99,10 @@ index, not add another membership cache. Before adopting, prove the owned
 family/domain equivalence, first refusal and caller/focus-callback mutation
 boundary; the current key list is caller-owned. No such change is adopted here.
 
+That baseline finding is addressed by the subsequent [[file:component-family.org][owned-family/index
+contract]]. Its separate native membership study must not be pooled with this
+full-closure fixture or used to claim its cold-publication speedup.
+
 Reproduce after compiling the optional test with the existing native Gerbil
 flags: =just _test "$GERBIL_PATH/lib/clan/poo/benchmarks/publication-phases-test.ssi"=.
 Keep the same outer 180-second watchdog and 2GiB Just heap fence. Core's
