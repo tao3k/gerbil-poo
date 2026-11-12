@@ -8,11 +8,29 @@
         (prefix-in :clan/poo/construction-cache cache.)
         (prefix-in :clan/poo/examples/component-services service.)
         (prefix-in (only-in :clan/poo/fun Observation.) fun.))
+(extern namespace: clan/poo/feedback-graph group-code)
 ;; Inspect physical work at the existing group materializer, not sampled timings.
 (def (evaluated current) (cache.cache-evaluated (graph-cache-values current)))
 ;; Native controls include topology changes, final approval, and independent hits.
 (def feedback-graph-test
   (test-suite "automatic SCC revision and joint service approval"
+    (test-case "quotient routes preserve provider order and each external node identity"
+      (def source (graph.declaration '(a b x y z)
+        (list (cons 'a (.o reads: '(b x z y)))
+              (cons 'b (.o reads: '(a z y x)))
+              (cons 'x (.o reads: '(y)))
+              (cons 'y (.o reads: '(x))))))
+      (for (partition (list (scc.partition source) (scc.partition-owned source)))
+        (def (provider root)
+          (check-eq? root 'x)
+          (some (code.make-success 7)))
+        (def accepted (group-code partition '(a b) source
+          (lambda (_ __ resolve) (resolve 'y))))
+        (check-equal? (.get accepted reads) '(z x))
+        (check-equal? (code.success-value (.call accepted .evaluate provider)) 7)
+        (def refused (group-code partition '(a b) source
+          (lambda (_ __ resolve) (resolve 'a))))
+        (check-exception (.call refused .evaluate provider) error-object?)))
     (test-case "mutual reachability partitions cycles, chains, shared hubs and self loops"
       (def part (scc.partition (service.source 3)))
       (check-equal? (scc.partition-groups part) '((quota) (left right) (settlement) (stable)))

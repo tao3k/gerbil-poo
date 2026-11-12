@@ -38,12 +38,21 @@
 ;; close every member equation on the shared carrier using existing lens closure.
 ;; Internal reads belong to cooked self, not to partially constructed cache slots.
 (def (group-code partition members source build)
-  (def deps (dependencies partition members))
+  ;; Both projections read one immutable captured partition. Collect them in
+  ;; the same pass; provider deduplication and allowed-table construction keep
+  ;; their original order and native effects (quotient-routes.lean).
+  (def observations #f)
+  (def nodes (with-list-builder (add-node)
+    (set! observations (with-list-builder (add)
+      (for (member members)
+        (for (node ((scc.partition-reads partition) member))
+          (def owner ((scc.partition-owner partition) node))
+          (unless (eq? owner (car members))
+            (add owner)
+            (add-node node))))))))
+  (def deps (delete-duplicates/hash observations))
   (def allowed (make-hash-table-eq))
-  (for (member members)
-    (for (node ((scc.partition-reads partition) member))
-      (unless (eq? ((scc.partition-owner partition) node) (car members))
-        (hash-put! allowed node #t))))
+  (for (node nodes) (hash-put! allowed node #t))
   (.cc code.Computation. reads: deps .evaluate: (lambda (provider)
     (code.make-success (build members source (lambda (node)
       (def owner ((scc.partition-owner partition) node))
