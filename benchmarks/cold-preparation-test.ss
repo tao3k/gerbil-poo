@@ -1,25 +1,79 @@
 ;;; Optional native study; deliberately absent from the default development build.
 ;;; Compile with the standard compiler and execute through Just test-file.
-(export root-linearization-test root-protocol-test leaf-demand-test shape-construction-test scalar-layout-paired-test slot-assembly-test)
+(export root-linearization-test root-protocol-test leaf-demand-test shape-construction-test scalar-layout-paired-test slot-assembly-test constructor-call-test)
 (import :std/test :std/iter :clan/poo/object (only-in :std/error Error?)
         (only-in :gerbil/runtime/c3 c4-linearize*)
+        (only-in :gerbil/runtime/loader list-modules)
         (only-in :std/values first-value)
         (only-in :clan/poo/slot-layout make-slot-layout slot-layout-shape slot-layout-index slot-layout-set!)
         (only-in :clan/poo/object-state object-state-revision)
         (only-in :gerbil/runtime/gambit string->uninterned-symbol)
-        (prefix-in (only-in :gerbil/runtime/mop object-class make-class-slot-accessor class-slot-offset) assembly.)
+        (prefix-in (only-in :gerbil/runtime/mop object-class make-class-slot-accessor class-slot-offset slot-ref) assembly.)
         (only-in :gerbil/runtime/interface &interface-descriptor-type interface-instance-object)
         (only-in :gerbil/runtime/hash HashTable::interface)
-        (only-in :gerbil/runtime/table raw-table-for-each &raw-table-free &raw-table-table)
+        (only-in :gerbil/runtime/table raw-table-for-each &raw-table-free &raw-table-table symbolic-hash)
         (only-in :clan/poo/read-route symbolic-write-route-current?)
         :clan/poo/prototype-map
         (only-in :std/list/list map-in-order)
         (only-in :std/hash/misc hash-ensure-modify!)
-        (only-in :clan/poo/benchmarks/closure-measure measure qualified-metrics))
+        (only-in :clan/poo/benchmarks/closure-measure measure qualified-metrics)
+        (only-in :gerbil/runtime/gambit default-random-source))
+(extern namespace: #f random-source-state-ref random-source-state-set!)
 (extern namespace: clan/poo/slot-layout shape-for-names intern-ordered-shape make-layout
         ordinary-shape-for-names same-shape-names? shape-names scalar-shape-routes-current?)
 (extern namespace: clan/poo/object
   compile-slot-specs slot-spec-discards-super? prepare-declaration-specifications)
+
+(def (constructor-from-state state constructor)
+  (def saved (random-source-state-ref default-random-source))
+  (dynamic-wind
+    (lambda () (random-source-state-set! default-random-source state))
+    (lambda ()
+      (let (table (constructor))
+        (vector table (random-source-state-ref default-random-source))))
+    (lambda () (random-source-state-set! default-random-source saved))))
+
+(def constructor-call-test
+  (test-suite "closed native constructor keyword binding"
+    (test-case "same native backend and default RNG state, matched ABBA and controls"
+      (for (kind '(symbolic identity))
+        (def (helper)
+          (if (eq? kind 'symbolic) (make-hash-table-symbolic) (make-hash-table-eq)))
+        (def (literal)
+          (if (eq? kind 'symbolic)
+            (make-hash-table test: eq? hash: symbolic-hash)
+            (make-hash-table test: eq?)))
+        ;; Warm native adapters only; no business object or slot is constructed.
+        (helper) (literal)
+        (def state (random-source-state-ref default-random-source))
+        (def a (constructor-from-state state helper))
+        (def b (constructor-from-state state literal))
+        (check-equal? (vector-ref a 1) (vector-ref b 1))
+        (check-eq? (assembly.object-class (interface-instance-object (vector-ref a 0)))
+                  (assembly.object-class (interface-instance-object (vector-ref b 0))))
+        (for (field '(ref set! for-each))
+          (check-eq? (assembly.slot-ref (vector-ref a 0) field)
+                    (assembly.slot-ref (vector-ref b 0) field)))
+        (when (eq? kind 'symbolic)
+          (check-equal? (assembly.slot-ref (interface-instance-object (vector-ref a 0)) 'seed)
+                        (assembly.slot-ref (interface-instance-object (vector-ref b 0)) 'seed)))
+        (for* ((schedule '((paired helper literal literal helper literal helper helper literal)
+                          (aa helper helper) (bb literal literal)))
+               (side (cdr schedule)))
+          (defvalues (last clocks)
+            (measure (lambda ()
+              ;; A 16K pilot's work was shorter than one native collection.
+              ;; Keep its evidence; span multiple collection quanta here.
+              (for/fold (previous #f) (_ (in-range 65536))
+                (let (table (if (eq? side 'helper) (helper) (literal)))
+                  (when (eq? table previous) (error "constructor reused a table"))
+                  table))) 1))
+          (check-equal? (hash-length last) 0)
+          (hash-put! last 'value #f)
+          (check-eq? (hash-ref last 'value 'missing) #f)
+          (check-eq? (hash-ref last 'absent 'missing) 'missing)
+          (displayln (list 'CONSTRUCTOR-CALL kind (car schedule) side 'operations 65536
+            (qualified-metrics clocks) 'raw-allocation (vector-ref clocks 4))))))))
 
 ;; Controlled native prototype only, not production route admission. A final
 ;; implementation would need a total guard for malformed/changed field maps,
@@ -43,7 +97,7 @@
 ;; The first snapshot remains private; its rows are rewritten after each
 ;; successful compile/write. All thunks are frozen BEFORE the original hook loop.
 (def (assemble-slot-funs! self fused?)
-  (def h (make-hash-table-symbolic))
+  (def h (make-hash-table test: eq? hash: symbolic-hash))
   (def prepared (map-in-order (lambda (super) (cons super (prepare-declaration-specifications super)))
                              (reverse (object-%precedence-list self))))
   (def sources (map-in-order (lambda (entry)
@@ -180,6 +234,10 @@
 (def leaf-demand-test
   (test-suite "complete lexical leaf demand costs"
     (test-case "construction first get and repeated get retain payload identity"
+      ;; The native loader reports actual loaded artifacts, not a source guess.
+      (displayln (list 'DEMAND-MODULES
+        (assoc "clan/poo/object~0" (list-modules))
+        (assoc "clan/poo/benchmarks/cold-preparation-test~0" (list-modules))))
       (for (_ (in-range 4))
         (def payloads (for/collect (i (in-range 4096)) (list i)))
         (defvalues (leaves construction)

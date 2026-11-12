@@ -37,6 +37,7 @@
   :std/stxparam
   (only-in :std/values first-value)
   (only-in :gerbil/runtime/c3 c4-linearize*)
+  (only-in :gerbil/runtime/table symbolic-hash)
   (only-in ./support/base λ let-id-rule defonce awhen))
 
 ;; TODO: formalize (Object A S D) and the type conditions under which an object is instantiatable?
@@ -231,7 +232,7 @@
   (or (and (null? heads) (object-%precedence-list self)) (let ()
       ;; Preserve the ordered heads for diagnostics while keeping the cycle guard
       ;; as private implementation state at this abstraction boundary.
-      (def active (make-hash-table-eq))
+      (def active (make-hash-table test: eq?))
       (for-each (lambda (head) (hash-put! active head #t)) heads)
       (let compute ((object self) (heads heads))
         (cond
@@ -278,7 +279,7 @@
 ;; Incremental scratch visibility remains local to each catalog; nothing pending
 ;; escapes or survives a failed build. Direct specifications still override declarations.
 (def (compute-slot-funs! self)
-  (def h (make-hash-table-symbolic))
+  (def h (make-hash-table test: eq? hash: symbolic-hash))
   (def prepared (map-in-order (lambda (super) (cons super (prepare-declaration-specifications super)))
                              (reverse (object-%precedence-list self))))
   (def sources (map-in-order (lambda (entry)
@@ -321,7 +322,7 @@
 ;; all the keys from tail to head of the precedence list, skipping repetitions.
 (def (merge-super-slots super-slots)
   (delete-duplicates/hash (apply append (reverse super-slots))
-    table: (make-hash-table-symbolic) from-end?: #t))
+    table: (make-hash-table test: eq? hash: symbolic-hash) from-end?: #t))
 
 (defstruct $slot-spec () transparent: #t) ;; = (SlotSpec A k)
 (defstruct ($constant-slot-spec $slot-spec) (value) transparent: #t) ;; constant value
@@ -800,7 +801,7 @@
   (using (slot :~ symbol?)
     (before-object-edit! self)
     (unless (object-%overrides self)
-      (set! (object-%overrides self) (make-hash-table-symbolic)))
+      (set! (object-%overrides self) (make-hash-table test: eq? hash: symbolic-hash)))
     (hash-put! (object-%overrides self) slot value)
     (hash-put! (object-instance self) slot value)))
 
@@ -809,7 +810,7 @@
 ;; carbon copy / clone c...
 ;; : (Object A') <- (Object A) <<TODO: type for overrides from A to A' ...>>
 (def (.cc self . overrides)
-  (def added-hash (make-hash-table-symbolic))
+  (def added-hash (make-hash-table test: eq? hash: symbolic-hash))
   (def added
     (with-list-builder (c)
       (def (add-slot! slot value)
