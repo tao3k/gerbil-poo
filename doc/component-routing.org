@@ -1,0 +1,90 @@
+#+title: Owned group routing: contract and rejected first-use index
+
+* Status
+
+This is an optional candidate study, NOT a production change. The public
+=component-group-builder= remains at =7bb49dc=. Its program-read checks,
+source guards, component equations and publication paths are untouched.
+
+The remaining =memq dep members= can scan a large SCC on each dependency read.
+Reusing declaration reflection as membership is unsound: =prepare-fragments=
+owns expanded/finalized LABELS, not automatically the selected component IDs.
+Likewise a whole-family lens index admits extra nodes for a partial group.
+Any reuse must establish exact logical-domain agreement first.
+
+* Lean contract before Scheme
+
+[[file:component-routing.lean][Five Lean theorems]] pass Lean 4.35.0 with only propext/Quot.sound, no
+sorry. Ordered insertion produces exactly the frozen member set, including
+duplicates. Scalar/list versus indexed selection changes representation only.
+Under an explicit native lookup frame, both branches run AFTER the original
+declared-read action and preserve arbitrary callback state, failures and
+inside/outside continuations. A counterexample preserves an earlier declared
+error rather than replacing it with a later lookup error. Other counterexamples
+reject using renamed labels or rereading a caller list after mutation.
+[[file:component-routing.sysml][SysML]] records these obligations.
+
+The proofs do not verify native hash implementation, promise concurrency or
+machine latency. The constructor frame is a premise of refinement, not a
+license to erase arbitrary adapters/callbacks. Native source inspection finds
+=make-raw-table= uses vector/structure primitives, default seed 0, no interface
+constructor; this is already used inside POO's =prototype-map=. Native controls
+confirm unchanged default RNG state, including first lazy forcing.
+
+* Candidate and fixed study
+
+The optional =component-group-routing-test= in
+=benchmarks/component-family-test.ss= owns a private key-list copy. Groups
+through size 8 retain a bounded list scan. Larger groups create a standard
+Scheme promise for one private =raw-table=, forced by the first symbol lookup.
+No shared registry, loader, business-value cache or evaluator is introduced.
+Default capacity grows with actual distinct keys; raw input length is not
+reserved as if all inputs were unique.
+
+Cold samples include copied-spine construction, predicate/promise creation,
+index construction IF forced, and all queries. Fixed cases request 0, 1 (the
+last identity), or 256 stratified identities. Warm samples explicitly force
+the index BEFORE their separate measurement. Both arms retain the same copied
+snapshot; neither cold arm borrows a prebuilt group index. Every size uses
+ABBA/BAAB plus A/A and B/B; natural GC, no rejected/slower sample discarded.
+
+CPU medians ms, four paired observations per arm:
+
+| Members | Cold queries | List | First-use index |
+|---------+--------------+------+-----------------|
+| 100K | 0 | 0.2865 | 0.4170 |
+| 100K | 1 | 0.5100 | 13.9300 |
+| 100K | 256 | 13.4960 | 12.4990 |
+| 1M | 0 | 4.2360 | 4.1705 |
+| 1M | 1 | 4.6830 | 180.0730 |
+| 1M | 256 | 146.9030 | 131.6675 |
+
+Warm 256-query CPU medians are 14.5385 -> 0.0335 ms at 100K and
+146.9340 -> 0.0380 ms at 1M. Warm queries have zero GC. The 1M sparse cold
+candidate has GC counts 0/1/0/1 versus list 1/0/0/0; the regression is not
+hidden by reporting only zero-GC samples. Sparse wall medians are
+4.7464 -> 184.8606 ms. Dense 1M cold wall is 162.6190 -> 139.6334 ms.
+
+Cold zero-query 1M wall WORSENS 4.2510 -> 13.3860 ms despite similar CPU.
+Keep that control too. Across-GC signed allocation is not an allocation cost.
+All raw samples remain local artifacts. Runtime passes two cases with required
+module/case/harness/final markers and natural exit: 11.67 s invocation wall,
+7.42 user, 0.71 system; peak invocation RSS 981,827,584 bytes. Unchanged
+2GiB heap and outer 180-second watchdog. This is member metadata, not 1M
+Modules, complete closure construction or first business .get.
+
+* Decision and next algorithm boundary
+
+Reject universal first-symbol-use indexing. Correctness and warm lookup gains
+do not compensate for the observed 27--38x sparse cold CPU regression. The
+production path is unchanged; the candidate has not passed native business,
+concurrent publication or complete closure adoption gates.
+
+The next promising case is exact full-family selection: its existing lenses
+index already has the desired domain. Prove domain agreement as part of the
+existing member admission, without another all-owner index or unchecked use
+of declaration labels. Preserve first refusal and effectful lookup behavior;
+do not skip protocol callbacks under an unproved pure/native assumption.
+Partial groups need a separate sparse/dense decision. They are not declared
+solved by a whole-family fast path. No QNT transition or production API change
+is claimed in this study; Core/downstream gates remain separate.
