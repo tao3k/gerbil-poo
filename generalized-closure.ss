@@ -1,7 +1,8 @@
 ;;; Bounded adjacent-raw stabilization of existing generalized fragment programs.
 (export close-fragments publish-closure closure-action closed-fragments? closed-raw closed-interface closed-steps
         closure-failure? closure-failure-kind closure-failure-steps closure-failure-cause)
-(import ./generalized-declaration ./lens-laws)
+(import (only-in ./support/base %with-application-table-seeds)
+        ./generalized-declaration ./lens-laws)
 ;; Only a completed equality check followed by cooking constructs this receipt.
 ;; Returned raw data must remain immutable; this Gerbil provenance is not a proof seal.
 (defstruct closed-fragments (owner base raw interface steps) final: #t)
@@ -16,7 +17,10 @@
 (def closed-steps closed-fragments-steps)
 ;; Check optional finite lens domains on every visited raw state. This is additional
 ;; operational admission; general laws require the separate universal Lean premises.
-(def (check-state checks state) (for-each (lambda (check) (run-lens-check check [state])) checks))
+(def (check-state checks state)
+  (unless (null? checks)
+    (%with-application-table-seeds
+      (lambda () (for-each (lambda (check) (run-lens-check check [state])) checks)))))
 ;; Budget bounds the number of raw steps, not total callback time. Structural equal?
 ;; is used directly: no user comparator can authorize an unequal state or a sampled
 ;; function equivalence. Fresh closure identities may therefore exhaust the budget.

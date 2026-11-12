@@ -23,9 +23,11 @@
 (extern namespace: clan/poo/generalized-graph %invalidation-work affected-work-receipt-set!
   %schedule-reverse reverse-bucket-remove reverse-bucket-members
   %schedule-owned %owned-source-programs
-  start-affected-work advance-affected-work! affected-work-marked)
+  start-affected-work advance-affected-work! affected-work-marked %retire-component-source
+  %component-source-code-witnesses)
 (extern namespace: clan/poo/strong-components %partition-owned owned-partition-backward
-  owned-partition-owner owned-partition-members)
+  owned-partition-owner owned-partition-members owned-partition-forward
+  owned-partition-keys owned-partition-positions %retire-partition-isolates)
 
 (def (caught thunk) (try (thunk) #f (catch (cause) cause)))
 (def (value state key) (code.success-value (some-value (cache.cache-ref state key))))
@@ -911,6 +913,54 @@
 
 (def local-components-test
   (test-suite "local SCC partition against cold discovery"
+    (test-case "retiring an isolated ordinal leaves the old snapshot and active SCC order intact"
+      (def rows (list->hash-table-eq '((b a) (c b) (d c))))
+      (def prior (scc.partition-owned (row-source '(a b c d) rows)))
+      (check-exception (%retire-partition-isolates prior '(a)) error-object?)
+      (check-exception (%retire-partition-isolates prior '(b)) error-object?)
+      (def isolated (scc.revise-partition prior '((b))))
+      (def next (%retire-partition-isolates isolated '(a)))
+      (def retained (%partition-owned isolated))
+      (def successor (%partition-owned next))
+      (for (index [owned-partition-keys owned-partition-positions
+                  owned-partition-forward owned-partition-backward])
+        (check-eq? (index retained) (index successor)))
+      (check-equal? (scc.partition-group-size next 'a) #f)
+      (check-exception ((scc.partition-owner next) 'a) UnboundKeyError?)
+      (check-exception ((scc.partition-reads next) 'a) UnboundKeyError?)
+      (check-equal? (scc.%partition-key-position next 'b) (scc.%partition-key-position prior 'b))
+      (check-equal? (.get (scc.partition-work next) roster-materialized) 0)
+      (check-equal? (scc.partition-groups prior) '((a) (b) (c) (d)))
+      (check-equal? (scc.partition-groups next) '((b) (c) (d)))
+      (check-exception (scc.revise-partition next '((b a)))
+        (lambda (cause) (and (Error? cause) (equal? (Error-message cause) "unsupported component read"))))
+      (check-exception (scc.revise-partition next '((a)))
+        (lambda (cause) (and (Error? cause) (equal? (Error-message cause) "unsupported component row replacement"))))
+      (def edited (scc.revise-partition next '((b d))))
+      (hash-put! rows 'b '(d))
+      (def rebuilt (scc.partition (row-source '(b c d) rows)))
+      (check (same-components? '(b c d) edited rebuilt) => #t)
+      (check-equal? (scc.%partition-representatives edited) '(b)))
+    (test-case "source retirement drops only the retired ordinal's witnessed inputs"
+      (def input (.o dependencies: []))
+      (def retired-program (.o reads: (.get input dependencies)
+                              .evaluate: (lambda (_) (code.make-success 0))))
+      (def source (graph.declaration '(a b) [(cons 'a retired-program)] []))
+      (def (register action) (action))
+      (def old (graph.%capture-component-source source register))
+      (def next (%retire-component-source old '(a) register))
+      (check-equal? (not (%component-source-code-witnesses old)) #f)
+      (check-equal? (%component-source-code-witnesses next) #f)
+      (def view (graph.%component-source-view next))
+      (check-equal? (.get view keys) '(b))
+      (check-equal? (.get (graph.%component-source-view old) keys) '(a b))
+      (check-equal? (.call view .code 'a) #f)
+      (check-exception (graph.%edit-component-source next [(cons 'b (code.need 'a identity))] [] register)
+        (lambda (cause) (and (graph.failure? cause) (eq? (graph.failure-key cause) 'a))))
+      (.put! input 'dependencies '(b))
+      (check-equal? (Error-message (caught (cut graph.%component-source-current! old)))
+        "component source generation is stale")
+      (check-equal? (caught (cut graph.%component-source-current! next)) #f))
     (test-case "retained direction skips SCC walks and a back edge still merges"
       (for (names '((a b c d outside) (outside d c b a)))
         (let* ((rows (list->hash-table-eq '((b a) (c b) (d c) (outside a))))

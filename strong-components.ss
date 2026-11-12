@@ -8,16 +8,18 @@
         quotient-support-added quotient-support-retired %partition-source-count %partition-key-position
         capture-reachability capture-reachability-procedure)
 (import :std/iter
+        (only-in :std/error raise-unbound-key)
         (only-in :gerbil/runtime/interface interface-instance-object)
         (only-in :gerbil/runtime/hash symbol-hash-table?)
         (only-in :gerbil/runtime/table symbolic-table-ref symbolic-table-set!) (only-in :std/list/list delete-duplicates/hash foldl)
         (only-in :std/list/list-builder with-list-builder)
+        (only-in ./support/base %graph-table-seed)
         (only-in ./generalized-graph %index %index-project %index-ref %index-fork %index-write!
                  %reverse-bucket-remove %reverse-bucket-add %for-each-reverse-bucket)
         ./object)
 ;; Public groups/representatives retain source order, independently of DFS order.
 (defstruct %partition (groups owner reads members work owners owned) final: #t)
-(defstruct owned-partition (keys positions forward backward owner members shape) final: #t)
+(defstruct owned-partition (keys positions forward backward owner members shape retired?) final: #t)
 (defstruct quotient-support (added retired) final: #t)
 (def partition? %partition?)
 (def (partition-groups part)
@@ -25,14 +27,18 @@
     (if owned
       (with-list-builder (add)
         (if (eq? (owned-partition-shape owned) 'singletons)
-          (for (key (owned-partition-keys owned)) (add (list key)))
           (for (key (owned-partition-keys owned))
-            (when (eq? key ((partition-owner part) key))
+            (when (or (not (owned-partition-retired? owned)) (owned-active-owner owned key))
+              (add (list key))))
+          (for (key (owned-partition-keys owned))
+            (when (eq? key (owned-active-owner owned key))
               (add (partition-members part key))))))
       (%partition-groups part))))
 (def partition-owner %partition-owner)
 (def partition-reads %partition-reads)
 (def partition-work %partition-work)
+(def (owned-active-owner owned key)
+  (%index-ref (owned-partition-owner owned) key #f))
 ;; The existing representative index stores (cardinality . members). The owner
 ;; index is the same table already captured by partition-owner, not a second cache.
 (def (member-entry part representative)
@@ -128,7 +134,7 @@
                (<= 0 edges 4294967295))
     (error "compact Graph word range" count edges))
   (def names (list->vector keys))
-  (def positions (make-hash-table-symbolic size: count))
+  (def positions (make-hash-table-symbolic size: count seed: (%graph-table-seed)))
   ;; This concrete table is created here, without locks, weak keys or hooks.
   ;; Unwrap once; the standard specialized accessor needs no per-edge interface
   ;; dispatch. Public Graph queries still accept original symbolic owners.
@@ -201,7 +207,7 @@
   (unless (and (exact-integer? edge-word-ceiling) (<= 0 edge-word-ceiling 4294967295))
     (error "captured edge word ceiling" edge-word-ceiling))
   (def count (length keys))
-  (def positions (make-hash-table-symbolic size: count))
+  (def positions (make-hash-table-symbolic size: count seed: (%graph-table-seed)))
   (def raw (interface-instance-object positions))
   (unless (symbol-hash-table? raw) (error "captured owner index representation"))
   (let assign ((rest keys) (at 0))
@@ -223,7 +229,7 @@
   (def row-buffer #f) (def owner-names #f)
   (def offsets (and packed? (make-u32vector (1+ count) 0)))
   (def reads (and (or symbolic-rows? (not packed?))
-                   (if stable-rows? (make-hash-table-symbolic size: count)
+                   (if stable-rows? (make-hash-table-symbolic size: count seed: (%graph-table-seed))
                      (make-hash-table-eq size: count))))
   (def declared 0) (def edges 0)
   (def direction 3)
@@ -619,7 +625,7 @@
   (def names (compact-graph-names graph))
   (def count (vector-length names))
   (def state (vector-ref result 0))
-  (def owners (make-hash-table-symbolic size: count))
+  (def owners (make-hash-table-symbolic size: count seed: (%graph-table-seed)))
   (def raw-owners (interface-instance-object owners))
   (unless (symbol-hash-table? raw-owners) (error "compact owner index representation"))
   (for (node (in-range count))
@@ -667,7 +673,7 @@
 ;; The component-ID map is transient: normalization returns only final indices.
 (def (normalize keys owners (owned? #f))
   (def representatives (make-hash-table-eq))
-  (def members (if owned? (make-hash-table-symbolic) (make-hash-table-eq))) (def ranks (make-hash-table-eq)) (def order [])
+  (def members (if owned? (make-hash-table-symbolic seed: (%graph-table-seed)) (make-hash-table-eq))) (def ranks (make-hash-table-eq)) (def order [])
   (for (key keys)
     (let* ((id (hash-ref owners key)) (prior (hash-get representatives id))
            (representative (or prior key)))
@@ -777,8 +783,12 @@
 ;; Owned partition keeps the existing SCC result and only adds the indexes
 ;; required to revise that result without rereading a declaration.
 (def (owned-snapshot owned work)
+  (def (require-active! key)
+    (when (and (owned-partition-retired? owned) (not (owned-active-owner owned key)))
+      (raise-unbound-key partition-owner key)))
   (def (lookup index key)
     (unless (symbol? key) (error "component key must be a symbol" key))
+    (require-active! key)
     (%index-ref index key))
   (make-%partition #f
     (cut lookup (owned-partition-owner owned) <>)
@@ -786,8 +796,8 @@
     #f work #f owned))
 
 (def (own-partition keys reads captured-positions direction part)
-  (def positions (or captured-positions (make-hash-table-symbolic)))
-  (def backward (make-hash-table-symbolic))
+  (def positions (or captured-positions (make-hash-table-symbolic seed: (%graph-table-seed))))
+  (def backward (make-hash-table-symbolic seed: (%graph-table-seed)))
   (def cycle? (and (pair? keys) (pair? (cdr keys)) (= (hash-length (%partition-members part)) 1)))
   (for ((key keys) (position (in-range (length keys))))
     (unless captured-positions (hash-put! positions key position))
@@ -802,7 +812,7 @@
                     ;; Carry that structural evidence instead of scanning again.
                     (cond (cycle? 'cycle)
                           ((and direction (positive? direction)) direction)
-                          (else #f)))
+                          (else #f)) #f)
     (partition-work part)))
 
 ;; A node is entered once in each union walk. Mark on enqueue so a wide hub
@@ -843,16 +853,53 @@
 (def (%partition-representatives part)
   (def owned (%partition-owned part))
   (def keys (owned-partition-keys owned))
-  (if (eq? (owned-partition-shape owned) 'singletons)
+  (if (and (eq? (owned-partition-shape owned) 'singletons) (not (owned-partition-retired? owned)))
     (list-copy keys)
     (with-list-builder (add)
       (for (key keys)
-        (when (eq? key ((partition-owner part) key)) (add key))))))
+        (when (eq? key (owned-active-owner owned key)) (add key))))))
+
+;; Retire only vertices isolated in this exact, already repaired partition.
+;; Keep ordinal and source-order storage borrowed from the predecessor.
+(def (%isolated-partition-owner? part key)
+  (let (old (%partition-owned part))
+    (and old (symbol? key) (eq? key (owned-active-owner old key))
+         (null? (%index-ref (owned-partition-forward old) key))
+         (call/cc (lambda (return)
+           (%for-each-reverse-bucket (lambda (_) (return #f))
+             (%index-ref (owned-partition-backward old) key []))
+           #t)))))
+(def (%retire-partition-isolates prior keys)
+  (def old (and (partition? prior) (%partition-owned prior)))
+  (unless (and old (list? keys)) (error "owned partition and finite retirements required"))
+  (if (null? keys) prior
+    (let ()
+      (def owner (%index-fork (owned-partition-owner old)))
+      (def members (%index-fork (owned-partition-members old)))
+      (for (key keys)
+        (unless (and (symbol? key) (eq? key (%index-ref owner key #f)))
+          (error "component retirement requires an active isolated owner" key))
+        (unless (null? (%index-ref (owned-partition-forward old) key))
+          (error "component retirement still has providers" key))
+        (%for-each-reverse-bucket
+          (lambda (reader) (error "component retirement still has readers" key reader))
+          (%index-ref (owned-partition-backward old) key []))
+        (%index-write! owner key #f)
+        (%index-write! members key #f))
+      (owned-snapshot
+        (make-owned-partition (owned-partition-keys old) (owned-partition-positions old)
+          (owned-partition-forward old) (owned-partition-backward old) owner members
+          (owned-partition-shape old) #t)
+        (.o retired-owners: (length keys) roster-materialized: 0)))))
+
 (def (revise-partition prior replacements quotient?: (quotient? #f))
   (def old (and (partition? prior) (%partition-owned prior)))
   (unless old (error "owned component partition required"))
   (unless (list? replacements) (error "finite component edit required"))
   (def positions (owned-partition-positions old))
+  (def retired? (owned-partition-retired? old))
+  (def (supported? key)
+    (and (hash-key? positions key) (or (not retired?) (owned-active-owner old key))))
   (def forward (owned-partition-forward old))
   (def backward (owned-partition-backward old))
   (def rank-mask
@@ -868,7 +915,7 @@
   (def roots
     (with-list-builder (add)
       (for (entry replacements)
-        (unless (and (pair? entry) (symbol? (car entry)) (hash-key? positions (car entry))
+        (unless (and (pair? entry) (symbol? (car entry)) (supported? (car entry))
                      (list? (cdr entry)))
           (error "unsupported component row replacement" entry))
         (def key (car entry))
@@ -876,7 +923,7 @@
         (hash-put! seen key #t)
         (let (owner-rank (and (positive? rank-mask) (hash-ref positions key)))
           (for (dep (cdr entry))
-            (unless (and (symbol? dep) (hash-key? positions dep))
+            (unless (and (symbol? dep) (supported? dep))
               (error "unsupported component read" key dep))
             (when (positive? rank-mask)
               (let (provider-rank (hash-ref positions dep))
@@ -1057,7 +1104,7 @@
               (retained-components?
                 (and (eq? (owned-partition-shape old) 'singletons) 'singletons))
               ((and cycle? (= (hash-length (%partition-members local-part)) 1)) 'cycle)
-              (else #f)))
+              (else #f)) retired?)
       (.o edited-rows: (hash-length seen) changed-rows: (length roots)
       forward-buckets: (vector-ref forward-work 0) forward-edges: (vector-ref forward-work 1)
       reverse-buckets: (vector-ref backward-work 0) reverse-edges: (vector-ref backward-work 1)

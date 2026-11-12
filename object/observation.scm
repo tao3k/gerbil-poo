@@ -4,7 +4,7 @@
 ;; A retained record may retain its receiver; no global registry retains either.
 (def (object-read-table self)
   (or (object-%reads self)
-      (let (table (make-hash-table)) (set! (object-%reads self) table) table)))
+      (let (table (make-hash-table seed: (%graph-table-seed))) (set! (object-%reads self) table) table)))
 ;; Authenticate issuance and the pinned route before checking receiver freshness.
 ;; Issuance authenticates the final read class before either internal call.
 ;; Use the SAME physical fields as the issuer. Symbolic inspection metadata
@@ -94,7 +94,7 @@
       (and (eq? object-init (read-runtime.find-method object::t #f ':init!))
            (eq? state-init (read-runtime.find-method state-class #f ':init!))))))
 ;; Share authenticated finite traversal structure; each call owns fresh source guards.
-(defvalues (call-with-issued-reads call-with-current-slot-reads)
+(defvalues (call-with-issued-reads call-with-current-slot-reads %bind-current-slot-reads)
   (let ()
     ;; The index owns neither roots nor cache receivers. A live projection keeps
     ;; its ordinary receiver-local cache owner alive; GC eviction is always a cold miss.
@@ -148,7 +148,7 @@
               (vector-set! positions position
                 (hash-ref receivers (slot-read-receiver (car rest))))
               (fill (cdr rest) (fx1- position)))))
-        (make-projection owner (map values roots) (reverse ordered) receivers positions)))
+        (make-projection owner (and owner (map values roots)) (reverse ordered) receivers positions)))
     (def (obtain roots)
       (def owner (table-ref owners roots #f))
       (def instance (and owner (object-%instance owner)))
@@ -177,11 +177,7 @@
               (table-set! owners roots owner)
               next)
             (build #f roots))))))
-    (def (with-projection roots consume retain? fixed-result?)
-      ;; Replay callers can retain roots; a fresh capture has no future lookup
-      ;; identity. Reuse the SAME finite DFS without a cache owner or weak entry.
-      (def selected (without-observation
-        (lambda () (if retain? (obtain roots) (using (roots :~ list?) (build #f roots))))))
+    (def (apply-projection selected consume fixed-result?)
       (def traversal (projection-reads selected))
       ;; The receiver set is private/read-only. Nested frames and unwind remain
       ;; per call; sharing structure never shares a populated DFS seen table.
@@ -195,6 +191,11 @@
             (without-observation
               (lambda () (require-current-read-sweep! traversal
                 (projection-receivers selected) (projection-positions selected) require-current! #t)))))))
+    (def (with-projection roots consume retain? fixed-result?)
+      ;; Fresh captures do not need a cache owner or weak entry.
+      (def selected (without-observation
+        (lambda () (if retain? (obtain roots) (using (roots :~ list?) (build #f roots))))))
+      (apply-projection selected consume fixed-result?))
     (values
       ;; Preserve the original private consumer protocol. Positions belong to
       ;; the existing projection and never escape into author/observer callbacks.
@@ -210,7 +211,24 @@
             (with-projection roots
               (lambda (reads current! receivers positions)
                 (require-current-read-sweep! reads receivers positions current! (not fixed?))
-                (action (length reads))) #t fixed?)))))))
+                (action (length reads))) #t fixed?))))
+      ;; The captured program owns the exact traversal directly, without a
+      ;; synthetic POO receiver. Every call still admits the live evidence.
+      (lambda (roots)
+        (def selected (without-observation (lambda () (using (roots :~ list?) (build #f roots)))))
+        (without-observation
+          (lambda ()
+            (apply-projection selected
+              (lambda (reads current! receivers positions)
+                (require-current-read-sweep! reads receivers positions current! #f)) #t)))
+        (lambda (action)
+          (without-observation
+            (lambda ()
+              (for-each require-issued! (projection-reads selected))
+              (apply-projection selected
+                (lambda (reads current! receivers positions)
+                  (require-current-read-sweep! reads receivers positions current! #t)
+                  (action (length reads))) #f))))))))
 
 ;; Opt in to invalidation from actual observed Slot reads, not hidden callback
 ;; state. Run once, admit the complete captured graph before registering edges,

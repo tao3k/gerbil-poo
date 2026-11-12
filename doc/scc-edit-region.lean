@@ -33,6 +33,196 @@ theorem old_with_additions_exact {old next : V → V → Prop} {a b : V} :
     · exact Or.inr h
   · by_cases h : old a b <;> simp [h]
 def Mutual (edge : V → V → Prop) (a b : V) : Prop := Path edge a b ∧ Path edge b a
+
+/-- A roster edit can keep retired ordinals as isolated vertices while the
+local SCC repair runs. The public graph contains only active vertices. -/
+def ActiveEdges (active : V → Prop) (edge : V → V → Prop) (a b : V) : Prop :=
+  active a ∧ active b ∧ edge a b
+
+inductive ActivePath (active : V → Prop) (edge : V → V → Prop) : V → V → Prop where
+  | nil : active a → ActivePath active edge a a
+  | step : active a → edge a b → ActivePath active edge b c → ActivePath active edge a c
+
+theorem ActivePath.source {active : V → Prop} {edge : V → V → Prop} {a b : V}
+    (path : ActivePath active edge a b) : active a := by
+  cases path with
+  | nil present => exact present
+  | step present _ _ => exact present
+
+theorem ActivePath.padded {active : V → Prop} {edge : V → V → Prop} {a b : V}
+    (path : ActivePath active edge a b) : Path (ActiveEdges active edge) a b := by
+  induction path with
+  | nil _ => exact .nil _
+  | step here e rest ih => exact .step ⟨here, rest.source, e⟩ ih
+
+theorem Path.restrictActive {active : V → Prop} {edge : V → V → Prop} {a b : V}
+    (path : Path (ActiveEdges active edge) a b) (present : active a) : ActivePath active edge a b := by
+  induction path with
+  | nil => exact .nil present
+  | step e _ ih => exact .step e.1 e.2.2 (ih e.2.1)
+
+theorem padded_scc_exact {active : V → Prop} {edge : V → V → Prop} {a b : V}
+    (keepA : active a) (keepB : active b) :
+    Mutual (ActiveEdges active edge) a b ↔
+      ActivePath active edge a b ∧ ActivePath active edge b a := by
+  exact ⟨fun p => ⟨p.1.restrictActive keepA, p.2.restrictActive keepB⟩,
+    fun p => ⟨p.1.padded, p.2.padded⟩⟩
+
+theorem retired_ordinal_is_isolated {active : V → Prop} {edge : V → V → Prop} {a b : V}
+    (retired : ¬ active a) (path : Path (ActiveEdges active edge) a b) : a = b := by
+  cases path with
+  | nil => rfl
+  | step e _ => exact False.elim (retired e.1)
+
+/-- Once both incident indexes establish isolation, the repair graph is
+already the exact padded graph. Retiring owner/member entries changes only
+the public active projection. -/
+theorem isolated_retirements_preserve_edges {active : V → Prop} {edge : V → V → Prop}
+    (outgoing : ∀ a b, ¬ active a → ¬ edge a b)
+    (incoming : ∀ a b, ¬ active b → ¬ edge a b) :
+    ActiveEdges active edge = edge := by
+  classical
+  funext a b
+  apply propext
+  constructor
+  · exact fun present => present.2.2
+  · intro present
+    by_cases source : active a
+    · by_cases target : active b
+      · exact ⟨source, target, present⟩
+      · exact False.elim (incoming a b target present)
+    · exact False.elim (outgoing a b source present)
+
+-- Reuse a surviving group's old result only when its actual builder factors
+-- through the retained inputs. A whole-roster callback need not do so.
+theorem retired_member_can_change_opaque_builder :
+    let build := fun (roster : List Nat) (_local : Unit) => roster.contains 1
+    build [0, 1] () ≠ build [0] () := by decide
+
+theorem local_builder_reuse {Context Inputs Outcome : Type}
+    (run : Context → Outcome) (project : Context → Inputs) (build : Inputs → Outcome)
+    (factors : ∀ context, run context = build (project context))
+    (old next : Context) (same : project old = project next) : run old = run next := by
+  rw [factors old, factors next, same]
+
+/-- Even when the member computation is fixed, the construction policy can
+refuse it. Native publication must account for both of these inputs. -/
+theorem local_value_with_changed_policy_cannot_be_reused :
+    let run := fun (allow : Bool) (value : Nat) => if allow then some value else none
+    run true 7 ≠ run false 7 := by decide
+
+/-- Even identical graph values cannot preserve every approval outcome when
+the approval sees a different state at the existing effect boundary. -/
+theorem approvals_agree_iff_same_effect_state {State : Type} [DecidableEq State]
+    (full sparse : State) :
+    (∀ approve : State → Bool, approve full = approve sparse) ↔ full = sparse := by
+  constructor
+  · intro agrees
+    have probe := agrees (fun state => decide (state = full))
+    simpa [eq_comm] using probe
+  · intro same approve
+    rw [same]
+
+/-- A private seed transition can differ between full and sparse work. Both
+paths still enter author approval with the same application state. -/
+theorem private_seed_transitions_preserve_approval
+    {Seed Application Decision : Type} (full sparse : Seed → Seed)
+    (approve : Application → Decision) (seed : Seed) (application : Application) :
+    (fun state : Seed × Application => approve state.2) (full seed, application) =
+      (fun state : Seed × Application => approve state.2) (sparse seed, application) := by
+  rfl
+
+inductive PublicationEffect (Seed Application : Type) where
+  | seed (step : Seed → Seed)
+  | application (step : Application → Application)
+
+def runPublicationEffects {Seed Application : Type}
+    (effects : List (PublicationEffect Seed Application)) (state : Seed × Application) :
+    Seed × Application :=
+  match effects with
+  | [] => state
+  | .seed step :: rest => runPublicationEffects rest (step state.1, state.2)
+  | .application step :: rest => runPublicationEffects rest (state.1, step state.2)
+
+def applicationEffects {Seed Application : Type} :
+    List (PublicationEffect Seed Application) → List (Application → Application)
+  | [] => []
+  | .seed _ :: rest => applicationEffects rest
+  | .application step :: rest => step :: applicationEffects rest
+
+/-- Isolating private seed use makes the application state depend only on its
+ordered effects. This does not allow skipping or reordering author callbacks. -/
+theorem run_publication_application_projection {Seed Application : Type}
+    (effects : List (PublicationEffect Seed Application)) (state : Seed × Application) :
+    (runPublicationEffects effects state).2 =
+      (applicationEffects effects).foldl (fun app step => step app) state.2 := by
+  induction effects generalizing state with
+  | nil => rfl
+  | cons effect rest ih =>
+    cases effect <;> simp [runPublicationEffects, applicationEffects, ih]
+
+/-- Dynamic restoration restores the seed policy, including on refusal. The
+application's actual state transitions still take effect. -/
+def withSeedMode {Mode State Failure Result : Type} (outer inner : Mode)
+    (action : Mode → State → Except Failure Result × State) (state : State) :
+    Except Failure Result × State × Mode :=
+  let outcome := action inner state
+  (outcome.1, outcome.2, outer)
+
+theorem application_entry_uses_ordinary_seed_mode {Mode State Failure Result : Type}
+    (native ordinary : Mode) (state : State)
+    (action : Mode → State → Except Failure Result × State) :
+    let observed := withSeedMode native ordinary action state
+    (observed.1, observed.2.1) = action ordinary state ∧ observed.2.2 = native := by
+  simp [withSeedMode]
+
+/-- Scope selection changes only verified assembly. A successful receipt is
+handed to the same ordinary closure, and assembly failure never runs it. -/
+def prepareThenClose {Mode State Failure Prepared Result : Type}
+    (preparation ordinary : Mode)
+    (prepare : Mode → State → Except Failure Prepared × State)
+    (close : Mode → Prepared → State → Except Failure Result × State)
+    (state : State) : Except Failure Result × State :=
+  match prepare preparation state with
+  | (.error cause, after) => (.error cause, after)
+  | (.ok receipt, after) => close ordinary receipt after
+
+theorem private_fragment_assembly_preserves_ordinary_close
+    {Mode State Failure Prepared Result : Type} (native ordinary : Mode)
+    (prepare : Mode → State → Except Failure Prepared × State)
+    (close : Mode → Prepared → State → Except Failure Result × State)
+    (state : State) (same : prepare native state = prepare ordinary state) :
+    prepareThenClose native ordinary prepare close state =
+      prepareThenClose ordinary ordinary prepare close state := by
+  simp only [prepareThenClose, same]
+
+/-- Inspect the replacement rows and the old inverse buckets of retired
+providers. The remaining old rows need no new endpoint check. -/
+theorem membership_delta_support_exact {active edited : V → Prop}
+    {old replacement next : V → V → Prop}
+    (exactRows : ∀ a b, next a b ↔
+      active a ∧ ((edited a ∧ replacement a b) ∨ (¬ edited a ∧ old a b))) :
+    (∀ a b, next a b → active b) ↔
+      ((∀ a b, active a → edited a → replacement a b → active b) ∧
+       (∀ b, ¬ active b → ∀ a, old a b → active a → edited a)) := by
+  classical
+  constructor
+  · intro closed
+    refine ⟨?_, ?_⟩
+    · intro a b source touched edge
+      exact closed a b ((exactRows a b).mpr ⟨source, Or.inl ⟨touched, edge⟩⟩)
+    · intro b removed a edge source
+      by_cases touched : edited a
+      · exact touched
+      · exact False.elim (removed (closed a b
+          ((exactRows a b).mpr ⟨source, Or.inr ⟨touched, edge⟩⟩)))
+  · rintro ⟨rows, reverse⟩ a b edge
+    rcases (exactRows a b).mp edge with ⟨source, ⟨touched, changed⟩ | ⟨untouched, retained⟩⟩
+    · exact rows a b source touched changed
+    · by_cases provider : active b
+      · exact provider
+      · exact False.elim (untouched (reverse b provider a retained source))
+
 def Region (edge : V → V → Prop) (root : V → Prop) (a : V) : Prop :=
   (∃ r, root r ∧ Path edge r a) ∧ (∃ r, root r ∧ Path edge a r)
 
@@ -397,4 +587,156 @@ example : ¬ Region cut cutRoot true ∧
 #print axioms routes_unchanged
 #print axioms changed_route_requires_remapped_provider
 #print axioms changed_group_is_seeded
+
+/-- The closure driver can interleave private native preparation with application
+steps. A callback refusal retains the application's effects up to that point. -/
+def runClosureEffects {Seed Application Failure : Type}
+    (steps : List (PublicationEffect Seed (Except Failure Unit × Application)))
+    (seed : Seed) (state : Except Failure Unit × Application) :
+    Except Failure Unit × Application :=
+  match state.1, steps with
+  | .error _, _ => state
+  | .ok _, [] => state
+  | .ok _, .seed next :: rest => runClosureEffects rest (next seed) state
+  | .ok _, .application call :: rest => runClosureEffects rest seed (call state)
+
+def applyClosureEffect {Application Failure : Type}
+    (state : Except Failure Unit × Application)
+    (call : (Except Failure Unit × Application) → (Except Failure Unit × Application)) :=
+  match state.1 with
+  | .error _ => state
+  | .ok _ => call state
+
+private theorem closure_fold_after_failure {Application Failure : Type}
+    (calls : List ((Except Failure Unit × Application) → (Except Failure Unit × Application)))
+    (cause : Failure) (app : Application) :
+    calls.foldl applyClosureEffect (.error cause, app) = (.error cause, app) := by
+  induction calls with
+  | nil => rfl
+  | cons call rest ih => simpa [applyClosureEffect] using ih
+
+theorem private_closure_steps_preserve_application_result
+    {Seed Application Failure : Type}
+    (steps : List (PublicationEffect Seed (Except Failure Unit × Application)))
+    (seed : Seed) (state : Except Failure Unit × Application) :
+    runClosureEffects steps seed state =
+      (applicationEffects steps).foldl applyClosureEffect state := by
+  induction steps generalizing seed state with
+  | nil => rcases state with ⟨outcome, app⟩; cases outcome <;> rfl
+  | cons step rest ih =>
+    rcases state with ⟨outcome, app⟩
+    cases step <;> cases outcome <;> simp [runClosureEffects, applicationEffects, ih, applyClosureEffect, closure_fold_after_failure]
+
+
+inductive LensReadiness where
+  | cold
+  | incompatible
+  | missing
+  | ready
+
+/-- Admission is only a projection of already stored native slots. An unknown
+route or missing cell selects the original action without probing the lens. -/
+def runLensPreparation {State Failure Result : Type}
+    (readiness : LensReadiness) (prepare : Bool → State → Except Failure Result × State)
+    (state : State) :=
+  match readiness with
+  | .ready => prepare true state
+  | _ => prepare false state
+
+theorem cold_lens_admission_runs_only_original_preparation
+    {State Failure Result : Type} (readiness : LensReadiness)
+    (prepare : Bool → State → Except Failure Result × State) (state : State)
+    (unready : readiness ≠ .ready) :
+    runLensPreparation readiness prepare state = prepare false state := by
+  cases readiness <;> simp_all [runLensPreparation]
+
+
+/-- A program owns a finite issued traversal. Retaining it replaces only the
+selection work. Every observation still authenticates the traversal against
+the current world on entry and after the actual callback. -/
+def replayProgram {Read World Failure Value : Type}
+    (read : List Read → World → Except Failure Unit)
+    (traversal : List Read) (action : World → Except Failure Value × World)
+    (world : World) : Except Failure Value × World :=
+  match read traversal world with
+  | .error cause => (.error cause, world)
+  | .ok _ =>
+    match action world with
+    | (.error cause, after) => (.error cause, after)
+    | (.ok value, after) =>
+      match read traversal after with
+      | .error cause => (.error cause, after)
+      | .ok _ => (.ok value, after)
+
+theorem retained_program_traversal_preserves_replay
+    {Read World Failure Value : Type}
+    (read : List Read → World → Except Failure Unit)
+    (cold retained : List Read) (same : retained = cold)
+    (action : World → Except Failure Value × World) (world : World) :
+    replayProgram read retained action world = replayProgram read cold action world := by
+  rw [same]
+
+theorem retained_program_rechecks_after_callback
+    {Read World Failure Value : Type}
+    (read : List Read → World → Except Failure Unit) (traversal : List Read)
+    (action : World → Except Failure Value × World) (before after : World)
+    (value : Value) (cause : Failure)
+    (entry : read traversal before = .ok ())
+    (returns : action before = (.ok value, after))
+    (stale : read traversal after = .error cause) :
+    replayProgram read traversal action before = (.error cause, after) := by
+  simp [replayProgram, entry, returns, stale]
+
+
+/-- The quotient's owned row already holds the method and read support.
+The public wrapper adds a receiver for observing its own slots. A closed
+stock materializer can invoke the same guarded body directly. -/
+def runOwnedMethod {State Failure Result : Type}
+    (closed : Bool) (inspect : State → Except Failure Unit × State)
+    (body : State → Except Failure Result × State) (state : State) :=
+  if closed then body state
+  else match inspect state with
+       | (.ok _, after) => body after
+       | (.error cause, after) => (.error cause, after)
+
+theorem closed_owned_method_elides_only_identity_observation
+    {State Failure Result : Type}
+    (inspect : State → Except Failure Unit × State)
+    (body : State → Except Failure Result × State) (state : State)
+    (identityObservation : inspect state = (.ok (), state)) :
+    runOwnedMethod true inspect body state = runOwnedMethod false inspect body state := by
+  simp [runOwnedMethod, identityObservation]
+
+theorem open_owned_method_preserves_observer_refusal
+    {State Failure Result : Type}
+    (inspect : State → Except Failure Unit × State)
+    (body : State → Except Failure Result × State) (before after : State) (cause : Failure)
+    (refused : inspect before = (.error cause, after)) :
+    runOwnedMethod false inspect body before = (.error cause, after) := by
+  simp [runOwnedMethod, refused]
+
+
+theorem component_row_dedup_at_most_one {Owner : Type} [BEq Owner]
+    (row : List Owner) (small : row.length ≤ 1) : row.eraseDups = row := by
+  cases row with
+  | nil => rfl
+  | cons owner rest =>
+    cases rest with
+    | nil => rfl
+    | cons next rest => simp at small
+
+
+/-- Structural phases may differ in length and private seed state. Their
+application projections must be empty before any shared author checkpoint. -/
+theorem native_prefix_preserves_author_checkpoint
+    {Seed Application Failure : Type}
+    (full incremental : List (PublicationEffect Seed (Except Failure Unit × Application)))
+    (fullSeed localSeed : Seed) (initial : Except Failure Unit × Application)
+    (fullPrivate : applicationEffects full = [])
+    (localPrivate : applicationEffects incremental = []) :
+    runClosureEffects full fullSeed initial =
+      runClosureEffects incremental localSeed initial := by
+  rw [private_closure_steps_preserve_application_result,
+      private_closure_steps_preserve_application_result, fullPrivate, localPrivate]
+
 end SccEditRegion

@@ -1,6 +1,8 @@
 ;;; Closed scalar metadata admission; ordinary methods retain their effects.
 (export shape-admission-test)
 (import :std/test :std/error :std/iter :clan/poo/object :clan/poo/slot-layout
+        (only-in :clan/poo/support/base %graph-table-seed %with-graph-table-seeds
+                 %with-application-table-seeds)
         (prefix-in (only-in :gerbil/runtime/mop slot-ref slot-set! object-class
                            &class-type-interface &class-type-interface-set!
                            &class-type-slot-table class-slot-offset) runtime.)
@@ -64,6 +66,27 @@
       (def observed (sample-state start (lambda () (intern-ordered-shape (list key) #f 0))))
       (check-equal? (cadr observed) start)
       (check-equal? (runtime.slot-ref (interface-instance-object (shape-indices (car observed))) 'seed) 0))
+    (test-case "native shape seeding preserves ordinary seed effects at application entry"
+      (make-slot-layout '(native-seed-entry) #f absent-value)
+      (def initial (random-source-state-ref default-random-source))
+      (def ordinary (sample-state initial (lambda () (make-slot-layout '(native-seed-entry) #f absent-value))))
+      (def observed
+        (sample-state initial (lambda ()
+          (%with-graph-table-seeds (lambda ()
+            (make-slot-layout '(native-seed-entry) #f absent-value)
+            (make-slot-layout '(two-native-keys second) #f absent-value)
+            (def refused
+              (with-catch values (lambda ()
+                (%with-application-table-seeds (lambda ()
+                  (when (%graph-table-seed) (error "private seed reached application"))
+                  (make-slot-layout '(native-seed-entry) #f absent-value)
+                  (error "application refusal"))))))
+            (unless (equal? (Error-message refused) "application refusal") (raise refused))
+            (make-slot-layout '(native-seed-entry) #f absent-value)
+            (%graph-table-seed))))))
+      (check-equal? (car observed) 0)
+      (check-equal? (cadr observed) (cadr ordinary))
+      (check-eq? (%graph-table-seed) #f))
     (test-case "caller names cannot edit the intern key and receiver cells remain independent"
       (def names (list 'owned-key))
       (def first (make-slot-layout names #f absent-value))

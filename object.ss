@@ -11,7 +11,8 @@
                     object-read-key object-read-dependencies object-read-value
                     require-current-read-sweep! %pure-read-sweep?
                     record-key-field record-dependencies-field record-value-field
-                    slot-spec-discards-super? compile-slot-specs prepare-declaration-specifications compute-object-precedence!) @object? @make-object)
+                    slot-spec-discards-super? compile-slot-specs prepare-declaration-specifications compute-object-precedence!
+                    %cached-native-lens? %bind-current-slot-reads) @object? @make-object)
 
 (import
   (prefix-in (only-in Runtime object? make-object) @) ;; Rename them before we shadow them
@@ -38,7 +39,7 @@
   (only-in :std/values first-value)
   (only-in :gerbil/runtime/c3 c4-linearize*)
   (only-in :gerbil/runtime/table symbolic-hash)
-  (only-in ./support/base λ let-id-rule defonce awhen))
+  (only-in ./support/base λ let-id-rule defonce awhen %graph-table-seed))
 
 ;; TODO: formalize (Object A S D) and the type conditions under which an object is instantiatable?
 (defstruct object ;; = (Object A)
@@ -289,7 +290,7 @@
 ;; Incremental scratch visibility remains local to each catalog; nothing pending
 ;; escapes or survives a failed build. Direct specifications still override declarations.
 (def (compute-slot-funs! self)
-  (def h (make-hash-table test: eq? hash: symbolic-hash))
+  (def h (make-hash-table test: eq? hash: symbolic-hash seed: (%graph-table-seed)))
   (def prepared (map-in-order (lambda (super) (cons super (prepare-declaration-specifications super)))
                              (reverse (object-%precedence-list self))))
   (def sources (map-in-order (lambda (entry)
@@ -332,7 +333,7 @@
 ;; all the keys from tail to head of the precedence list, skipping repetitions.
 (def (merge-super-slots super-slots)
   (delete-duplicates/hash (apply append (reverse super-slots))
-    table: (make-hash-table test: eq? hash: symbolic-hash) from-end?: #t))
+    table: (make-hash-table test: eq? hash: symbolic-hash seed: (%graph-table-seed)) from-end?: #t))
 
 (defstruct $slot-spec () transparent: #t) ;; = (SlotSpec A k)
 (defstruct ($constant-slot-spec $slot-spec) (value) transparent: #t) ;; constant value
@@ -439,6 +440,17 @@
                   (unless (slot-cache-hit? cache self revision layout)
                     (slot-cache-bind! cache self revision layout
                       (if same-shape? index (slot-layout-index layout slot)))) value)))))))))
+;; Qualify an already prepared lens without issuing a semantic slot read.
+(def (%cached-native-lens? self)
+  (and (object? self)
+       (let (instance (object-%instance self))
+         (and instance (not (object-protocol self)) (slot-values-layout instance)
+              (with-catch (lambda (_) #f)
+                (lambda ()
+                  (require-read-route! '.get #f instance)
+                  (and (procedure? (hash-ref instance '.get #f))
+                       (procedure? (hash-ref instance '.set #f)))))))))
+
 ;; Get an existing cached slot value from an object
 (def (.ref/cached self (slot :~ symbol?) (default false))
   (%slot-read-demand! self slot)
@@ -811,7 +823,7 @@
   (using (slot :~ symbol?)
     (before-object-edit! self)
     (unless (object-%overrides self)
-      (set! (object-%overrides self) (make-hash-table test: eq? hash: symbolic-hash)))
+      (set! (object-%overrides self) (make-hash-table test: eq? hash: symbolic-hash seed: (%graph-table-seed))))
     (hash-put! (object-%overrides self) slot value)
     (hash-put! (object-instance self) slot value)))
 
@@ -820,7 +832,7 @@
 ;; carbon copy / clone c...
 ;; : (Object A') <- (Object A) <<TODO: type for overrides from A to A' ...>>
 (def (.cc self . overrides)
-  (def added-hash (make-hash-table test: eq? hash: symbolic-hash))
+  (def added-hash (make-hash-table test: eq? hash: symbolic-hash seed: (%graph-table-seed)))
   (def added
     (with-list-builder (c)
       (def (add-slot! slot value)

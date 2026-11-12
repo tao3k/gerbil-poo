@@ -21,7 +21,7 @@
         (only-in :std/struct/rbtree RBTree rbtree-copy rbtree-ref rbtree-put! rbtree-put
                  rbtree-remove rbtree-fold rbtree-foldr rbtree-for-each rbtree-size rbtree->list
                  in-rbtree-values)
-        (only-in ./support/base %compare-symbol-identity)
+        (only-in ./support/base %compare-symbol-identity %graph-table-seed %with-application-table-seeds)
         (only-in ./support/index %index %index-project %index-ref %index-fork %index-write!
                  %index? %index-base %index-changes)
         (only-in ./slot-observation %call-with-recorded-slot-reads %record-slot-reads!)
@@ -43,7 +43,7 @@
 (defstruct failure (kind key) final: #t)
 (def (keys! keys)
   (unless (and (list? keys) (andmap symbol? keys)) (error "component keys must be symbols"))
-  (delete-duplicates/hash keys from-end?: #t))
+  (delete-duplicates/hash keys table: (make-hash-table seed: (%graph-table-seed)) from-end?: #t))
 (def (index-keys keys (index (make-hash-table-eq)))
   (for (key keys) (hash-put! index key #t)) index)
 (def (table entries (result (make-hash-table-eq)))
@@ -88,7 +88,8 @@
 ;; reads are rejected by SCC/schedule validation before construction/approval.
 (def (reconfigure spec keys codes (bases []))
   (unless (and (list? keys) (andmap symbol? keys)
-               (= (length keys) (length (delete-duplicates/hash keys))))
+               (= (length keys) (length (delete-duplicates/hash keys
+                                          table: (make-hash-table seed: (%graph-table-seed))))))
     (error "distinct final component support required"))
   (def previous (index-keys (.@ spec keys)))
   (def supported (index-keys keys))
@@ -128,11 +129,11 @@
             (else (add (vector-ref positions index)) (loop (1+ index) rest))))))
 (def (indexed-schedule spec order reads supported receipt owned sparse-inverse? edgeless?
                        (implicit-empty? #f))
-  (def ranks (if owned (make-hash-table-symbolic size: (hash-length supported))
+  (def ranks (if owned (make-hash-table-symbolic size: (hash-length supported) seed: (%graph-table-seed))
                        (make-hash-table-eq)))
   (def readers (if (and owned (not sparse-inverse?))
-                 (make-hash-table-symbolic size: (hash-length supported))
-                 (make-hash-table-symbolic)))
+                 (make-hash-table-symbolic size: (hash-length supported) seed: (%graph-table-seed))
+                 (make-hash-table-symbolic seed: (%graph-table-seed))))
   (def positions (make-vector (hash-length supported)))
   (for ((key order) (rank (in-range (vector-length positions))))
     (vector-set! positions rank key)
@@ -159,8 +160,9 @@
   ;; already finished, and every admitted owner gets the implicit empty row.
   (def implicit-empty? (not row))
   (def reads (if owned
-               (if implicit-empty? (make-hash-table-symbolic)
-                 (make-hash-table-symbolic size: (if known-support (hash-length known-support) (length keys))))
+               (if implicit-empty? (make-hash-table-symbolic seed: (%graph-table-seed))
+                 (make-hash-table-symbolic size: (if known-support (hash-length known-support) (length keys))
+                   seed: (%graph-table-seed)))
                (make-hash-table-eq)))
   (def states (make-hash-table-eq))
   (def supported (or known-support (make-hash-table-eq)))
@@ -195,20 +197,25 @@
 
 ;; The owned entry captures structural rows once. Computations and their
 ;; evaluator bodies remain author values. The rank graph never executes them.
-(defstruct %program (value row support) final: #t)
+(extern namespace: clan/poo/object %bind-current-slot-reads)
+(defstruct %program (value row with-current) final: #t)
 (defstruct %owned-source (keys programs bases) final: #t)
 (defstruct %revision (parent source changes roots checked footprints added retired retirement-readers) final: #t)
 (def (%schedule-revision-retirements ticket)
   (list-copy (%revision-retired ticket)))
 (def (schedule-owned? value) (and (schedule? value) (and (%schedule-owned value) #t)))
-(def (capture-program program (normalize keys!))
+(def (capture-program program (normalize keys!) (author-read? #f))
   (and program
        (let-values (((row support)
                      (%call-with-recorded-slot-reads
-                       (lambda () (list-copy (normalize (.@ program reads)))))))
-         (call-with-current-slot-reads support values)
+                       (lambda ()
+                         (def reads (if author-read?
+                                      (%with-application-table-seeds (lambda () (.get program reads)))
+                                      (.get program reads)))
+                         (list-copy (normalize reads))))))
+         (def with-current (%bind-current-slot-reads support))
          (%record-slot-reads! support)
-         (make-%program program row support))))
+         (make-%program program row with-current))))
 (def (capture-program-batch action)
   (defvalues (result support) (%call-with-recorded-slot-reads action unique-roots?: #t))
   ;; A later author getter may invalidate an earlier accepted observation.
@@ -219,6 +226,15 @@
 (def (owned-source-names source)
   (let (names (%owned-source-keys source))
     (if (procedure? names) (names) names)))
+(def (program-action captured)
+  (lambda (provider)
+    ((%program-with-current captured)
+      (lambda (_) (.call (%program-value captured) .evaluate provider)))))
+;; The closed stock materializer can consume the existing owned row directly.
+;; Open observation still uses the public wrapper and its receiver identity.
+(def (%schedule-program-action scheduled key)
+  (let (captured (%index-ref (%owned-source-programs (%schedule-owned scheduled)) key #f))
+    (and captured (program-action captured))))
 (def (owned-declaration source (raw? #f))
   ;; The public source view may enumerate its own defensive copy explicitly.
   ;; Building a revision must not evaluate that slot.
@@ -229,9 +245,7 @@
         (and captured
              (if raw? (%program-value captured)
                (.o reads: (list-copy (%program-row captured))
-                   .evaluate: (lambda (provider)
-                     (call-with-current-slot-reads (%program-support captured)
-                       (lambda (_) (.call (%program-value captured) .evaluate provider)))))))))
+                   .evaluate: (program-action captured))))))
     .base: (lambda (key) (and (symbol? key) (%index-ref (%owned-source-bases source) key #f))))))
 ;; Stable source positions address persistent native dependency witnesses.
 ;; Unchanged children stay shared. Weak reverse links release retired parents.
@@ -277,14 +291,16 @@
       (register (lambda () (for-each attach! nodes)))))
   root)
 
-(defstruct %component-source (storage positions authority code-witnesses base-witnesses) final: #t)
+(defstruct %component-source (storage positions authority code-witnesses base-witnesses active-positions) final: #t)
 (def (component-row! reads)
   (unless (and (list? reads) (andmap symbol? reads)) (error "component reads must be symbols"))
-  (delete-duplicates/hash reads table: (make-hash-table-symbolic)))
-(def (capture-component-program program supported)
-  (def captured (capture-program program component-row!))
+  (if (and (pair? reads) (pair? (cdr reads)))
+    (delete-duplicates/hash reads table: (make-hash-table-symbolic seed: (%graph-table-seed)))
+    reads))
+(def (capture-component-program program supported?)
+  (def captured (capture-program program component-row! #t))
   (for (key (program-row captured))
-    (unless (hash-key? supported key) (raise (make-failure 'unsupported key))))
+    (unless (supported? key) (raise (make-failure 'unsupported key))))
   captured)
 (def (capture-source-evidence action)
   (defvalues (result reads) (%call-with-recorded-slot-reads action))
@@ -306,11 +322,18 @@
   (parameterize ((active-object-constructions (cons (%component-source-authority source) active)))
     (begin0 (action) (%component-source-current! source))))
 (def (%component-source-view source raw?: (raw? #f))
-  (owned-declaration (%component-source-storage source) raw?))
+  (def storage (%component-source-storage source))
+  (def active (%component-source-active-positions source))
+  (owned-declaration
+    (if active
+      (make-%owned-source
+        (lambda () (filter (lambda (key) (%index-ref active key #f)) (%owned-source-keys storage)))
+        (%owned-source-programs storage) (%owned-source-bases storage))
+      storage) raw?))
 (def (%capture-component-source spec register)
   (defvalues (names key-reads) (capture-source-evidence (lambda () (list-copy (.get spec keys)))))
   (def count (length names))
-  (def positions (make-hash-table-symbolic size: count))
+  (def positions (make-hash-table-symbolic size: count seed: (%graph-table-seed)))
   (for ((key names) (position (in-range count)))
     (unless (and (symbol? key) (not (hash-key? positions key)))
       (error "distinct symbolic component owners required" key))
@@ -321,13 +344,14 @@
       (cons code (.get spec .base)))))
   (def code (car accessors))
   (def base (cdr accessors))
-  (def programs (make-hash-table-symbolic))
-  (def bases (make-hash-table-symbolic))
+  (def programs (make-hash-table-symbolic seed: (%graph-table-seed)))
+  (def bases (make-hash-table-symbolic seed: (%graph-table-seed)))
   (def code-edits [])
   (def base-edits [])
+  (def supported? (cut hash-key? positions <>))
   (for ((key names) (position (in-range count)))
     (defvalues (program code-reads)
-      (capture-source-evidence (lambda () (capture-component-program (code key) positions))))
+      (capture-source-evidence (lambda () (capture-component-program (code key) supported?))))
     (defvalues (value base-reads) (capture-source-evidence (lambda () (base key))))
     (unless (or (not value) (some? value)) (error "component base must be an optional outcome" key))
     (when program (hash-put! programs key program))
@@ -341,18 +365,20 @@
   (def source
     (make-%component-source (make-%owned-source names (%index programs) (%index bases)) positions stamp
       (%splice-witness-tree #f span (reverse code-edits) attach-source-evidence! register)
-      (%splice-witness-tree #f span (reverse base-edits) attach-source-evidence! register)))
+      (%splice-witness-tree #f span (reverse base-edits) attach-source-evidence! register) #f))
   (%component-source-current! source)
   source)
 (def (%edit-component-source prior codes bases register)
   (%with-component-source prior
     (lambda ()
       (def positions (%component-source-positions prior))
+      (def active (%component-source-active-positions prior))
+      (def supported? (if active (cut %index-ref active <> #f) (cut hash-key? positions <>)))
       (def programs (table codes (make-hash-table-symbolic)))
       (def values (table bases (make-hash-table-symbolic)))
       (def code-keys (map car codes))
       (def base-keys (map car bases))
-      (check-edit-targets (cut hash-key? positions <>) code-keys base-keys values)
+      (check-edit-targets supported? code-keys base-keys values)
       (def old (%component-source-storage prior))
       (def next-programs (if (null? code-keys) (%owned-source-programs old)
                            (%index-fork (%owned-source-programs old))))
@@ -362,7 +388,7 @@
       (def rows
         (for/collect (key code-keys)
           (defvalues (captured reads)
-            (capture-source-evidence (lambda () (capture-component-program (hash-ref programs key) positions))))
+            (capture-source-evidence (lambda () (capture-component-program (hash-ref programs key) supported?))))
           (set! code-edits (cons (cons (hash-ref positions key) reads) code-edits))
           (%index-write! next-programs key captured)
           (cons key (program-row captured))))
@@ -375,10 +401,39 @@
           positions (%component-source-authority prior)
           (splice (%component-source-code-witnesses prior) code-edits)
           (splice (%component-source-base-witnesses prior)
-            (map (lambda (key) (cons (hash-ref positions key) #f)) base-keys))))
+            (map (lambda (key) (cons (hash-ref positions key) #f)) base-keys)) active))
       (%component-source-current! result)
       ;; Only this combined result can supply both successor code and rows.
       (vector result rows (append code-keys base-keys)))))
+
+;; This source projection is paired with an admitted retirement in the same
+;; predecessor partition. The coordinator still owns successor installation.
+(def (%retire-component-source prior keys register)
+  (%with-component-source prior
+    (lambda ()
+      (def old (%component-source-storage prior))
+      (def positions (%component-source-positions prior))
+      (def active (%index-fork (or (%component-source-active-positions prior) (%index positions))))
+      (def programs (%index-fork (%owned-source-programs old)))
+      (def bases (%index-fork (%owned-source-bases old)))
+      (def removed
+        (map (lambda (key)
+               (def position (and (symbol? key) (%index-ref active key #f)))
+               (unless position (raise (make-failure 'unsupported key)))
+               (%index-write! active key #f)
+               (%index-write! programs key #f)
+               (%index-write! bases key #f)
+               (cons position #f)) keys))
+      (def edits (list-sort (lambda (a b) (< (car a) (car b))) removed))
+      (def (splice tree)
+        (%splice-witness-tree tree (max 1 (hash-length positions)) edits attach-source-evidence! register))
+      (def result
+        (make-%component-source (make-%owned-source (%owned-source-keys old) programs bases)
+          positions (%component-source-authority prior)
+          (splice (%component-source-code-witnesses prior))
+          (splice (%component-source-base-witnesses prior)) active))
+      (%component-source-current! result)
+      result)))
 
 (def (check-edit-targets supports? code-keys base-keys bases)
   (def (check key)
@@ -395,12 +450,12 @@
 (def (schedule-owned/rows keys codes bases implicit-allowed?)
   (def names (list-copy (keys! keys)))
   ;; Owned snapshots use stable Symbol hashing, including after GC.
-  (def supported (index-keys names (make-hash-table-symbolic size: (length names))))
+  (def supported (index-keys names (make-hash-table-symbolic size: (length names) seed: (%graph-table-seed))))
   (def programs (table codes))
-  (def values (table bases (make-hash-table-symbolic)))
+  (def values (table bases (make-hash-table-symbolic seed: (%graph-table-seed))))
   (def code-keys (map car codes))
   (check-edit-targets (cut hash-key? supported <>) code-keys (map car bases) values)
-  (def captured (make-hash-table-symbolic))
+  (def captured (make-hash-table-symbolic seed: (%graph-table-seed)))
   (capture-program-batch
     (lambda ()
       (for (key code-keys)
@@ -523,7 +578,8 @@
                           (list-sort before? (list-copy added-keys)) removes before?)))
       (set! names (lambda () (force roster)))))
   (make-%revision prior (make-%owned-source names programs values)
-    (reverse changes) (delete-duplicates/hash (append code-keys base-keys))
+    (reverse changes) (delete-duplicates/hash (append code-keys base-keys)
+                       table: (make-hash-table seed: (%graph-table-seed)))
     (+ (hash-length checked-programs) (hash-length checked-bases)) footprints
     (or added-keys []) (or retired-keys []) retirement-readers))
 (def (apply-schedule-revision prior ticket affected?: (affected? #f))
@@ -793,7 +849,7 @@
       (and (not ((reverse-cursor-masked? cursor) (car base))) (car base)))))
 (defstruct affected-work (readers marked raw-marked frames tail receipt) final: #t)
 (def (start-affected-work readers (receipt #f))
-  (def marked (make-hash-table-symbolic))
+  (def marked (make-hash-table-symbolic seed: (%graph-table-seed)))
   (def raw-readers (if (%index? readers) readers (interface-instance-object readers)))
   (def raw-marked (interface-instance-object marked))
   (unless (and (or (%index? raw-readers) (symbol-hash-table? raw-readers))

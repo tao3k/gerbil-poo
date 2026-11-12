@@ -44,6 +44,14 @@
 (def (comparing-key test: (test equal?) key: (key identity))
   (λ (x y) (test (key x) (key y))))
 
+;; Native preparation can choose private table seeds. Keep the mode lexical
+;; and thread-local. An application entry always uses the ordinary seed path.
+(defvalues (%graph-table-seed %with-graph-table-seeds %with-application-table-seeds)
+  (let (seed (make-parameter #f))
+    (values (lambda () (seed))
+      (lambda (action) (parameterize ((seed 0)) (action)))
+      (lambda (action) (if (seed) (parameterize ((seed #f)) (action)) (action))))))
+
 ;; A stored symbol hash is stable even when a caller changes the string
 ;; supplied to an uninterned symbol. Resolve collisions by exact identity.
 (def (%compare-symbol-identity left right)

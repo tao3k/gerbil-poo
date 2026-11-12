@@ -1,5 +1,6 @@
 (export feedback-graph-test main)
 (import :std/test :std/iter :gerbil/runtime/gambit
+        (only-in :std/error Error-message)
         (only-in :std/list/list filter foldl delete-duplicates/hash take drop)
         (only-in :clan/poo/benchmarks/closure-measure measure)
         (only-in :clan/poo/component-closure component-group-builder)
@@ -16,11 +17,30 @@
         (prefix-in :clan/poo/examples/component-services service.)
         (prefix-in (only-in :clan/poo/fun Observation.) fun.))
 (extern namespace: clan/poo/feedback-graph group-code)
+(extern (start-owned-cache-quotient clan/poo/construction-cache#%start-owned-quotient))
 ;; Inspect physical work at the existing group materializer, not sampled timings.
 (def (evaluated current) (cache.cache-evaluated (graph-cache-values current)))
 ;; Native controls include topology changes, final approval, and independent hits.
 (def feedback-graph-test
   (test-suite "automatic SCC revision and joint service approval"
+    (test-case "stock quotient and public wrapper protect the same program reads"
+      (for (start (list cache.start-owned start-owned-cache-quotient))
+        (def dependency (.o marker: 0))
+        (def calls 0)
+        (def program
+          (.o reads: (begin (.get dependency marker) [])
+              .evaluate: (lambda (_)
+                           (set! calls (1+ calls))
+                           (.put! dependency 'marker 1)
+                           (code.make-success 0))))
+        (def schedule (graph.schedule-owned '(a) (list (cons 'a program))))
+        (def failure
+          (with-catch values (lambda () (start schedule (.cc cache.Builder.)))))
+        (check (cache.failure? failure) => #t)
+        (check-equal? (cache.failure-key failure) 'a)
+        (check-equal? (Error-message (cache.failure-cause failure)) "object mutation during read replay")
+        (check-equal? (.get dependency marker) 0)
+        (check-equal? calls 1)))
     (test-case "unknown focus writes cannot redefine the admitted logical family"
       (def sample (make-hash-table-eq))
       (def proto (vector-ref

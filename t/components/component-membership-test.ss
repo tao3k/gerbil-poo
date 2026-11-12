@@ -3,6 +3,7 @@
 (export component-membership-test component-migration-test component-requests-test component-rounds-test)
 (import
   :std/test
+  (only-in :clan/poo/support/base %graph-table-seed %with-graph-table-seeds)
   (only-in :std/error Error-message)
   (prefix-in :clan/poo/examples/component-services owned-service.)
   :clan/poo/object
@@ -32,6 +33,7 @@
 (extern namespace: clan/poo/component-publication %request-lineage %lineage-invalidation
   %request-action %request-action-set!)
 (extern namespace: clan/poo/generalized-graph %invalidation-work affected-work-marked)
+(extern namespace: clan/poo/object %cached-native-lens? object-%instance)
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (component-membership-test)

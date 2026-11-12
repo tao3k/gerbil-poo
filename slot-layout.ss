@@ -11,7 +11,7 @@
         (only-in :gerbil/runtime/table raw-table? symbolic-table-ref symbolic-table-set!)
         (only-in :gerbil/runtime/gambit table? table-ref table-set! macro-table-test macro-table-hash macro-table-flags
                  random-integer macro-max-fixnum32)
-        (only-in ./support/base %compare-symbol-identity)
+        (only-in ./support/base %compare-symbol-identity %graph-table-seed)
         (only-in ./object-state object-state-revision)
         (only-in :std/hash/misc hash-ensure-ref) :std/iter (only-in :std/list/list delete-duplicates/hash find))
 
@@ -140,12 +140,13 @@
     ;; Keep the native seed draw BEFORE admission, even for a hit or a bad key.
     ;; This fixed RNG primitive preserves routes/caller spines in the serial
     ;; runtime law. It is not an author callback or a reusable currentness check.
-    (let* ((seed (random-integer (macro-max-fixnum32)))
+    (let* ((seed (or (%graph-table-seed) (random-integer (macro-max-fixnum32))))
            (owned (if (null? names) [] (list (admit-shape-name (car names))))))
       (intern-ordered-shape owned #f seed))
     (ordinary-shape-for-names names hint)))
 (def (ordinary-shape-for-names names hint)
-  (def members (make-hash-table-symbolic))
+  (def seed (and (%graph-table-seed) (scalar-shape-routes-current?) (%graph-table-seed)))
+  (def members (make-hash-table-symbolic seed: seed))
   (def unique (delete-duplicates/hash names table: members
     key: admit-shape-name))
   (if (not hint) (intern-shape unique members)

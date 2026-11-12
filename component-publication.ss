@@ -4,7 +4,7 @@
 (import (only-in :gerbil/runtime/thread with-lock) ./object ./mop ./feedback-graph ./lens-laws
         (prefix-in ./construction-cache cache.))
 ;; Only this coordinator may supply deferred guard registration.
-(extern namespace: clan/poo/feedback-graph %feedback-component-revision-action)
+(extern namespace: clan/poo/feedback-graph %feedback-component-revision-action %fresh-component-builder)
 ;; Private coordination records never expose setters or candidate-install APIs.
 (defstruct %approval-domain (lock) final: #t)
 (defstruct %snapshot (graph metadata) final: #t)
@@ -72,7 +72,7 @@
     guards (if (eq? metadata +keep-metadata+) (snapshot-metadata expected) metadata) lineage version))
 ;; Stage a fresh independent proposal, with no business construction. Capture
 ;; inherited metadata from the SAME snapshot as the revision action.
-(def (stage owner fragments build admit guards: (guards []) builder: (builder (.cc cache.Builder.))
+(def (stage owner fragments build admit guards: (guards []) builder: (builder (%fresh-component-builder))
             metadata: (metadata +keep-metadata+) expected: (expected #f))
   ;; An effect may have started under an earlier snapshot. Bind that exact
   ;; handle under the head lock before preparing any proposal.
@@ -84,7 +84,7 @@
 ;; Replace the complete proposal in one explicit family; do not append/merge
 ;; opaque fragments or callbacks. Advance before preparing the replacement so
 ;; a failure cannot reactivate the predecessor's already-issued ticket.
-(def (restage owner previous fragments build admit guards: (guards []) builder: (builder (.cc cache.Builder.))
+(def (restage owner previous fragments build admit guards: (guards []) builder: (builder (%fresh-component-builder))
               metadata: (metadata +keep-metadata+))
   (require-request! owner previous)
   (unless (eq? metadata +keep-metadata+) (metadata! metadata))

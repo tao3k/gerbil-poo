@@ -7,9 +7,10 @@
 (import (only-in :std/hash/misc hash-ref/default)
         (only-in :std/struct/rbtree RBTree rbtree-copy rbtree-ref rbtree-put!)
         :std/iter ./object (only-in ./mop define-type) ./support/option
-        (only-in ./support/base %compare-symbol-identity)
+        (only-in ./support/base %compare-symbol-identity %graph-table-seed %with-application-table-seeds)
         (only-in ./lens-laws with-lens-checks)
-        (only-in ./slot-observation %call-with-recorded-slot-reads)
+        (only-in ./slot-observation %call-with-recorded-slot-reads
+                 %slot-read-active? slot-read-observers-compatible?)
         (prefix-in ./generalized-graph graph.) (prefix-in ./dependency-analysis computation.))
 (defstruct cache (source lookup evaluated retained scheduled base patch guards owned-run work) final: #t)
 (defstruct failure (key cause) final: #t)
@@ -19,6 +20,10 @@
 (define-type (Builder. @ [])
   allow: (lambda (_) #t)
   .run: (lambda (key resolve) (unless (allow key) (error "component builder refused" key)) (resolve)))
+(def default-builder-revision (object-revision Builder.))
+(def (%default-builder-current?)
+  (and (= default-builder-revision (object-revision Builder.))
+       (object-construction-current?)))
 ;; Refuse malformed resolver outcomes before storing private results.
 (def (checked value)
   (unless (or (not value) (and (some? value)
@@ -27,6 +32,7 @@
 (def default-builder (.cc Builder.))
 (def missing-value (gensym 'missing-component-value))
 (def pending-value (gensym 'pending-component-value))
+(extern (schedule-program-action clan/poo/generalized-graph#%schedule-program-action))
 (def (make-materialized scheduled state patch evaluated retained guards owned-run work)
   (def spec (graph.schedule-source scheduled))
   (def (lookup-base key)
@@ -39,10 +45,10 @@
           (if (eq? value missing-value) (lookup-base key) value)))
       lookup-base))
   (make-cache spec lookup evaluated retained scheduled state patch guards owned-run work))
-(def (evaluate-one spec run key code deps lookup)
+(def (evaluate-one spec run key code deps lookup (direct? #f))
   (try (checked (run key
     (lambda ()
-      (if code (some (.call code .evaluate
+      (if code (some ((if direct? code (.get code .evaluate))
         (lambda (dep)
           (unless (memq dep deps) (error "undeclared component read" key dep))
           (lookup dep)))) (.call spec .base key)))))
@@ -53,9 +59,9 @@
   (let (result (with-lens-checks guards action))
     (with-lens-checks guards (lambda () result))))
 ;; Reuse clean nodes while the standard table API retains lazy absence semantics.
-(def (materialize old scheduled run (guards #f) (owned-run #f))
+(def (materialize old scheduled run (guards #f) (owned-run #f) (direct? #f))
   (def spec (graph.schedule-source scheduled))
-  (def state (if guards (make-hash-table-symbolic) (make-hash-table-eq)))
+  (def state (if guards (make-hash-table-symbolic seed: (%graph-table-seed)) (make-hash-table-eq)))
   (def dirty (and old (make-hash-table-eq)))
   (def evaluated [])
   (def reused [])
@@ -70,7 +76,15 @@
     (when dirty (hash-put! dirty key invalid?))
     (if (not invalid?)
       (begin (hash-put! state key (cache-ref old key)) (set! reused (cons key reused)))
-      (let (value (evaluate-one spec run key (.call spec .code key) deps (cut hash-ref state <>)))
+      (let (value
+            (if (and direct? (%default-builder-current?) (not (%slot-read-active?))
+                     (slot-read-observers-compatible? '()))
+              (let (action (schedule-program-action scheduled key))
+                (%with-application-table-seeds
+                  (lambda () (evaluate-one spec run key action deps (cut hash-ref state <>) #t))))
+              (%with-application-table-seeds
+                (lambda ()
+                  (evaluate-one spec run key (.call spec .code key) deps (cut hash-ref state <>))))))
         (hash-put! state key value) (set! evaluated (cons key evaluated)))))
   (make-materialized scheduled state #f (reverse evaluated) (delay (reverse reused)) guards owned-run #f))
 ;; Snapshot declared source entries, including false; fallback only for unknown keys.
@@ -109,11 +123,15 @@
   (defvalues (run support) (%call-with-recorded-slot-reads (lambda () (.get builder .run))))
   (lambda (action) (call-with-current-slot-reads support (lambda (_) (action run)))))
 (def (start-owned scheduled (builder default-builder) guards: (guards []))
+  (start-owned/internal scheduled builder guards #f))
+(def (%start-owned-quotient scheduled builder)
+  (start-owned/internal scheduled builder [] #t))
+(def (start-owned/internal scheduled builder guards direct?)
   (unless (graph.schedule-owned? scheduled) (error "owned schedule required"))
   (with-cache-guards guards
     (lambda ()
       (def owned-run (record-builder builder))
-      (owned-run (lambda (run) (materialize #f scheduled run (list-copy guards) owned-run))))))
+      (owned-run (lambda (run) (materialize #f scheduled run (list-copy guards) owned-run direct?))))))
 (def (owned-guards old)
   (or (cache-guards old) (error "owned construction cache required")))
 ;; Feedback publication supplies a fresh Builder per request. It runs only
