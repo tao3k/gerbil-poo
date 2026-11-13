@@ -103,3 +103,99 @@ theorem first_insertion_then_removal_restores_row [DecidableEq A]
 #print axioms streaming_exact
 #print axioms editedSearch_exact
 end GraphBucketWalk
+
+namespace GraphDeletionRegion
+
+variable {K : Type}
+
+inductive Path (edge : K → K → Prop) : K → K → Prop
+  | nil (key : K) : Path edge key key
+  | cons {a b c : K} : edge a b → Path edge b c → Path edge a c
+
+theorem Path.append {edge : K → K → Prop} {a b c : K}
+    (left : Path edge a b) (right : Path edge b c) : Path edge a c := by
+  induction left with
+  | nil => exact right
+  | cons h _ ih => exact .cons h (ih right)
+
+theorem Path.map {old next : K → K → Prop} {a b : K}
+    (sub : ∀ ⦃x y⦄, next x y → old x y) (p : Path next a b) : Path old a b := by
+  induction p with
+  | nil k => exact .nil k
+  | cons h _ ih => exact .cons (sub h) ih
+
+def Same (edge : K → K → Prop) (a b : K) : Prop :=
+  Path edge a b ∧ Path edge b a
+
+def Changed (old next : K → K → Prop) (key : K) : Prop :=
+  ∃ a b, Same old key a ∧ Same old key b ∧ old a b ∧ ¬ next a b
+
+-- A path with a return route stays inside its old SCC. If that SCC has
+-- no deleted internal edge, replay the path in the successor.
+theorem replay {old next : K → K → Prop} {a b : K}
+    (p : Path old a b) (back : Path old b a) (clean : ¬ Changed old next a) :
+    Path next a b := by
+  induction p with
+  | nil k => exact .nil k
+  | @cons a mid b edge rest ih =>
+    have hop : Path old a mid := .cons edge (.nil mid)
+    have midBack : Path old mid a := rest.append back
+    have keep : next a mid := Classical.byContradiction fun lost =>
+      clean ⟨a, mid, ⟨.nil a, .nil a⟩, ⟨hop, midBack⟩, edge, lost⟩
+    have cleanMid : ¬ Changed old next mid := by
+      rintro ⟨x, y, hx, hy, oldEdge, lost⟩
+      exact clean ⟨x, y, ⟨hop.append hx.1, hx.2.append midBack⟩,
+        ⟨hop.append hy.1, hy.2.append midBack⟩, oldEdge, lost⟩
+    exact .cons keep (ih (back.append hop) cleanMid)
+
+theorem clean_exact {old next : K → K → Prop} {a b : K}
+    (sub : ∀ ⦃x y⦄, next x y → old x y) (clean : ¬ Changed old next a) :
+    Same next a b ↔ Same old a b := by
+  constructor
+  · exact fun h => ⟨h.1.map sub, h.2.map sub⟩
+  · intro h
+    have cleanB : ¬ Changed old next b := by
+      rintro ⟨x, y, hx, hy, edge, lost⟩
+      exact clean ⟨x, y, ⟨h.1.append hx.1, hx.2.append h.2⟩,
+        ⟨h.1.append hy.1, hy.2.append h.2⟩, edge, lost⟩
+    exact ⟨replay h.1 h.2 clean, replay h.2 h.1 cleanB⟩
+
+theorem restrict_path {old next : K → K → Prop} {root a b : K}
+    (sub : ∀ ⦃x y⦄, next x y → old x y) (p : Path next a b)
+    (enter : Path old root a) (leave : Path old b root) :
+    Path (fun x y => next x y ∧ Same old root x ∧ Same old root y) a b := by
+  induction p with
+  | nil k => exact .nil k
+  | @cons a mid b edge rest ih =>
+    have enterMid := enter.append (.cons (sub edge) (.nil mid))
+    have leaveMid := (rest.map sub).append leave
+    exact .cons ⟨edge, ⟨enter, .cons (sub edge) leaveMid⟩, ⟨enterMid, leaveMid⟩⟩
+      (ih enterMid leave)
+
+-- A self edge can always be skipped, including in a one-vertex SCC.
+theorem skip_self_edges {edge : K → K → Prop} {a b : K} (p : Path edge a b) :
+    Path (fun x y => edge x y ∧ x ≠ y) a b := by
+  classical
+  induction p with
+  | nil k => exact .nil k
+  | @cons a mid b h _ ih =>
+    by_cases eq : a = mid
+    · simpa [eq] using ih
+    · exact .cons ⟨h, eq⟩ ih
+
+theorem restricted_exact {old next : K → K → Prop} {root a b : K}
+    (sub : ∀ ⦃x y⦄, next x y → old x y)
+    (ha : Same old root a) (hb : Same old root b) :
+    Same (fun x y => next x y ∧ Same old root x ∧ Same old root y) a b ↔
+      Same next a b := by
+  constructor
+  · have drop : ∀ ⦃x y⦄, (next x y ∧ Same old root x ∧ Same old root y) → next x y :=
+      fun {_ _} e => e.1
+    exact fun h => ⟨h.1.map drop, h.2.map drop⟩
+  · exact fun h => ⟨restrict_path sub h.1 ha.1 hb.2, restrict_path sub h.2 hb.1 ha.2⟩
+
+#print axioms clean_exact
+#print axioms restrict_path
+#print axioms skip_self_edges
+
+end GraphDeletionRegion

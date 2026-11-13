@@ -1054,15 +1054,30 @@
   (def backward-work (vector 0 0))
   ;; Without additions the union IS the old graph. From one edited row,
   ;; its forward/reverse intersection is already the old owner group.
-  (def single-removal? (and (pair? roots) (null? (cdr roots)) (zero? (hash-length add-forward))))
+  (def deletion-only? (zero? (hash-length add-forward)))
+  (def single-removal? (and (pair? roots) (null? (cdr roots)) deletion-only?))
   ;; Every key reached the cut owner before this edit. With one successor per
   ;; row, the remaining path to the cut sink precludes any nontrivial SCC.
   (def functional-cut? (and single-removal? (= removed-edges 1)
                             (eq? (owned-partition-shape old) 'cycle)))
   (def single-owner (and single-removal? (not functional-cut?) (%index-ref old-owner (car roots))))
-  (def to (and (not ranked?) (not retained-components?) (not single-removal?)
+  ;; Deletions cannot join old components. Revisit only components that
+  ;; lost an internal edge, even when one edit touches multiple components.
+  (def dirty-components
+    (and deletion-only? (not single-removal?) (not ranked?) (not retained-components?)
+      (let (dirty (make-hash-table-symbolic))
+        (hash-for-each
+          (lambda (provider consumers)
+            (def representative (%index-ref old-owner provider))
+            (hash-for-each
+              (lambda (consumer _)
+                (when (and (not (eq? consumer provider))
+                           (eq? representative (%index-ref old-owner consumer)))
+                  (hash-put! dirty representative #t))) consumers)) remove-backward)
+        dirty)))
+  (def to (and (not ranked?) (not retained-components?) (not deletion-only?)
                (edit-region-walk roots forward add-forward forward-work)))
-  (def from (and (not ranked?) (not retained-components?) (not single-removal?)
+  (def from (and (not ranked?) (not retained-components?) (not deletion-only?)
                  (edit-region-walk roots backward add-backward backward-work)))
   (def (inside? key)
     (if single-removal? (eq? single-owner (%index-ref old-owner key))
@@ -1071,6 +1086,11 @@
     (cond ((or ranked? retained-components?) [])
           (functional-cut? [])
           (single-removal? (cdr (%index-ref old-members single-owner)))
+          (dirty-components
+           (%partition-order-keys prior
+             (with-list-builder (add)
+               (for (representative (hash-keys dirty-components))
+                 (for-each add (cdr (%index-ref old-members representative)))))))
           (else
            (let (smaller (if (< (hash-length to) (hash-length from)) to from))
              (%partition-order-keys prior (filter inside? (hash-keys smaller)))))))
@@ -1088,14 +1108,17 @@
           (when (and cycle? (not (and (pair? all) (null? (cdr all)))))
             (set! cycle? #f))
           (def row
-            (if whole?
+            (if (and whole? (not dirty-components))
               (let (size (length all))
                 (set! induced-readers (+ induced-readers size))
                 (set! edges (+ edges size))
                 all)
               (filter (lambda (dep)
                 (set! induced-readers (1+ induced-readers))
-                (and (inside? dep) (begin (set! edges (1+ edges)) #t))) all)))
+                (and (if dirty-components
+                       (eq? (%index-ref old-owner key) (%index-ref old-owner dep))
+                       (inside? dep))
+                     (begin (set! edges (1+ edges)) #t))) all)))
           (hash-put! rows key row))
         (partition-captured region rows edges 0 0 #f #t))))
   ;; If the repair covers the entire graph, use the discovered native tables

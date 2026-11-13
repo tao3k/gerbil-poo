@@ -178,3 +178,26 @@ The maintained =reverse-bucket-benchmark-test= now also exercises the
 It checks exact ordered output and requires a single retained mask.
 The study is available through =just benchmark-scc= and the same suite
 filter used for the other Graph studies.
+
+* Deletion-only SCC repair
+
+The admitted reverse delta identifies each removed edge. For a batch with
+no inserted edges, use the predecessor owner index to identify the old
+components that lost internal edges. Enumerate their existing members in
+source order and run SCC discovery over successor edges internal to each
+old component. Surviving external edges still participate in the quotient
+update. Self-edge removal cannot split a component.
+
+=GraphDeletionRegion.clean_exact= proves that an old component without an
+internal deletion preserves mutual reachability. =restrict_path= proves
+that paths witnessing mutual reachability in a dirty component stay in
+that old component. Insertions still use the existing union-graph walks.
+
+The matched predecessor control repairs five owners in the bounded fixture
+and fails the four-owner assertion. The revised fixture opens no union-walk
+buckets. Local diagnostics on a reverse hub with four affected owners at
+100,000 and 1,000,000 vertices measured 0.140 and 0.146 ms CPU for partition
+revision, with 167,616 allocated bytes and no GC in either window. The
+whole diagnostic took 36.74 seconds and peaked at 1.26 GiB under the 4 GiB
+process-tree guard. These windows exclude cold capture and quotient
+publication.

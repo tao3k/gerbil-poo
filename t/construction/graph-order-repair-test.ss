@@ -1329,6 +1329,20 @@
       (check-eq? (graph-cache-ref final-graph 'a) (graph-cache-ref next 'a))))
 
 (def (check-component-merge-and-split)
+    (test-case "deletion-only batches repair only old components with internal deletions"
+      (def names '(a b c d e f outside))
+      (def rows (list->hash-table-eq '((a b) (b a c) (c d) (d c e)
+                                       (e f) (f e) (outside b))))
+      (def prior (scc.partition-owned (row-source names rows)))
+      (defvalues (next _seeds _support)
+        (scc.revise-partition prior '((a) (c) (outside)) quotient?: #t))
+      (for (key '(a c outside)) (hash-put! rows key []))
+      (check (same-components? names next (scc.partition (row-source names rows))) => #t)
+      (check-equal? (scc.partition-groups prior) '((a b) (c d) (e f) (outside)))
+      (def work (scc.partition-work next))
+      (check-equal? (.get work region-owners) 4)
+      (check-equal? (.get work forward-buckets) 0)
+      (check-equal? (.get work reverse-buckets) 0))
     (test-case "merge across a connector, split again, and retain the old owner maps"
       (def names '(isolated b bridge a tail c))
       (def rows (list->hash-table-eq '((a b) (b a bridge) (bridge c) (tail c))))

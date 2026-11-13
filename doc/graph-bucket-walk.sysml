@@ -21,6 +21,12 @@ package GraphBucketWalk {
                mask only if the borrowed reader would reappear. When
                no edits remain, return the original row. */
     }
+    requirement def DeletionOnlyComponentRepair {
+        doc /* A batch without insertions repairs only predecessor components
+               with an internal non-self edge deletion. Induce the successor
+               edges inside each such component. Preserve cross-component
+               edges for quotient maintenance and retain untouched snapshots. */
+    }
     requirement def EditedSearchFrontier {
         doc /* Charge every live edge in the edited bucket, including edges
                outside the rank interval. Only accepted owners contribute fresh
