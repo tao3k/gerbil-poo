@@ -14,6 +14,11 @@ package GraphBucketWalk {
                Stream incident checks through the existing POO inverse index.
                Public order and bucket enumeration remain explicit operations. */
     }
+    requirement def InsertedReaderRetirement {
+        doc /* A new insertion remembers whether it masks a borrowed
+               reader. On removal discard the insertion and retain a
+               mask only if the borrowed reader would reappear. */
+    }
     requirement def EditedSearchFrontier {
         doc /* Charge every live edge in the edited bucket, including edges
                outside the rank interval. Only accepted owners contribute fresh

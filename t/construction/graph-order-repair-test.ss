@@ -23,7 +23,8 @@
         (prefix-in :clan/poo/strong-components scc.))
 
 (extern namespace: clan/poo/generalized-graph %invalidation-work affected-work-receipt-set!
-  %schedule-reverse reverse-bucket-remove reverse-bucket-members edited-search-frontier
+  %schedule-reverse reverse-bucket-remove reverse-bucket-add reverse-bucket-members reverse-bucket-edited
+  edited-search-frontier
   %schedule-owned %owned-source-programs %schedule-adjacency %schedule-ranks
   start-affected-work advance-affected-work! affected-work-marked %retire-component-source
   %component-source-code-witnesses %component-source-storage %component-source-roster %owned-source-bases)
@@ -1016,6 +1017,20 @@
 
 (def local-components-test
   (test-suite "local SCC partition against cold discovery"
+    (test-case "edited inverse buckets release removed insertions while masking borrowed readers"
+      (def base '(a b))
+      (def masked (reverse-bucket-remove base 'a))
+      (def readded (reverse-bucket-add masked 'a))
+      (def current
+        (let loop ((remaining 10000) (row readded))
+          (if (zero? remaining) row
+            (let (key (gensym 'temporary-reader))
+              (loop (1- remaining) (reverse-bucket-remove (reverse-bucket-add row key) key))))))
+      (check-equal? (rbtree-size (reverse-bucket-edited current)) 1)
+      (check-equal? (reverse-bucket-members current) '(a b))
+      (check-equal? (reverse-bucket-members (reverse-bucket-remove current 'a)) '(b))
+      (check-equal? (reverse-bucket-members masked) '(b))
+      (check-equal? base '(a b)))
     (test-case "retired fresh names leave no entries in either active roster index"
       (def cold (%roster '(a b) (list->hash-table-eq '((a . 0) (b . 1)))))
       (def old (%roster-append cold '(c)))

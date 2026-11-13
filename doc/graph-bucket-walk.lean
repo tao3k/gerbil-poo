@@ -77,6 +77,20 @@ theorem editedSearch_exact (keep accept : A → Bool) (added base rest : List A)
 
 #print axioms walk_append
 #print axioms masked_exact
+
+/-- Removing an inserted owner needs a retained mask exactly when the
+borrowed row contains that owner. -/
+theorem discard_absent_base_mask [DecidableEq A] (owner : A) (base : List A)
+    (absent : owner ∉ base) (keep : A → Bool) :
+    base.filter (fun key => key != owner && keep key) = base.filter keep := by
+  induction base with
+  | nil => rfl
+  | cons key rest ih =>
+    have ne : key ≠ owner := fun h => absent (by simp [h])
+    have tail : owner ∉ rest := fun h => absent (by simp [h])
+    simp [List.filter_cons, ne, ih tail]
+
+#print axioms discard_absent_base_mask
 #print axioms streaming_exact
 #print axioms editedSearch_exact
 end GraphBucketWalk

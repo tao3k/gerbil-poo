@@ -125,3 +125,16 @@ for the complete harness, including both arms and their shared inputs.
 Removing the rank predicate in an isolated native build made the new
 fixture visit four buckets instead of three and fail with exit 42.
 Restoring the predicate passed all 28 cases in the Graph order module.
+
+* Retiring an inserted reader
+
+An insertion into an edited inverse bucket records whether the absent
+edge had a mask over the borrowed row. Removing the insertion keeps that
+mask only for a borrowed reader. An insertion absent from the borrowed
+row leaves neither an ordinal entry nor a mask. The transition does
+not search the borrowed spine. =discard_absent_base_mask= proves that
+dropping the redundant mask preserves the ordered borrowed output.
+
+The regression adds and removes 10,000 distinct readers of one edited
+bucket. It checks the remaining edit count, re-removal of a borrowed
+reader, and the order of both predecessor and successor snapshots.
