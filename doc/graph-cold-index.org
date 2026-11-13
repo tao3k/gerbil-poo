@@ -530,3 +530,20 @@ repair measured 1.769 s CPU and 11.633 s wall, and the collected repair
 measured 1.770 s CPU and 6.371 s wall. Both recorded zero collections
 and 46,524,104 allocated bytes during repair. Whole-run wall times
 were 120.44 s and 120.90 s, with 2.20 GiB sampled peaks.
+
+** SCC shape qualification on the integrated Graph
+
+The =2876f15= focused Darwin run compiled the current construction
+benchmark module in 162.82 s at a 2.31 GiB sampled process-tree peak.
+Both existing 100K/1M SCC studies reached their original 180 s deadline.
+The local merge/split suite emitted all four 100K local observations
+before timing out in the mixed-owner study. The pressure suite entered
+the ring case and timed out before its first complete pressure result.
+Their sampled process-tree peaks were 1.96 and 1.24 GiB.
+
+A separate 100K ring diagnostic completed in 54.29 s. Cold partition
+took 2.702 s CPU, 26.820 s wall and 16 collections with 0.925 s GC CPU.
+One cut took 0.121 ms CPU and 0.289 ms wall, with zero collections and
+77,920 allocated bytes. It preserved the old SCC size and returned a
+singleton in the successor. This isolates the cold and edit windows
+for that ring. The full multi-shape matrix still requires a passing run.
