@@ -424,3 +424,18 @@ rank-scan diagnostic reached index writes, so this result does not
 attribute the failure to the new index representation. Neither the
 180 s deadline nor the 4 GiB process-tree guard changed. The dense
 candidate remains isolated and its thresholds remain experimental.
+
+The next dense traversal releases its sparse owner list at promotion
+and records only rank marks plus the reached count. It tracks the last
+intersection in visit order, which =last_intersection_exact= proves
+equivalent to the first refusal in the old reversed result. The native
+=-O2= diagnostic and all 22 local order cases passed. The million-reader
+natural-GC case completed rank and position writes in both runs but
+overflowed the Scheme heap before revision return. The initial run
+finished with failure in 55.59 s at a 2.22 GiB sampled process-tree peak.
+The boundary-marker replay recorded the same heap failure, then the
+180 s guard reported timeout during the failing run, with a 2.13 GiB
+sampled peak and 196.90 s elapsed including guard handling. Neither
+run reached explicit old or new order enumeration. The remaining work
+is between index writes and revision return, which includes incident
+checks. Keep the candidate isolated.

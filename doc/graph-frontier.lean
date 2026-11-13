@@ -87,6 +87,26 @@ theorem rank_marks_exact [DecidableEq A] (rank : A → Nat)
   · intro member
     exact List.mem_map.mpr ⟨key, member, rfl⟩
 
+
+-- The former search conses each newly entered owner onto its result.
+-- Testing that reversed list returns the last intersection in visit order.
+def lastIntersection (common : A → Bool) (order : List A) : Option A :=
+    order.foldl (fun last owner => if common owner then some owner else last) none
+
+theorem last_intersection_exact (common : A → Bool) (order : List A) :
+    lastIntersection common order = order.reverse.find? common := by
+  have loop (items : List A) (initial : Option A) :
+      items.foldl (fun last owner => if common owner then some owner else last) initial =
+        (items.reverse.find? common).orElse (fun _ => initial) := by
+    induction items generalizing initial with
+    | nil => rfl
+    | cons head rest ih =>
+      simp only [List.foldl_cons, List.reverse_cons, List.find?_append]
+      rw [ih]
+      cases found : rest.reverse.find? common <;> cases hit : common head <;>
+        simp [hit, Option.orElse]
+  simpa [lastIntersection] using loop order none
+
 end GraphFrontier
 
 namespace GraphSourceAdmission
