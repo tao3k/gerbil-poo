@@ -86,7 +86,7 @@
 ;; KEY is the slot name or a structural query such as '(presence port).
 ;; READS maps keys to SlotRead records. INSTANCE holds cached slot values.
 ;; Either table may be #f. A bootstrap read checks its constant directly.
-(def require-read-route!
+(defvalues (require-read-route! %standard-symbol-table-lookup?)
   (let ()
     ;; Pin the standard wrapper, primitive lookup and hash/test identities once.
     (def (capture table)
@@ -161,7 +161,7 @@
           (begin
             (check-ref table instance-route (route-ref instance-route))
             (check-backend backend instance-route)))))
-    (lambda (key reads instance)
+    (def (require-route! key reads instance)
       (unless (or (symbol? key)
                   (and (pair? key)
                     (case (car key)
@@ -172,7 +172,21 @@
         (error "unsupported metadata key"))
       (unless (and (pair? key) (eq? (car key) 'bootstrap))
         (when reads (check reads reads-route))
-        (when instance (check-instance instance))))))
+        (when instance (check-instance instance))))
+    (def (standard-lookup? table)
+      (and (eq? (read-runtime.object-class table) (route-wrapper instance-route))
+           (eq? (&interface-descriptor-type HashTable::interface) (route-wrapper instance-route))
+           (= (read-runtime.class-slot-offset (route-wrapper instance-route) 'object)
+              (route-object-offset instance-route))
+           (= (read-runtime.class-slot-offset (route-wrapper instance-route) 'ref)
+              (route-ref-offset instance-route))
+           (eq? ((route-ref-field instance-route) table) (route-ref instance-route))
+           (let (backend ((route-object-field instance-route) table))
+             (and (eq? (read-runtime.object-class backend) (route-backend instance-route))
+                  (eq? (&raw-table-hash backend) (route-hash instance-route))
+                  (eq? (&raw-table-test backend) (route-test instance-route))
+                  (not (&raw-table-lock backend))))))
+    (values require-route! standard-lookup?)))
 
 
 ;; Each issuer keeps a weak table of the records it created and their original

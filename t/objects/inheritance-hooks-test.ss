@@ -1,5 +1,7 @@
 (export inheritance-hooks-test)
-(import (only-in :clan/poo/slot-observation %call-with-recorded-slot-reads)
+(import (only-in :clan/poo/slot-observation %call-with-recorded-slot-reads
+                 slot-read-key slot-read-receiver)
+        (only-in :clan/poo/class-validation required-slots?)
         (only-in :clan/poo/read-route standard-symbol-table-writes?)
         (only-in :gerbil/runtime/hash HashTable::interface)
         (prefix-in (only-in :gerbil/runtime/mop slot-ref slot-set! object-class
@@ -12,6 +14,34 @@
 ;; Exercise inheritance protocol composition through actual objects and hooks.
 (def inheritance-hooks-test
   (test-suite "inherited hooks mutation and declared reflection"
+    (test-case "fixed field checks retain observed reads and recheck after predicates"
+      (def object (.o first: 1 second: #f))
+      (.ref object 'first)
+      (check-equal? (required-slots? object (first number?) (second not)) #t)
+      (defvalues (accepted reads)
+        (%call-with-recorded-slot-reads
+          (lambda () (required-slots? object (first number?) (second not)))))
+      (check-equal? accepted #t)
+      (check-equal?
+       (map slot-read-key (filter (lambda (read) (eq? (slot-read-receiver read) object)) reads))
+       '((presence first) first (presence second) second))
+      (replay-slot-reads! reads (lambda (_owner _key) (void)))
+      (def table (object-%slot-funs object))
+      (def original (runtime.slot-ref table 'ref))
+      (def callbacks 0)
+      (def (redirect-after-first _)
+        (runtime.slot-set! table 'ref
+          (lambda (receiver key default)
+            (if (eq? key 'second)
+              (begin (set! callbacks (1+ callbacks)) default)
+              (original receiver key default))))
+        #t)
+      (def result
+        (try
+          (required-slots? object (first redirect-after-first) (second not))
+          (finally (runtime.slot-set! table 'ref original))))
+      (check-equal? result #f)
+      (check-equal? callbacks 1))
     (test-case "shared protocol selection requires the standard HashTable writer"
       (def table (make-hash-table-symbolic))
       (def backend (runtime.slot-ref table 'object))

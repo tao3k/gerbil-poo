@@ -2,14 +2,30 @@
 (export class-diagnostics class-shape class-slot-shape class-slot-validate class-validation-fields validate-class
         with-present-slot required-slots?)
 (import (only-in :std/list/list filter-map)
-        (only-in ./object .o .slot? .get .ref .call .all-slots object?)
+        (only-in ./object .o .slot? .get .ref .call .all-slots object?
+                 object-%instance object-%slot-funs object-%bootstrap)
+        (only-in ./slot-observation %slot-read-active?)
         (only-in ./validation-rebinding rebind-validation finish-validation)
         (only-in ./value-diagnostics diagnose-structure diagnose-value))
 
+(extern namespace: clan/poo/read-route %standard-symbol-table-lookup?)
+
+;; Query POO's prepared method table. Cold and bootstrap receivers, observed
+;; checks and unknown table adapters use the ordinary reflective path.
+(def (%prepared-local-slot? receiver key)
+  (and (symbol? key)
+       (not (%slot-read-active?))
+       (object? receiver)
+       (object-%instance receiver)
+       (not (object-%bootstrap receiver))
+       (let (table (object-%slot-funs receiver))
+         (and table (%standard-symbol-table-lookup? table) (hash-key? table key)))))
+
 ;; Default Slot membership and fixed field contracts share ordinary POO reads.
+;; Prepared local presence can use the existing Slot index when unobserved.
 (defrule (with-present-slot (value candidate name) present absent)
   (let ((receiver candidate) (key name))
-    (if (.slot? receiver key)
+    (if (or (%prepared-local-slot? receiver key) (.slot? receiver key))
       (let (value (.ref receiver key)) present)
       absent)))
 

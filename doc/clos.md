@@ -65,6 +65,26 @@ After `just build-development`, run the source fixture with
 compile that fixture with `gxc -O -s` and give its installed `.ssi` to
 the same Just test entry point.
 
+Fixed field checks in CLOS and the default POO Slot checker share the
+prepared Slot method table. For an unobserved local hit, a live standard
+HashTable lookup establishes presence. Demand still uses ordinary `.ref`.
+Observed reads, cold receivers and delegated presence use ordinary
+reflection. [LeanPoo Slot contract](https://github.com/tao3k/lean-poo/blob/a8f15a213ad8325305c3d533337b669202fc8abe/LeanPoo/Object/SlotContracts.lean)
+
+The [dispatch benchmark](../benchmarks/clos-dispatch-test.ss) measures the
+production stages on the same calls. On macOS arm64, the baseline CPU
+medians for 256 keyword calls were 79.33 ms in total, 0.59 ms in method
+selection, 0.72 ms in keyword admission, 30.06 ms in effective-method
+construction, and 29.74 ms in invocation-frame construction. Capturing the
+whole call took 107.27 ms. Replaying the captured 141 roots took 60.85 ms
+per batch of 256 replays. The phase samples are independent.
+
+Two AOT runs alternated the lookup with the ordinary presence check on
+the same 1,024 full calls per sample, with four samples per side. CPU
+medians were 417.89 → 278.09 ms and 445.79 → 309.31 ms. The fixture
+checks a supplied keyword and an `eql` specialization with the keyword
+omitted. Run the AOT fixture through the same Just entry as above.
+
 Descriptor contracts pair each required slot with its value check in
 `required-slots?`. The expansion shares ordinary presence and demand with
 the default Slot checker. It preserves check order, lazy demand, receiver
