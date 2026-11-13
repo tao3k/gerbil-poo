@@ -2,6 +2,13 @@
 (export check-lens-laws lens-check lens-check? lens-check-focus run-lens-check with-lens-checks
         lens-law-failure? lens-law-failure-law %watch-lens-sources)
 (import :std/iter ./object ./mop)
+
+(extern namespace: clan/poo/object %prepared-vector-slots?)
+(def lens-slot-requirements (list (cons '.get procedure?) (cons '.set procedure?)))
+;; Component construction may reuse a focus whose callbacks are already stored.
+(def (%prepared-vector-lens? focus)
+  (%prepared-vector-slots? focus lens-slot-requirements))
+
 ;; A failed law retains its precise name; it is not a universal proof certificate.
 (defstruct lens-law-failure (law) final: #t)
 ;; A finite check uses actual immutable carrier values and structural equality.

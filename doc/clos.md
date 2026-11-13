@@ -10,7 +10,8 @@ lifecycle. It uses POO objects, Slot reads and C4 precedence.
 
 A call with no applicable method passes its original generic and arguments
 to the extensible `no-applicable-method` generic before keyword admission.
-The default method signals a typed CLOS failure. See the
+The default method delegates to the generic's protocol hook when supplied
+and otherwise signals a typed CLOS failure. See the
 [HyperSpec on method selection](https://www.lispworks.com/documentation/HyperSpec/Body/07_ff.htm)
 and [the distinction from prototype slot fallback](inheritance-hooks.md#slot-lookup-and-generic-dispatch).
 

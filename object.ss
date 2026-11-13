@@ -12,7 +12,7 @@
                     require-current-read-sweep! %pure-read-sweep?
                     record-key-field record-dependencies-field record-value-field
                     slot-spec-discards-super? compile-slot-specs prepare-declaration-specifications compute-object-precedence!
-                    %prepared-vector-procedure-slots? %bind-current-slot-reads) @object? @make-object)
+                    %prepared-vector-slots? %bind-current-slot-reads) @object? @make-object)
 
 (import
   (prefix-in (only-in Runtime object? make-object) @) ;; Rename them before we shadow them
@@ -441,17 +441,20 @@
                   (unless (slot-cache-hit? cache self revision layout)
                     (slot-cache-bind! cache self revision layout
                       (if same-shape? index (slot-layout-index layout slot)))) value)))))))))
-;; Check a nonempty list of symbol keys against a prepared, unhooked vector
-;; instance. Inspect stored procedures without forcing slots or delivering reads.
-(def (%prepared-vector-procedure-slots? self slots)
+;; Check stored values against a nonempty list of (symbol . pure predicate)
+;; requirements. This probe neither forces slots nor issues semantic reads.
+(def (%prepared-vector-slots? self requirements)
   (and (object? self)
        (let (instance (object-%instance self))
          (and instance (not (object-protocol self)) (slot-values-layout instance)
               (with-catch (lambda (_) #f)
                 (lambda ()
-                  (require-read-route! (car slots) #f instance)
-                  (andmap (lambda (slot) (procedure? (hash-ref instance slot #f)))
-                          slots)))))))
+                  (require-read-route! (caar requirements) #f instance)
+                  (andmap (lambda (requirement)
+                            (let (value (hash-ref instance (car requirement) absent-value))
+                              (and (not (eq? value absent-value))
+                                   ((cdr requirement) value))))
+                          requirements)))))))
 
 ;; Get an existing cached slot value from an object
 (def (.ref/cached self (slot :~ symbol?) (default false))

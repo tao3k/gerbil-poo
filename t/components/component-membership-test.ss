@@ -33,8 +33,8 @@
 (extern namespace: clan/poo/component-publication %request-lineage %lineage-invalidation
   %request-action %request-action-set!)
 (extern namespace: clan/poo/generalized-graph %invalidation-work affected-work-marked)
-(extern namespace: clan/poo/mop %prepared-vector-lens?)
-(extern namespace: clan/poo/object object-%instance)
+(extern namespace: clan/poo/lens-laws %prepared-vector-lens?)
+(extern namespace: clan/poo/object object-%instance %prepared-vector-slots?)
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (component-membership-test)

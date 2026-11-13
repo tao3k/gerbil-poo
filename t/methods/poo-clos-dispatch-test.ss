@@ -428,29 +428,55 @@
                          (failure-code? 'invalid-keyword-argument))))
 
     (test-case "no-applicable-method precedes keyword validation"
-      (let* ((protocol
+      (let* ((filtered '())
+             (policy (.o allowed: #t))
+             (protocol
               (poo-clos-generic-protocol
                'no-app-first
+               compute-applicable-methods:
+               (lambda (_generic _arguments methods)
+                 (set! filtered methods)
+                 '())
+               compute-effective-method:
+               (lambda _ (error "effective method requested for an empty applicable set"))
                no-applicable-method:
                (lambda (_generic _arguments) 'no-applicable)))
              (generic
-              (poo-clos-generic-function
-               'no-app-first 1 key?: #t keys: '(known)
-               protocol: protocol)))
+              (poo-clos-add-method
+               (poo-clos-generic-function
+                'no-app-first 1 key?: #t keys: '(known) protocol: protocol)
+               (primary-method 'filtered (list any-specializer) 'primary))))
         (check-equal? (poo-clos-call generic 'value unknown: 1)
                       'no-applicable)
+        (check-equal? (map (lambda (method) (.ref method 'identity)) filtered)
+                      '(filtered))
         (def method
           (poo-clos-method
            'no-app-first/specialized
            (list (poo-clos-eql-specializer generic))
-           (lambda (_frame original . arguments) (values original arguments))
+           (lambda (_frame original . arguments)
+             (values original arguments (.ref policy 'allowed)))
            lambda-list: (poo-clos-lambda-list 1 0 #t #f '() #f)))
         (poo-clos-add-method poo-clos-no-applicable-method-generic method)
         (try
-          (let (results (call-with-values
-                          (lambda () (poo-clos-call generic 'value unknown: 1))
-                          list))
-            (check-equal? results (list generic '(value unknown: 1))))
+          (let* ((result (.o answer:
+                            (call-with-values
+                              (lambda () (poo-clos-call generic 'value unknown: 1))
+                              list)))
+                 (root #f))
+            (check-equal?
+              (call-with-slot-read-observer
+                (lambda (read)
+                  (when (and (eq? (slot-read-receiver read) result)
+                             (eq? (slot-read-key read) 'answer))
+                    (set! root read)))
+                (lambda () (.ref result 'answer)))
+              (list generic '(value unknown: 1) #t))
+            (check-equal? (object-read-issued? root) #t)
+            (replay-slot-reads! (list root) (lambda (_receiver _key) (void)))
+            (.put! policy 'allowed #f)
+            (check-exception
+              (replay-slot-reads! (list root) (lambda (_receiver _key) (void))) error?))
           (finally
             (poo-clos-remove-method poo-clos-no-applicable-method-generic method)))))
 

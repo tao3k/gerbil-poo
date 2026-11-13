@@ -1,12 +1,13 @@
 ;;; Lens-based complete component equations, reusable on any comparable carrier.
 (export component-group-builder %component-member-builder? %with-member-fragment-seeds)
 (import (only-in :std/list/list delete-duplicates/hash) ./object ./mop ./support/option ./generalized-declaration ./generalized-closure ./feedback-cache
+        ./lens-laws
         (only-in :gerbil/runtime/thread with-lock)
         (only-in ./support/base %graph-table-seed %with-graph-table-seeds %with-application-table-seeds)
         (only-in ./read-route gc-table-route-current?)
         (prefix-in ./dependency-analysis code.))
 (extern namespace: clan/poo/generalized-declaration %fragment-preparation-current?)
-(extern namespace: clan/poo/mop %prepared-vector-lens?)
+(extern namespace: clan/poo/lens-laws %prepared-vector-lens?)
 ;; Only this constructor issues evidence for the actual returned procedure.
 ;; The weak identity set owns neither builder lifetimes nor computed results.
 (def member-builders (make-table test: eq? weak-keys: #t))
