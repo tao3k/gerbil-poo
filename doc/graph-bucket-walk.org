@@ -150,6 +150,26 @@ targeted =-O2= Graph attempts also exceeded 4 GiB, with and without
 the test host-splitting flag. The diagnostic therefore gives no
 production timing. Keep the existing complete search implementation.
 
+A follow-up used a direct base scan, counted retained readers as it
+built a private reversed prefix, relinked that prefix to the pending
+tail and prepended the active insertions in tree order.
+=complete_base_then_insertions= checks the sequence and count. All 22
+order cases and all 32 paired bucket samples passed under the 180 s
+and 4 GiB guards. This was a focused native =-O0= diagnostic.
+
+| Readers | Regime    | CPU ms, reference / direct | Wall ms, reference / direct |
+|---------+-----------+----------------------------+-----------------------------|
+| 100K    | Natural   | 2.06 / 1.66                | 16.31 / 12.35               |
+| 100K    | Collected | 2.50 / 1.03                | 7.12 / 1.03                 |
+| 1M      | Natural   | 16.82 / 11.95              | 40.65 / 52.14               |
+| 1M      | Collected | 17.32 / 13.67              | 22.52 / 31.46               |
+
+The study took 57.83 s and reached a sampled process-tree peak of
+1.41 GiB. The million-reader wall samples moved against CPU in both
+regimes. Allocation estimates varied across samples. The existing
+complete reverse search stays in production pending an optimized
+native comparison that reproduces an end-to-end benefit.
+
 * Retiring an inserted reader
 
 An insertion into an edited inverse bucket records whether the absent

@@ -83,6 +83,14 @@ theorem editedSearch_complete (keep : A → Bool) (added base rest : List A) :
     List.filter_eq_self.mpr (fun _ _ => rfl)
   rw [editedSearch_exact keep (fun _ => true) added base rest, all]
 
+-- The direct scan accumulates a private reversed prefix and its count.
+-- Prepending the ordered insertions extends that prefix and its count.
+theorem complete_base_then_insertions (keep : A → Bool) (base added tail : List A) :
+    (added ++ (base.filter keep).reverse.reverse ++ tail,
+      (base.filter keep).length + added.length) =
+    ((added ++ base.filter keep) ++ tail, (added ++ base.filter keep).length) := by
+  simp [Nat.add_comm]
+
 #print axioms walk_append
 #print axioms masked_exact
 
