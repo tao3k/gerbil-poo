@@ -458,3 +458,25 @@ million-reader run still failed at the predecessor order query after
 heap fence, 4 GiB process-tree guard and 180 s deadline were held.
 Both results distinguish completed structural repair from the failed
 full-output assertion. The candidates remain isolated.
+
+** Verify every position without allocating an output list
+
+The existing full-list diagnostic remains a failed result. A separate
+oracle checks both snapshots at every position and checks the inverse
+rank for each owner. The oracle first requires an empty rank overlay
+and dense position vectors, then uses the existing native symbolic
+table lookup. It neither constructs an order list nor drops any
+position check. The source-evaluated oracle also overflowed the heap.
+Its first raw-table variant additionally exposed a fixture error:
+a freshly forked rank table can have an empty overlay object.
+
+The corrected oracle, compiled with the same Darwin =-O2= settings,
+completed cold construction, revision, all position/rank checks and
+the native test harness. The 1M repair window measured 1.199 s CPU,
+1.228 s wall, zero collections and 46,529,752 reported allocated bytes.
+The whole run took 22.54 s at a 2.29 GiB sampled process-tree peak.
+A compiled replay of the original full-list assertion hit the Scheme
+heap fence during cold construction in 59.65 s at a 2.25 GiB peak.
+This qualifies the position oracle for this sample and leaves the
+original list-output and pre-collection gates open. All runs retained
+the 2 GiB Scheme heap fence, 4 GiB process-tree guard and 180 s deadline.
