@@ -478,13 +478,44 @@
           #f (raise cause))))))
   (if nam (nam self slot) (raise (NoApplicableMethod self: self slot: slot))))
 
-;; Lazy delegation is ordinary prototype behavior, using the existing missing
-;; method hook. Each receiver computes/caches its own fallback only on first miss;
-;; direct slots never force it. Delegate failures and cycles propagate unchanged.
-(def (fallback-to thunk)
+;; Structural queries follow the same receiver-local delegate as value reads.
+;; A structural cycle must fail before a recursive query can publish a record.
+(def active-fallback-queries (make-parameter '()))
+(def (call-with-fallback-query self action)
+  (def active (active-fallback-queries))
+  (when (memq self active) (error "cyclic fallback reflection"))
+  (parameterize ((active-fallback-queries (cons self active)))
+    (with-slot-dependencies self action)))
+
+(def (fallback-to thunk reserved: (reserved '()))
   (unless (procedure? thunk) (error "fallback must be a thunk"))
-  (.o (.fallback-handler (thunk))
-    (no-applicable-method (lambda (self slot) (.ref (.@ self .fallback-handler) slot)))))
+  (unless (and (list? reserved) (andmap symbol? reserved))
+    (error "fallback reserved slots must be symbols"))
+  (def hidden '(no-applicable-method .fallback-handler))
+  (def (reserved? slot) (memq slot reserved))
+  (make-object
+    protocol:
+    (.o fallback-slot-present?:
+        (lambda (self slot)
+          (and (not (reserved? slot))
+               (call-with-fallback-query self
+                 (lambda () (.slot? (.ref self '.fallback-handler) slot)))))
+        fallback-slot-names:
+        (lambda (self names)
+          (call-with-fallback-query self
+            (lambda ()
+              (append names
+                      (filter (lambda (slot)
+                                (not (or (memq slot hidden) (reserved? slot) (memq slot names))))
+                              (.all-slots (.ref self '.fallback-handler))))))))
+    slots:
+    (list (cons '.fallback-handler ($thunk-slot-spec thunk))
+          (cons 'no-applicable-method
+            ($constant-slot-spec
+              (lambda (self slot)
+                (if (reserved? slot)
+                  (raise (NoApplicableMethod self: self slot: slot))
+                  (.ref (.ref self '.fallback-handler) slot))))))))
 
 ;; : (Object A) <- (IndexedList ? ((Pair s (A s)) <- s:Symbol)) \
 ;;     supers: ? (ConsTreeOf (Object ?)) defaults: ? (Table ? Symbol)
@@ -531,7 +562,12 @@
 ;; Recheck bootstrap after observer prechecks, which may edit the protocol.
 (def (object-slot-present? self slot)
   (if (bootstrap-anchor self slot) #t
-    (begin (instantiate-object! self) (hash-key? (object-%slot-funs self) slot))))
+    (begin
+      (instantiate-object! self)
+      (or (hash-key? (object-%slot-funs self) slot)
+          (let (protocol (object-protocol self))
+            (and protocol (.slot? protocol 'fallback-slot-present?)
+                 (.call protocol fallback-slot-present? self slot)))))))
 
 (defrules .has? ()
   ((_ x) #t)
@@ -547,14 +583,19 @@
 (def (object-slot-names self)
   (object-read-query self '(names) (lambda ()
     (instantiate-object! self)
-    (or (object-%all-slots self)
-      (let (esl (merge-super-slots
+    (def names
+      (or (object-%all-slots self)
+        (let (esl (merge-super-slots
                  (map (lambda (super) (append (prototype-map-keys (object-%slots super))
                    (prototype-map-keys (object-%defaults super)) (prototype-map-keys (object-%declarations super))))
                       (object-%precedence-list self))))
         (def defined (filter (lambda (slot) (hash-key? (object-%slot-funs self) slot)) esl))
         (set! (object-%all-slots self) defined)
-        defined)))))
+          defined)))
+    (def protocol (object-protocol self))
+    (if (and protocol (.slot? protocol 'fallback-slot-names))
+      (.call protocol fallback-slot-names self names)
+      names))))
 
 ;; : Unit <- (Object A) (Fun _ <- s:Symbol (A s))
 (def (.for-each! self fun)
