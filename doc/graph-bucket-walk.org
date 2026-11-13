@@ -201,3 +201,11 @@ revision, with 167,616 allocated bytes and no GC in either window. The
 whole diagnostic took 36.74 seconds and peaked at 1.26 GiB under the 4 GiB
 process-tree guard. These windows exclude cold capture and quotient
 publication.
+
+The reverse-hub fixture now runs inside the existing local-components
+benchmark. The integrated run reported 0.151 and 0.124 ms CPU for the two
+revision windows, with the same 167,616 allocated bytes and zero GC. The
+whole run took 70.70 seconds and peaked at 2.78 GiB. A separate standard
+Darwin Graph build with Gambit's host splitting enabled reached and compiled
+the SCC module, then failed the 4 GiB process-tree limit during =table=
+compilation. That run is retained as a build failure.

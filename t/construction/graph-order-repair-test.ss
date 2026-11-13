@@ -1508,6 +1508,34 @@
       (for (sample samples)
         (displayln (list 'MIXED-OWNER count (car sample) (cdr sample)))))))
 
+;; Use a wide reverse hub so a fallback union walk scales with total support.
+;; Keep cold capture outside the timed revision, and charge every visited bucket.
+(def (deletion-region-study count)
+  (def names
+    (append '(a b c d)
+      (for/collect (index (in-range (- count 4)))
+        (string->symbol (string-append "deletion-reader-" (number->string index))))))
+  (def prior
+    (scc.partition-owned
+      (.o keys: names .code: (lambda (key)
+        (.o reads: (case key ((a) '(b)) ((b) '(a c))
+                           ((c) '(d)) ((d) '(c)) (else '(b))))))))
+  (defvalues (next clocks)
+    (measure (lambda () (scc.revise-partition prior '((a) (c)))) 1))
+  (def work (scc.partition-work next))
+  (unless (and (= (.get work region-owners) 4)
+               (zero? (.get work forward-buckets))
+               (zero? (.get work reverse-buckets))
+               (equal? (scc.partition-group-of prior 'a) '(a b))
+               (equal? (scc.partition-group-of prior 'c) '(c d))
+               (andmap (lambda (key)
+                         (equal? (scc.partition-group-of next key) (list key)))
+                       '(a b c d)))
+    (error "deletion-only SCC work or snapshot discrepancy" count work))
+  (displayln (list 'GRAPH-DELETION-SCC count (qualified-metrics clocks)
+                  (.get work region-owners) (.get work forward-buckets)
+                  (.get work reverse-buckets))))
+
 (def (local-components-study)
   (for (count '(100000 1000000))
     (def names
@@ -1535,7 +1563,9 @@
       (set! current next))
     (local-owner-append-study old count)
     (mixed-owner-study old names count))
-  (displayln "GRAPH-LOCAL-SCC-OK observations=8"))
+  (for (count '(100000 1000000))
+    (deletion-region-study count))
+  (displayln "GRAPH-LOCAL-SCC-OK observations=8 deletion-observations=2"))
 
 (def (quotient-roster-study part names count)
   (def (reference)
