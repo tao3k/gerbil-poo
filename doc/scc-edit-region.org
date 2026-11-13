@@ -253,6 +253,14 @@ retain an empty override only when required to mask the borrowed row.
 The existing partition can share an unchanged adjacency index when no
 override needs editing.
 
+The condensed schedule applies the same rule to captured programs, bases,
+rank and adjacency entries. A retired owner has no readable schedule row,
+whether the row is masked or absent from the index. The construction value
+patch removes a retired post-cold entry and masks values still present in
+the shared cold table. Re-adding a representative therefore starts with
+its new declaration. Historical schedules and results retain their old
+roots. The native test checks both cases and the sparse index sizes.
+
 The quotient schedule delays explicit key enumeration. When demanded,
 it enumerates representatives from the admitted successor partition in
 source order. It does not force intermediate revision rosters.

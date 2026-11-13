@@ -5,7 +5,7 @@
         cache-invalidation cache-invalidate! %cache-replacement-invalidate!
         failure? failure-key failure-cause)
 (import (only-in :std/hash/misc hash-ref/default)
-        (only-in :std/struct/rbtree RBTree rbtree-copy rbtree-ref rbtree-put!)
+        (only-in :std/struct/rbtree RBTree rbtree-copy rbtree-ref rbtree-put! rbtree-remove!)
         :std/iter ./object (only-in ./mop define-type) ./support/option
         (only-in ./support/base %compare-symbol-identity %graph-table-seed %with-application-table-seeds)
         (only-in ./lens-laws with-lens-checks)
@@ -171,7 +171,10 @@
   (def spec (graph.schedule-source scheduled))
   (def prior-patch (cache-patch old))
   (def patch (if prior-patch (rbtree-copy prior-patch) (RBTree %compare-symbol-identity)))
-  (for (key retired) (rbtree-put! patch key #f))
+  (def base (cache-base old))
+  (for (key retired)
+    (if (hash-key? base key) (rbtree-put! patch key #f)
+      (rbtree-remove! patch key)))
   (def pending (make-hash-table-eq))
   (for (key affected) (hash-put! pending key pending-value))
   (def (resolve key)
@@ -191,7 +194,7 @@
   (def receipt (.o graph: (graph.schedule-work scheduled)
     inverse-buckets: (vector-ref inverse-work 0) inverse-edges: (vector-ref inverse-work 1)
     evaluated-owners: width value-patch-writes: (+ width (length retired))))
-  (make-materialized scheduled (cache-base old) patch affected
+  (make-materialized scheduled base patch affected
     (delay (filter (lambda (key) (not (hash-key? pending key))) (graph.schedule-order scheduled)))
     guards owned-run receipt))
 

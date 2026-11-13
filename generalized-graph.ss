@@ -112,7 +112,7 @@
 (def (read-projection index owned)
   ;; Explicitly owned snapshots never expose their authoritative row spines.
   (if owned (lambda (key)
-              (let (row (%index-ref index key))
+              (let (row (%index-ref index key #f))
                 (unless row (raise (make-failure 'unsupported key)))
                 (list-copy row)))
     (lambda (key) (%index-ref index key))))
@@ -588,8 +588,8 @@
   (def names (%owned-source-keys old))
   (when before?
     (for (key retired-keys)
-      (%index-write! programs key #f)
-      (%index-write! values key #f)
+      (%index-retire! programs key)
+      (%index-retire! values key)
       (set! changes (cons (list key) changes)))
     ;; The admitted partition can supply the complete successor roster
     ;; directly without forcing predecessor snapshots.
@@ -744,6 +744,9 @@
     (set! patch-writes (1+ patch-writes)))
   (def (index-set! index key value)
     (patch! (%index-changes index) key value))
+  (def (index-retire! index key (absent #f))
+    (%index-retire! index key absent)
+    (set! patch-writes (1+ patch-writes)))
   (def (position-index!)
     (unless position-changes
       (set! position-changes (if old-positions (rbtree-copy old-positions) (RBTree -))))
@@ -788,8 +791,8 @@
       (let (current (position-index!))
         (set! position-changes (rbtree-remove current label))
         (set! patch-writes (1+ patch-writes))))
-    (index-set! ranks key #f)
-    (index-set! readers key []))
+    (index-retire! ranks key)
+    (index-retire! readers key []))
   (def (search adjacency root low high)
     (def seen (make-hash-table-eq))
     ;; The admitted DAG certifies the other bound. Deletions cannot break it,
@@ -852,7 +855,7 @@
   ;; Preserve the author's exact footprint order, independently of insertion
   ;; order used for validation. Reads were captured before the pure repair.
   (for (entry changes) (index-set! reads (car entry) (cdr entry)))
-  (for (key retired) (index-set! reads key #f))
+  (for (key retired) (index-retire! reads key))
   (let (order (if position-changes (delay (materialize-order positions position-changes))
                 (%schedule-order prior)))
     (make-%schedule spec order (read-projection reads owned) reads ranks readers

@@ -34,7 +34,9 @@ package SccEditRegion {
                ordinal high-water mark and all predecessor views.
                Program, base, membership and adjacency indexes remove
                retired overrides absent from their cold bases. Mask
-               borrowed cold entries with the index's absence value. */
+               borrowed cold entries with the index's absence value.
+               Apply the same rule to quotient ranks, rows and constructed
+               values. A retired schedule row is unsupported. */
     }
     requirement def QuotientRosterDemand {
         doc /* Explicit quotient keys enumerate the admitted successor

@@ -24,7 +24,7 @@
 
 (extern namespace: clan/poo/generalized-graph %invalidation-work affected-work-receipt-set!
   %schedule-reverse reverse-bucket-remove reverse-bucket-members edited-search-frontier
-  %schedule-owned %owned-source-programs
+  %schedule-owned %owned-source-programs %schedule-adjacency %schedule-ranks
   start-affected-work advance-affected-work! affected-work-marked %retire-component-source
   %component-source-code-witnesses %component-source-storage %component-source-roster %owned-source-bases)
 (extern namespace: clan/poo/strong-components %partition-owned owned-partition-backward
@@ -32,6 +32,7 @@
   owned-partition-roster %retire-partition-isolates %append-partition-owners
   %check-partition-retirements)
 (extern namespace: clan/poo/support/index roster-appended roster-positions)
+(extern namespace: clan/poo/construction-cache cache-scheduled cache-patch)
 
 (def (caught thunk) (try (thunk) #f (catch (cause) cause)))
 (def (value state key) (code.success-value (some-value (cache.cache-ref state key))))
@@ -477,6 +478,27 @@
       (check (graph.schedule-supports? next 'spare) => #t)
       (check (graph.schedule-supports? restored 'spare) => #f)
       (check (valid-order? restored (append '(base fresh client outer retired) untouched)) => #t))
+    (test-case "quotient retirement drops fresh schedule and value entries but masks cold values"
+      (def (before? a b) (string<? (symbol->string a) (symbol->string b)))
+      (def builder (.cc cache.Builder.))
+      (def old (cache.start-owned (graph.schedule-owned '(a) [(cons 'a (code.pure 1))])))
+      (def expanded (cache.%revise-with-builder old [(cons 'b (code.pure 2))] builder
+                      added: '(b) before?: before?))
+      (def next (cache.%revise-with-builder expanded [] builder retired: '(b) before?: before?))
+      (def schedule (cache-scheduled next))
+      (for (index [%schedule-adjacency %schedule-ranks %schedule-reverse])
+        (check-equal? (rbtree-size (%index-changes (index schedule))) 0)
+        (check-equal? (rbtree-size (%index-changes (index (cache-scheduled expanded)))) 1))
+      (check-equal? (rbtree-size (cache-patch next)) 0)
+      (check-equal? (value expanded 'b) 2)
+      (check-equal? (cache.cache-ref next 'b) #f)
+      (def failure (caught (cut (graph.schedule-reads schedule) 'b)))
+      (check-equal? (and (graph.failure? failure) (graph.failure-kind failure)) 'unsupported)
+      (check-equal? (graph.schedule-order schedule) '(a))
+      (def retired (cache.%revise-with-builder next [] builder retired: '(a) before?: before?))
+      (check-equal? (rbtree-size (cache-patch retired)) 1)
+      (check-equal? (cache.cache-ref retired 'a) #f)
+      (check-equal? (value old 'a) 1))
     (test-case "explicit representative enumeration skips intermediate revision rosters"
       (def old (graph.schedule-owned '(a) []))
       (def enumerated [])
