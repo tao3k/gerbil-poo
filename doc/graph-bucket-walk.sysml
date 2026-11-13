@@ -39,6 +39,12 @@ package GraphBucketWalk {
                Transfer it in source-order reader representation to owned
                state. For other partitions, construct the full inverse. */
     }
+    requirement def CertificateRefusalOrder {
+        doc /* Save the first invalid quotient edge in source owner order.
+               At each owner, check spanning before reporting that owner's
+               saved quotient error. A later owner cannot mask an earlier
+               failure. Complete both checks before transferring ownership. */
+    }
     requirement def EditedSearchFrontier {
         doc /* Charge every live edge in the edited bucket, including edges
                outside the rank interval. Only accepted owners contribute fresh

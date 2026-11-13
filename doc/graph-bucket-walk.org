@@ -259,3 +259,18 @@ were 22.45 and 19.30 seconds before, and 21.81 and 20.28 seconds after.
 Wall and sampled peak memory also varied in opposite directions across
 pairs. The candidate was withdrawn because the end-to-end comparison
 did not establish a consistent improvement.
+
+* Certificate refusal order
+
+The quotient pass saves the first offending edge in source owner order.
+The final pass checks the spanning certificate of each owner before
+reporting the saved quotient edge at that owner. The Lean theorem
+=CertificateRefusal.first_refusal_exact= proves equivalence to checking
+both obligations in order on each distinct owner. This proof starts
+after each row's first offending edge has been selected.
+
+The Graph regression supplies a false discovery partition directly to
+the private certifier. It checks both a spanning failure that precedes
+the same owner's quotient error and a quotient error that precedes a
+later owner's spanning failure. Raising the quotient error immediately
+was rejected by the first assertion, with the wrong edge =(b d)=.

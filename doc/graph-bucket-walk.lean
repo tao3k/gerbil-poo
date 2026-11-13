@@ -259,3 +259,70 @@ theorem certificate_inverse_eq [DecidableEq K] (representative : K → K)
   simp [readers, whole, size]
 
 end WholeComponentInverse
+
+namespace CertificateRefusal
+
+variable {Owner Failure : Type}
+
+-- The quotient scan saves one failure, indexed by the first offending owner.
+-- The final pass checks spanning before reporting that owner's quotient failure.
+def firstFailure (span quotient : Owner → Option Failure) :
+    List Owner → Option Failure
+  | [] => none
+  | key :: rest => (span key).orElse (fun () =>
+      (quotient key).orElse (fun () => firstFailure span quotient rest))
+
+def firstQuotient (quotient : Owner → Option Failure) :
+    List Owner → Option (Owner × Failure)
+  | [] => none
+  | key :: rest => match quotient key with
+    | some e => some (key, e)
+    | none => firstQuotient quotient rest
+
+def savedFailure [DecidableEq Owner] (span : Owner → Option Failure)
+    (saved : Option (Owner × Failure)) : List Owner → Option Failure
+  | [] => none
+  | key :: rest => (span key).orElse (fun () =>
+      match saved with
+      | some (owner, e) =>
+        if owner = key then some e else savedFailure span saved rest
+      | none => savedFailure span none rest)
+
+theorem no_quotient_before_saved (quotient : Owner → Option Failure)
+    (keys : List Owner) (key : Owner) (absent : key ∉ keys) :
+    ∀ e, firstQuotient quotient keys ≠ some (key, e) := by
+  induction keys with
+  | nil => simp [firstQuotient]
+  | cons head tail ih =>
+    have h : key ≠ head ∧ key ∉ tail := by simpa using absent
+    intro e
+    cases q : quotient head with
+    | none => simpa [firstQuotient, q] using ih h.2 e
+    | some failure =>
+      simp [firstQuotient, q, Ne.symm h.1]
+
+theorem first_refusal_exact [DecidableEq Owner] (span quotient : Owner → Option Failure)
+    (keys : List Owner) (distinct : keys.Nodup) :
+    savedFailure span (firstQuotient quotient keys) keys = firstFailure span quotient keys := by
+  induction keys with
+  | nil => rfl
+  | cons key rest ih =>
+    cases s : span key with
+    | some e => simp [savedFailure, firstFailure, s]
+    | none =>
+      cases q : quotient key with
+      | some e => simp [savedFailure, firstFailure, firstQuotient, s, q]
+      | none =>
+        have h := List.nodup_cons.mp distinct
+        have tail := ih h.2
+        cases saved : firstQuotient quotient rest with
+        | none => simpa [savedFailure, firstFailure, firstQuotient, s, q, saved] using tail
+        | some entry =>
+          obtain ⟨owner, e⟩ := entry
+          have different : owner ≠ key := by
+            intro equal
+            subst owner
+            exact no_quotient_before_saved quotient rest key h.1 e saved
+          simpa [savedFailure, firstFailure, firstQuotient, s, q, saved, different] using tail
+
+end CertificateRefusal

@@ -1,6 +1,7 @@
 ;;; Graph properties and scale accounting through the existing POO APIs.
 (export graph-algorithms-test main small-reachability-study compact-study shared-cyclic-study)
 (import :std/test :std/iter :clan/poo/object :clan/poo/mop
+        (only-in :std/error Error? Error-message Error-irritants)
         (only-in :gerbil/runtime/gambit string->uninterned-symbol)
         (only-in :gerbil/runtime/interface interface-instance-object)
         (only-in :gerbil/runtime/hash symbol-hash-table?)
@@ -224,6 +225,26 @@
         (display "GRAPH-MEMBERSHIP-SCALE ")
         (write (list kind size (cons 'captured-partition-preparation preparation)
                      (cons 'indexed-comparison comparison))) (newline)))))
+
+(extern namespace: clan/poo/strong-components finish-partition)
+
+(def (check-certificate-refusal)
+  (test-case "independent SCC certificate reports the first bad owner"
+    (def (refuses message irritants keys rows)
+      (def owners (list->hash-table-eq '((a . 0) (b . 0) (c . 1) (d . 2))))
+      (check-exception
+        (finish-partition keys (list->hash-table-eq rows) 4 2 owners 4 3 2 4 4)
+        (lambda (cause)
+          (and (Error? cause) (equal? (Error-message cause) message)
+               (equal? (Error-irritants cause) irritants)))))
+    ;; b cannot return to a. Its invalid outgoing quotient edge must not
+    ;; take precedence over the spanning failure on that same owner.
+    (refuses "invalid SCC spanning certificate" '(b)
+      '(a b c d) '((a b) (b d) (c) (d)))
+    ;; Here an earlier owner has a bad quotient edge. A later missing span
+    ;; must not hide that earlier failure.
+    (refuses "invalid SCC quotient certificate" '(c d)
+      '(c d a b) '((a b) (b) (c d) (d)))))
 
 ;; Separate registration closures so Gambit emits smaller C host functions.
 (def (check-graph-properties)
@@ -523,6 +544,7 @@
 
 (def graph-algorithms-test
   (test-suite "indexed Graph properties and scale"
+    (check-certificate-refusal)
     (check-graph-properties)
     (check-generated-graphs)
     (check-scale-graphs)
