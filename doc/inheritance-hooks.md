@@ -38,6 +38,13 @@ automatically merged into a new protocol. Hook failure clears partial constructi
 state. Reading a receiver during its own construction refuses instead of exposing
 an incomplete instance. Hook/source edits while checking C3 are also rejected.
 
+## Missing slots
+
+`no-applicable-method(receiver, slot)` handles a missing slot, using the CLOS
+hook name. `fallback-to(thunk)` supplies this hook and obtains its delegate
+on demand. Presence and name queries use the same delegate. Existing local
+slots, including slots with value `#f`, take precedence.
+
 ## Source mutation and cache validity
 
 `object-state.ss` owns revisions and weak reverse dependency edges. Constructors

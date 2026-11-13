@@ -74,4 +74,4 @@
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (recursive-revision-test)
-  (let () (include "recursive-approvals/recursive-revision.scm")))
+  (let () (include "recursive-approvals/recursive-revision.ss")))

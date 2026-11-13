@@ -2166,7 +2166,7 @@ ordered/unique parent recording. Host identity interpretation, faithful finite
 weak registration, standard collectors and sequential publication are premises;
 callback termination, allocator/GC and compiler behavior are not theorems.
 
-Receiver-bound issuance/replay now lives in `object/observation.scm`, included
+Receiver-bound issuance/replay now lives in `object/observation.ss`, included
 under the EXISTING Object namespace. Standard make tracks it with `extra-inputs`;
 benchmark source identities include it and the existing Slot observation module.
 This adds no runtime image or namespace. Object and paired-runner sources remain

@@ -1,5 +1,7 @@
-;;; Read provenance and metadata routes; no receiver getters or user callbacks.
-(export require-read-route! make-read-issuer symbolic-write-route-current? gc-table-route-current?
+;;; Issuance verifies who created a Slot read and which fields it contained.
+;;; Dispatch checks inspect the live HashTable methods used to verify that
+;;; read against the receiver's stored state, without invoking those methods.
+(export require-read-route! make-read-issuer standard-symbol-table-writes? gc-table-route-current?
         %issued-read? %read-issuance)
 (import (only-in ./slot-layout slot-value-storage make-slot-values) :std/error ./slot-observation
   (prefix-in (only-in :gerbil/runtime/mop object? object-class make-class-slot-accessor
@@ -30,11 +32,9 @@
   (record-birth-field clan/poo/slot-observation#slot-read-birth)
   (record-birth-set! clan/poo/slot-observation#slot-read-birth-set!))
 
-;; A method installation interval may omit repeated protocol selection only
-;; when its actual writes cannot dispatch an author effect. Inspect the selected
-;; wrapper fields without invoking them; changed routes use the ordinary loop.
-;; Rehash also uses the backend hash/test, so checking set! alone is insufficient.
-(def symbolic-write-route-current?
+;; Does table use Gerbil's symbolic set!, symbolic hash, and eq? without a lock?
+;; Insertion can rehash, so checking set! alone is insufficient.
+(def standard-symbol-table-writes?
   (let* ((sample (make-hash-table-symbolic))
          (wrapper (read-runtime.object-class sample))
          (object-field (read-runtime.make-class-slot-accessor wrapper 'object))
@@ -81,8 +81,8 @@
              (and (read-runtime.object? backend)
                   (eq? (read-runtime.object-class backend) gc-hash-table::t)))))))
 
-;; Validate the actual selected metadata route, without calling its methods.
-;; This is a serial supported-runtime guard, not a sandbox against raw FFI writes.
+;; Expected HashTable class, field offsets and procedures for checking an
+;; issued read. The vector-backed store uses a symbolic table to index its cells.
 (defstruct route (wrapper ref backend hash test object-field ref-field object-offset ref-offset) final: #t)
 ;; Pin only class/method identities, never a receiver, value or validation result.
 (defstruct value-route (ref backend shape missing cells-field missing-field shape-field indices-field) final: #t)

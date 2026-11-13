@@ -58,7 +58,7 @@
     (gxc: "table-validation-test" (extra-inputs: ("table-validation/table-selection.scm" "table-validation/cases.scm")))
     "table-wrapper-test")
     ("components"
-    (gxc: "component-membership-test" (extra-inputs: ("component-membership/cases.scm" "component-membership/component-migration.scm" "component-membership/component-requests.scm" "component-membership/component-rounds.scm"))))
+    (gxc: "component-membership-test" (extra-inputs: ("component-membership/cases.scm" "component-membership/component-migration.scm" "component-membership/component-requests.ss" "component-membership/component-rounds.scm"))))
     ("construction"
     ;; The owned inverse study imports this kernel through the standard root.
     (gxc: "graph-order-repair-test" (extra-inputs: ())
@@ -67,7 +67,7 @@
     ("contracts"
     (gxc: "object-contract-test" (extra-inputs: ("object-contract/class-validation.scm" "object-contract/computed-validation.scm" "object-contract/container-validation.scm" "object-contract/contract-checks.scm" "object-contract/contract-family.scm" "object-contract/contract-publication.scm" "object-contract/evidence-binding.scm" "object-contract/object-contract-flow.scm" "object-contract/cases.scm")))
     (gxc: "object-contract-validation-test" (extra-inputs: ("object-contract-validation/cases.scm" "object-contract-validation/optional-validation.scm" "object-contract-validation/protected-dispatch.scm")))
-    (gxc: "recursive-approvals-test" (extra-inputs: ("recursive-approvals/cases.scm" "recursive-approvals/recursive-competition.scm" "recursive-approvals/recursive-coordination.scm" "recursive-approvals/recursive-migration.scm" "recursive-approvals/recursive-publication.scm" "recursive-approvals/recursive-recovery.scm" "recursive-approvals/recursive-restaging.scm" "recursive-approvals/recursive-revision.scm")))
+    (gxc: "recursive-approvals-test" (extra-inputs: ("recursive-approvals/cases.scm" "recursive-approvals/recursive-competition.scm" "recursive-approvals/recursive-coordination.scm" "recursive-approvals/recursive-migration.scm" "recursive-approvals/recursive-publication.scm" "recursive-approvals/recursive-recovery.scm" "recursive-approvals/recursive-restaging.scm" "recursive-approvals/recursive-revision.ss")))
     (gxc: "recursive-validation-test" (extra-inputs: ("recursive-validation/recursive-staging.scm" "recursive-validation/recursive-submissions.scm" "recursive-validation/recursive-topology.scm" "recursive-validation/cases.scm")))
     (gxc: "service-bundle-test" (extra-inputs: ("service-bundle/cases.scm" "service-bundle/service-metadata.scm" "service-bundle/service-revisions.scm" "service-bundle/shared-approvals.scm")))
     "variant-validation-test")
@@ -76,12 +76,12 @@
     ("declarations"
     (gxc: "generalized-declaration-test" (extra-inputs: ("generalized-declaration/catalog-inference.scm" "generalized-declaration/declarative-metadata.scm" "generalized-declaration/cases.scm" "generalized-declaration/meta-prototype.scm" "generalized-declaration/recursive-declaration.scm"))))
     ("feedback"
-    (gxc: "graph-algorithms-test" (extra-inputs: ("graph-algorithms/baseline.scm"
-      "graph-algorithms/discovery-study.scm"
-      "graph-algorithms/compact.scm"))
+    (gxc: "graph-algorithms-test" (extra-inputs: ("graph-algorithms/baseline.ss"
+      "graph-algorithms/discovery-study.ss"
+      "graph-algorithms/compact.ss"))
       ;; This root contains frozen kernels used for timed production comparisons.
       "-cc-options" "-O2 -D___SINGLE_HOST_LIMIT=4096")
-    (gxc: "feedback-closure-test" (extra-inputs: ("feedback-closure/cyclic-access.scm" "feedback-closure/feedback-cache.scm" "feedback-closure/cases.scm")))
+    (gxc: "feedback-closure-test" (extra-inputs: ("feedback-closure/cyclic-access.scm" "feedback-closure/feedback-cache.scm" "feedback-closure/cases.ss")))
     "feedback-graph-test"
     "feedback-revision-test")
     ("generalized"
@@ -98,9 +98,9 @@
     "class-diagnostics-test"
     "inheritance-hooks-test"
     "issued-read-test"
-    (gxc: "object-test" (extra-inputs: ("object/lifecycle.scm" "object/mop.scm" "object/cases.scm" "object/parameters.scm" "object/slot-observation.scm" "object/support.scm"))))
+    (gxc: "object-test" (extra-inputs: ("object/lifecycle.scm" "object/mop.scm" "object/cases.scm" "object/parameters.scm" "object/slot-observation.ss" "object/support.scm"))))
     ("publication"
-    (gxc: "joint-publication-test" (extra-inputs: ("joint-publication/approval-revision.scm" "joint-publication/joint-admission.scm" "joint-publication/joint-installation.scm" "joint-publication/cases.scm" "joint-publication/joint-receipts.scm"))))
+    (gxc: "joint-publication-test" (extra-inputs: ("joint-publication/approval-revision.ss" "joint-publication/joint-admission.scm" "joint-publication/joint-installation.scm" "joint-publication/cases.scm" "joint-publication/joint-receipts.scm"))))
     ("recovery"
     "coordinator-interleaving-test")
     ("recursion"

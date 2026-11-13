@@ -1,219 +1,43 @@
-#+title: Prepared component family: owned keys and one native index
+#+title: Component family membership
 
-* Contract before Scheme
+* Prepared families
 
-=component-group-builder= already indexes every selected focus in its private
-=lenses= hash table, but checks members using =memq= against its original
-caller-owned key list. N successive singleton requests can therefore scan
-N(N+1)/2 cells. Membership and focus lookup can also disagree if the caller
-or a focus callback edits that original list.
+=component-group-builder= owns a copy of the declared family keys and
+selects each focus once in declaration order. Its private =lenses= table
+already maps each family key to its Lens. A group request can use
+=hash-key?= on that table to check that all requested keys belong to the
+family. An absent key is refused before any component program runs.
 
-Validate the original family first, preserving its existing error/constructor
-order. Copy its list spine BEFORE the first focus callback. Select every focus
-once in captured order. That existing private table can supply BOTH membership
-and focus lookup when its callback-free route is authenticated; query
-=hash-key?=, never the truthiness of the focus value. An unknown route keeps
-the original pure =memq= check against the owned names.
-No new table/cache, retained evaluator or public interface is added.
+The table can answer membership only while its construction and lookups use
+Gerbil's standard identity-table methods. A focus callback can change those
+methods, so the builder checks again before using the table. Once the check
+fails, membership uses the owned list for the rest of that builder's life.
+The original focus operations still run.
 
-[[file:component-family.lean][Lean]] proves successful capture has exactly the captured key sequence even
-when focus callbacks modify arbitrary caller state or fail. On that domain,
-index and list checks have identical first refusal, including non-symbol
-members, and run the same arbitrary continuation only on successful entry.
-It also proves the triangular cons-cell work of successive linear singleton
-checks. It does NOT prove O(1) native hashing, a millisecond budget, or Gerbil
-physical-copy correctness. Those are separate implementation/runtime gates.
-[[file:component-family.sysml][SysML]] records the same obligations.
+This family-wide check does not decide where a component equation reads
+its dependencies. A dependency in the current SCC uses the current
+fixed-point input. An external dependency uses the closed predecessor.
+The family index also contains keys outside that SCC. The first-use SCC
+index experiment was dropped after the sparse cold lookup at one million
+members went from 4.6830 to 180.0730 ms CPU.
+[[https://github.com/tao3k/gerbil-poo/blob/f9d56443b3b56be6dfbac73441fe0996e5447565/doc/component-routing.org][Archived experiment]]
 
-Ownership is an intentional correction of the old aliasing behavior: after
-preparation, editing the caller list cannot add/remove family members or
-change which focuses were selected. The normal immutable-input behavior is
-unchanged. Focus-object mutation remains subject to existing source guards;
-copying the key spine does not authenticate a lens or waive an effect check.
+* Checks and measurements
 
-* Native refinement and focused evidence
+[[file:../t/components/component-membership-test.ss][Component tests]] exercise caller-list edits,
+focus callback order, wrong keys and the admission checks for prepared lenses.
+[[file:../t/feedback/feedback-graph-test.ss][Feedback tests]] exercise changes to the table adapter.
+[[file:component-family.sysml][SysML]] describes the ownership and effect boundaries.
+The [[file:component-family.lean][family-index model]] checks the captured domain,
+first refusal and retirement of the shortcut.
 
-Gerbil's lowered production module places the existing validation before
-=list-copy= and the lens-table constructor, then iterates the private names.
-No new table or constructor is added. No focus/source/program callback is
-executed by the membership query. The original forms, source guards, closure
-and residual paths remain untouched. Native hashing/copy behavior is trusted
-runtime code exercised by these checks, not proved Gerbil/compiler correctness.
+The prepared lookup study compares the family scan with the existing index.
+Both arms start after family construction and make 256 membership queries.
+CPU medians in milliseconds:
 
-The original five Lean theorems pass 4.35.0 with only propext/Quot.sound and no sorry.
-The initial Lean check found reserved-word/type errors; corrected before
-Scheme implementation. It is not counted as a passing proof run.
+| Family keys | List | Checked index |
+|-------------+------+---------------|
+|     100,000 | 282.7980 | 0.0465 |
+|   1,000,000 | 181.5160 | 0.0325 |
 
-The optional index study compares the ORIGINAL memq predicate with the new
-presence predicate on an ALREADY PREPARED family. Native lens index and 32
-stratified query identities are common, outside timing; each window executes
-8 batches, total 256 queries. Preparation is excluded on BOTH arms because
-production already owns the table for focus lookup. Not cold construction,
-Module loading, business .get, or one-million independent POO objects.
-
-Same-process natural-GC CPU/wall medians ms, four paired observations/arm:
-
-| Prepared names | List CPU | Indexed CPU | List wall | Indexed wall |
-|----------------+----------+-------------+-----------+--------------|
-| 100000 | 112.3275 | 0.0225 | 115.3800 | 0.02146 |
-| 1000000 | 152.8915 | 0.0290 | 153.2851 | 0.02849 |
-
-Every timed window has zero GC. Retain A/A and B/B too: 100K CPU medians
-97.8115/0.0145 ms, 1M 152.6135/0.0185 ms (two observations/arm). These tiny
-indexed timings include harness/clock resolution, not calibrated nanoseconds
-per lookup. Do not infer a physical tenfold time ratio from the family sizes.
-All names and exact cardinality are checked outside timing. Small controls
-cover duplicate requests, uninterned symbol identity, non-symbol/missing
-members, false stored values and unchanged native RNG state.
-
-The study passes two cases with all module/case/harness/final markers and
-natural exit: 7.67 s invocation wall, 4.36 user, 0.48 system; peak invocation
-RSS 646,856,704 bytes, unchanged 2GiB heap/180-second watchdog.
-
-The actual builder test selects focuses once, mutates the caller's input from
-inside focus, edits it again after preparation, then closes both original
-members successfully. Foreign/replacement/non-symbol members refuse before
-any source-code callback. It also retains the original focus-call sequence.
-An initial test used a def counter baseline captured before the earlier
-effectful checks; its real harness failure is retained. An explicit later let
-captures the correct baseline. That test repair is not an algorithm rejection.
-
-Two isolated native faults compile successfully and exit 1 on real checks:
-
-- Remove private list copying: observed focus order becomes =(a foreign)=,
-  failing the =(a b)= oracle.
-- Admit every symbol: a later missing-focus error still occurs, but source
-  callback count rises from 2 to 4. The counter rejects that misplaced failure;
-  merely seeing an exception is insufficient.
-
-The source is restored after both faults. No timeout/compiler failure counts
-as a refusal control, no failed sample is discarded, and raw logs stay local.
-
-This fixes large-family membership scaling and alias isolation. The earlier
-10K publication fixture has only TWO lens-family keys, so it cannot establish
-a total cold-publication speedup from this change. Full Module EVAL and the
-remaining complete-closure costs stay separate open gates. Publication state
-transitions are unchanged; QNT has not been rerun or claimed here.
-
-* Route qualification: mathematical domain is not effect equivalence
-
-The original native refinement above needed an additional premise: an adapter
-query must not invoke author code. A real control against the unguarded
-implementation installs a forwarding HashTable =ref= method and observes one
-foreign-key callback before refusal, where the original list check requires
-zero. This is a functional regression, not a timeout or compiler failure.
-
-Three additional Lean theorems discharge the abstract obligations:
-
-- =guarded_member_exact=: an eligible current route must return the captured
-  membership with unchanged state; otherwise use the pure scalar answer.
-- =retired_stays_retired=: restoring metadata cannot reactivate a family
-  whose construction or operations crossed an unknown route.
-- =tracked_operation_exact=: retiring the shortcut preserves the original
-  operation's result, error and external effects.
-
-All eight theorems pass pinned Lean 4.35.0, with only propext/Quot.sound.
-The native frame premise remains an implementation obligation, not a theorem
-about Gerbil machine code. Scheme checks descriptor/wrapper identity, live
-physical offsets, exact GC ref/set methods and backend class without invoking
-methods or constructing a sample table. It checks after focus callbacks,
-before original writes/reads, and once per callback-free membership batch.
-Unknown routes permanently retire the shortcut; original operations still run.
-This follows the existing serial supported-runtime contract; concurrent raw
-mutation of Gerbil runtime metadata is outside that contract.
-
-Focused native controls pass: moved physical field rejects eligibility;
-custom ref/set adapters retain original focus operations but cannot run a
-foreign lookup during refusal; a setter which drops a declared key retains
-the original later lookup error, after the source-code callback. These test
-both refusal ordering and successful-entry effect ordering.
-
-An earlier experimental restoration control assumed typed calls would dispatch
-a globally replaced setter. Native specialization did not follow that assumed
-path. Its failure is retained locally and supplies no runtime restoration
-evidence. Monotone retirement is proved in Lean and implemented by a one-way
-flag; that experiment is not counted as an additional passing control.
-
-** Complete construction proof
-
-The follow-up strengthens the proof for the production implementation at
-=424e525=; it makes no additional Scheme change. Six further theorems connect
-the empty private table, successive successful writes and final membership:
-
-| Lean theorem | Production obligation |
-|--------------+-----------------------|
-| =write_preserves_domain= | An authenticated insertion adds exactly its captured key. |
-| =unknown_write_retires= | An unknown write cannot leave an eligible certificate. |
-| =construction_domain= | The exact-domain invariant holds over every completed prefix. |
-| =retired_construction_stays_retired= | All later writes, even known ones, preserve retirement. |
-| =written_keys= | The accumulated domain contains exactly the completed captured keys. |
-| =completed_index_domain= | From an empty table, a trusted completed index answers exactly that domain. |
-
-Unknown writes have entirely arbitrary resulting contents, including dropped
-and injected keys. Their effects are not assumed to be lawful insertions.
-A counterexample demonstrates that keeping trust after dropping a declared
-write violates the domain invariant. Failed callbacks/writes produce no
-completed index; the existing Scheme exception propagates before returning a
-builder. This matches the real adapter and missing-write controls above.
-
-There are now fourteen named theorems, all checked with pinned Lean 4.35.0;
-only propext/Quot.sound occur, no sorry or new axiom. One intermediate proof
-failed to rewrite the accumulated reverse list explicitly; that failed output
-is retained and not counted as a successful check. The corrected proof also
-removes an unused typeclass premise from the structural key-list theorem.
-
-The native write law and private-table ownership remain explicit refinement
-premises. This is not a verification of Gerbil's compiler or arbitrary global
-runtime mutations. No production scan, constructor, cache or callback is
-added by these proofs. They make the existing one-index optimization's
-construction argument precise, rather than granting reuse from set equality
-alone. No additional performance improvement is claimed.
-
-** Guarded query study
-
-The study now includes the live route guard in every 32-query batch. A fresh
-same-process interleaved run gives these medians in milliseconds (four paired
-observations per arm, 256 queries per observation):
-
-| Prepared names | List CPU | Guarded index CPU | List wall | Guarded index wall |
-|----------------+----------+-------------------+-----------+--------------------|
-| 100000 | 282.7980 | 0.0465 | 1890.2124 | 0.04649 |
-| 1000000 | 181.5160 | 0.0325 | 411.1824 | 0.03302 |
-
-All windows have zero GC and 480 raw allocated bytes per observation on both
-arms. Retained A/A CPU medians are 200.1465/178.1875 ms (100K/1M); B/B are
-0.0205/0.0215 ms. Invocation exits naturally, 42.69 s wall / 6.70 user /
-1.39 system. Large wall/CPU separation is visible in this run; do not compare
-its absolute wall times with the earlier run as a controlled regression test.
-The live guard retains the prepared-query benefit; this is still neither
-cold family construction nor full Module EVAL.
-
-After the route fix and all native recompilations finish, serial existing Just
-gates pass: objects 171 cases, feedback 60 cases, construction 44 cases, and
-the frozen 1K/10K owned-publication case. All have module/case/harness/final OK,
-no error/overflow markers and natural exit. Publication takes 7.78 s invocation
-wall / 5.65 user / 0.73 system under the original 180-second watchdog and
-2GiB POO heap. No Core 10K Module or Lab acceptance is inferred from this.
-
-The preceding public head =7bb49dc= separately completed all 30 Scheme CI
-jobs (run =43204215702=). These local route-fix results do not substitute for
-CI on the new commit.
-
-* Original integration gates before route qualification
-
-After both faults are restored and native recompilation is complete:
-
-- Feedback: 57 cases, 20.05 s invocation wall / 11.68 user / 1.32 system;
-  peak invocation RSS 597,278,720 bytes.
-- Construction/cache/order repair: 44 cases, 6.63 s wall / 3.45 user / 0.70
-  system; peak invocation RSS 430,931,968 bytes.
-- Existing frozen 1K/10K publication/revision/demand fixture: natural exit in
-  10.93 s wall / 6.26 user / 1.04 system; peak invocation RSS 899,530,752 bytes,
-  unchanged 180-second watchdog and 2GiB POO heap.
-
-All require module/case/harness/final OK and no error/overflow marker. The 10K
-edits retain one source row, two inverse buckets, two value writes and 15 guard
-node writes; no-op controls write zero. Full cold publication is 2821.471 ms
-CPU / 3624.812 ms wall, including 903.927 ms GC CPU and 12 collections. Retain
-it: this TWO-key-family fixture is not a paired scaling-performance claim for
-the new membership index. Source/currentness/approval checks remain intact.
+[[file:../benchmarks/component-family-test.ss][Benchmark source]] · [[https://github.com/tao3k/gerbil-poo/blob/f9d56443b3b56be6dfbac73441fe0996e5447565/doc/component-family.org][Measurements and controls]]

@@ -149,7 +149,9 @@ continuation rejection, no-op retirement, paired projections and guarded-read la
 Core's existing `GraphSnapshot` model adds metadata-head and family-isolation
 invariants with matched faults; neither model is a native compiler/mutex proof.
 
-The local [publication transition proof](component-publication.lean) separates
-the installed epoch from the restaged lineage version and composes their checks
-across the failed-replacement trace. The [refinement record](component-publication.org)
-maps the model to the lock boundaries and the native two-thread control.
+A denied replacement preserves the installed snapshot and retires the older
+ticket in that request family. The final check under the publication lock
+therefore checks both snapshot identity and request lineage after approval.
+The two-thread test pauses an old submitter in approval, restages and denies
+its replacement, then checks that the old submitter cannot publish.
+[LeanPoo proof](https://github.com/tao3k/lean-poo/blob/31b550d15e81b095795078efb8344442d8ba6edd/LeanPoo/Functional/ComponentPublication.lean#L106-L132) · [SysML](component-publication.sysml)

@@ -50,13 +50,24 @@ records the inputs, comparison revisions, capture, validation, GC and output
 costs. The discovery figures cover the SCC kernel. Yuanxu Module admission
 and first business demand have separate measurements.
 
+* Relation to POOF
+
+Rideau, Knauth and Amin describe selective invalidation in POOF §6.2:
+
+#+begin_quote
+the system can automatically track which mutations happen, and invalidate those caches that need be
+#+end_quote
+
+POO applies this to declared reads and tracked revisions. The reverse
+dependency index identifies consumers of an edited input. Graph repair updates
+the order or SCC partition, and publication checks that the edited snapshot
+is still current. [[https://github.com/metareflection/poof/blob/532e0c8aa6f3168e374604cb8aa7818870694bf6/poof.scrbl#L1527-L1556][POOF §6.2, Cache invalidation]]
+
 * References
 
 - [[https://arxiv.org/abs/2201.07197v3][Tarjan and Zwick, Finding Strong Components Using Depth-First Search]] describes Algorithm T and the traversal state used by SCC discovery.
 - [[https://www.doc.ic.ac.uk/~phjk/Publications/DynTopoSortWEA2004.pdf][Pearce and Kelly, A Dynamic Topological Sort Algorithm for Directed Acyclic Graphs]] describes order repair via affected vertices.
-- [[https://github.com/metareflection/poof][POOF]] describes shared object dictionaries and mutation invalidation.
 
-The [[https://github.com/tao3k/gerbil-poo/blob/b4270e4157aae4a6336b6df74ed1aa623d5977f8/doc/graph-algorithm-selection.org][research history]]
-records earlier implementations, paper references, and rejected candidates.
-The [[file:component-routing.org][component-group membership study]] records
-why first-use indexing was withdrawn.
+The fixed [[https://github.com/tao3k/gerbil-poo/tree/f9d56443b3b56be6dfbac73441fe0996e5447565/doc][research archive]]
+retains the cold-index, forward-row, bucket-walk, cold-handoff, roster and
+frontier studies. The benchmark report gives the current measurement windows.

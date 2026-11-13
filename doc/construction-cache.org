@@ -126,32 +126,6 @@ transposition. Seven 10,000-owner families include a deep chain, giant cycle,
 trap ensures partitioning evaluates no providers. Lowlink and normalization
 implementation mutations must fail with their intended semantic errors.
 
-* Graph measurement boundary
-
-The existing ~just benchmark-scc~ preserves its original 320 observations.
-The completed intermediate cut at =0a0aeb2= measured 10,000/100,000 nodes.
-The clarified node-capacity contract below replaces those performance sizes
-with 100,000/1,000,000; the older figures remain historical evidence. ABBA/AABB
-and natural/collected GC regimes share the same source in each paired block;
-full group/permutation oracles run outside timing. The frozen former SCC
-strategy is test-only, from ~cd4de64~. Raw logs stay outside source control.
-
-Local macOS/Gerbil qualification on 2026-11-08 (2-GiB heap):
-
-| Window | CPU seconds | Meaning |
-|--------+-------------+---------|
-| 10,000-pair-node baseline partition | 2.018–2.212 | Former production strategy, prepared source |
-| Same prepared source, certified Tarjan | 0.0331–0.0411 | Includes independent SCC certificate |
-| Fresh metadata partition, six sparse shapes | 0.1296–0.1585 | Includes first POO metadata access and GC |
-| Fresh band partition, 159,864 edges | 0.2662 | Includes first metadata and certificate |
-| Full 10,000-owner DAG update | 0.0181–0.0556 | Same prepared immutable source |
-| Local DAG update | 0.00683–0.00746 | Includes linear snapshot copy/list output |
-
-Preparation, GC and source creation are printed separately. Native allocation
-deltas are signed diagnostics; values spanning collection are not allocation
-savings. These windows exclude import/compilation and process exit. They are
-not measurements of Yuanxu Interface admission or first business ~.get~.
-
 * Indexed historical membership comparison
 
 =recursive-topology.changed-members= now queries the partition's existing
@@ -179,26 +153,8 @@ Historical membership observations never authorize value, source or publication
 reuse. Recursive catalogs retain their existing nonempty admission contract and
 independent before/after currentness checks.
 
-The indexed-membership cut =0a0aeb2= passed the existing Benchmark TestSuite on
-2026-11-08 with MODULE-OK, HARNESS-OK, final OK and natural return (84.84 s
-measurement-suite wall time; build preparation excluded). Same 2-GiB heap:
-
-| CPU window | 10,000 owners | 100,000 owners |
-|------------+---------------+----------------|
-| First metadata + certified SCC, seven shapes | 0.1304–0.2771 s | 1.5858–2.9306 s |
-| Historical membership, five shapes | 4.43–7.27 ms | 57.76–142.14 ms |
-| Full DAG update, eight observations | 16.53–27.97 ms | 214.88–345.09 ms |
-| Local DAG update, eight observations | 6.58–7.37 ms | 70.45–180.10 ms |
-
-These min/max ranges describe the stated shapes/windows, not confidence
-intervals or full Module loading. Membership preparation at 100,000 owners
-takes 3.96–4.32 CPU seconds separately; the upper comparison sample includes
-57.75 ms GC CPU. Full/local DAG updates still include linear snapshot work.
-
-The cardinality-only implementation mutation compiled and failed naturally:
-seed 2947 fails trial 90 and the explicit equal-size/different-members case
-misses owners a/b. Source was restored. Its output prefix is retired before
-the final positive full check so numbered mutant objects cannot contaminate it.
+See the [[file:graph-benchmark.org][Graph benchmark]] for current workloads and measurements,
+and the [[https://github.com/tao3k/gerbil-poo/blob/f9d56443b3b56be6dfbac73441fe0996e5447565/doc/construction-cache.org][earlier study]] for the 10K/100K results and cardinality-only fault.
 
 * Shared settlement example
 
@@ -531,62 +487,3 @@ spread/direction and prefix counters. CPU minus GC CPU is an accounting residual
 isolated stages are not additive end-to-end attribution. Original 192-child
 receipts remain historical. See ~doc/performance/expansion-summary.org~ for the
 bounded current measurements and any adverse outcomes.
-
-* Graph nodes and real Modules are separate workloads
-
-Graph capacity starts at 100,000 nodes and extends to 1,000,000. Every
-observation reports edge counts, preparation, metadata getter and captured
-partition/certificate cost. The separate getter pass is diagnostic; it is not
-subtracted from partition time, which still includes its own getters and GC.
-Seven 100K shapes cover semantic diversity; million-node coverage concentrates
-on deep chains, many two-node SCCs, one giant SCC and the degree-16 band.
-Membership revision uses five 100K shapes and giant/merge/split at one million.
-The standard DAG full/local study uses the same two node-capacity sizes.
-
-Capacity fixtures use the existing Graph Declaration getter over frozen node
-metadata. They do not retain a business provider or import an Interface per
-node. SCC captures each declared footprint once; evaluator traps remain. The
-rank study shares one inert empty-footprint Computation across unchanged nodes.
-This is legal graph metadata sharing, not a successful-currentness cache.
-
-The old quadratic implementation now participates only in bounded correctness
-differentials, rather than rerunning ten-thousand-node timing as a capacity
-point. Existing small semantic and matched-fault controls remain. The million
-cut still requires native qualification under the unchanged 2-GiB heap.
-
-Yuanxu separately qualifies 10,000 real Modules: source/Interface admission,
-currentness, first business scope and selected build ownership. Its 180-second
-/ 4-GiB EVAL acceptance cannot be replaced by a million-node Graph traversal.
-
-* Reproducible Graph preparation
-
-Keep Gerbil/Gambit executable and runtime environment in the same cohort.
-The former local invocation prepended Homebrew tools after activating the Core
-compiler and therefore retained a different GERBIL_HOME/GAMBOPT. Treat those
-local timings as provisional; the public PR table now uses the completed
-=0a0aeb2= CI run (Gerbil 1cfb032 / Gambit ea114fc) instead. The new local
-Graph run uses that Homebrew executable/runtime cohort without Core activation.
-
-Graph measurement uses the existing =build-development.ss graph= selection.
-It projects the same authoritative production declarations and test-build
-declarations: the core library, closed-declarations, component-services,
-closure-measure, and the graph-algorithms/feedback-graph/graph-order-repair test
-roots. Compiler flags and extra-inputs remain owned by the existing helpers.
-There is no copied build inventory, new test runner, loader or result cache.
-Default production and full development build behavior remain unchanged.
-Interpreted Benchmark TestSuite files execute from checkout in CI; changing
-their labels must not invalidate the compiled-library cache.
-
-The mixed-cohort full local check is explicitly not a passed acceptance.
-Its completed development preparation took 1280.35 seconds before test runtime;
-it was stopped while compiling unrelated test partitions. Final complete
-acceptance remains required after the Graph implementation is frozen.
-
-The structure-dependent certificate candidate now passes the complete 100K/1M
-native TestSuite under that unchanged heap. The original 320 paired controls,
-32 bounded membership pairs and 32 rank pairs remain. A missing-lowlink native
-fault compiled and failed with the intended quotient-certificate error; restored
-properties and the focused make projection passed. The detailed workload, costs,
-prior heap failures and exact qualification boundary live in the
-[[https://github.com/tao3k/gerbil-poo/blob/b4270e4157aae4a6336b6df74ed1aa623d5977f8/doc/graph-algorithm-selection.org][recorded Graph study]]. No adaptive threshold or
-Yuanxu revision propagation is implied. Final remote Scheme CI remains separate.

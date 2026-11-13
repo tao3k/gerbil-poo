@@ -6,7 +6,7 @@
         (only-in ./read-route gc-table-route-current?)
         (prefix-in ./dependency-analysis code.))
 (extern namespace: clan/poo/generalized-declaration %fragment-preparation-current?)
-(extern namespace: clan/poo/object %cached-native-lens?)
+(extern namespace: clan/poo/mop %prepared-vector-lens?)
 ;; Only this constructor issues evidence for the actual returned procedure.
 ;; The weak identity set owns neither builder lifetimes nor computed results.
 (def member-builders (make-table test: eq? weak-keys: #t))
@@ -72,7 +72,7 @@
       (.o (kind 'fragment) (name key) (descriptor part))) members))
       (prepare-fragments GeneralizedDeclaration. (.o) cook forms))
     (def (warm-focus? key)
-      (%cached-native-lens? (hash-ref lenses key #f)))
+      (%prepared-vector-lens? (hash-ref lenses key #f)))
     ;; Validation only inspects warm lens metadata. Unknown construction
     ;; stays ordinary. The lens compiler and cook handoffs restore the
     ;; application policy at each actual callback.

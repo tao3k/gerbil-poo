@@ -105,7 +105,7 @@
     "strong-components"
     "feedback-graph"
     "reflection"
-    ,(production-module "object" ["object/observation.scm"])
+    ,(production-module "object" ["object/observation.ss"])
     "polynomial"
     "proto"
     "rationaldict"

@@ -12,7 +12,7 @@
         (only-in :gerbil/runtime/interface &interface-descriptor-type interface-instance-object)
         (only-in :gerbil/runtime/hash HashTable::interface)
         (only-in :gerbil/runtime/table raw-table-for-each &raw-table-free &raw-table-table symbolic-hash)
-        (only-in :clan/poo/read-route symbolic-write-route-current?)
+        (only-in :clan/poo/read-route standard-symbol-table-writes?)
         :clan/poo/prototype-map
         (only-in :std/list/list map-in-order)
         (only-in :std/hash/misc hash-ensure-modify!)
@@ -179,7 +179,7 @@
          (foreach-field (assembly.make-class-slot-accessor wrapper 'for-each)))
     (lambda (table)
       (and (eq? (&interface-descriptor-type HashTable::interface) wrapper)
-           (symbolic-write-route-current? table)
+           (standard-symbol-table-writes? table)
            (eqv? (assembly.class-slot-offset wrapper 'for-each) foreach-offset)
            (eq? (foreach-field table) raw-table-for-each)
            (let (backend (interface-instance-object table))
@@ -222,7 +222,7 @@
         (for (([slot . specs] (hash->list h)))
           (hash-put! h slot (compile-slot-specs self slot specs)))
         (hash->list h))))
-  (def closed? (and (pair? entries) (pair? (cdr entries)) (symbolic-write-route-current? h)
+  (def closed? (and (pair? entries) (pair? (cdr entries)) (standard-symbol-table-writes? h)
                     (not (object-protocol self))))
   (for (([slot . standard] entries))
     (def compiled (if (or closed? (bootstrap-anchor self slot)) standard

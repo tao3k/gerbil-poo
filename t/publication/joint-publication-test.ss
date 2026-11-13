@@ -29,7 +29,7 @@
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (approval-revision-test)
-  (let () (include "joint-publication/approval-revision.scm")))
+  (let () (include "joint-publication/approval-revision.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (joint-admission-test)

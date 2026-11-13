@@ -21,9 +21,9 @@
   (let-values (((result metrics) (raw-measure thunk repetitions collect?)))
     (values result (qualified-metrics metrics))))
 
-(include "graph-algorithms/baseline.scm")
-(include "graph-algorithms/discovery-study.scm")
-(include "graph-algorithms/compact.scm")
+(include "graph-algorithms/baseline.ss")
+(include "graph-algorithms/discovery-study.ss")
+(include "graph-algorithms/compact.ss")
 
 (def (names size)
   (list->vector (for/collect (i (in-range size))

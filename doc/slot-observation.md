@@ -111,54 +111,35 @@ it does not authenticate files, rewrite source provenance, or implement a Loader
 Eager `def-slots` extraction and closures over already-extracted scalars remain
 ordinary lexical captures. They are not retroactively receiver-aware references.
 
-## Issuance and selected metadata routes
+## Read issuance and replay checks
 
-`object.ss` owns both native issuance and replay; `mop.ss` reexports replay.
-`slot-observation.ss` only maintains dynamic observation frames and delivery.
-`object-read-issued?` answers whether a record has the native issuer's identity
-association and unchanged original payload. It is not a currentness check.
+Issuance records the receiver, key, revision, instance, value and ordered
+dependencies of a read. The issuer in `read-route.ss` associates the record
+with its original payload checker in a private weak table. A public
+`make-slot-read` record has no such association. `object-read-issued?` checks
+the association and payload. The receiver's revision and stored state are
+checked separately by replay in `object/observation.ss`.
 
-Persistent value/query records and transient cache-miss records use one private
-mint. The public seven-argument `make-slot-read` constructs a raw record and
-never authenticates it. Minting helpers are not module exports. A private weak
-identity map associates a record with its original frozen-payload closure. The
-record retains that closure; both map keys and values are weak, so the issuer
-does not become a global root. A live transient record remains verifiable after
-GC without adding it to the receiver's read/value cache.
+Replay authenticates the full selected dependency graph before calling its
+first observer. It checks and delivers reads in depth-first preorder, then
+independently verifies the reads after callbacks. In a callback-free sweep
+the same receiver's table checks can be shared. Each record still has its
+own issuance and stored-state check. [LeanPoo sweep equivalence](https://github.com/tao3k/lean-poo/blob/31b550d15e81b095795078efb8344442d8ba6edd/LeanPoo/Object/ReadRouteSharing.lean#L143-L149)
 
-Before calling a closure, verification compares its exact identity with the
-private association. Borrowing another record's closure, changing a signed
-field, or replacing the closure with a true-returning function is refused.
-Replay authenticates the complete selected graph before its first observer,
-then checks and observes in DFS preorder and repeats native checks in that same
-order. A forged child can therefore be refused before a stale authentic root;
-this is an entry policy, not diagnostic equivalence for malformed inputs.
+The table checks verify which Gerbil operations would run during a lookup.
+They inspect the wrapper and backend classes, live field offsets, lookup
+procedure, hash and equality procedures, and lock. For vector storage they
+check the lookup procedure before inspecting cells and the symbol-to-index
+table. The issuer and traversal use the Slot read record's declared field
+accessors so a change to reflective field names cannot redirect a signed
+dependency. [LeanPoo field checks](https://github.com/tao3k/lean-poo/blob/31b550d15e81b095795078efb8344442d8ba6edd/LeanPoo/Object/FixedFieldLayout.lean#L13-L24) · [Signed record proof](https://github.com/tao3k/lean-poo/blob/31b550d15e81b095795078efb8344442d8ba6edd/LeanPoo/Object/FixedFieldLayout.lean#L56-L78)
 
-The fixed native checker validates actual metadata dispatch: exact table/backend
-classes, `ref`, backend hash/equality procedure identities and no backend lock.
-It does not call those target methods to authenticate them, rebuild cleared
-caches, or force unselected getters. Custom table routes need separate auditing.
-The internal native key vocabulary remains closed and bounded.
+These checks cover supported serial edits. Raw reflective writes to private
+state and unsynchronized concurrent writes are outside that contract.
+[Issued read tests](../t/objects/issued-read-test.ss) cover export privacy,
+forgery, callback-time changes, refusal order and transient record lifetimes.
+[Read and replay measurements](performance/read-replay.org)
 
-The issuer and route checker bind field accessors to the exact runtime classes.
-After each class check, the accessor reads the live field at its fixed position.
-The vector route checks `ref` before value cells and shape, then validates the
-shape's symbolic index route. Issuance reads its private weak table through
-Gambit's table primitives. These operations retain the existing checks at both
-sides of an effectful callback.
-
-An observer remains an arbitrary application callback. Persistent replacement
-of a checker or metadata route is refused before subsequent dispatch, including
-in the final sweep. This is not proof that a callback never changed and restored
-external state. Unsafe closure inspection, private issuer mutation, replacement
-of trusted runtime primitives and unsynchronized concurrent writes are outside
-the supported serial boundary. Source-observer restrictions and external atomic
-commit protocols remain consumer responsibilities.
-
-`t/objects/issued-read-test.ss` exercises export privacy, actual persistent/miss issuance,
-forgery and payload rejection, complete dependency preflight, metadata-route
-replacement before/inside observation, simultaneous `ref` and shape replacement,
-and live/dead transient GC lifetimes.
 
 ## Inspecting issuance without granting it
 

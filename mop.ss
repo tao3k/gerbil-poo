@@ -3,7 +3,7 @@
 ;; Slogan: A Type meta-object as a prototype is a class descriptor,
 ;; as an instance is a type descriptor.
 
-(export #t (except-out (import: ./slot-observation) without-observation)
+(export (except-out #t %prepared-vector-lens?) (except-out (import: ./slot-observation) without-observation)
         replay-slot-reads! reobserve-slot-reads! call-with-current-slot-reads object-read-issued? object-read-issuance)
 
 (import ./slot-observation
@@ -587,8 +587,14 @@
   ((_ class (slotdefs ...) options ...)
    (.defclass (class) (slotdefs ...) options ...)))
 
+;; The component builder can reuse an already prepared focus with both Lens
+;; procedures stored in its vector. This check does not exercise the Lens laws.
+(extern namespace: clan/poo/object %prepared-vector-procedure-slots?)
+(def (%prepared-vector-lens? focus)
+  (%prepared-vector-procedure-slots? focus '(.get .set)))
+
 ;; Build the existing Lens protocol from pure callbacks, matching MonoLens.ofGetSet.
-;; Get/set laws remain caller premises; functions do not prove those laws by shape.
+;; Get/set laws remain caller premises.
 (def (lens-of-get-set getter setter)
   (unless (and (procedure? getter) (procedure? setter)) (error "lens callbacks required"))
   (instance Lens .get: getter .set: setter))

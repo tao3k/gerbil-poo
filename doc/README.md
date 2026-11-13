@@ -5,11 +5,13 @@
 | Objects and prototypes | [Object model](poo.md), [prototype programming](prototypes.md), [slot specifications](slot-specs.md) |
 | Object runtime | [Representations](representation.md), [inheritance hooks](inheritance-hooks.md), [slot observations](slot-observation.md) |
 | Types and contracts | [Prototype types](prototype-types.md), [object contracts](object-contracts.md) |
-| Graph and incremental evaluation | [Graph algorithms](graph-algorithm-selection.org), [benchmarks](graph-benchmark.org) |
+| Graph and incremental evaluation | [Graph algorithms](graph-algorithm-selection.org), [component families](component-family.org), [component publication](component-publication.md), [benchmarks](graph-benchmark.org) |
 | Collections | [Collection APIs](collections.md), [table indexes](table-indexes.md) |
+| I/O | [Byte I/O example](../examples/byte-io.ss) |
 | Testing | [Property tests](property-kernel.md), [build and test commands](test-execution.md), [CI checks](ci-checks.md) |
+| Formal models | [LeanPoo](https://github.com/tao3k/lean-poo) |
 
 Keep API behavior and invariants in the design page for the owning module.
-Link Lean and SysML files beside the rules they check. Put benchmark commands,
-workloads and results in the benchmark report. Keep earlier comparisons and
-withdrawn candidates in a linked study or a pinned Git revision.
+Link directly to the corresponding LeanPoo theorem and SysML contract. Keep
+benchmark workloads and results in the benchmark report. Cite a fixed Git
+revision for withdrawn experiments.

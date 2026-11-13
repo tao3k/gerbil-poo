@@ -44,8 +44,9 @@
 (def (comparing-key test: (test equal?) key: (key identity))
   (λ (x y) (test (key x) (key y))))
 
-;; Native preparation can choose private table seeds. Keep the mode lexical
-;; and thread-local. An application entry always uses the ordinary seed path.
+;; The hash seed for private construction tables is normally #f (Gerbil's
+;; default). Checked graph preparation uses 0 to avoid consuming the
+;; application's random source. Restore the default before calling user code.
 (defvalues (%graph-table-seed %with-graph-table-seeds %with-application-table-seeds)
   (let (seed (make-parameter #f))
     (values (lambda () (seed))

@@ -1,8 +1,6 @@
 ;;; Optional prepared-family membership study; not Module loading or full EVAL.
-(export component-family-index-test component-group-routing-test)
+(export component-family-index-test)
 (import :std/test :std/iter :clan/poo/object :clan/poo/mop
-        (only-in :std/list/list length<=n?)
-        (only-in :gerbil/runtime/table make-raw-table symbolic-hash symbolic-table-ref symbolic-table-set!)
         (only-in :gerbil/runtime/gambit default-random-source)
         (only-in :clan/poo/read-route gc-table-route-current?)
         (only-in :clan/poo/benchmarks/closure-measure measure qualified-metrics))
@@ -53,61 +51,3 @@
           (check-eq? accepted #t)
           (displayln (list 'COMPONENT-FAMILY-INDEX size (car schedule) side
             'queries 256 (qualified-metrics clocks) 'raw-allocation (vector-ref clocks 4))))))))
-
-;; Candidate only: standard promise owns one private raw index. No global
-;; registry, adapter constructor, random draw or business evaluator is involved.
-(def (group-route members indexed?)
-  (def names (list-copy members))
-  (if (or (not indexed?) (length<=n? names 8))
-    (lambda (query) (and (memq query names) #t))
-    (let (index (delay
-      (let (table (make-raw-table #f symbolic-hash eq?))
-        (for (key names) (symbolic-table-set! table key #t)) table)))
-      (lambda (query)
-        (and (symbol? query) (symbolic-table-ref (force index) query #f))))))
-
-(def component-group-routing-test
-  (test-suite "owned group route candidate, not a production change"
-    (test-case "private lazy domain and zero random-source effect"
-      (for (size '(0 1 8 9 32))
-        (def names (for/collect (i (in-range size)) (gensym 'group-route)))
-        (def expected (list-copy names))
-        (def state (random-source-state-ref default-random-source))
-        (def route (group-route names #t))
-        (when (pair? names) (set-car! names 'replaced-route))
-        (for (key expected) (check-eq? (route key) #t))
-        (check-eq? (route 'replaced-route) #f)
-        (check-eq? (route 0) #f)
-        (check-equal? (random-source-state-ref default-random-source) state)))
-    (test-case "cold sparse dense and warmed queries with construction charged"
-      (for (size '(100000 1000000))
-        (def names (for/collect (i (in-range size))
-          (string->symbol (string-append "group-route-owner-" (number->string i)))))
-        (def keys (list->vector names))
-        (def dense (for/collect (i (in-range 256))
-          (vector-ref keys (quotient (* i (- size 1)) 255))))
-        (for (query-count '(0 1 256))
-          (def queries (case query-count ((0) [])
-            ((1) (list (vector-ref keys (- size 1)))) (else dense)))
-          (for* ((schedule '((paired list indexed indexed list indexed list list indexed)
-                            (aa list list) (bb indexed indexed)))
-                 (side (cdr schedule)))
-            (defvalues (accepted clocks)
-              (measure (lambda ()
-                (def route (group-route names (eq? side 'indexed)))
-                (andmap route queries)) 1))
-            (check-eq? accepted #t)
-            (displayln (list 'GROUP-ROUTE-COLD size query-count (car schedule) side
-              (qualified-metrics clocks) 'raw-allocation (vector-ref clocks 4)))))
-        ;; Explicitly warm only this separate lookup study, not cold admission.
-        (def original (group-route names #f))
-        (def indexed (group-route names #t))
-        (check-eq? (indexed (vector-ref keys (- size 1))) #t)
-        (for* ((schedule '((paired list indexed indexed list indexed list list indexed)
-                          (aa list list) (bb indexed indexed)))
-               (side (cdr schedule)))
-          (defvalues (accepted clocks)
-            (measure (lambda () (andmap (if (eq? side 'list) original indexed) dense)) 1))
-          (check-eq? accepted #t)
-          (displayln (list 'GROUP-ROUTE-WARM size 256 (car schedule) side
-            (qualified-metrics clocks) 'raw-allocation (vector-ref clocks 4))))))))

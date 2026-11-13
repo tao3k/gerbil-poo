@@ -1,6 +1,6 @@
 (export inheritance-hooks-test)
 (import (only-in :clan/poo/slot-observation %call-with-recorded-slot-reads)
-        (only-in :clan/poo/read-route symbolic-write-route-current?)
+        (only-in :clan/poo/read-route standard-symbol-table-writes?)
         (prefix-in (only-in :gerbil/runtime/mop slot-ref slot-set! object-class
                             find-method bind-method! class-slot-offset &class-type-slot-table) runtime.)
         (only-in :gerbil/runtime/table symbolic-table-set!)
@@ -15,7 +15,7 @@
       (def table (make-hash-table-symbolic))
       (def backend (runtime.slot-ref table 'object))
       (def calls 0)
-      (check-equal? (symbolic-write-route-current? table) #t)
+      (check-equal? (standard-symbol-table-writes? table) #t)
       (for (entry (list (cons table 'set!) (cons backend 'hash) (cons backend 'test)
                        (cons backend 'lock) (cons table 'object)))
         (def owner (car entry))
@@ -23,10 +23,10 @@
         (def original (runtime.slot-ref owner field))
         (try
           (runtime.slot-set! owner field (lambda args (set! calls (1+ calls)) #f))
-          (check-equal? (symbolic-write-route-current? table) #f)
+          (check-equal? (standard-symbol-table-writes? table) #f)
           (check-equal? calls 0)
           (finally (runtime.slot-set! owner field original))))
-      (check-equal? (symbolic-write-route-current? table) #t)
+      (check-equal? (standard-symbol-table-writes? table) #t)
       (def klass (runtime.object-class table))
       (def offsets (runtime.&class-type-slot-table klass))
       (for (field '(object set!))
@@ -35,7 +35,7 @@
         (def accepted? #f)
         (try
           (symbolic-table-set! offsets field moved)
-          (set! accepted? (symbolic-write-route-current? table))
+          (set! accepted? (standard-symbol-table-writes? table))
           (finally (symbolic-table-set! offsets field original)))
         ;; Assert only after restoring the shared runtime class mapping.
         (check-equal? accepted? #f)))

@@ -33,7 +33,8 @@
 (extern namespace: clan/poo/component-publication %request-lineage %lineage-invalidation
   %request-action %request-action-set!)
 (extern namespace: clan/poo/generalized-graph %invalidation-work affected-work-marked)
-(extern namespace: clan/poo/object %cached-native-lens? object-%instance)
+(extern namespace: clan/poo/mop %prepared-vector-lens?)
+(extern namespace: clan/poo/object object-%instance)
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (component-membership-test)
@@ -45,7 +46,7 @@
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (component-requests-test)
-  (let () (include "component-membership/component-requests.scm")))
+  (let () (include "component-membership/component-requests.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (component-rounds-test)

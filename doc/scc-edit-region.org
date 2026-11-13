@@ -97,7 +97,7 @@ Two different reverse walks serve different purposes:
 
 Support edits keep their existing successor-inverse fallback. The existing
 owned split/merge case in
-[[file:../t/components/component-membership/component-requests.scm][component-requests.scm]]
+[[file:../t/components/component-membership/component-requests.ss][component-requests.ss]]
 checks two quotient reader edges, the outside =settlement= recomputation,
 retention of unrelated values, and equality with a cold split. The separate
 10,000-owner rank-repair case checks an outside consumer without requiring an

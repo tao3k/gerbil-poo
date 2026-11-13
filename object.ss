@@ -12,7 +12,7 @@
                     require-current-read-sweep! %pure-read-sweep?
                     record-key-field record-dependencies-field record-value-field
                     slot-spec-discards-super? compile-slot-specs prepare-declaration-specifications compute-object-precedence!
-                    %cached-native-lens? %bind-current-slot-reads) @object? @make-object)
+                    %prepared-vector-procedure-slots? %bind-current-slot-reads) @object? @make-object)
 
 (import
   (prefix-in (only-in Runtime object? make-object) @) ;; Rename them before we shadow them
@@ -26,8 +26,8 @@
   (only-in :std/hash/misc hash->list/sort hash-ref/default hash-ensure-modify!)
   :std/iter
   ./slot-observation
-  (prefix-in (only-in :gerbil/runtime/mop object-class slot-ref slot-set! find-method make-class-slot-accessor) read-runtime.)
-  (only-in ./read-route require-read-route! symbolic-write-route-current?
+  (prefix-in (only-in :gerbil/runtime/mop object-class find-method) read-runtime.)
+  (only-in ./read-route require-read-route! standard-symbol-table-writes?
            %issued-read? %read-issuance)
   ./object-state
   ./prototype-map
@@ -111,9 +111,9 @@
   (depend-on-state! (object-%state source) self (object-%state self)))
 ;; Read-only revision identity for source-bound external caches.
 (def (object-revision self) (object-state-revision (object-%state self)))
-;; Internal source guard: both spines are private, proper snapshots and every
-;; source is an object. Read only fixed revision fields, never slot getters.
-;; Keep each caller's independent before/after effect-boundary checks.
+;; Each versions[i] is the revision captured for sources[i], a POO object.
+;; Compare both lists in order, reading only the object's revision field.
+;; Callers check again after any callback that can edit a source.
 (def (%object-revisions-current? sources versions)
   (let loop ((sources sources) (versions versions))
     (cond
@@ -241,8 +241,8 @@
   ;; Default warm queries need neither traversal state nor a second admission.
   ;; Explicit diagnostic heads retain their original preparation and error order.
   (or (and (null? heads) (object-%precedence-list self)) (let ()
-      ;; Preserve the ordered heads for diagnostics while keeping the cycle guard
-      ;; as private implementation state at this abstraction boundary.
+      ;; A literal keyword call avoids packing the convenience wrapper's rest
+      ;; arguments. Gerbil still constructs the same eq? table.
       (def active (make-hash-table test: eq?))
       (for-each (lambda (head) (hash-put! active head #t)) heads)
       (let compute ((object self) (heads heads))
@@ -290,6 +290,8 @@
 ;; Incremental scratch visibility remains local to each catalog; nothing pending
 ;; escapes or survives a failed build. Direct specifications still override declarations.
 (def (compute-slot-funs! self)
+  ;; Checked graph preparation supplies seed 0 for private tables. Ordinary
+  ;; object construction leaves the seed at Gerbil's default.
   (def h (make-hash-table test: eq? hash: symbolic-hash seed: (%graph-table-seed)))
   (def prepared (map-in-order (lambda (super) (cons super (prepare-declaration-specifications super)))
                              (reverse (object-%precedence-list self))))
@@ -314,23 +316,22 @@
   ;; change the payload capture time of another field's SlotSpec.
   (for (([slot . specs] (hash->list h)))
     (hash-put! h slot (compile-slot-specs self slot specs)))
-  ;; Preserve the final enumeration and payload capture before author hooks.
-  ;; Native symbolic writes preserve protocol absence; changed write/hash/test
-  ;; routes keep dynamic selection. An empty set adds no protocol lookup.
+  ;; Snapshot the compiled thunks before running compute-slot hooks. If no
+  ;; protocol is installed and table writes cannot run user code, that stays
+  ;; true throughout this loop. Otherwise select the hook for each slot.
   (def entries (hash->list h))
-  (def closed? (and (pair? entries) (pair? (cdr entries)) (symbolic-write-route-current? h)
+  (def skip-hook-lookup? (and (pair? entries) (pair? (cdr entries)) (standard-symbol-table-writes? h)
                     (not (object-protocol self))))
   (for (([slot . standard] entries))
     ;; Pinned hook definitions are the terminating base of self-description.
-    (def compiled (if (or closed? (bootstrap-anchor self slot)) standard
+    (def compiled (if (or skip-hook-lookup? (bootstrap-anchor self slot)) standard
       (invoke-object-hook self 'compute-slot (lambda () standard) slot)))
     (unless (procedure? compiled) (error "compute-slot must return a thunk" slot))
     (hash-put! h slot compiled))
   (set! (object-%slot-funs self) h))
 
-;; Given a list of list of keys, in precedence order,
-;; return a list of keys from containing from left to right
-;; all the keys from tail to head of the precedence list, skipping repetitions.
+;; Visit each prototype's names from least to most specific. Keep the last
+;; occurrence of each name, in order. Use the same private-table seed as slot assembly.
 (def (merge-super-slots super-slots)
   (delete-duplicates/hash (apply append (reverse super-slots))
     table: (make-hash-table test: eq? hash: symbolic-hash seed: (%graph-table-seed)) from-end?: #t))
@@ -383,7 +384,7 @@
         (cons (cons (car entry) (cdr entry)) path)))))
   (parameterize ((active-slot-computations (cons key active))) (thunk)))
 ;; Receiver-bound observations share this module's object/Slot authority.
-(include "object/observation.scm")
+(include "object/observation.ss")
 
 ;; Admit runtime names before recording reads, bootstrap lookup or preparation.
 ;; Read a cached slot or compute it through the original cycle-aware protocol.
@@ -440,16 +441,17 @@
                   (unless (slot-cache-hit? cache self revision layout)
                     (slot-cache-bind! cache self revision layout
                       (if same-shape? index (slot-layout-index layout slot)))) value)))))))))
-;; Qualify an already prepared lens without issuing a semantic slot read.
-(def (%cached-native-lens? self)
+;; Check a nonempty list of symbol keys against a prepared, unhooked vector
+;; instance. Inspect stored procedures without forcing slots or delivering reads.
+(def (%prepared-vector-procedure-slots? self slots)
   (and (object? self)
        (let (instance (object-%instance self))
          (and instance (not (object-protocol self)) (slot-values-layout instance)
               (with-catch (lambda (_) #f)
                 (lambda ()
-                  (require-read-route! '.get #f instance)
-                  (and (procedure? (hash-ref instance '.get #f))
-                       (procedure? (hash-ref instance '.set #f)))))))))
+                  (require-read-route! (car slots) #f instance)
+                  (andmap (lambda (slot) (procedure? (hash-ref instance slot #f)))
+                          slots)))))))
 
 ;; Get an existing cached slot value from an object
 (def (.ref/cached self (slot :~ symbol?) (default false))
@@ -464,9 +466,7 @@
         (if (%slot-read-active?) (object-deliver-value self slot value) value)))))
 
 (defclass (NoApplicableMethod Exception) (self slot) transparent: #t)
-;; Prototype to put at the end of the list, to handle
-;; undefined-prototype-behavior a bit better.
-;; Should it send a special message in that case?
+;; A missing slot calls the receiver's CLOS-named no-applicable-method hook.
 (def (no-applicable-method self slot)
   (def nam (and (not (eq? slot 'no-applicable-method))
     (try (.@ self no-applicable-method)
@@ -487,6 +487,8 @@
   (parameterize ((active-fallback-queries (cons self active)))
     (with-slot-dependencies self action)))
 
+;; Construct a prototype whose no-applicable-method hook delegates missing
+;; slots to a lazily obtained object. Presence and name queries use that same delegate.
 (def (fallback-to thunk reserved: (reserved '()))
   (unless (procedure? thunk) (error "fallback must be a thunk"))
   (unless (and (list? reserved) (andmap symbol? reserved))
