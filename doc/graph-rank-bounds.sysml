@@ -16,6 +16,12 @@ package GraphRankBounds {
                admits the whole bucket. Only these certificates permit omitting
                per-edge rank queries. Still charge all edges and output work. */
     }
+    requirement def RepairLabelMerge {
+        doc /* Capture old labels before any rank assignment. Merging the
+               sorted provider and consumer labels yields the same labels
+               as sorting the combined frontier. Assignment and incident
+               check order remain provider first, then consumer. */
+    }
     requirement def EffectsAndSnapshots {
         doc /* A rank query here is an internal immutable index read, not an
                author callback. Preserve source admission, callback checks,
