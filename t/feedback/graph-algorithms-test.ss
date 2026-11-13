@@ -273,7 +273,9 @@
           (unless (or (matches? keys rows) failure)
             (set! failure (list mask (oracle-groups keys rows)
               (scc.partition-groups (scc.partition (source keys rows))))))))
-      (check-equal? failure #f))
+      (check-equal? failure #f)))
+
+(def (check-generated-graphs)
     (test-case "native POO generators cover arbitrary edges and duplicate footprints"
       (require-property-passed (typed.check-property (Tuple UInt (List Bool))
         (lambda (input)
@@ -297,7 +299,9 @@
             (matches? keys (list->vector (for/collect (i (in-range size))
               (filter identity (for/collect (j (in-range size))
                 (and (memq (vector-ref keys i) (vector-ref rows j)) (vector-ref keys j)))))))))
-        seed: 2947 cases: 256 size: 64)))
+        seed: 2947 cases: 256 size: 64))))
+
+(def (check-scale-graphs)
     (test-case "10000-owner shapes visit every node and edge only once"
       (for (family '(isolated self chain pairs ring hub band))
         (check (check-scale (scc.partition (family-source family 10000)) family 10000) => #t))))
@@ -520,6 +524,8 @@
 (def graph-algorithms-test
   (test-suite "indexed Graph properties and scale"
     (check-graph-properties)
+    (check-generated-graphs)
+    (check-scale-graphs)
     (check-graph-membership)
     (check-graph-admission)
     (check-graph-projection)
