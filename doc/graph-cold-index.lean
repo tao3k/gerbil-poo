@@ -138,4 +138,26 @@ theorem batch_capacity_independent (writes : List (K × V)) (a b : Reserved K V)
 #print axioms reserve_empty
 #print axioms put_capacity_independent
 #print axioms batch_capacity_independent
+
+-- Cold capture stores one immutable admitted row per owner. Reading that
+-- row directly is extensionally equal to materializing the same mapping.
+def admittedRow (supported : K → Bool) (captured : K → List K) (key : K) :
+    Option (List K) :=
+  if supported key then some (captured key) else none
+
+theorem cold_projection_preserves_missing (supported : K → Bool)
+    (captured : K → List K) (key : K) (absent : supported key = false) :
+    admittedRow supported captured key = none := by
+  simp [admittedRow, absent]
+
+theorem cold_projection_exact (supported : K → Bool)
+    (captured : K → List K) (materialized : K → Option (List K))
+    (live : ∀ key, supported key = true → materialized key = some (captured key))
+    (missing : ∀ key, supported key = false → materialized key = none) :
+    admittedRow supported captured = materialized := by
+  funext key
+  cases found : supported key with
+  | false => simp [admittedRow, found, missing key found]
+  | true => simp [admittedRow, found, live key found]
+
 end GraphColdIndex

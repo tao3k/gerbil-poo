@@ -20,6 +20,11 @@ package GraphColdIndex {
                initialization. No key validation or first refusal is removed.
                Native table constructors and author callback ordering remain. */
     }
+    requirement def ProjectedIndexRetirement {
+        doc /* A retirement probe uses an explicit absence marker. Remove
+               entries introduced after cold capture. Mask admitted entries
+               in the successor and retain the predecessor projection. */
+    }
     requirement def CardinalityIsOnlyCapacity {
         doc /* A known owner count may reserve native table capacity. It must
                not replace membership/admission or infer rank bounds. Native

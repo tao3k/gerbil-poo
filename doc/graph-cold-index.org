@@ -259,3 +259,25 @@ invocation: all three cases, 32 rank observations, original work/output
 assertions, Module/Harness/final OK and natural exit, 59.31 s wall / 52.58
 user / 1.34 system. No error or overflow marker is present. This gate is
 separate from the per-table work diagnostic and the old/new cold comparison.
+
+* Million-reader cold admission
+
+The frozen reverse-hub diagnostic completed roster and program capture,
+including batch currentness. The subsequent cold scheduling path failed
+the 2 GiB Scheme heap fence at a 2.28 GiB process-tree peak. A candidate
+projected the already admitted immutable rows through the existing
+structural index, removing the separate cold adjacency table.
+=cold_projection_exact= preserves the live row mapping and absence.
+
+The projected candidate exposed an independent index defect. Retirement
+used the strict lookup sentinel as its default when probing a projected
+base. A fresh key therefore raised =UnboundKeyError= instead of dropping
+the override. A private absence marker preserves strict public reads
+while letting retirement distinguish fresh keys from admitted false values.
+The regression checks both cases and the predecessor value.
+
+With retirement repaired, all 22 order cases passed. The projected
+million-reader graph still failed cold construction with a 2.17 GiB
+sampled process-tree peak after 67.77 s. The existing 180 s deadline and
+4 GiB process-tree guard stayed in effect. Retain the index retirement
+fix. The projected cold adjacency path remains an experiment.
