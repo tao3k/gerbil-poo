@@ -51,20 +51,8 @@ Separate presence and name hooks consult the same delegate. Local slots,
 including slots with value `#f`, take precedence. An unhandled read raises
 `NoApplicableMethod` with the receiver and slot.
 
-The POO name fits a model where effective slot methods compute values. It is
-misleading as a CLOS contract, since a slot miss and an empty applicable-method
-set carry different inputs and continuation rules. Keep the existing spelling
-for the released POO API. A CLOS extension can give each ANSI hook its own
-binding while reusing the POO object and Slot implementation.
-
-### POO-CLOS ownership
-
-Yuanxu currently owns the CLOS extension over Gerbil-POO. Moving that
-extension into this package would put generic dispatch, method combination
-and class lifecycle in one reusable library. The transfer requires removing
-the runtime's dependency on Yuanxu's read projection while preserving the
-consumer's read checks. Carry the existing CLOS conformance tests with the
-runtime and switch Yuanxu to import it from Gerbil-POO. [Original Core ownership](https://github.com/tao3k/gebril-yuanxu/pull/6) · [Current read-projection dependency](https://github.com/tao3k/gebril-yuanxu/blob/7a04cf39736bcae59c4c17e7fed45f7c9668345a/poo-clos/dispatch.ss#L8-L13)
+Gerbil-POO retains this name for its prototype slot hook. The CLOS generic
+function of the same name takes a generic function and its call arguments.
 
 ## Source mutation and cache validity
 
