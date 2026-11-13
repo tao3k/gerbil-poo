@@ -138,4 +138,13 @@ theorem dense_scan_exact (reached scan : List Nat)
   · simpa using List.pairwise_mergeSort trans total reached
   · exact same.trans (List.mergeSort_perm reached _).symm
 
+
+-- Rebuilding the inverse from successor positions preserves each rank
+-- exactly when the completed position mapping is a bijection on live owners.
+theorem rebuilt_rank_exact (position : Nat → Option A) (rank : A → Nat)
+    (inverse : ∀ key, position (rank key) = some key)
+    (unique : ∀ label key, position label = some key → label = rank key)
+    (key : A) (label : Nat) : position label = some key ↔ label = rank key :=
+  ⟨unique label key, fun equal => equal.symm ▸ inverse key⟩
+
 end GraphRankBounds

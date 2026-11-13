@@ -406,3 +406,21 @@ Total wall time was 52.99 s at a 2.11 GiB sampled process-tree peak.
 The 4 GiB guard and 180 s deadline were unchanged. This moves the
 remaining failure to rank and position index construction. The Scheme
 candidate stays isolated.
+
+** Dense position and rank reconstruction
+
+A candidate constructs private successor positions and inverts them into
+the native symbolic rank table. Lean =rebuilt_rank_exact= states the
+inverse mapping property for live owners. The first threshold admitted
+a four-owner repair and the existing zero-copy assertion rejected it.
+The revised pilot requires at least 32,768 rank positions, a reached
+reverse frontier of at least half the rank capacity, and stable support.
+All 22 order cases then passed, including the zero-copy control.
+
+The million-reader diagnostic failed during reverse search, before the
+rank construction branch. It reached the 2 GiB Scheme heap fence after
+142.76 s, with a 2.06 GiB sampled process-tree peak. The earlier
+rank-scan diagnostic reached index writes, so this result does not
+attribute the failure to the new index representation. Neither the
+180 s deadline nor the 4 GiB process-tree guard changed. The dense
+candidate remains isolated and its thresholds remain experimental.
