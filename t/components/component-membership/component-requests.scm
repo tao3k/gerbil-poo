@@ -262,7 +262,7 @@
                   (check-eq? (graph-cache-ref reconfigured key) (graph-cache-ref merged key)))
         '(quota left settlement))
       (check-equal? (owned-service.report merged) '(3 3 3 6 2)))
-    (test-case "functional cut publishes every successor group and retains the old generation"
+    (test-case "functional batch cut publishes every successor group and retains the old generation"
       (def names '(b c a))
       (def source (graph.declaration names
         (list (cons 'a (code.need 'b identity))
@@ -278,7 +278,9 @@
       (def before (publication.snapshot owner))
       (def replacement (code.pure 1))
       (def same-row (code.need 'b 1+))
-      (def fragments (list (revision.fragment [] [] [(cons 'c replacement) (cons 'a same-row)])))
+      (def second-cut (code.pure 4))
+      (def fragments (list (revision.fragment [] []
+        [(cons 'c replacement) (cons 'a same-row) (cons 'b second-cut)])))
       (def metadata (.o epoch: 1))
       (def refused (publication.stage owner fragments build (lambda (_ __) #f) metadata: metadata))
       (defvalues (retained refusal) (publication.submit-snapshot! owner refused))
@@ -291,12 +293,15 @@
       (def next (publication.snapshot-graph installed))
       (def partition (graph-cache-partition next))
       (check-equal? (.get (scc.partition-work partition) projected-singletons) 3)
+      (check-equal? (.get (scc.partition-work partition) reverse-removals) 2)
       (check-equal? (scc.partition-groups partition) '((b) (c) (a)))
       (check-equal? (.@ (cache.cache-source (graph-cache-values next)) keys) names)
       (defvalues (cold cold-error)
-        (publish-feedback-graph #f (graph.define (graph.define source 'c replacement) 'a same-row) build accept))
+        (publish-feedback-graph #f
+          (graph.define (graph.define (graph.define source 'c replacement) 'a same-row) 'b second-cut)
+          build accept))
       (check-equal? cold-error #f)
-      (check-equal? (results next) '(1 1 2))
+      (check-equal? (results next) '(4 1 5))
       (check-equal? (results next) (results cold))
       (check-equal? (results (publication.snapshot-graph before)) '(0 0 0)))
     (test-case "rival owned edit publishes one graph and metadata while an older candidate is in admission"

@@ -309,3 +309,19 @@ the 4 GiB process-tree guard. Quotient publication and explicit group
 enumeration have separate work and timing. The matched predecessor
 retains exact groups but returns an enumerated change table where the
 new path requires the complete-support handoff.
+
+The existing pressure suite compiled with =-O2= in 98.05 seconds and
+peaked at 1.91 GiB. Both ring and reverse-hub cases emitted success,
+but the whole process reached the 180-second deadline before natural
+exit. The run remains a timeout. The million-ring cold capture alone
+took 76.74 seconds wall and 20.95 seconds CPU. Its two-cut revision
+took 0.194 ms CPU and allocated 97,376 bytes without GC. Explicit group
+enumeration took 12.34 ms CPU and allocated 96,000,240 bytes. The
+complete-support handoff took 0.086 ms CPU before publication.
+
+An unchanged rerun of the pressure suite returned naturally in 61.55
+seconds and peaked at 1.96 GiB. Both shape cases and the existing
+qualified allocation and output-order oracles passed. The previous
+timeout remains part of the evidence. The publication regression also
+runs the batch through refusal, a successful fresh stage, and cold
+equivalence while retaining the predecessor graph and metadata.
