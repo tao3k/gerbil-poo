@@ -4,7 +4,9 @@
 (import :std/test :std/iter :clan/poo/object :clan/poo/support/option
         (only-in :clan/poo/benchmarks/closure-measure measure measure-pair qualified-metrics)
         (only-in :std/error Error? Error-message UnboundKeyError?)
-        (only-in :clan/poo/support/index %index-changes %index-base %roster-append %roster-retire)
+        (only-in :clan/poo/support/index %index-changes %index-base %roster %roster-append
+                 %roster-retire %roster-keys %roster-width %roster-position)
+        (only-in :std/struct/rbtree rbtree-size)
         (only-in :clan/poo/lens-laws lens-check)
         (only-in :clan/poo/mop lens-of-get-set)
         (only-in :clan/poo/component-closure component-group-builder)
@@ -29,6 +31,7 @@
   owned-partition-owner owned-partition-members owned-partition-forward
   owned-partition-roster %retire-partition-isolates %append-partition-owners
   %check-partition-retirements)
+(extern namespace: clan/poo/support/index roster-appended roster-positions)
 
 (def (caught thunk) (try (thunk) #f (catch (cause) cause)))
 (def (value state key) (code.success-value (some-value (cache.cache-ref state key))))
@@ -974,6 +977,23 @@
 
 (def local-components-test
   (test-suite "local SCC partition against cold discovery"
+    (test-case "retired fresh names leave no entries in either active roster index"
+      (def cold (%roster '(a b) (list->hash-table-eq '((a . 0) (b . 1)))))
+      (def old (%roster-append cold '(c)))
+      (def current
+        (let loop ((remaining 10000) (roster old))
+          (if (zero? remaining) roster
+            (let (key (gensym 'temporary-owner))
+              (loop (1- remaining) (%roster-retire (%roster-append roster (list key)) (list key)))))))
+      (check-equal? (%roster-width current) 10003)
+      (check-equal? (rbtree-size (roster-appended current)) 1)
+      (check-equal? (rbtree-size (%index-changes (roster-positions current))) 1)
+      (def next (%roster-append (%roster-retire current '(a c)) '(a c)))
+      (check-equal? (%roster-keys next) '(b a c))
+      (check-equal? (%roster-position next 'a) 10003)
+      (check-equal? (%roster-position next 'c) 10004)
+      (check-equal? (%roster-keys old) '(a b c))
+      (check-equal? (%roster-position old 'c) 2))
     (test-case "retiring an isolated ordinal leaves the old snapshot and active SCC order intact"
       (def rows (list->hash-table-eq '((b a) (c b) (d c))))
       (def prior (scc.partition-owned (row-source '(a b c d) rows)))

@@ -220,8 +220,14 @@ In the isolated fault build, dropping the dependency edge to the reused
 root leaves the expanded sibling current after the old input changes.
 The same native assertion refuses that build with test exit 42.
 
-The source and padded partition share one position index. The roster adds
-one suffix, and guard growth uses the same positions. The quotient compares
+The source and padded partition share one position index. The roster
+enumerates the borrowed cold order followed by live appended ordinals in
+the persistent red-black tree. Retiring an appended name removes its
+ordinal entry. The name lookup also drops its override when the cold
+table has no such name. A cold name still needs an explicit absence
+override to prevent fallback. The witness span keeps its high-water mark.
+=retired_position_absent= and =live_suffix_removal_preserves_order= check
+the lookup and enumeration conditions independently. The quotient compares
 the repaired groups with the real predecessor: a new singleton that merges
 immediately is never retired from the predecessor, and a surviving new
 representative must be installed. Every appended owner seeds invalidation

@@ -113,6 +113,34 @@ theorem append_preserves_old_representative {active : V → Prop}
 #print axioms appended_ordinal_starts_as_singleton
 #print axioms append_preserves_old_representative
 
+-- The sparse position index overrides the immutable cold table. Removing
+-- an override for an appended name is safe exactly when the base lacks it.
+def retiredPosition (cold : Option Nat) : Option (Option Nat) :=
+  if cold.isSome then some none else none
+
+theorem retired_position_absent (cold : Option Nat) :
+    (retiredPosition cold).getD cold = none := by
+  cases cold <;> rfl
+
+theorem fresh_retirement_needs_no_override : retiredPosition none = none := rfl
+
+theorem live_suffix_removal_preserves_order {V : Type} [DecidableEq V]
+    (position : V → Option Nat) (entries : List (Nat × V)) (key : V)
+    (retired : position key = none) :
+    (entries.filter (fun row => !decide (row.2 = key))).filter
+        (fun row => decide (position row.2 = some row.1)) =
+      entries.filter (fun row => decide (position row.2 = some row.1)) := by
+  induction entries with
+  | nil => rfl
+  | cons row rest ih =>
+    by_cases same : row.2 = key
+    · simpa only [List.filter_cons, same, decide_true, Bool.not_true,
+        Bool.false_eq_true, ite_false, retired, reduceCtorEq] using ih
+    · simp only [List.filter_cons, decide_eq_false same, Bool.not_false, ite_true, ih]
+
+#print axioms retired_position_absent
+#print axioms live_suffix_removal_preserves_order
+
 -- The native witness split is floor(width / 2). Doubling an arbitrary
 -- old span therefore preserves its complete address map in the left child.
 def growSpan (span : Nat) : Nat → Nat

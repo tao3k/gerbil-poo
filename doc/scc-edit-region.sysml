@@ -27,6 +27,12 @@ package SccEditRegion {
                enlarged domain. A whole-cycle certificate expires on append.
                Append order and representative changes use source ordinals. */
     }
+    requirement def ActiveRosterEnumeration {
+        doc /* Share the cold roster. Enumerate only live appended ordinals
+               after the cold entries. Retire a fresh name from both sparse
+               indexes; mask a cold name to prevent fallback. Keep the
+               ordinal high-water mark and all predecessor views. */
+    }
     requirement def AppendedWitnessSpan {
         doc /* When positions exceed the witness span, double the existing span
                and put its root under the new left child. Link the new ancestor
