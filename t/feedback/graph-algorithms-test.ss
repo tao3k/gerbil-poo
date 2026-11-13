@@ -225,8 +225,8 @@
         (write (list kind size (cons 'captured-partition-preparation preparation)
                      (cons 'indexed-comparison comparison))) (newline)))))
 
-(def graph-algorithms-test
-  (test-suite "indexed Graph properties and scale"
+;; Separate registration closures so Gambit emits smaller C host functions.
+(def (check-graph-properties)
     (test-case "Graph receipts qualify allocation across GC without changing time"
       (for (input '(#(1 2 3 0 0) #(1 2 3 0 208) #(1 2 3 0 -208)
                     #(1 2 3 1 208) #(1 2 3 1 9999999999999999)))
@@ -300,7 +300,9 @@
         seed: 2947 cases: 256 size: 64)))
     (test-case "10000-owner shapes visit every node and edge only once"
       (for (family '(isolated self chain pairs ring hub band))
-        (check (check-scale (scc.partition (family-source family 10000)) family 10000) => #t)))
+        (check (check-scale (scc.partition (family-source family 10000)) family 10000) => #t))))
+
+(def (check-graph-membership)
     (test-case "indexed membership handles missing equal-size and renamed groups"
       (def before (group-partition '((a b) (c) (removed))))
       (def after (group-partition '((a c) (b) (added))))
@@ -338,7 +340,9 @@
           (check-equal? actual expected)
           (check-equal? (membership-observation new-a keys) (membership-observation old-a keys))
           (check-equal? (membership-observation new-b keys) (membership-observation old-b keys))
-          (check-equal? (topology.changed-members new-a new-b) expected))))
+          (check-equal? (topology.changed-members new-a new-b) expected)))))
+
+(def (check-graph-admission)
     (test-case "fused capture preserves rejection trace duplicates and private spines"
       (def observed [])
       (def mutable-row (list 'b))
@@ -383,7 +387,9 @@
       (for (kernel (list separate-admission-capture capture-graph))
         (for (bad (list '(a . b) (let (cycle (list 'a 'b))
                                      (set-cdr! (cdr cycle) cycle) cycle)))
-          (check-exception (kernel '(a b) (lambda (_) bad) #f) error-object?))))
+          (check-exception (kernel '(a b) (lambda (_) bad) #f) error-object?)))))
+
+(def (check-graph-projection)
     (test-case "query row projection restores completed rows at the word boundary"
       ;; Reduced PRIVATE word ceilings cover first-row fallback, empty rows,
       ;; rightmost duplicates, chunk crossings and the singleton append route.
@@ -460,7 +466,9 @@
         (check-equal? (reverse calls) (list (key 0) (key 1)))))
     (test-case "row workspace growth and duplicate gaps retain exact adjacency"
       (def keys '#(a b c d))
-      (check (matches? keys '#((a b b c) (d c d a b b a d c) (c a a) ())) => #t))
+      (check (matches? keys '#((a b b c) (d c d a b b a d c) (c a a) ())) => #t)))
+
+(def (check-graph-reachability)
     (test-case "inverse continuation owns added roots and drains the older frontier first"
       (def inverse (make-hash-table-symbolic))
       (hash-put! inverse 'a '(b b))
@@ -507,7 +515,15 @@
       (check-equal? (scc.partition-members part 'absent) #f)
       (for (members (scc.partition-groups part))
         (unless (eq? (scc.partition-members part (cadr members)) #f)
-          (error "non-representative group alias" members))))))
+          (error "non-representative group alias" members)))))
+
+(def graph-algorithms-test
+  (test-suite "indexed Graph properties and scale"
+    (check-graph-properties)
+    (check-graph-membership)
+    (check-graph-admission)
+    (check-graph-projection)
+    (check-graph-reachability)))
 
 ;; The existing SCC benchmark entry invokes this alongside its unchanged matrix.
 ;; Source construction and partitioning have separate process-statistics rows.
