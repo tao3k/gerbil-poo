@@ -1,10 +1,12 @@
-#+title: Owned group routing: contract and rejected first-use index
+#+title: Component-group membership: rejected first-use index
 
 * Status
 
-This is an optional candidate study, NOT a production change. The public
-=component-group-builder= uses the [[file:component-family.org][qualified family index at =424e525=]]. Its program-read checks,
-source guards, component equations and publication paths are untouched.
+The builder checks whether a dependency is a member of the current SCC.
+Reads within the group use its current fixed-point input. Other reads use
+the closed predecessor group. This study measured a first-use index for
+that membership check. The production builder uses the
+[[file:component-family.org][component-family index]] and the existing group-membership scan.
 
 The remaining =memq dep members= can scan a large SCC on each dependency read.
 Reusing declaration reflection as membership is unsound: =prepare-fragments=

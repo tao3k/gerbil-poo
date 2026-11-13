@@ -125,5 +125,5 @@ establish an allocation reduction; CPU/wall and GC controls remain separate.
 A successful result marker alone is insufficient: the bounded process must exit
 successfully, and the complete regression suite must also pass.
 
-Algorithm/representation candidates, applicability contracts and incomplete
-million-node acceptance are tracked in [the research contract](graph-algorithm-selection.org).
+See [Graph algorithms](graph-algorithm-selection.org) for incremental repair
+and publication.

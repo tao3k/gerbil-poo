@@ -18,6 +18,8 @@ for checked mechanisms, executable evidence and explicit premises.
 
 ### Documentation
 
+Start at the [documentation index](doc/README.md).
+
 The [Scheme Workshop 2021 video](https://youtu.be/2szKoUQoNm8) and the
 [associated paper](https://github.com/metareflection/poof).
 

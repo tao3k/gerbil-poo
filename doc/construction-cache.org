@@ -587,6 +587,6 @@ native TestSuite under that unchanged heap. The original 320 paired controls,
 32 bounded membership pairs and 32 rank pairs remain. A missing-lowlink native
 fault compiled and failed with the intended quotient-certificate error; restored
 properties and the focused make projection passed. The detailed workload, costs,
-prior heap failures and exact qualification boundary live in
-[[file:graph-algorithm-selection.org][the Graph algorithm research contract]]. No adaptive threshold or
+prior heap failures and exact qualification boundary live in the
+[[https://github.com/tao3k/gerbil-poo/blob/b4270e4157aae4a6336b6df74ed1aa623d5977f8/doc/graph-algorithm-selection.org][recorded Graph study]]. No adaptive threshold or
 Yuanxu revision propagation is implied. Final remote Scheme CI remains separate.
