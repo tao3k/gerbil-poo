@@ -4,7 +4,8 @@ set positional-arguments
 platform-env := if os() == "macos" { "env -u SDKROOT -u CPATH -u LIBRARY_PATH -u C_INCLUDE_PATH -u CPLUS_INCLUDE_PATH -u MACOSX_DEPLOYMENT_TARGET COMPILER_PATH=/usr/bin" } else { "env" }
 physical-cores := if os() == "macos" { `sysctl -n hw.physicalcpu 2>/dev/null || getconf _NPROCESSORS_ONLN` } else { `getconf _NPROCESSORS_ONLN` }
 export GERBIL_PATH := env_var_or_default("GERBIL_PATH", justfile_directory() + "/.build/package")
-export GERBIL_BUILD_CORES := env_var_or_default("GERBIL_BUILD_CORES", physical-cores)
+# cc1 runs outside the Scheme heap fence. Limit concurrent Darwin backends.
+export GERBIL_BUILD_CORES := env_var_or_default("GERBIL_BUILD_CORES", if os() == "macos" { "2" } else { physical-cores })
 export GERBIL_BUILD_VERBOSE := env_var_or_default("GERBIL_BUILD_VERBOSE", "3")
 test-context-limit := if os() == "macos" { "2" } else { "4" }
 test-context-recipe := if os() == "macos" { "_test-shared-packages" } else { "_test-packages" }
@@ -44,6 +45,7 @@ _build-root graph:
         development) entry=(./build-development.ss); action=compile ;;
         graph) entry=(./build-development.ss graph); action=compile ;;
     esac
+    printf 'BUILD-CONCURRENCY root=%s cores=%s\n' "$1" "$GERBIL_BUILD_CORES"
     if /usr/bin/time -p {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 0 "${entry[@]}" "$action"; then
         exit 0
     else
