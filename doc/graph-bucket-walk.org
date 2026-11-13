@@ -247,3 +247,15 @@ invocation peak ranged from 1.40 to 1.41 GiB before and 1.25 to 1.28 GiB
 after. Million-ring cold CPU was 19.59/23.04 seconds before and
 20.37/18.83 seconds after. The first pair did not improve CPU. Allocation
 bytes are unqualified because the cold windows collected.
+
+** Singleton span candidate
+
+A separate candidate reused an admitted single-edge row when the pending
+frontier was empty. Lean checked that the resulting frontier was exactly
+the filtered row appended to the pending tail. The candidate passed 111
+Graph and component cases. Four unchanged 100K and 1M cold-ring fixture
+runs completed under 180 seconds and 4 GiB. The million-ring CPU samples
+were 22.45 and 19.30 seconds before, and 21.81 and 20.28 seconds after.
+Wall and sampled peak memory also varied in opposite directions across
+pairs. The candidate was withdrawn because the end-to-end comparison
+did not establish a consistent improvement.
