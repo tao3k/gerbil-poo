@@ -277,13 +277,13 @@
 ;;; One effective method captures both arguments and the immutable generic
 ;;; generation used to rank all qualifier groups.  The protocol hook receives
 ;;; the checked default effective method rather than a raw evaluator continuation.
-;; : (-> ClosGenericFunction [SchemeValue] ClosEffectiveMethod)
-(def (compute-effective-method generic arguments)
+;; : (-> ClosGenericFunction [SchemeValue] (Maybe ClosEffectiveMethod))
+(def (select-effective-method generic arguments)
   (arguments-valid! generic arguments)
   (let (ranked (protocol-ranked-methods generic arguments))
     (if (null? ranked)
       ;; ANSI ordering invokes no-applicable-method before keyword rejection.
-      (make-effective-method generic arguments '() '() '() '())
+      #f
       (begin
         (keyword-arguments-valid! generic ranked arguments)
         (let* ((admit-default (prepare-default-effective-method generic arguments ranked))
@@ -309,6 +309,11 @@
                        generic: (.ref generic 'identity)))
           effective-method)))))
 
+;; Reflection represents an empty applicable set as an empty effective method.
+(def (compute-effective-method generic arguments)
+  (or (select-effective-method generic arguments)
+      (make-effective-method generic arguments '() '() '() '())))
+
 ;;; Public reflection returns the shared specificity order before qualifier
 ;;; grouping; qualifiers do not create a second precedence system.
 ;; : (-> ClosGenericFunction SchemeValue... [ClosMethod])
@@ -322,18 +327,12 @@
   (let (generic-value (require-clos-generic generic-source))
     (compute-effective-method generic-value arguments)))
 
-;;; Terminal protocol functions preserve the deprecated descriptor hook as a
-;;; compatibility bridge.  The normal path is an ordinary, mutable CLOS
-;;; generic function whose methods can specialize on the affected generic or
-;;; method identity.
+;;; An empty applicable set invokes the terminal generic with the original call.
 ;; : (-> ClosGenericFunction [SchemeValue] SchemeValue)
 (def (poo-clos-no-applicable-method generic arguments)
   (owned-read-open!)
-  (let (hook (.ref (.ref generic 'protocol) 'no-applicable-method))
-    (if hook
-      (hook generic arguments)
-      (apply poo-clos-call poo-clos-no-applicable-method-generic
-             (cons generic arguments)))))
+  (apply poo-clos-call poo-clos-no-applicable-method-generic
+         (cons generic arguments)))
 
 ;; : (-> ClosGenericFunction ClosMethod [SchemeValue] SchemeValue)
 (def (poo-clos-no-next-method generic method arguments)
@@ -351,9 +350,12 @@
    (poo-clos-method
     'no-applicable-method/default
     (list (poo-clos-any-specializer))
-    (lambda (_frame generic . _arguments)
-      (clos-fail 'no-applicable-method
-                 generic: (.ref generic 'identity)))
+    (lambda (_frame generic . arguments)
+      (let (hook (.ref (.ref generic 'protocol) 'no-applicable-method))
+        (if hook
+          (hook generic arguments)
+          (clos-fail 'no-applicable-method
+                     generic: (.ref generic 'identity)))))
     lambda-list: (poo-clos-lambda-list 1 0 #t #f '() #f))))
 
 ;; : ClosGenericFunction
@@ -604,8 +606,8 @@
 (def (poo-clos-call generic-source . arguments)
   (let (generic-value (require-clos-generic generic-source))
     (owned-read-hook-owner! generic-value)
-    (let (effective-method (compute-effective-method generic-value arguments))
-      (if (effective-method-empty? effective-method)
+    (let (effective-method (select-effective-method generic-value arguments))
+      (if (not effective-method)
         (poo-clos-no-applicable-method generic-value arguments)
         (if (.ref effective-method 'executor)
           ((.ref effective-method 'executor) effective-method)

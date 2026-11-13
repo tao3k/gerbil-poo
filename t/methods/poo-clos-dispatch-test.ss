@@ -7,6 +7,7 @@
 
 (import (only-in :std/test
                  test-suite test-case check-equal? check-exception check)
+        :std/error
         (only-in :clan/poo/object .o .ref .put! .all-slots object-slots $constant-slot-spec?
                  object-protocol-set! replay-slot-reads! object-read-issued?)
         (only-in :clan/poo/mop Type. element?)
@@ -437,7 +438,21 @@
                'no-app-first 1 key?: #t keys: '(known)
                protocol: protocol)))
         (check-equal? (poo-clos-call generic 'value unknown: 1)
-                      'no-applicable)))
+                      'no-applicable)
+        (def method
+          (poo-clos-method
+           'no-app-first/specialized
+           (list (poo-clos-eql-specializer generic))
+           (lambda (_frame original . arguments) (values original arguments))
+           lambda-list: (poo-clos-lambda-list 1 0 #t #f '() #f)))
+        (poo-clos-add-method poo-clos-no-applicable-method-generic method)
+        (try
+          (let (results (call-with-values
+                          (lambda () (poo-clos-call generic 'value unknown: 1))
+                          list))
+            (check-equal? results (list generic '(value unknown: 1))))
+          (finally
+            (poo-clos-remove-method poo-clos-no-applicable-method-generic method)))))
 
     (test-case "terminal protocol functions are ordinary mutable generics"
       (let* ((target (poo-clos-generic-function 'terminal-target 1))
