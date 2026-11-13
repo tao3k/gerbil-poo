@@ -315,3 +315,18 @@ order cases passed. The million-reader run still failed before cold
 completion, with 2.14 GiB sampled process-tree peak and 48.70 s wall.
 Both runs retained the 180 s and 4 GiB guards. Neither produces a
 complete repair result. Production keeps the existing cold path.
+
+** Direct position emission
+
+A follow-up replaced the cold order list with a private emission step
+that writes ranks and positions in the same order. The inverse is
+built from the finished positions, and the complete list is allocated
+when demanded. =positions_recover_order= checks the representation
+round trip. The focused Darwin =-O2= build passed and all 22 order
+cases passed, including the old-snapshot and rank checks.
+
+The isolated million-reader run again failed between the cold entry
+and completion markers, with a 2.23 GiB sampled process-tree peak and
+80.75 s total wall time. The 2 GiB Scheme heap fence, 4 GiB process-tree
+guard and 180 s deadline stayed in force. Removing the order spine
+from cold construction did not qualify the combined candidate.

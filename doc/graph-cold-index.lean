@@ -233,4 +233,10 @@ theorem capture_overwrite_preserves_pending (table : K → A) (key : K)
   have different : next ≠ key := fun equal => distinct (equal ▸ member)
   simp [different]
 
+
+-- Positions are filled in emission order. Reading every position in
+-- ascending order recovers the same list as the producer emitted.
+theorem positions_recover_order (order : List K) :
+    order.toArray.toList = order := by simp
+
 end GraphColdIndex
