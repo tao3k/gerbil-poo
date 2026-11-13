@@ -1,5 +1,12 @@
 #+title: Exact SCC repair over a batch of changed rows
 
+A complete quotient replacement already enumerates the successor keys to
+certify its schedule. Use that domain to copy surviving bases into its private
+index. This avoids scanning the predecessor roster and writing tombstones for
+each retired group. Lean checks pointwise equivalence with the retirement mask
+and proves that a later re-add cannot expose a retired base. The Scheme control
+also checks that the predecessor still returns its original value.
+
 The general fixed-support branch of =revise-partition= uses the old forward
 and reverse indices plus added edges. The resulting union =U= is the old
 and new graph's edge union, even when the batch also removes edges. It

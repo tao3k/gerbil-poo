@@ -478,6 +478,7 @@
       (check-equal? (graph.schedule-order next) (graph.schedule-order cold))
       (check-equal? ((graph.schedule-reads next) 'fresh) '(keep))
       (check-equal? (%index-changes (%owned-source-programs (%schedule-owned next))) #f)
+      (check-equal? (%index-changes (%owned-source-bases (%schedule-owned next))) #f)
       (check-equal? (.call (graph.schedule-source next) .code 'keep) #f)
       (check (eq? (.call (graph.schedule-source next) .base 'keep) kept) => #t)
       (check-equal? (.call (graph.schedule-source next) .base 'retired) #f)

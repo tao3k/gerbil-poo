@@ -124,6 +124,25 @@ theorem retired_position_absent (cold : Option Nat) :
 
 theorem fresh_retirement_needs_no_override : retiredPosition none = none := rfl
 
+-- When every successor program is supplied, the schedule owns a new
+-- support table. Copying only surviving bases is equivalent to masking
+-- every retirement, including across a later re-add of a removed owner.
+def successorBase (live : V → Bool) (old : V → Option A) (key : V) : Option A :=
+  if live key then old key else none
+
+theorem successor_base_matches_retirement_mask
+    (live : V → Bool) (old : V → Option A) (key : V) :
+    successorBase live old key = (if !live key then none else old key) := by
+  unfold successorBase
+  cases live key <;> rfl
+
+theorem successor_base_does_not_revive
+    (live later : V → Bool) (old : V → Option A) (key : V)
+    (retired : live key = false) :
+    successorBase later (successorBase live old) key = none := by
+  simp only [successorBase, retired, Bool.false_eq_true, if_false]
+  split <;> rfl
+
 theorem retired_index_uses_absence_value {A : Type} (cold : Option A) (absent : A) :
     ((if cold.isSome then some absent else none).or cold).getD absent = absent := by
   cases cold <;> rfl

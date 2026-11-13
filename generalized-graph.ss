@@ -531,15 +531,24 @@
   (def program-base (and complete? (make-hash-table-symbolic size: (hash-length supported))))
   (def programs (if complete? (%index program-base) (%index-fork (%owned-source-programs old))))
   (def put-program! (if complete? (cut hash-put! program-base <> <>) (cut %index-write! programs <> <>)))
-  (def bases (%index-fork (%owned-source-bases old)))
-  (for (key (owned-source-names old))
-    (unless (hash-key? supported key)
-      (unless complete? (put-program! key #f))
-      (%index-write! bases key #f)))
+  (def old-bases (%owned-source-bases old))
+  (def survivors (and complete? (make-hash-table-symbolic)))
+  (def bases
+    (if complete?
+      (%index survivors)
+      (let (retained (%index-fork old-bases))
+        (for (key (owned-source-names old))
+          (unless (hash-key? supported key)
+            (put-program! key #f)
+            (%index-write! retained key #f)))
+        retained)))
   (capture-program-batch
     (lambda ()
       (for (key code-keys)
-        (put-program! key (capture-program (hash-ref entries key))))))
+        (put-program! key (capture-program (hash-ref entries key)))
+        (when survivors
+          (let (base (%index-ref old-bases key #f))
+            (when base (hash-put! survivors key base)))))))
   (def owned (make-%owned-source names programs bases))
   (schedule-rows (owned-declaration owned) names
     (lambda (key) (program-row (%index-ref programs key #f)))

@@ -50,6 +50,12 @@ package SccEditRegion {
                currentness after linking and refuse if it was already stale.
                Shared old addresses and predecessor roots remain intact. */
     }
+    requirement def CompleteQuotientBaseProjection {
+        doc /* A complete replacement supplies every successor program.
+               Project surviving bases through successor keys without
+               enumerating the predecessor roster. A later re-add cannot
+               retrieve a retired base. Historical bases remain intact. */
+    }
     requirement def PrivatePreparationSeedScope {
         doc /* Private graph seeds apply only inside authenticated native
                preparation. Ordinary shape admission and application
