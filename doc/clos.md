@@ -66,10 +66,10 @@ compile that fixture with `gxc -O -s` and give its installed `.ssi` to
 the same Just test entry point.
 
 Fixed field checks in CLOS and the default POO Slot checker share the
-prepared Slot method table. For an unobserved local hit, a live standard
-HashTable lookup establishes presence. Demand still uses ordinary `.ref`.
-Observed reads, cold receivers and delegated presence use ordinary
-reflection. [LeanPoo Slot contract](https://github.com/tao3k/lean-poo/blob/a8f15a213ad8325305c3d533337b669202fc8abe/LeanPoo/Object/SlotContracts.lean)
+prepared Slot method table. A live standard HashTable lookup establishes
+local presence. During observation it runs after the read precheck and
+delivers the original signed record. Cold and delegated queries use ordinary
+reflection. Demand still uses ordinary `.ref`. [LeanPoo Slot contract](https://github.com/tao3k/lean-poo/blob/20b4d8136b5158d5341af22e5e8fc7bbe391ce69/LeanPoo/Object/SlotContracts.lean)
 
 The [dispatch benchmark](../benchmarks/clos-dispatch-test.ss) measures the
 production stages on the same calls. On macOS arm64, the baseline CPU
@@ -84,6 +84,14 @@ the same 1,024 full calls per sample, with four samples per side. CPU
 medians were 417.89 → 278.09 ms and 445.79 → 309.31 ms. The fixture
 checks a supplied keyword and an `eql` specialization with the keyword
 omitted. Run the AOT fixture through the same Just entry as above.
+
+The observed AOT comparison uses 256 identical calls per sample and four
+interleaved samples per side. CPU medians on macOS arm64 were 135.33 →
+128.25 ms for capture with the runtime `void` observer, and 189.53 →
+188.53 ms with a counting observer. Both paths delivered the same number of
+observations. Replay of the same 147 roots with no callback work took
+69.52 → 17.38 ms per batch of 256 replays. The material improvement is in
+fixed replay. Capture with a real callback remains the dominant cost.
 
 Descriptor contracts pair each required slot with its value check in
 `required-slots?`. The expansion shares ordinary presence and demand with
@@ -101,7 +109,10 @@ and [the distinction from prototype slot fallback](inheritance-hooks.md#slot-loo
 CLOS calls and consumer code share the same [read projection](../read-projection.ss).
 It forwards the original signed reads to the enclosing observation frame and
 checks the boundary before dispatching an open hook. Issuance and replay stay
-with the existing Slot implementation.
+with the existing Slot implementation. Replay with the exact runtime `void`
+uses the existing fixed checkpoint. A replay callback still gets immediate
+validation of each record and a fresh return sweep.
+[LeanPoo replay proof](https://github.com/tao3k/lean-poo/blob/55387de58a13ea89bf4143852687f463c94a2c79/LeanPoo/Object/ReadRouteRuns.lean)
 
 The [method suites](../t/methods/) run through the standard test build. The
 [clause ledger](../t/methods/clause-ledger.ss) maps the 41 CLHS §7.7 entries

@@ -120,11 +120,18 @@
   (record-slot-read! (if observed? (read-scope-frame scope) scope) read)
   ;; Deduplicate storage, NEVER delivery. Duplicate events, observer ordering,
   ;; effects and exceptions keep their original per-delivery boundary.
-  (let (observers (if observed? (read-scope-observers scope) '()))
+  (let (observers (if observed? (%delivery-observers (read-scope-observers scope)) '()))
     (unless (null? observers)
       (without-observation
         (lambda () (for-each (lambda (observe) (observe read)) observers)))))
   value)
+
+;; Keep the dynamic scope intact for prechecks and compatibility inspection.
+;; A leading runtime void can be ignored before entering a callback boundary.
+(def (%delivery-observers observers)
+  (if (and (pair? observers) (eq? (car observers) void))
+    (%delivery-observers (cdr observers))
+    observers))
 ;; Nested observers receive the same actual reads. Final replay is owned by the
 ;; consumer's admission boundary, not memoized as a successful previous check.
 (def (call-with-slot-read-observer observe action before: (before #f))

@@ -12,7 +12,7 @@
                     require-current-read-sweep! %pure-read-sweep?
                     record-key-field record-dependencies-field record-value-field
                     slot-spec-discards-super? compile-slot-specs prepare-declaration-specifications compute-object-precedence!
-                    %prepared-vector-slots? %bind-current-slot-reads
+                    %prepared-vector-slots? %bind-current-slot-reads %prepared-slot-present?
                     %with-slot-edit-protection %publish-slot-edits!) @object? @make-object)
 
 (import
@@ -568,7 +568,18 @@
   (if (bootstrap-anchor self slot)
     (begin (object-read-bootstrap self slot (bootstrap-anchor self slot)) #t)
     (object-read-query self (list 'presence slot)
-      (cut object-slot-present? self slot))))
+      (cut object-slot-present? self slot) presence: slot)))
+
+(extern namespace: clan/poo/read-route %standard-symbol-table-lookup?)
+
+;; A positive prepared lookup calls neither a getter nor a reflection hook.
+;; The caller owns key admission, observation and any fallback on a miss.
+(def (%prepared-slot-present? self slot)
+  (and (object? self)
+       (object-%instance self)
+       (not (object-%bootstrap self))
+       (let (table (object-%slot-funs self))
+         (and table (%standard-symbol-table-lookup? table) (hash-key? table slot)))))
 ;; Private query continuation: its public owner already admitted the name.
 ;; Recheck bootstrap after observer prechecks, which may edit the protocol.
 ;; Reflection hooks are direct declarations on the selected protocol. A

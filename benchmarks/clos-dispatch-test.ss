@@ -3,11 +3,14 @@
 
 (import :std/test :std/iter :clan/poo/clos
         (only-in :clan/poo/object .ref replay-slot-reads!)
-        (only-in :clan/poo/slot-observation %call-with-recorded-slot-reads)
+        (only-in :clan/poo/slot-observation %call-with-recorded-slot-reads
+                 call-with-slot-read-observer)
         (only-in :clan/poo/clos/objects require-clos-generic make-invocation-frame)
         (only-in :clan/poo/benchmarks/closure-measure measure median))
 (export clos-dispatch-test)
 (extern namespace: clan/poo/class-validation %prepared-local-slot?)
+(extern namespace: clan/poo/object %prepared-slot-present?)
+(extern namespace: clan/poo/slot-observation %delivery-observers)
 
 (extern namespace: clan/poo/clos/dispatch
         arguments-valid! protocol-ranked-methods keyword-arguments-valid!
@@ -73,7 +76,47 @@
   (for (side '(reference candidate))
     (displayln (list 'DISPATCH side (median (hash-ref samples side))))))
 
+(def (compare-observed)
+  (def (call) (render 'item color: 'selected))
+  (def (capture observer)
+    (%call-with-recorded-slot-reads
+      (lambda () (call-with-slot-read-observer observer call)) unique-roots?: #t))
+  (def (capture-result observer) (let-values (((result _) (capture observer))) result))
+  (defvalues (expected reads) (capture void))
+  (def delivered 0)
+  (def (count-read _read) (set! delivered (+ delivered 1)))
+  (def deliveries-per-call (begin (capture count-read) delivered))
+  (def present? %prepared-slot-present?)
+  (def delivery %delivery-observers)
+  (def (ordinary _receiver _slot) #f)
+  (def (observe _receiver _key) (void))
+  (def samples (make-hash-table))
+  (def (sample name side action)
+    (defvalues (result clocks) (measure action 256 #t))
+    (def key (list name side))
+    (hash-update! samples key (lambda (rows) (cons (* 1000 (vector-ref clocks 0)) rows)) '())
+    result)
+  (for (side '(reference candidate candidate reference candidate reference reference candidate))
+    (def reference? (eq? side 'reference))
+    (set! delivered 0)
+    (dynamic-wind
+      (lambda ()
+        (set! %prepared-slot-present? (if reference? ordinary present?))
+        (set! %delivery-observers (if reference? values delivery)))
+      (lambda ()
+        (check-equal? (sample 'capture side (cut capture-result void)) expected)
+        (check-equal? (sample 'capture-callback side (cut capture-result count-read)) expected))
+      (lambda ()
+        (set! %prepared-slot-present? present?)
+        (set! %delivery-observers delivery)))
+    (check-equal? delivered (* 256 deliveries-per-call))
+    (sample 'replay side (lambda () (replay-slot-reads! reads (if reference? observe void)))))
+  (for* ((phase '(capture capture-callback replay)) (side '(reference candidate)))
+    (displayln (list 'OBSERVED phase side (median (hash-ref samples (list phase side))))))
+  (displayln (list 'OBSERVED-ROOTS (length reads))))
+
 (def clos-dispatch-test
   (test-suite "CLOS dispatch phases"
     (test-case "matched batches isolate phases" (report-phases))
-    (test-case "interleaved full calls use the same methods and arguments" (compare-dispatch))))
+    (test-case "interleaved full calls use the same methods and arguments" (compare-dispatch))
+    (test-case "interleaved observed captures and replay of the same roots" (compare-observed))))

@@ -254,14 +254,16 @@
 
 ;; Replay authenticated reads under the same guarded source set and final check.
 (def (replay-slot-reads! roots observe)
-  (call-with-issued-reads roots
-    (lambda (reads current! _receivers)
-      (without-observation
-        (lambda ()
-          (for-each
-            (lambda (read)
-              (current! read)
-              (observe (slot-read-receiver read) (slot-read-key read))) reads)))) #t))
+  (if (and (eq? observe void) (%pure-read-sweep?))
+    (begin (call-with-current-slot-reads roots void) (void))
+    (call-with-issued-reads roots
+      (lambda (reads current! _receivers)
+        (without-observation
+          (lambda ()
+            (for-each
+              (lambda (read)
+                (current! read)
+                (observe (slot-read-receiver read) (slot-read-key read))) reads)))) #t)))
 
 ;; A protected checkpoint authenticates the complete live traversal before
 ;; calling action once. Its native frame verifies the same support at return.
@@ -306,10 +308,15 @@
   (%deliver-slot-read read (cdr anchor)))
 ;; Structural preparation can itself read MOP configuration. Retain its FIRST
 ;; preparation dependencies even when later name/presence queries are hot.
-(def (object-read-query self key action cache?: (cache? #t))
+(def (object-read-query self key action cache?: (cache? #t) presence: (slot #f))
   (%slot-read-demand! self key)
   (def revision (object-revision self))
-  (defvalues (value dependencies) (%call-with-recorded-slot-reads action))
+  ;; Check after the precheck, which can edit the receiver. A local indexed
+  ;; hit has no nested reads. Use the same issuer and deliver the same record.
+  (defvalues (value dependencies)
+    (if (and slot (%prepared-slot-present? self slot))
+      (values #t '())
+      (%call-with-recorded-slot-reads action)))
   (unless (= revision (object-revision self)) (error "object changed during query" key))
   (def table (object-read-table self))
   (def saved (and cache? (hash-get table key)))
