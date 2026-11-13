@@ -4,6 +4,12 @@ package GraphColdIndex {
                Only an owned, unique admitted roster with all captured rows
                empty may bypass DFS. Copy the resulting private order spine. */
     }
+    requirement def SingleProviderOrder {
+        doc /* If one supported empty-row provider is shared by all
+               nonempty rows, emit it at its first reader or its earlier
+               roster position. Preserve roster order for other owners
+               and the ordinary refusal for unsupported or cyclic rows. */
+    }
     requirement def SparseInverse {
         doc /* For owned snapshots with zero or one distinct provider, do not
                write one empty inverse bucket per owner. Multi-provider graphs

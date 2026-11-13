@@ -160,4 +160,66 @@ theorem cold_projection_exact (supported : K → Bool)
   | false => simp [admittedRow, found, missing key found]
   | true => simp [admittedRow, found, live key found]
 
+
+-- Every nonempty row reads the same provider, whose row is empty.
+-- The first reader emits that provider if its roster turn is still ahead.
+def hubOrder [DecidableEq K] (provider : K) (reader : K → Bool) :
+    List K → Bool → List K
+  | [], _ => []
+  | key :: rest, emitted =>
+    if key = provider then
+      if emitted then hubOrder provider reader rest true
+      else key :: hubOrder provider reader rest true
+    else if !emitted && reader key then
+      provider :: key :: hubOrder provider reader rest true
+    else key :: hubOrder provider reader rest emitted
+
+def hubDfs [DecidableEq K] (provider : K) (reader : K → Bool) :
+    List K → List K → List K
+  | [], _ => []
+  | key :: rest, seen =>
+    if key ∈ seen then hubDfs provider reader rest seen
+    else if reader key && decide (provider ∉ seen) then
+      provider :: key :: hubDfs provider reader rest (key :: provider :: seen)
+    else key :: hubDfs provider reader rest (key :: seen)
+
+theorem hub_order_exact (provider : K) (reader : K → Bool) (keys seen : List K)
+    (unique : keys.Nodup) (noSelf : reader provider = false)
+    (fresh : ∀ key ∈ keys, key ≠ provider → key ∉ seen) :
+    hubOrder provider reader keys (decide (provider ∈ seen)) =
+      hubDfs provider reader keys seen := by
+  induction keys generalizing seen with
+  | nil => rfl
+  | cons key rest ih =>
+    have distinct := (List.nodup_cons.mp unique).1
+    have tailUnique := (List.nodup_cons.mp unique).2
+    have tailFresh : ∀ v ∈ rest, v ≠ provider → v ∉ seen :=
+      fun v member ne => fresh v (by simp [member]) ne
+    have addedFresh : ∀ v ∈ rest, v ≠ provider → v ∉ key :: seen := by
+      intro v member ne
+      simpa [Ne.symm (show key ≠ v from fun eq => distinct (eq ▸ member))]
+        using tailFresh v member ne
+    have doubleFresh : ∀ v ∈ rest, v ≠ provider → v ∉ key :: provider :: seen := by
+      intro v member ne
+      have different : v ≠ key := fun eq => distinct (eq ▸ member)
+      simp [different, ne, tailFresh v member ne]
+    by_cases same : key = provider
+    · subst key
+      by_cases previous : provider ∈ seen
+      · have eq := ih seen tailUnique tailFresh
+        simpa [hubOrder, hubDfs, previous] using eq
+      · have eq := ih (provider :: seen) tailUnique addedFresh
+        simpa [hubOrder, hubDfs, previous, noSelf] using congrArg (List.cons provider) eq
+    · have unseen := fresh key (by simp) same
+      have eq := ih (key :: seen) tailUnique addedFresh
+      have eq' := ih (key :: provider :: seen) tailUnique doubleFresh
+      by_cases previous : provider ∈ seen
+      · simpa [hubOrder, hubDfs, same, Ne.symm same, unseen, previous] using
+          congrArg (List.cons key) eq
+      · cases read : reader key
+        · simpa [hubOrder, hubDfs, same, Ne.symm same, unseen, previous, read] using
+            congrArg (List.cons key) eq
+        · simpa [hubOrder, hubDfs, same, Ne.symm same, unseen, previous, read] using
+            congrArg (fun tail => provider :: key :: tail) eq'
+
 end GraphColdIndex

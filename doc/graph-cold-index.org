@@ -281,3 +281,20 @@ million-reader graph still failed cold construction with a 2.17 GiB
 sampled process-tree peak after 67.77 s. The existing 180 s deadline and
 4 GiB process-tree guard stayed in effect. Retain the index retirement
 fix. The projected cold adjacency path remains an experiment.
+
+** Single-provider DFS state
+
+For a unique owned roster whose nonempty rows all read one supported
+provider, and whose provider row is empty, the first reader emits that
+provider if it has not appeared yet. The remaining owners retain roster
+order. =hub_order_exact= proves equality with the specialized DFS model.
+Missing and self-reading providers retain the ordinary refusal path.
+
+A focused Darwin =-O2= candidate removed the DFS state table for this
+shape. The existing order suite passed all 22 cases with the current
+projected-index fix, including a late provider and the self-cycle
+refusal. The isolated million-reader fixture still hit the 2 GiB Scheme
+heap fence before the cold completion marker, after 21.80 s at a 2.24 GiB
+sampled process-tree peak. The 180 s deadline and 4 GiB guard were held.
+Keep this candidate outside the production path. Removing the state
+table alone did not complete admission and index construction.
