@@ -111,7 +111,7 @@
           "examples/closed-declarations" "examples/component-services"
           "examples/service-revisions" "examples/component-membership"
           "examples/component-migration" "examples/component-rounds" "examples/component-requests"
-          "benchmarks/closure-measure" "benchmarks/ordered-scc-study"
+          "benchmarks/closure-measure" "benchmarks/dense-repair-test" "benchmarks/ordered-scc-study"
           "t/feedback/graph-algorithms-test"
           "t/feedback/feedback-graph-test" "t/components/component-membership-test"
           "t/construction/graph-order-repair-test"
