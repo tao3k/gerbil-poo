@@ -222,4 +222,15 @@ theorem hub_order_exact (provider : K) (reader : K → Bool) (keys seen : List K
         · simpa [hubOrder, hubDfs, same, Ne.symm same, unseen, previous, read] using
             congrArg (fun tail => provider :: key :: tail) eq'
 
+
+-- A private table can replace an authored program with its admitted value
+-- after that key's read. The unique capture order preserves all later inputs.
+theorem capture_overwrite_preserves_pending (table : K → A) (key : K)
+    (captured : A) (pending : List K) (distinct : key ∉ pending) :
+    ∀ next ∈ pending, (fun query => if query = key then captured else table query) next =
+      table next := by
+  intro next member
+  have different : next ≠ key := fun equal => distinct (equal ▸ member)
+  simp [different]
+
 end GraphColdIndex

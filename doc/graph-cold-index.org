@@ -298,3 +298,20 @@ heap fence before the cold completion marker, after 21.80 s at a 2.24 GiB
 sampled process-tree peak. The 180 s deadline and 4 GiB guard were held.
 Keep this candidate outside the production path. Removing the state
 table alone did not complete admission and index construction.
+
+** Combined cold construction candidates
+
+Combining the projected adjacency with single-provider order passed all
+22 local order cases. The million-reader run still failed before cold
+completion at the 2 GiB Scheme heap fence. The process-tree sample peaked
+at 2.12 GiB, with 109.37 s total wall time.
+
+A follow-up also reused the private input program table. Each program
+was replaced with its captured record in the original unique code-key
+order. The table remained private through batch currentness and was
+published only after validation. =capture_overwrite_preserves_pending=
+proves each replacement preserves every pending input. The same 22
+order cases passed. The million-reader run still failed before cold
+completion, with 2.14 GiB sampled process-tree peak and 48.70 s wall.
+Both runs retained the 180 s and 4 GiB guards. Neither produces a
+complete repair result. Production keeps the existing cold path.
