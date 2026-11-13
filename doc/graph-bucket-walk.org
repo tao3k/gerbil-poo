@@ -170,6 +170,41 @@ regimes. Allocation estimates varied across samples. The existing
 complete reverse search stays in production pending an optimized
 native comparison that reproduces an end-to-end benefit.
 
+** Optimized Darwin comparison
+
+The generated Graph unit had 3,417 Gambit labels. The previous 4,096
+threshold did not split the C host. A dynamic =-O2= build still crossed
+the 4 GiB guard after 146.65 s. A threshold of 2,048 activated separate
+hosts and reached the Darwin link at a 1.45 GiB sampled peak. The link
+reported an unresolved =memset=. Reusing the existing Darwin dynamic
+symbol option completed the candidate build in 19.15 s at 1.41 GiB
+and the reference build in 27.28 s at 1.43 GiB. These are focused
+compiler diagnostics. The package build specification is unchanged.
+
+The candidate passed 22 order cases and the 32 paired bucket samples.
+CPU and wall medians in ms, reference / direct:
+
+| Readers | Regime    | CPU ms        | Wall ms       |
+|---------+-----------+---------------+---------------|
+| 100K    | Natural   | 1.052 / 0.440 | 1.053 / 0.440 |
+| 100K    | Collected | 1.071 / 0.451 | 1.072 / 0.451 |
+| 1M      | Natural   | 10.80 / 4.43  | 10.92 / 4.56  |
+| 1M      | Collected | 12.81 / 4.46  | 14.23 / 4.46  |
+
+No timed complete-bucket sample collected. Allocation estimates varied
+and were unavailable in several reference samples. The full bucket
+study took 17.08 s with a 1.56 GiB process-tree peak.
+
+A separate complete repair fixture uses a reverse hub and inserts an
+edge that moves every live reader. On the reference the 100K repair
+took 839.88 ms CPU, including 93.49 ms GC, and 1,559.68 ms wall. It
+verified 99,999 examined edges and 100,001 rewritten ranks. The 1M
+reference failed the existing 2 GiB Scheme heap fence before the
+paired run reached the candidate. The 4 GiB process guard and 180 s
+deadline stayed in force. Keep the production path pending a matched
+complete repair comparison and investigate the live rank/index work
+separately from frontier construction.
+
 * Retiring an inserted reader
 
 An insertion into an edited inverse bucket records whether the absent
