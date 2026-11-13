@@ -576,3 +576,44 @@ one retired owner and no roster materialization. The separate deletion-only
 case took 116 us CPU, with four affected owners and no forward or reverse
 bucket walks. The exact predecessor and out-of-region reader checks ran
 with the existing fixtures.
+
+** Million-reader cold roster ownership
+
+CI at =45cb1c1= passed the ring and reverse-hub pressure cases, then hit
+the 2 GiB Scheme heap limit in the natural-GC full-order case. Its log
+did not identify the failing phase. The fixture now reports cold,
+revision and predecessor-order completion outside the timing window.
+
+=keys!= uses Gerbil's =delete-duplicates/hash= with =from-end?: #t=.
+That implementation constructs a fresh spine with =with-list-builder=,
+preserving the first occurrence of each key. Owned scheduling can keep
+that spine directly. =GraphRoster.native_normalization_order= gives the
+ordered-content law. The Scheme regression mutates the original key
+list during a program getter and checks the final order and support.
+
+The local natural-GC replay reached cold and revision completion, then
+overflowed during the first public order query. Shortening the fixture
+ticket lifetime still reproduced the failure. The pre-collected lane
+completed both complete lists at the same limits. The subsequent output
+candidate walks the existing position vector backward and conses one
+entry at a time. =GraphRoster.emit_position_list_exact= proves exact
+order and the public copy check still runs against mutable output.
+The natural-GC run of that candidate overflowed earlier, during repair,
+at 78.731 s and a 2.24 GiB process-tree peak. The candidate was removed.
+This reproduces heap pressure without establishing an enumeration-only
+cause. The two runs have different compilation and GC histories.
+
+The fused candidate supplies the final symbolic support table to
+=delete-duplicates/hash=. The standard operation both inserts each
+new identity and emits its first occurrence. =GraphRoster.one_pass_exact=
+and =native_normalization_order= give the support and ordered-result
+obligations. The table remains private after capture. No graph edge,
+ordered output or independent callback check is removed.
+
+The million-reader natural and pre-collected runs both completed the
+predecessor and successor order checks at the original limits.
+Whole-run wall time was 25.874/21.704 s and sampled process-tree
+footprint 2.29/2.29 GiB. Repair itself took 1.229/1.281 s CPU and
+46,524,104 allocated bytes in each lane, with zero in-window collections.
+This pair establishes local completion. Exact-head Ubuntu CI is a
+separate qualification.

@@ -2,14 +2,15 @@
 
 * Status and scope
 
-This is a mathematical design, not an adopted Scheme optimization.
 [[file:graph-roster.lean][Lean]] proves ordered roster/support equivalence;
 [[file:graph-roster.sysml][SysML]] records the implementation obligations.
-No new loader, cache, API, validator or evaluator is introduced. Production
-remains on the existing two-pass path until ALL gates below are satisfied.
+The owned cold scheduling candidate supplies its private symbolic support
+table to Gerbil's standard deduplicator. Its local million-reader results
+are recorded in [[file:graph-cold-index.org][the cold Graph study]].
+Remote qualification uses the exact candidate commit.
 
-The domain K denotes validated Gerbil symbol identities. =keys!= still owns
-proper-list/symbol validation and its error payload. For the existing
+The domain K denotes validated Gerbil symbol identities. The owned entry
+checks the same proper-list/symbol condition and error as =keys!=. For the
 =delete-duplicates/hash= call with =from-end?: #t=, the admitted order retains
 the first occurrence. The model permits duplicates and arbitrary initial
 membership; it is not limited to a unique generated fixture.

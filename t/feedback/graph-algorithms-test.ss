@@ -282,7 +282,12 @@
           .code: (lambda (key) (let (dependencies (read-row key)) (.o reads: dependencies)))))
       (def index (scc.capture-reachability (mutating-source)))
       (check-equal? (.call index .reachable 'a) '(b a))
-      (check-equal? (scc.partition-groups (scc.partition (mutating-source))) '((a) (b) (c))))
+      (check-equal? (scc.partition-groups (scc.partition (mutating-source))) '((a) (b) (c)))
+      (def keys (list 'a 'b 'a 'c))
+      (def program (.o reads: (begin (set-car! (cdr keys) 'rogue) '(b))))
+      (def schedule (graph.schedule-owned keys (list (cons 'a program))))
+      (check-equal? (graph.schedule-order schedule) '(b a c))
+      (check-equal? (graph.schedule-supports? schedule 'rogue) #f))
     (test-case "all 512 directed three-owner graphs agree with reachability"
       (def keys (names 3))
       (def failure #f)

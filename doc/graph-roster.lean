@@ -202,6 +202,21 @@ theorem membership_preflight_exact (keys added removed : List K)
   have same : supports = (fun key => decide (key ∈ keys)) := funext bound
   rw [same]
 
+-- The explicit output walks the position vector from its end, consing each
+-- position in front of the suffix already emitted.
+def emitPositionList (positions suffix : List K) : List K :=
+  positions.reverse.foldl (fun out key => key :: out) suffix
+
+omit [DecidableEq K] in
+theorem emit_position_list_exact (positions suffix : List K) :
+    emitPositionList positions suffix = positions ++ suffix := by
+  induction positions generalizing suffix with
+  | nil => rfl
+  | cons key rest ih =>
+    simp [emitPositionList, List.reverse_cons, List.foldl_append,
+      show rest.reverse.foldl (fun out key => key :: out) suffix = rest ++ suffix from ih suffix]
+
+#print axioms emit_position_list_exact
 #print axioms same_order
 #print axioms final_membership
 #print axioms firsts_membership

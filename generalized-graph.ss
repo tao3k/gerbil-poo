@@ -494,9 +494,12 @@
 (def (schedule-owned keys codes (bases []))
   (schedule-owned/rows keys codes bases #t))
 (def (schedule-owned/rows keys codes bases implicit-allowed?)
-  (def names (list-copy (keys! keys)))
+  ;; Normalize and populate the private support table in the same pass.
+  ;; Use the same validation and standard first-occurrence list builder as keys!.
+  (unless (and (list? keys) (andmap symbol? keys)) (error "component keys must be symbols"))
   ;; Owned snapshots use stable Symbol hashing, including after GC.
-  (def supported (index-keys names (make-hash-table-symbolic size: (length names) seed: (%graph-table-seed))))
+  (def supported (make-hash-table-symbolic seed: (%graph-table-seed)))
+  (def names (delete-duplicates/hash keys table: supported from-end?: #t))
   (def programs (table codes))
   (def values (table bases (make-hash-table-symbolic seed: (%graph-table-seed))))
   (def code-keys (map car codes))
