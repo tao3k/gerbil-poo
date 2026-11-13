@@ -1,6 +1,7 @@
-;;; Register each runtime-issued Slot read with its original fields.
-;;; Before comparing stored state, check the actual Gerbil HashTable methods
-;;; and field layout that the comparison would use.
+;;; Record which SlotRead objects POO created and what they contained.
+;;; To replay a read of 'port, the object checks its saved record and cached
+;;; value for 'port. This module checks the HashTable accessors first, so a
+;;; replaced lookup method cannot run during that comparison.
 (export require-read-route! make-read-issuer standard-symbol-table-writes? gc-table-route-current?
         %issued-read? %read-issuance)
 (import (only-in ./slot-layout slot-value-storage make-slot-values) :std/error ./slot-observation
@@ -11,19 +12,15 @@
   (only-in :gerbil/runtime/hash HashTable::interface gc-hash-table::t)
   (only-in :gerbil/runtime/interface &interface-descriptor-type))
 
-;; Private admission for a single callback-free replay sweep. An identity
-;; HashTable conversion cannot reify another interface or invoke author code.
-;; Unsupported descriptors retain the original per-record protocol. The
-;; receiver route itself still has to pass require-read-route! on first use.
-;; As with the existing route guard, this is a serial supported-runtime law,
-;; not protection against concurrent raw writes to runtime implementation data.
+;; Share table checks within one replay pass when casting an existing
+;; HashTable wrapper returns that wrapper. With a different descriptor, use
+;; the per-record checker. Each receiver's tables still need their own checks.
 (def %pure-read-sweep?
   (let (wrapper (read-runtime.object-class (make-hash-table)))
     (lambda () (eq? wrapper (&interface-descriptor-type HashTable::interface)))))
 
-;; These are the final record owner's generated physical-field operations,
-;; not the public copying inspectors or a new lookup through mutable class
-;; display metadata. Every issuer captures the SAME declared field meanings.
+;; Use SlotRead's generated field accessors. Public inspectors copy some
+;; fields, and reflective name lookup can be redirected by a class edit.
 (extern
   (record-key-field clan/poo/slot-observation#slot-read-key)
   (record-value-field clan/poo/slot-observation#slot-read-value)
@@ -82,11 +79,13 @@
              (and (read-runtime.object? backend)
                   (eq? (read-runtime.object-class backend) gc-hash-table::t)))))))
 
-;; Expected HashTable class, field offsets and procedures for checking an
-;; issued read. The vector-backed store uses a symbolic table to index its cells.
+;; Expected wrapper class, offsets and methods for hash-ref.
 (defstruct route (wrapper ref backend hash test object-field ref-field object-offset ref-offset) final: #t)
-;; Pin only class/method identities, never a receiver, value or validation result.
+;; A vector store also needs the symbol-to-cell index and the missing sentinel.
 (defstruct value-route (ref backend shape missing cells-field missing-field shape-field indices-field) final: #t)
+;; KEY is the slot name or a structural query such as '(presence port).
+;; READS maps keys to SlotRead records. INSTANCE holds cached slot values.
+;; Either table may be #f. A bootstrap read checks its constant directly.
 (def require-read-route!
   (let ()
     ;; Pin the standard wrapper, primitive lookup and hash/test identities once.
@@ -114,7 +113,7 @@
             (read-runtime.make-class-slot-accessor backend-class 'missing)
             (read-runtime.make-class-slot-accessor backend-class 'shape)
             (read-runtime.make-class-slot-accessor shape-class 'indices)))))
-    ;; Refuse changed metadata without dispatching its mutable public methods.
+    ;; Check the wrapper before using its saved field accessors.
     (def (check-wrapper table expected)
       (unless (eq? (read-runtime.object-class table) (route-wrapper expected))
         (error "foreign metadata wrapper"))
@@ -143,8 +142,8 @@
       (check-wrapper table expected)
       (check-ref table expected (route-ref expected))
       (check-backend ((route-object-field expected) table) expected))
-    ;; Authenticate the vector route before any HashTable/index method can run.
-    ;; Index metadata uses the same pinned standard symbolic hash/test implementation.
+    ;; Vector lookup uses the shape's symbolic index to find a value cell.
+    ;; Check that index as well as the outer table before hash-ref can use it.
     (def (check-instance table)
       (check-wrapper table instance-route)
       (let (backend ((route-object-field instance-route) table))
@@ -176,9 +175,8 @@
         (when instance (check-instance instance))))))
 
 
-;; One authority owns the original weak table and authenticated birth closures.
-;; The issuer owns canonical names separately from the producer's cache and
-;; public record. Another factory's records cannot authenticate here.
+;; Each issuer keeps a weak table of the records it created and their original
+;; field checkers. Its structural keys are independent copies.
 (def (make-read-issuer)
   (let ()
     ;; Both sides are weak: the registry is not a root for records, receivers or

@@ -44,8 +44,8 @@
 (def issue-object-read %issue-read)
 (def object-read-issued? %issued-read?)
 (def object-read-issuance %read-issuance)
-;; Capture source state and preserve preparation parents at this one boundary.
-;; The existing read module owns provenance, without receiver-accessor callbacks.
+;; Record the current receiver revision and instance. Include the read that
+;; captured slot preparation among the new record's dependencies.
 (def (object-record-read self key value dependencies)
   (def preparation (and (object-%reads self) (hash-get (object-%reads self) '(preparation))))
   (def parents
@@ -53,7 +53,7 @@
       (cons preparation dependencies) dependencies))
   (issue-object-read self key (object-revision self) (object-%instance self) value parents object-read-current?))
 
-;; Reject a replaced receiver route before accepting its captured value.
+;; Check the receiver's read table and cached values before looking in either.
 (def (require-object-read-route! read)
   (def receiver (slot-read-receiver read))
   (require-read-route! (object-read-key read)
@@ -73,8 +73,8 @@
           (when authenticate?
             (unless (object-read-issued? read) (error "unissued slot dependency")))
           (let (key (object-read-key read))
-            ;; Bootstrap checks its anchor, not receiver table routes. It must
-            ;; not certify those routes for a later ordinary read of this owner.
+            ;; Bootstrap uses its constant directly. Leave this receiver's
+            ;; table checks for the first ordinary read.
             (require-read-route! key #f #f)
             (unless (and (pair? key) (eq? (car key) 'bootstrap))
               (let (index (vector-ref positions position))
@@ -282,7 +282,7 @@
           (without-observation (cut current! read))
           (%deliver-slot-read read (object-read-value read))) reads)) #t))
 
-;; Deliver computed provenance or mint a record for an exact explicit assignment.
+;; Deliver the saved read or create one for an explicitly assigned value.
 (def (object-deliver-value self slot value)
   (def table (object-read-table self))
   (def read
