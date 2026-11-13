@@ -560,13 +560,15 @@
       (cut object-slot-present? self slot))))
 ;; Private query continuation: its public owner already admitted the name.
 ;; Recheck bootstrap after observer prechecks, which may edit the protocol.
+;; Reflection hooks are direct declarations on the selected protocol. A
+;; reflective probe on that protocol could enter its own metalevel hooks.
 (def (object-slot-present? self slot)
   (if (bootstrap-anchor self slot) #t
     (begin
       (instantiate-object! self)
       (or (hash-key? (object-%slot-funs self) slot)
           (let (protocol (object-protocol self))
-            (and protocol (.slot? protocol 'fallback-slot-present?)
+            (and protocol (prototype-map-ref (object-%slots protocol) 'fallback-slot-present?)
                  (.call protocol fallback-slot-present? self slot)))))))
 
 (defrules .has? ()
@@ -593,7 +595,7 @@
         (set! (object-%all-slots self) defined)
           defined)))
     (def protocol (object-protocol self))
-    (if (and protocol (.slot? protocol 'fallback-slot-names))
+    (if (and protocol (prototype-map-ref (object-%slots protocol) 'fallback-slot-names))
       (.call protocol fallback-slot-names self names)
       names))))
 
