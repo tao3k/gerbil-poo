@@ -38,6 +38,11 @@ automatically merged into a new protocol. Hook failure clears partial constructi
 state. Reading a receiver during its own construction refuses instead of exposing
 an incomplete instance. Hook/source edits while checking C3 are also rejected.
 
+During slot assembly, the engine can check once for an inherited protocol if
+Gerbil's `HashTable` conversion and symbolic writer cannot invoke author
+code. A replaced conversion or writer keeps the per-slot hook lookup.
+[LeanPoo effect model](https://github.com/tao3k/lean-poo/blob/31b550d15e81b095795078efb8344442d8ba6edd/LeanPoo/Object/SlotPreparation.lean#L35-L75)
+
 ## Slot lookup and generic dispatch
 
 | Hook | Trigger and inputs |

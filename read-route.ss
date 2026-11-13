@@ -1,6 +1,6 @@
-;;; Issuance verifies who created a Slot read and which fields it contained.
-;;; Dispatch checks inspect the live HashTable methods used to verify that
-;;; read against the receiver's stored state, without invoking those methods.
+;;; Register each runtime-issued Slot read with its original fields.
+;;; Before comparing stored state, check the actual Gerbil HashTable methods
+;;; and field layout that the comparison would use.
 (export require-read-route! make-read-issuer standard-symbol-table-writes? gc-table-route-current?
         %issued-read? %read-issuance)
 (import (only-in ./slot-layout slot-value-storage make-slot-values) :std/error ./slot-observation
@@ -32,8 +32,8 @@
   (record-birth-field clan/poo/slot-observation#slot-read-birth)
   (record-birth-set! clan/poo/slot-observation#slot-read-birth-set!))
 
-;; Does table use Gerbil's symbolic set!, symbolic hash, and eq? without a lock?
-;; Insertion can rehash, so checking set! alone is insufficient.
+;; Can hash-put! reach Gerbil's symbolic writer without an adapter or callback?
+;; Rehashing also uses the backend's hash/test, so check those and its lock.
 (def standard-symbol-table-writes?
   (let* ((sample (make-hash-table-symbolic))
          (wrapper (read-runtime.object-class sample))
@@ -43,7 +43,8 @@
          (set-offset (read-runtime.class-slot-offset wrapper 'set!))
          (backend-class (read-runtime.object-class (object-field sample))))
     (lambda (table)
-      (and (read-runtime.object? table)
+      (and (eq? wrapper (&interface-descriptor-type HashTable::interface))
+           (read-runtime.object? table)
            (eq? (read-runtime.object-class table) wrapper)
            ;; A shared class can keep its identity while its field map moves.
            (eqv? (read-runtime.class-slot-offset wrapper 'object) object-offset)

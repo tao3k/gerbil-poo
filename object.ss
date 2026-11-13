@@ -111,16 +111,17 @@
   (depend-on-state! (object-%state source) self (object-%state self)))
 ;; Read-only revision identity for source-bound external caches.
 (def (object-revision self) (object-state-revision (object-%state self)))
-;; Each versions[i] is the revision captured for sources[i], a POO object.
-;; Compare both lists in order, reading only the object's revision field.
-;; Callers check again after any callback that can edit a source.
-(def (%object-revisions-current? sources versions)
-  (let loop ((sources sources) (versions versions))
+;; SOURCES is an ordered list of POO objects. REVISIONS is the list captured
+;; by (map object-revision sources) when a Lens or fragment was prepared.
+;; Both lists must end together and every live revision must match its snapshot.
+;; Compare revision fields without demanding slots or running callbacks.
+(def (%object-revisions-current? sources revisions)
+  (let loop ((sources sources) (revisions revisions))
     (cond
-      ((null? sources) (null? versions))
-      ((null? versions) #f)
-      (else (and (equal? (car versions) (object-revision (car sources)))
-                 (loop (cdr sources) (cdr versions)))))))
+      ((null? sources) (null? revisions))
+      ((null? revisions) #f)
+      (else (and (equal? (car revisions) (object-revision (car sources)))
+                 (loop (cdr sources) (cdr revisions)))))))
 ;; Active construction is separate from slot computation: no partial method table
 ;; or instance is published when an inherited hook tries to read its own receiver.
 (def active-object-constructions (make-parameter []))
@@ -241,8 +242,8 @@
   ;; Default warm queries need neither traversal state nor a second admission.
   ;; Explicit diagnostic heads retain their original preparation and error order.
   (or (and (null? heads) (object-%precedence-list self)) (let ()
-      ;; A literal keyword call avoids packing the convenience wrapper's rest
-      ;; arguments. Gerbil still constructs the same eq? table.
+      ;; Same eq? table as Gerbil's (make-hash-table-eq), with the keyword
+      ;; passed directly to its constructor instead of forwarding via apply.
       (def active (make-hash-table test: eq?))
       (for-each (lambda (head) (hash-put! active head #t)) heads)
       (let compute ((object self) (heads heads))
@@ -290,8 +291,8 @@
 ;; Incremental scratch visibility remains local to each catalog; nothing pending
 ;; escapes or survives a failed build. Direct specifications still override declarations.
 (def (compute-slot-funs! self)
-  ;; Checked graph preparation supplies seed 0 for private tables. Ordinary
-  ;; object construction leaves the seed at Gerbil's default.
+  ;; The component builder supplies a fixed hash seed during checked graph
+  ;; preparation. Outside that scope Gerbil draws its normal random seed.
   (def h (make-hash-table test: eq? hash: symbolic-hash seed: (%graph-table-seed)))
   (def prepared (map-in-order (lambda (super) (cons super (prepare-declaration-specifications super)))
                              (reverse (object-%precedence-list self))))
@@ -316,9 +317,9 @@
   ;; change the payload capture time of another field's SlotSpec.
   (for (([slot . specs] (hash->list h)))
     (hash-put! h slot (compile-slot-specs self slot specs)))
-  ;; Snapshot the compiled thunks before running compute-slot hooks. If no
-  ;; protocol is installed and table writes cannot run user code, that stays
-  ;; true throughout this loop. Otherwise select the hook for each slot.
+  ;; A standard symbolic-table write cannot install a protocol between slots.
+  ;; In that case one check for an inherited protocol suffices. A custom writer
+  ;; or an installed protocol requires a fresh hook lookup on each iteration.
   (def entries (hash->list h))
   (def skip-hook-lookup? (and (pair? entries) (pair? (cdr entries)) (standard-symbol-table-writes? h)
                     (not (object-protocol self))))
@@ -331,7 +332,8 @@
   (set! (object-%slot-funs self) h))
 
 ;; Visit each prototype's names from least to most specific. Keep the last
-;; occurrence of each name, in order. Use the same private-table seed as slot assembly.
+;; occurrence of each name, in order. The scratch table uses the same scoped
+;; hash seed as the method table above.
 (def (merge-super-slots super-slots)
   (delete-duplicates/hash (apply append (reverse super-slots))
     table: (make-hash-table test: eq? hash: symbolic-hash seed: (%graph-table-seed)) from-end?: #t))

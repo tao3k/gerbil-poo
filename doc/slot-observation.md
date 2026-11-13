@@ -126,13 +126,13 @@ independently verifies the reads after callbacks. In a callback-free sweep
 the same receiver's table checks can be shared. Each record still has its
 own issuance and stored-state check. [LeanPoo sweep equivalence](https://github.com/tao3k/lean-poo/blob/31b550d15e81b095795078efb8344442d8ba6edd/LeanPoo/Object/ReadRouteSharing.lean#L143-L149)
 
-The table checks verify which Gerbil operations would run during a lookup.
-They inspect the wrapper and backend classes, live field offsets, lookup
-procedure, hash and equality procedures, and lock. For vector storage they
-check the lookup procedure before inspecting cells and the symbol-to-index
-table. The issuer and traversal use the Slot read record's declared field
-accessors so a change to reflective field names cannot redirect a signed
-dependency. [LeanPoo field checks](https://github.com/tao3k/lean-poo/blob/31b550d15e81b095795078efb8344442d8ba6edd/LeanPoo/Object/FixedFieldLayout.lean#L13-L24) · [Signed record proof](https://github.com/tao3k/lean-poo/blob/31b550d15e81b095795078efb8344442d8ba6edd/LeanPoo/Object/FixedFieldLayout.lean#L56-L78)
+For a read of `port`, replay checks the receiver's table of read records and
+its stored value for `port`. Before using `hash-ref`, it checks the wrapper
+and backend classes, field offsets, lookup, hash, equality and lock. With
+vector storage it also checks the symbol-to-index table used to locate the
+cell. The issuer and traversal use the Slot read's declared field accessors
+so edits to reflective field names cannot redirect a signed dependency.
+[LeanPoo field checks](https://github.com/tao3k/lean-poo/blob/31b550d15e81b095795078efb8344442d8ba6edd/LeanPoo/Object/FixedFieldLayout.lean#L13-L24) · [Signed record proof](https://github.com/tao3k/lean-poo/blob/31b550d15e81b095795078efb8344442d8ba6edd/LeanPoo/Object/FixedFieldLayout.lean#L56-L78)
 
 These checks cover supported serial edits. Raw reflective writes to private
 state and unsynchronized concurrent writes are outside that contract.

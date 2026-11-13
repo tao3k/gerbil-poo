@@ -1,6 +1,7 @@
 (export inheritance-hooks-test)
 (import (only-in :clan/poo/slot-observation %call-with-recorded-slot-reads)
         (only-in :clan/poo/read-route standard-symbol-table-writes?)
+        (only-in :gerbil/runtime/hash HashTable::interface)
         (prefix-in (only-in :gerbil/runtime/mop slot-ref slot-set! object-class
                             find-method bind-method! class-slot-offset &class-type-slot-table) runtime.)
         (only-in :gerbil/runtime/table symbolic-table-set!)
@@ -11,7 +12,7 @@
 ;; Exercise inheritance protocol composition through actual objects and hooks.
 (def inheritance-hooks-test
   (test-suite "inherited hooks mutation and declared reflection"
-    (test-case "shared protocol selection authenticates its actual write route"
+    (test-case "shared protocol selection requires the standard HashTable writer"
       (def table (make-hash-table-symbolic))
       (def backend (runtime.slot-ref table 'object))
       (def calls 0)
@@ -38,7 +39,16 @@
           (set! accepted? (standard-symbol-table-writes? table))
           (finally (symbolic-table-set! offsets field original)))
         ;; Assert only after restoring the shared runtime class mapping.
-        (check-equal? accepted? #f)))
+        (check-equal? accepted? #f))
+      (def descriptor-class (runtime.slot-ref HashTable::interface 'type))
+      (def accepted? #f)
+      (dynamic-wind
+        (lambda ()
+          (runtime.slot-set! HashTable::interface 'type (runtime.object-class backend)))
+        (lambda () (set! accepted? (standard-symbol-table-writes? table)))
+        (lambda () (runtime.slot-set! HashTable::interface 'type descriptor-class)))
+      (check-equal? accepted? #f)
+      (check-equal? (standard-symbol-table-writes? table) #t))
     (test-case "effectful method installation retains per-slot protocol selection"
       (def hooks 0)
       (def protocol

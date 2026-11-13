@@ -8,18 +8,19 @@ already maps each family key to its Lens. A group request can use
 =hash-key?= on that table to check that all requested keys belong to the
 family. An absent key is refused before any component program runs.
 
-The table can answer membership only while its construction and lookups use
-Gerbil's standard identity-table methods. A focus callback can change those
-methods, so the builder checks again before using the table. Once the check
-fails, membership uses the owned list for the rest of that builder's life.
-The original focus operations still run.
+The builder uses Gerbil's standard identity-table methods for membership.
+A focus callback can replace a table method, so the builder checks the
+current lookup and write methods before using the index. If the check fails,
+membership uses the owned list for the rest of that builder's life.
 
-This family-wide check does not decide where a component equation reads
-its dependencies. A dependency in the current SCC uses the current
-fixed-point input. An external dependency uses the closed predecessor.
-The family index also contains keys outside that SCC. The first-use SCC
-index experiment was dropped after the sparse cold lookup at one million
-members went from 4.6830 to 180.0730 ms CPU.
+For example, suppose a family contains =invoice=, =tax= and =rate=.
+If =invoice= and =tax= form an SCC, the =tax= read inside the =invoice=
+equation uses the current fixed-point input. If =rate= is in a predecessor
+SCC, its read uses the closed predecessor value. All three keys pass family
+membership. The equation uses its current SCC members to choose the source.
+
+An experimental index for the SCC itself increased a sparse cold lookup at
+one million members from 4.6830 to 180.0730 ms CPU and was withdrawn.
 [[https://github.com/tao3k/gerbil-poo/blob/f9d56443b3b56be6dfbac73441fe0996e5447565/doc/component-routing.org][Archived experiment]]
 
 * Checks and measurements

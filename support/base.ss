@@ -44,9 +44,9 @@
 (def (comparing-key test: (test equal?) key: (key identity))
   (λ (x y) (test (key x) (key y))))
 
-;; The hash seed for private construction tables is normally #f (Gerbil's
-;; default). Checked graph preparation uses 0 to avoid consuming the
-;; application's random source. Restore the default before calling user code.
+;; Gerbil draws a random hash seed when given #f. The checked component build
+;; binds 0 for its private preparation tables, so those allocations do not
+;; advance the application's random source. Callback boundaries restore #f.
 (defvalues (%graph-table-seed %with-graph-table-seeds %with-application-table-seeds)
   (let (seed (make-parameter #f))
     (values (lambda () (seed))
