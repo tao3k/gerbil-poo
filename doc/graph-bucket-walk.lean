@@ -225,6 +225,13 @@ theorem unchanged_row_projection {next : K → K → Prop} {before after : K →
       unchanged_projection clean provider (valid provider (by simp))]
     exact congrArg (List.cons (after provider)) (ih fun key h => valid key (by simp [h]))
 
+-- Member rows already follow source order. For one dirty component the
+-- old concatenation was that member row, and sorting it is the identity.
+theorem single_dirty_component_order {members : List K} {before : K → K → Bool}
+    (ordered : members.Pairwise (fun a b => before a b)) :
+    ([members].flatten).mergeSort before = members := by
+  simpa using (List.mergeSort_of_pairwise ordered)
+
 #print axioms clean_exact
 #print axioms restrict_path
 #print axioms skip_self_edges

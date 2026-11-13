@@ -291,3 +291,21 @@ bytes peak RSS for the complete process including preparation. These
 measurements cover ordinal reservation and structural SCC/quotient
 repair. Component evaluation and joint approval are exercised by the
 publication tests.
+
+** Multiple deletions in a certified cycle
+
+=functional_deletion_batch_exact= extends the existing singleton
+projection to a deletion-only batch with at least one removed edge.
+The successor is a subgraph of the one-cut graph at any deleted edge.
+Further deletions preserve its singleton SCCs. All representatives
+still enter the quotient support handoff. No edge is added under this
+certificate.
+
+In the isolated Darwin benchmark the two-cut partition revision took
+0.081 ms CPU at 100,000 vertices and 0.071 ms at 1,000,000, with 98,560
+allocated bytes and no GC in either revision window. Including cold
+capture, the diagnostic took 37.40 seconds and peaked at 1.41 GiB under
+the 4 GiB process-tree guard. Quotient publication and explicit group
+enumeration have separate work and timing. The matched predecessor
+retains exact groups but returns an enumerated change table where the
+new path requires the complete-support handoff.

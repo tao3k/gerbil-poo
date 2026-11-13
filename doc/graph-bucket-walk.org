@@ -224,3 +224,8 @@ The matched fault uses the predecessor inverse for this walk. The bounded
 fixture then visits four reader edges where the successor has one. Its
 outside reader with a deleted edge must be absent from the quotient seeds;
 a different outside reader whose edge survives must be present.
+
+When the deletion batch dirties one old component, borrow its already
+source-ordered member row. =single_dirty_component_order= proves that
+sorting the sole member row gives the same sequence. Multiple dirty
+components still require global source order across their member rows.

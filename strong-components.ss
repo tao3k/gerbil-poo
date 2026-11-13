@@ -1056,15 +1056,16 @@
   ;; its forward/reverse intersection is already the old owner group.
   (def deletion-only? (zero? (hash-length add-forward)))
   (def single-removal? (and (pair? roots) (null? (cdr roots)) deletion-only?))
-  ;; Every key reached the cut owner before this edit. With one successor per
-  ;; row, the remaining path to the cut sink precludes any nontrivial SCC.
-  (def functional-cut? (and single-removal? (= removed-edges 1)
+  ;; One deletion breaks a certified functional cycle. Further deletions
+  ;; preserve singleton components by edge inclusion.
+  (def functional-cut? (and deletion-only? (positive? removed-edges)
                             (eq? (owned-partition-shape old) 'cycle)))
   (def single-owner (and single-removal? (not functional-cut?) (%index-ref old-owner (car roots))))
   ;; Deletions cannot join old components. Revisit only components that
   ;; lost an internal edge, even when one edit touches multiple components.
   (def dirty-components
-    (and deletion-only? (not single-removal?) (not ranked?) (not retained-components?)
+    (and deletion-only? (not functional-cut?) (not single-removal?)
+         (not ranked?) (not retained-components?)
       (let (dirty (make-hash-table-symbolic))
         (hash-for-each
           (lambda (provider consumers)
@@ -1075,6 +1076,7 @@
                            (eq? representative (%index-ref old-owner consumer)))
                   (hash-put! dirty representative #t))) consumers)) remove-backward)
         dirty)))
+  (def dirty-keys (and dirty-components (hash-keys dirty-components)))
   (def to (and (not ranked?) (not retained-components?) (not deletion-only?)
                (edit-region-walk roots forward add-forward forward-work)))
   (def from (and (not ranked?) (not retained-components?) (not deletion-only?)
@@ -1086,11 +1088,14 @@
     (cond ((or ranked? retained-components?) [])
           (functional-cut? [])
           (single-removal? (cdr (%index-ref old-members single-owner)))
-          (dirty-components
-           (%partition-order-keys prior
-             (with-list-builder (add)
-               (for (representative (hash-keys dirty-components))
-                 (for-each add (cdr (%index-ref old-members representative)))))))
+          (dirty-keys
+           (match dirty-keys
+             ([representative] (cdr (%index-ref old-members representative)))
+             (else
+              (%partition-order-keys prior
+                (with-list-builder (add)
+                  (for (representative dirty-keys)
+                    (for-each add (cdr (%index-ref old-members representative)))))))))
           (else
            (let (smaller (if (< (hash-length to) (hash-length from)) to from))
              (%partition-order-keys prior (filter inside? (hash-keys smaller)))))))

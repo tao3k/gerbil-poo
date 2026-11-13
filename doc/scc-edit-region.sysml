@@ -103,10 +103,10 @@ package SccEditRegion {
     }
     requirement def SingleRowRemoval {
         doc /* With one changed row and no additions, the old SCC of its
-               owner is exactly the repair region. For a certified whole
-               functional cycle with one removed edge, the cut becomes a
-               sink; every successor group is a singleton. An internal
-               chord retires the functional shape even if membership survives. */
+               owner is exactly the repair region. In a certified whole
+               functional cycle, removing at least one edge without additions
+               makes every successor group a singleton. An internal chord
+               retires the functional shape even if membership survives. */
     }
     requirement def AllRepresentativesChanged {
         doc /* After a certified cut of a nontrivial whole cycle, every group

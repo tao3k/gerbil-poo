@@ -460,6 +460,28 @@ theorem functional_repair_exact {old next : V → V → Prop} {cut a b : V}
   rw [functional_replacement_exact one removed deletesOnly otherRows]
   exact functional_cut_singletons one reaches
 
+-- Further deletions preserve the singleton result. The exact delta only
+-- needs to witness one old edge missing from the successor.
+theorem functional_deletion_batch_exact {old next : V → V → Prop} {cut a b : V}
+    (one : Functional old) (reaches : ∀ v, Path old v cut)
+    (removed : ∃ dep, old cut dep ∧ ¬ next cut dep)
+    (deletesOnly : ∀ a b, next a b → old a b) :
+    Mutual next a b ↔ a = b := by
+  constructor
+  · intro paths
+    have sub : ∀ x y, next x y → Cut old cut x y := by
+      intro x y e
+      have prior := deletesOnly x y e
+      refine ⟨prior, ?_⟩
+      rintro rfl
+      obtain ⟨dep, before, absent⟩ := removed
+      have same := one x y dep prior before
+      exact absent (same ▸ e)
+    exact (functional_cut_singletons one reaches).mp
+      ⟨paths.1.lift sub, paths.2.lift sub⟩
+  · rintro rfl
+    exact ⟨.nil _, .nil _⟩
+
 -- Even the old representative's group changes. Every owner belongs to a
 -- different group after a certified cut of a nontrivial whole component.
 theorem every_group_changed {old next : V → V → Prop} (owner : V)
