@@ -5,6 +5,8 @@
   :std/test
   (only-in :clan/poo/support/base %graph-table-seed %with-graph-table-seeds)
   (only-in :std/error Error-message)
+  (only-in :gerbil/runtime/hash HashTable::interface)
+  (prefix-in (only-in :gerbil/runtime/mop slot-ref slot-set! object-class) runtime.)
   (prefix-in :clan/poo/examples/component-services owned-service.)
   :clan/poo/object
   :clan/poo/mop

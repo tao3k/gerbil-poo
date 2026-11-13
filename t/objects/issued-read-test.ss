@@ -1,4 +1,4 @@
-;;; Producer-owned issuance tests; no Core fixtures or dependencies.
+;;; Replay runtime-issued Slot reads and reject fabricated or stale records.
 (export issued-read-test test-cleanup!)
 (import (only-in :clan/poo/slot-layout make-slot-cache) :std/iter :std/test (only-in :clan/poo/io module-action) :clan/poo/object :clan/poo/slot-observation
         (only-in :clan/poo/read-route make-read-issuer %issued-read?)
@@ -112,6 +112,18 @@
       (refuses "foreign vector shape" (cut call-with-current-slot-reads roots values))
       (finally (runtime.slot-set! backend 'shape shape)))
     (check (object-read-current? (selected roots 'value)) => #t)
+    ;; A compatible table instance is insufficient if hash-ref would cast it
+    ;; through a different live interface descriptor.
+    (def read (selected roots 'value))
+    (def descriptor-class (runtime.slot-ref HashTable::interface 'type))
+    (def failure
+      (dynamic-wind
+        (lambda () (runtime.slot-set! HashTable::interface 'type (runtime.object-class read)))
+        (lambda () (with-catch values (cut object-read-current? read)))
+        (lambda () (runtime.slot-set! HashTable::interface 'type descriptor-class))))
+    (check-equal? (and (Error? failure) (Error-message failure))
+                  "changed HashTable interface")
+    (check-equal? (object-read-current? read) #t)
     (set! completed (1+ completed)))
   (test-case "vector storage exposure and shape growth preserve genuine read authority"
     (def parent (.o value: #f))

@@ -118,6 +118,9 @@
     (def (check-wrapper table expected)
       (unless (eq? (read-runtime.object-class table) (route-wrapper expected))
         (error "foreign metadata wrapper"))
+      ;; hash-ref casts through the live descriptor before reading the wrapper.
+      (unless (eq? (&interface-descriptor-type HashTable::interface) (route-wrapper expected))
+        (error "changed HashTable interface"))
       ;; Class identity alone does not freeze Gerbil's mutable field map.
       ;; Authenticate the live layout before invoking a pinned field accessor.
       (unless (= (read-runtime.class-slot-offset (route-wrapper expected) 'object)

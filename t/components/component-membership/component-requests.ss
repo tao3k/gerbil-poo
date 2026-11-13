@@ -20,6 +20,14 @@
       (.get lens .set)
       (check-eq? (%prepared-vector-lens? lens) #t)
       (check-equal? initialized '(set get))
+      (def descriptor-class (runtime.slot-ref HashTable::interface 'type))
+      (def qualified?
+        (dynamic-wind
+          (lambda () (runtime.slot-set! HashTable::interface 'type (runtime.object-class lens)))
+          (lambda () (%prepared-vector-lens? lens))
+          (lambda () (runtime.slot-set! HashTable::interface 'type descriptor-class))))
+      (check-eq? qualified? #f)
+      (check-eq? (%prepared-vector-lens? lens) #t)
       (def named? #f)
       (def options (.o enabled: #f name: (begin (set! named? #t) 'worker)))
       (.get options enabled)
