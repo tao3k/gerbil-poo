@@ -471,7 +471,9 @@
         (if (%slot-read-active?) (object-deliver-value self slot value) value)))))
 
 (defclass (NoApplicableMethod Exception) (self slot) transparent: #t)
-;; A missing slot calls the receiver's CLOS-named no-applicable-method hook.
+;; .get reaches this through .ref when there is no slot definition.
+;; A refinement's sup reaches it when there is no inherited definition.
+;; Both call the receiver's no-applicable-method slot with self and slot.
 (def (no-applicable-method self slot)
   (def nam (and (not (eq? slot 'no-applicable-method))
     (try (.@ self no-applicable-method)

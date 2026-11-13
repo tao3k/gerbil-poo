@@ -269,6 +269,46 @@ The component suite separately exercises retained sources changed
 during and after approval, precise retirement on SCC merge, and
 pointer-identical historical snapshots after refusal.
 
+** Preparing external reads for an SCC
+
+In =benchmarks/quotient-routes-test.ss= both implementations use the same
+prepared partition. Each sample creates 512 group computations for a
+32-member SCC. The cross-SCC case reads 32 nodes of a second SCC.
+Partition setup and checks are outside timing. CPU medians in milliseconds
+from four paired observations per arm:
+
+| Complete =group-code= batch | Two passes | One pass |
+|-----------------------------+------------+----------|
+| Internal reads only         |      8.247 |    4.611 |
+| Cross-SCC reads              |    130.984 |   98.180 |
+
+The [[file:quotient-routes.org][group read contract]] defines the two outputs.
+The [[https://github.com/tao3k/gerbil-poo/blob/5d7715f18e707c885e16e1d99dc7b93fbac248df/doc/quotient-routes.org][original experiment]] records GC, wall times, the same-side controls and the
+negative test that substitutes a representative for the actual read target.
+
+** Cold publication by phase
+
+=benchmarks/publication-phases-test.ss= times the stages of publication at
+=6cf940b=. The 10,000-group fixture runs the existing group builder once
+per group and checks the final reader and approval. Source declaration is
+prepared outside timing. Two staged CPU observations in milliseconds:
+
+| Phase                              |    First |   Second |
+|------------------------------------+----------+----------|
+| Source admission                   |   13.686 |    5.160 |
+| SCC capture, discovery and checks  |   15.862 |   15.396 |
+| Group enumeration and computation  |   20.859 |   20.999 |
+| Group scheduling                   |  293.153 |  254.582 |
+| Building group values              | 1591.700 | 1776.356 |
+| Guard construction                 |   30.513 |   35.431 |
+| Final approval                     |    0.020 |    0.022 |
+| Entire staged publication          | 1965.991 | 2108.128 |
+
+Run the compiled optional study with
+=just _test "$GERBIL_PATH/lib/clan/poo/benchmarks/publication-phases-test.ssi"=
+under the original 180-second watchdog and 2 GiB heap fence. The
+[[https://github.com/tao3k/gerbil-poo/blob/5d7715f18e707c885e16e1d99dc7b93fbac248df/doc/publication-phases.org][original diagnostic]] retains separate samples that time each builder callback.
+
 ** Program evidence retirement
 
 A second baseline, precise, precise, baseline comparison kept the same

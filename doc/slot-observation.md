@@ -129,9 +129,9 @@ own issuance and stored-state check. [LeanPoo sweep equivalence](https://github.
 For a read of `port`, replay checks the receiver's table of read records and
 its stored value for `port`. Before using `hash-ref`, it checks the live
 `HashTable` interface descriptor, wrapper and backend classes, field offsets,
-lookup, hash, equality and lock. With
-vector storage it also checks the symbol-to-index table used to locate the
-cell. The issuer and traversal use the Slot read's declared field accessors
+lookup, hash, equality and lock. With vector storage it also checks the
+symbol-to-index table used to locate the cell. The issuer and traversal use
+the Slot read's declared field accessors
 so edits to reflective field names cannot redirect a signed dependency.
 [LeanPoo interface and field checks](https://github.com/tao3k/lean-poo/blob/c0c287475b9dacc86a7c85d3317a47e74e094a34/LeanPoo/Object/FixedFieldLayout.lean#L13-L52) · [Signed record proof](https://github.com/tao3k/lean-poo/blob/31b550d15e81b095795078efb8344442d8ba6edd/LeanPoo/Object/FixedFieldLayout.lean#L56-L78)
 

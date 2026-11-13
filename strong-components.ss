@@ -1,5 +1,5 @@
 ;;; Strongly connected components (SCC): maximal mutually reachable node groups.
-;;; Iterative Tarjan partitions captured finite POO computation footprints.
+;;; Partition computation keys by mutual reachability over their declared reads.
 ;;; Explicit feedback construction and recursive topology consume these groups;
 ;;; this does not load namespaces or make ordinary cyclic slot access valid.
 (export partition partition? partition-groups partition-owner partition-reads
@@ -403,7 +403,7 @@
           (make-compact-graph (or owner-names (list->vector keys)) positions offsets targets direction)))))
   (values reads index declared edges))
 
-;; Ordered reachability over an already captured graph, never an approval memo.
+;; Return reachable keys in source order using the saved adjacency rows.
 ;; Small walks retain bounded list membership. Large sparse walks use a private
 ;; ID set; dense marks appear only after N <= 32 * entered (Lean workspace law).
 (def (compact-reachable graph root (work #f) (saturate? #t))
@@ -718,9 +718,8 @@
         values))
     (partition-captured keys reads captured-edges (length keys) declared-edges index owned? complete owned?)))
 
-;; Pure phase over locally captured immutable rows. Production reaches this only
-;; after validating every author. White-box studies may borrow an already
-;; certified historical partition, charging zero NEW declaration validation.
+;; Compute SCCs from KEYS and validated READS. VALIDATION-OWNERS and
+;; DECLARED-EDGES report the work already spent capturing those rows.
 (def (partition-captured keys reads captured-edges validation-owners declared-edges
                          (index #f) (owned? #f) (complete values) (retain-inverse? #f))
   (let-values (((owners next component examined-edges finished popped) (discover keys reads captured-edges index)))

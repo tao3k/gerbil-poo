@@ -1,255 +1,33 @@
-#+TITLE: Effect-framed protocol selection during method installation
-#+DATE: 2026-11-10
+#+title: Selecting inherited slot hooks during assembly
 
-* Shared source preparation: dependency boundary
+=compute-slot-funs!= in [[file:../../object.ss][object.ss]] compiles all retained slot definitions
+before running =compute-slot= hooks. With P prototypes and S slots, looking
+for an absent protocol on each slot can visit P × S prototypes.
 
-The structural index implementation now lives in =support/index.ss=.
-=generalized-graph.ss= imports and reexports its same five operations rather
-than owning another implementation. Its immutable base and path-copied sparse
-tree preserve old snapshots, false payloads and live projection behavior.
-This removes the dependency cycle that prevented =object.ss= from reusing it.
-It does not yet implement source custody or sparse receiver preparation.
+For multiple slots, the engine checks the actual Gerbil =HashTable= descriptor,
+wrapper fields and symbolic writer. An unlocked standard writer cannot
+install a protocol between slots, so one check for an inherited protocol
+suffices. With a custom writer or an installed protocol, the engine looks up
+the hook on every iteration.
 
-The one live read issuer allocation also moves below =object.ss= into
-=read-route.ss=. Object keeps its existing bindings. Lower source code can
-authenticate against the same authority; the writer remains private and no
-second weak registry is allocated. Independent factories cannot authenticate
-its records. New source-certificate kinds still require separate admission
-from ordinary receiver value reads before that integration is enabled.
+[[file:../../t/objects/inheritance-hooks-test.ss][Inheritance tests]] cover a writer that installs a protocol between slots and
+edits to the interface descriptor and wrapper offsets. The
+[[https://github.com/tao3k/lean-poo/blob/31b550d15e81b095795078efb8344442d8ba6edd/LeanPoo/Object/SlotPreparation.lean#L35-L75][LeanPoo proof]] gives the condition for preserving results, errors and final state.
 
-The new index control lives in the existing Graph repair suite. It checks
-fork/base identity, false versus missing, empty values, projection call counts
-and old-root isolation. Removing only the sparse-tree copy fails both that
-control and the original SCC merge/differential controls with exit 42.
-The issued-read suite retains 29 Cases and checks lower/Object authority,
-foreign-factory refusal, private writer exports, original refusal order and
-callback-return validation. These are semantic controls, not latency evidence.
+* Batch measurements
 
-The current issued-read suite has 32 Cases. Its existing layout and checkpoint
-Cases also require a fresh return check after a callback changes the same
-Gerbil class's field map. Initial class/layout admission cannot authorize the
-return route. A second control captures a cache miss, then demands a lazy
-slot whose value is =#f=. The logical receiver revision and payload stay
-unchanged, but the miss record must become stale: missing and present-false
-are different observations. The newly recorded present-false read remains
-valid. No additional Case, runner or runtime cache is introduced.
+Gerbil =2591dcd=, Gambit =dcd677c=, =gxc -O= and C =-O2=. The reference
+and candidate used the same compiled benchmark and 2 GiB heap fence.
+CPU milliseconds at 256 slots and 32 prototype layers:
 
-These are Scheme correspondence obligations for any interval-sharing model:
-the post-callback state owns its own live checks. Layout sharing and entry
-issuance reuse must stay inside their pure intervals. Payload truthiness
-cannot replace presence, and a successful entry check cannot survive an
-arbitrary callback. This test-only extension changes no runtime algorithm
-and claims no new public Lean theorem or performance improvement.
+| Operation | Repetitions | Reference | Candidate |
+|-----------+-------------+-----------+-----------|
+| Cold construction and first read | 500 | 297.492 | 251.699 |
+| Cold construction, clone and first read | 500 | 354.356 | 273.613 |
+| Clone only | 5,000 | 10.021 | 10.310 |
+| Clone and first read | 5,000 | 1651.428 | 1128.061 |
 
-The complete first-demand path still prepares all methods and value-directory
-keys. No first-business speedup or downstream pin promotion follows from this
-dependency refactor. Compiler-owned source capture and demanded binding remain
-the next implementation owner.
-
-* Change and contract
-
-The final =compute-slot-funs!= pass previously selected an inherited protocol
-for each surviving method. With =P= ancestors and =S= methods, absence can
-require =P*S= ancestor visits. For multiple methods, the candidate checks the
-actual symbolic write route and selects absence once. It retains the same
-enumeration, callable checks, writes and payload capture. Zero/single-method
-objects retain per-method selection. A present protocol or changed route
-retains dynamic selection, including effects between writes.
-
-The route guard checks the actual selected =set!= procedure, wrapper/backend
-classes, symbolic hash, equality test and absence of a lock. Rehash consults
-backend hash/test, so a matching write procedure alone is insufficient.
-It never calls replaced functions. This uses the supported serial runtime;
-it does not authenticate arbitrary FFI writes or concurrent mutation.
-
-[[https://github.com/tao3k/lean-poo/commit/55ed9c08899f3de4d990b88f937f18bd5e89cebe][LeanPoo SlotPreparation]] proves ordered-result/error/final-state equivalence
-under the write frame, and gives a counterexample to initial absence alone.
-Its count law covers protocol visits, not total native CPU work.
-The representation/mutation discussion in [[https://fare.tunes.org/files/cs/poof.pdf][POOF]] motivates sharing pure
-structure; it does not supply this runtime guard or a latency bound.
-
-* Focused evidence
-
-Reference method preparation: public =4e5168c= (unchanged from =269dfb5=).
-Both arms load the same read-route module; its new guard is unused by the
-reference method-preparation function.
-Both arms use Gerbil =2591dcd=, Gambit =dcd677c=, =gxc -O= and C =-O2=,
-the same compiled benchmark and identical search-path cardinality. Tests
-run serially through =just test-file= with the existing 2-GiB fence.
-
-| Final matched shape: 256 slots, 32 layers | Repetitions | Reference CPU ms | Candidate CPU ms |
-|-----------------------------------------+-------------+------------------+------------------|
-| Complete cold construction + first read | 500 | 297.492 | 251.699 |
-| Cold construction + clone + first read | 500 | 354.356 | 273.613 |
-| Clone only, unchanged-work control | 5,000 | 10.021 | 10.310 |
-| Clone + first read | 5,000 | 1651.428 | 1128.061 |
-
-The single-slot/single-layer cold control was 3.579/3.799 ms for 500
-operations; clone/read was 59.342/61.812 ms for 5,000. It shows no small-object
-gain. These are batch times, not latency for one request. Earlier alternating
-wide runs also reduced CPU, but one reference run overlapped verifier startup
-and is retained as contended evidence, not a wall-time comparison. The final
-pair ran after the verifier exited. No tail or retained-memory claim follows.
-
-The existing qualified-metrics rule marks allocation unavailable across GC
-or for a negative raw delta; raw deltas are retained separately. Do not infer
-allocation savings from those raw counters.
-
-Focused native controls passed 24 inheritance, 94 object, 29 issued-read and
-34 declaration-index Cases. Removing only the write-route condition made
-the effectful-write Case fail with exit 42: hook count 0 instead of 1.
-The reference also passed the new controls. Callback-return read checks and
-issuance refusal order remain in the existing issued-read suite.
-
-The existing Core =ThunkConstruction= finite model and six negative controls
-passed. A candidate-bound receipt was refused because the experimental
-source was not Core's pinned checkout; that guard remains unchanged. The
-model-only result does not qualify a candidate source/pin correspondence.
-
-* Reproduction and limits
-
-After normal development preparation, use the existing entrypoints:
-
-#+begin_src sh
-just test-file t/objects/inheritance-hooks-test.ss
-just test-file benchmarks/object-scale-test.ss
-just benchmark-object-scale natural tree 256 32
-#+end_src
-
-The executable retains its original 90-second/2-GiB fence, repetitions,
-oracles and full default shape matrix. The focused test uses the same
-importable workload, avoiding a separately statically linked POO copy.
-A local static-link attempt failed on unavailable OpenSSL linkage and
-provides no executable benchmark qualification.
-
-This candidate reduces ordinary method-preparation work. It establishes no
-Yuanxu first-business improvement, 10K Module/180-second/4-GiB acceptance,
-downstream build qualification or consumer pin promotion. Shared Profile
-proof production and filesystem source certification remain separate work.
-
-* Ordered contribution index prerequisite
-
-Point preparation needs every contribution at the selected name, in source
-order. =prototype-map-ref= returns the first entry and cannot implement that
-fold. The new =prototype-map-fold-key= borrows the existing private name and
-ordinal indexes. Compact maps scan at most eight entries; tree maps perform
-one name lookup and one ordinal lookup per matching contribution. The first
-ordinal precedes the reversed duplicate tail. There is no second index or
-receiver cache, and payload references remain opaque.
-
-LeanPoo =Object.OrderedContributions= proves the selected bucket and method
-fold equal the chronological source fold, with concrete sibling insertion
-and native ordinal-spine laws. This is an index law for supplied rows, not
-a source issuer or a machine-level Scheme refinement proof. Defaults,
-admission failures, raw SlotSpec exposure and effects retain their own checks.
-
-Native representation qualification passed 86 Cases. Removing only the
-duplicate-tail reversal failed both chronology and callback-refusal controls
-with exit 42. Restoration passed the same 85 Cases. The controls compare
-complete traversal against selected folds across both policies, small/large
-maps, duplicate names, symbol identity, false/Function payloads, replacement,
-removal/reinsertion, retained snapshots and actual inherited method results.
-An explicit raw malformed-sibling control also refuses a normal selected
-read after successful keyed projection; the primitive cannot authorize
-bypassing source preparation.
-
-The existing heap-fenced benchmark entry selects the focused study:
-
-#+begin_src sh
-just _test -r '^point-index-test$' benchmarks/object-scale-test.ss
-#+end_src
-
-It charges construction separately, then compares the SAME immutable source
-in reference/indexed/indexed/reference order. Both arms check the same three
-contributions. The single-request cohort precedes fixed 64-request batches;
-work diagnostics run only after all timings, with natural GC and no prewarming.
-
-| Unrelated entries | Full-source construction CPU | Reference first query CPU | Indexed first query CPU | Traversal callbacks / selected contributions |
-|-------------------+------------------------------+---------------------------+-------------------------+----------------------------------------------|
-| 10,000 | 23.482 ms | 0.917 ms | 5 us | 10,003 / 3 |
-| 100,000 | 466.459 ms, including 220.126 ms GC | 1.947 ms | 7 us | 100,003 / 3 |
-
-At 100K, the two indexed 64-request batches took 72/57 us CPU total; these
-are batch totals, not per-request tail measurements. The single observations
-above are not a latency distribution. Construction allocation is unqualified
-when GC occurs; signed raw counters remain in local artifacts. The initial
-instrument-before-timing experiment is retained but excluded because it warmed
-the selected query. Corrected command wall time was 4.49 seconds including
-source test import, setup, every observation and natural exit.
-
-This verifies an index primitive, not complete first business demand. Current
-method preparation still captures all retained chains, and instance creation
-still builds the full value directory. The prototype-map constructor still
-builds two persistent RBTree indexes. That full-source cost is explicit above
-and remains a separate optimization target; do not replace it with the tiny
-prepared-query time or infer a Yuanxu 10K acceptance pass.
-
-A separate resource-qualified repeat passed the same study with maximum RSS
-417,398,784 bytes for the complete Just command (source test import, source
-construction, every sample and natural exit). Its 10K/100K setup CPU was
-25.333/506.027 ms; the 100K setup included 237.358 ms GC. This repeat is
-retained alongside the first corrected cohort, not substituted for it.
-Maximum RSS is a command-level high-water mark, not retained index size.
-
-* Source and evidence ownership before shared preparation
-
-A source/clone view is not its raw storage owner. Unchanged SlotSpecs can be
-shared by several views, and =.cc= replaces the first indexed contribution,
-retaining later contributions to the same key. A reflected raw write affects
-future captures through all those aliases; old prepared methods keep their
-captured payloads. The extended representation/observation entry passed 93
-Cases through the original tree/compact paths.
-
-=LeanPoo.Object.SourceViews= derives registration multiplicity from actual
-rows, local replacement/batch deltas and the existing old-inverse row-frame
-theorem. Counts alone do not authenticate distinct view ordinals. Pending
-capture rejection derives exposure drift from the actual registered frontier
-and uses the existing publication check. Native source custody and indexed
-plan sharing remain open; these laws do not make the point primitive a full
-preparation implementation.
-
-The structural-name issuer also had a concrete ownership defect. Its alleged
-canonical list still aliased the producer's mutable name cache. Editing that
-cache and the record's raw presentation together authenticated a changed
-payload. The new control fails with exit 42 against freshly compiled exact
-=81447d16= source. Native issuance now owns a private canonical copy, separate
-from both producer and presentation. Restoring the original presentation
-restores issuance; receiver/route currentness remains independently checked.
-
-The fix passed all 29 issued-read Cases through source and optimized AOT
-entrypoints, plus the 93 representation/observation and 26 inheritance-hook
-Cases. The four =SlotObservation.NameCapture= laws are axiom-free; the complete
-local Lean root has 406 jobs. Ordinary opaque business values keep their
-identities: copying applies to structural =(names)= evidence, not a user slot
-named =names=. No cache, loader or new action is added.
-
-This is a correctness repair, not a first-demand speedup. The standalone
-deferred-method backend and default hash-value experiment were not selected
-and are not part of this change. Whole-source preparation, the historical
-seconds-scale first business demand, Core 10K/180-second/4-GiB and downstream
-acceptance remain separate open gates.
-
-* Writer layout qualification and rejected method snapshot
-
-The native symbolic-writer guard must check the current =object= and =set!=
-field offsets before invoking pinned accessors. Keeping the same wrapper class
-does not freeze its mutable field map. The existing inheritance-hook control
-now moves each mapping separately and restores the shared map before asserting
-refusal. =LeanPoo.Object.FixedFieldLayout= states this live-layout premise; this
-is a correctness correction, without a performance claim.
-
-The same final regression fails the old native writer guard with exit 42.
-The corrected native runtime passes 26 inheritance-hook and 32 issued-read
-Cases. Graph validation passes 42 algorithm/order Cases plus 10 publication
-Cases separately: the first aggregate failed to import an unprepared example,
-so that preparation failure is retained and only the unexecuted module rerun.
-This is not a successful single-process aggregate or a Core capacity result.
-
-A separate operation-local method-snapshot candidate was rejected. Under the
-existing C =-O2= object-scale workload, the baseline/candidate/candidate/baseline
-CPU times for 5,000 clone/read operations at 256 slots and 32 layers were
-1.479136 / 1.492456 / 1.348273 / 1.220414 seconds. The candidate did not show
-stable CPU improvement; fewer collections did not establish a latency gain.
-All four completed arms and the failed native rehash-order fault are retained
-as local artifacts. No snapshot helper, method-table reuse or write elision is
-adopted. The whole-source preparation and 10K acceptance gaps remain open.
+The 500-operation single-slot cold control took 3.579 ms and 3.799 ms CPU.
+Run =just test-file benchmarks/object-scale-test.ss= or
+=just benchmark-object-scale natural tree 256 32=.
+[[https://github.com/tao3k/gerbil-poo/blob/5d7715f18e707c885e16e1d99dc7b93fbac248df/doc/performance/protocol-selection.org][Original measurements, controls and ordered contribution study]]

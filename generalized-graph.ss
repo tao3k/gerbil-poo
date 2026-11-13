@@ -219,8 +219,8 @@
     (and owned (not (eq? inverse-root #t))) (and owned (not inverse-root))
     (and (not owned) keys) (and (symbol? inverse-root) inverse-root)))
 
-;; The owned entry captures structural rows once. Computations and their
-;; evaluator bodies remain author values. The rank graph never executes them.
+;; An owned schedule saves each Computation's declared reads. Scheduling uses
+;; those lists to order keys; value construction calls the evaluator later.
 (extern namespace: clan/poo/object %bind-current-slot-reads)
 (defstruct %program (value row with-current) final: #t)
 (defstruct %owned-source (keys programs bases) final: #t)
@@ -758,8 +758,8 @@
         (for-each (lambda (owner) (unless (hash-key? mask owner) (visit owner))) base)))
     (for-each visit row)))
 
-;; Stream an edited bucket in its original order. Only accepted owners
-;; acquire fresh frontier cells, and every live boundary edge still counts.
+;; Visit an edited list of readers in order. Prepend only accepted readers
+;; to the search queue and count every reader visited.
 (def (edited-search-frontier row accept? rest)
   (def reversed [])
   (def edges 0)
@@ -1016,9 +1016,8 @@
         (length retired) retirement-readers)
       positions (or position-changes old-positions) frontier owned (%schedule-roster prior))))
 
-;; Frames borrow immutable index rows. The sentinel is the append point for
-;; new roots, even while an older frame is partly consumed. Only this work
-;; owns the frame cells and visited table.
+;; A cursor walks one provider's saved list of readers plus its edits.
+;; The traversal owns the cursor and visited table; the schedule owns the rows.
 (defstruct reverse-cursor (insertions remaining base masked?) final: #t)
 (def missing-reverse-edit (gensym 'missing-reverse-edit))
 (def (open-reverse-cursor row)

@@ -51,13 +51,11 @@
         (for (node ((scc.partition-reads partition) member))
           (let (owner ((scc.partition-owner partition) node))
             (unless (eq? owner (car members)) (add owner))))))))
-;; A group resolver supplies ONLY declared external node reads. Its builder must
-;; close every member equation on the shared carrier using existing lens closure.
-;; Internal reads belong to cooked self, not to partially constructed cache slots.
+;; Build one scheduled computation for MEMBERS, one SCC in PARTITION.
+;; The scheduler needs provider group keys; the resolver checks actual node keys.
 (def (group-code partition members source build (private-fragments? #f))
-  ;; Both projections read one immutable captured partition. Collect them in
-  ;; the same pass. Keep the provider order and use private seeds only in
-  ;; sealed preparation (quotient-routes.lean).
+  ;; Collect each declared external node and its SCC representative together.
+  ;; Two nodes in the same provider group still have separate read permissions.
   (def observations #f)
   (def nodes (with-list-builder (add-node)
     (set! observations (with-list-builder (add)
