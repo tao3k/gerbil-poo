@@ -480,3 +480,23 @@ heap fence during cold construction in 59.65 s at a 2.25 GiB peak.
 This qualifies the position oracle for this sample and leaves the
 original list-output and pre-collection gates open. All runs retained
 the 2 GiB Scheme heap fence, 4 GiB process-tree guard and 180 s deadline.
+
+** Full order lists with bounded fixture inputs
+
+An independent native test keeps the same million reader identities and
+graph/edit shape. It builds caller-owned key and code lists in a cold
+helper, retains only the expected identity vector after that helper
+returns, and compares every element of both public order lists in separate
+activations. The checker does not build another list of expected results.
+
+Both natural-GC and pre-collected runs completed cold construction, repair,
+the two full-list queries and the standard harness. The repair windows
+measured 1.312/1.824 s CPU/wall and 1.249/1.292 s CPU/wall, respectively.
+Both recorded zero in-window collections and 46,529,752 allocated bytes.
+Whole-run wall times were 28.51 s and 36.14 s, with 2.27 GiB sampled
+process-tree peaks after rounding. The 2 GiB Scheme heap fence, 4 GiB
+process-tree guard and 180 s deadline were held. In the collected arm,
+ticket construction precedes the measurement's explicit collection.
+This is a separate fixture-lifetime control. Earlier full-list and
+pre-collection failures are retained. Production integration and
+the exact-head CI comparison remain open.
