@@ -1,0 +1,127 @@
+#+title: Versioned module metadata: independent Catalog prototype
+
+| Layer | Owns | Does not do |
+|-------+------+-------------|
+| Catalog | Qualified names, ordered version rows and opaque source identity | Import, compile or execute a module |
+| Resolution | Match an explicitly requested exact version and refuse ambiguity | Infer a latest version or install dependencies |
+| Module/Prototype | A resolved source's actual module and POO semantics | Participate in name enumeration |
+| Demand | Read dependencies of the one resolved source when requested | Read any source on a miss or conflict |
+| Gerbil package manager | Source installation and dependency entry points | Derive a Yuanxu Catalog from the benchmark |
+
+[[file:module-catalog.lean][Lean]] proves equality of cold lookup and the
+edited overlay for every name, retention of untouched buckets, and exactly
+one dependency read after a successful exact selection. Missing and ambiguous
+exact versions read nothing. Version order is input order, not semantic
+version precedence. A duplicate exact version is an error even when its
+sources happen to compare equal. An exact demand plan rejects incompatible
+pins before any source read. Transitive constraint solving and real Gerbil
+metadata ingestion remain open.
+
+The [[file:../benchmarks/versioned-catalog-test.ss][Scheme prototype]] stores
+name buckets in the existing POO persistent index over a native symbol table.
+A replacement builds two private patches, one to replace a bucket and one
+to retire a bucket. Staging binds the proposal to its publication owner and
+the exact predecessor. Installation checks both identities under the lock
+before replacing the head. The old head remains readable. The test rejects
+a proposal from a different publication even when both publications started
+with the same snapshot. It verifies untouched bucket identity and every
+name's ordered metadata against a separate enumeration oracle. This
+prototype has no exported production API, cache, loader, or new runner.
+
+Staging copies the edited bucket spines and their row fields. The version
+and source values retain their opaque identities. The cold fixture creates
+its rows inside the prototype. The staged candidate remains stable when the
+producer later replaces a list cell or edits a borrowed row's fields.
+
+Use =just test-file benchmarks/versioned-catalog-test.ss= with the existing
+2 GiB heap fence and the 180-second watchdog. This source-executed prototype
+run reports separate CPU and wall windows in milliseconds:
+
+| Rows | Cold index CPU / wall | 1024 version enumerations CPU / wall | One dependency read CPU / wall | Two-name publish CPU / wall |
+|------+-----------------------+-------------------------------------+--------------------------------+----------------------------|
+| 100K | 56.688 / 57.919 | 0.212 / 0.213 | 0.006 / 0.006 | 0.029 / 0.028 |
+| 1M | 758.255 / 1043.531 | 0.437 / 0.437 | 0.015 / 0.014 | 0.035 / 0.035 |
+
+The 1M rows belong to 500K distinct names, two versions each. Name generation
+precedes the cold index window; the full ordered cold oracle follows the
+incremental window. Cold windows include 1/5 collections for 100K/1M,
+respectively, and cannot qualify allocation. The three later windows at
+each size have zero collections, with 458,848, 1,392 and 4,512 bytes
+respectively. Invocation peak RSS is 700,186,624 bytes; process wall time is
+7.81 s. These are one-run observations, not latency bounds. Module, Harness,
+and final OK are present. The initial source expansion failed on unsupported
+=for/vector=; a simple preallocated vector loop replaces it.
+
+Matched fault: return the first matching version without checking the rest of
+the bucket. The conflict case detects that it did not refuse, and Just exits
+1. The scan is restored. This is a synthetic Catalog gate; it does not
+substitute for real 10K Interface admission or business EVAL.
+
+The ownership control passed alongside the 100K and 1M cases. At 1M, the
+two-name publish used 13 microseconds of CPU and 7,440 bytes with zero
+collections. The process peak RSS was 707,166,208 bytes. The cold index took
+614.04 ms CPU and 630.63 ms wall with five collections. Replacing the staging
+copy with the borrowed bucket made the snapshot's version assertion fail.
+
+The wide-bucket candidate keeps its ordered rows and adds a native identity
+hash index when the bucket exceeds eight rows. Eight is the trial cutoff.
+=version_index_matches_choose= proves that the index agrees with linear
+resolution for every version, including absence and identical-source
+duplicates. An edit to another name retains the same wide bucket. Replacing
+that bucket builds an index for its replacement rows. The experiment measures
+both paths on the same 100K and 1M wide buckets.
+
+In the source-run Just test on Gerbil =2591dcd=, each lane made 16 exact
+lookups in the same bucket. The reported CPU samples were:
+
+| Versions | Build index | Linear, first / second | Indexed, first / second |
+|----------+-------------+------------------------+-------------------------|
+| 100K | 46.77 ms | 214.58 / 165.29 ms | 1.61 ms / 7 us |
+| 1M | 632.30 ms | 2145.54 / 2079.85 ms | 16.31 ms / 6 us |
+
+At 1M, the linear lane visited 16M rows per sample. The indexed lane made
+16 version lookups, allocated 11,360 bytes and ran without collection in
+either sample. Index construction took 641.19 ms wall with two collections.
+The process peak RSS was 875,446,272 bytes. Keep both indexed samples because
+the first and second costs differ. Forcing the duplicate version entry to
+return its last row failed the indexed conflict check before any source read.
+
+An exact source replacement for one symbolic version now forks the existing
+POO index and writes one version entry. Staging checks the expected unique
+source before the write. The successor shares the ordered version spine
+and the unrelated name bucket. Enumeration returns a separate spine to
+callers. The prior snapshot still resolves the original source. Lean's
+=version_point_index_patch_exact= proves equality to cold resolution for
+every lookup and =replacement_keeps_enumeration= preserves the full order.
+
+On Gerbil =2591dcd=, the 100K and 1M point publications took 13 and 32 us CPU,
+and 12 and 27 us wall, with 8,432 bytes and zero collections each. These
+windows include staging and publication. The complete process peak RSS was
+966,688,768 bytes. The original wide test and the point-update run use
+different bucket representations, so their process peaks are separate
+measurements. Removing the predecessor-source check made the stale update
+assertion fail. Insertion and deletion of version identities still use the
+existing whole-bucket edit.
+
+* Independent replay
+
+The prototype passed all five Scheme cases with the POO =3450308=
+index and measurement libraries. The same source passed Lean 4.34.
+The 1M-row narrow index took 828.70 ms CPU and 5.06 s wall, with
+391.39 ms GC CPU in five collections. Its two-name publication took
+18 us CPU and allocated 7,696 bytes with zero collections. The case
+observed exactly two edited names and two dependency reads.
+
+For a single name with 1M versions, the two batches of 16 linear
+lookups took 3.174 s CPU each. Indexed lookup took 20.80 ms and 16 us
+CPU, with 11,360 bytes allocated per batch and zero collections.
+Publishing one version replacement took 94 us CPU and 91 us wall,
+allocated 8,432 bytes and collected zero times. The full invocation
+took 99.39 s wall and reached 899,219,456 bytes peak RSS. The large
+wall-to-CPU gap was observed while the Graph compiler ran on the same
+host. These measurements describe this replay and are not a latency
+bound. Cold allocation is unqualified in the 1M cases.
+
+A matched fault replaced the indexed conflict refusal with an accepted row.
+The same suite reported an expected-exception failure when dependency demand
+returned that row. This exercised conflict refusal before any source read.
