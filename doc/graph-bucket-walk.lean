@@ -50,6 +50,20 @@ theorem streaming_exact (keep : A → Bool) (step : Step A S E)
   | error error => rfl
   | ok next => exact masked_exact keep step base next
 
+-- Rank lookup here is a pure read of the completed candidate. Fixing the
+-- owner's label once leaves each step, count, and first refusal identical.
+theorem incident_rank_once (rank : A → Nat) (owner : A) (outgoing incoming : List A)
+    (count : Nat) :
+    (walk (fun dep n => if rank dep < rank owner then .ok (n + 1)
+      else .error (owner, n + 1)) outgoing count).bind
+      (walk (fun reader n => if rank owner < rank reader then .ok (n + 1)
+        else .error (reader, n + 1)) incoming) =
+    (let label := rank owner
+     (walk (fun dep n => if rank dep < label then .ok (n + 1)
+       else .error (owner, n + 1)) outgoing count).bind
+       (walk (fun reader n => if label < rank reader then .ok (n + 1)
+         else .error (reader, n + 1)) incoming)) := rfl
+
 def searchEdge (accept : A → Bool) : Step A (List A × Nat) Unit :=
   fun key (reversed, edges) =>
     .ok (if accept key then key :: reversed else reversed, edges + 1)

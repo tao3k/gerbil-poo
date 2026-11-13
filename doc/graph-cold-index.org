@@ -439,3 +439,22 @@ sampled peak and 196.90 s elapsed including guard handling. Neither
 run reached explicit old or new order enumeration. The remaining work
 is between index writes and revision return, which includes incident
 checks. Keep the candidate isolated.
+
+** Incident validation and explicit order demand
+
+The incident validator reads the owner's candidate rank once and keeps
+the original provider-then-reader visitation order. Lean
+=incident_rank_once= preserves each result, count and first refusal.
+The Darwin =-O2= candidate passed all 22 local cases. The million-reader
+natural-GC fixture completed incident checks and returned from revision
+application. It hit the heap fence at the explicit predecessor order
+query, after 58.02 s at a 2.30 GiB sampled process-tree peak.
+
+An isolated follow-up generated the caller's order list directly from
+the immutable positions when there was no overlay. This removes the
+intermediate retained list. All 22 local cases passed again. The
+million-reader run still failed at the predecessor order query after
+24.42 s with a 2.29 GiB sampled process-tree peak. The 2 GiB Scheme
+heap fence, 4 GiB process-tree guard and 180 s deadline were held.
+Both results distinguish completed structural repair from the failed
+full-output assertion. The candidates remain isolated.
