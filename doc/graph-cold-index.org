@@ -372,3 +372,24 @@ The support-replacement regression counts calls to the admitted
 representative enumerator. Applying the revision and enumerating the
 topological order call it zero times. Reading the source keys calls it
 once. This separates explicit roster demand from local schedule work.
+
+** Borrow reverse search rows
+
+A complete-interval candidate walks pending row frames using the existing
+reverse-bucket cursor. Its logical pending sequence is the concatenation
+of those frames. The Lean frontier lemmas preserve prepend order, the
+next reader and the effect of skipping a masked base occurrence.
+The native order suite passed 22 cases. The million-reader natural-GC
+diagnostic still failed during reverse search, after 25.44 s at a
+2.28 GiB sampled process-tree peak.
+
+A follow-up retained symbolic visited membership for small frontiers,
+then switched a dense reverse search to the same byte-mark strategy as
+the compact SCC traversal. The candidate addresses marks by admitted
+rank and switches when rank capacity is at most 32 times the reached
+owner count. =rank_marks_exact= proves membership equivalence under
+injective ranks. All 22 order cases passed. The million-reader fixture
+completed reverse search and then hit a stack overflow during rank
+sorting, after 143.50 s at a 2.06 GiB process-tree peak. The 2 GiB Scheme
+heap fence, 4 GiB process-tree guard and 180 s deadline remain in force.
+The pre-collection failure remains a separate result.

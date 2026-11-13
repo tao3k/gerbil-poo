@@ -56,6 +56,37 @@ theorem frontier_exact (pred : Predicate A S E) (row tail : List A) (state : S) 
 
 #print axioms accumulator_exact
 #print axioms frontier_exact
+
+-- A complete search can borrow the row as a frame. Popping it before
+-- the older frames is equivalent to prepending its live readers.
+def flattenFrames (frames : List (List A)) : List A := frames.flatten
+
+theorem open_frame_exact (row : List A) (older : List (List A)) :
+    flattenFrames (row :: older) = row ++ flattenFrames older := rfl
+
+theorem pop_frame_exact (head : A) (row : List A) (older : List (List A)) :
+    flattenFrames ((head :: row) :: older) =
+      head :: flattenFrames (row :: older) := rfl
+
+theorem skip_mask_exact (live : A → Bool) (masked : A) (row : List A)
+    (older : List (List A)) (hidden : live masked = false) :
+    flattenFrames (((masked :: row).filter live) :: older) =
+      flattenFrames ((row.filter live) :: older) := by
+  simp [hidden]
+
+
+-- A mark at an admitted rank identifies only that owner. Rank gaps do
+-- not contribute marks and do not need to be enumerated.
+theorem rank_marks_exact [DecidableEq A] (rank : A → Nat)
+    (injective : ∀ a b, rank a = rank b → a = b) (seen : List A) (key : A) :
+    rank key ∈ seen.map rank ↔ key ∈ seen := by
+  constructor
+  · intro marked
+    obtain ⟨owner, member, equal⟩ := List.mem_map.mp marked
+    exact (injective owner key equal) ▸ member
+  · intro member
+    exact List.mem_map.mpr ⟨key, member, rfl⟩
+
 end GraphFrontier
 
 namespace GraphSourceAdmission
