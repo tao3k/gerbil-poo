@@ -274,8 +274,14 @@ benchmark-combination: (build-benchmarks "combination")
 benchmark-scc: build-graph-study
     just _test benchmarks/scc-test.ss
     just _test benchmarks/owned-invalidation-test.ss
-    just _test -r '^dense-repair-natural-test$' "$GERBIL_PATH/lib/clan/poo/benchmarks/dense-repair-test.ssi"
-    just _test -r '^dense-repair-collected-test$' "$GERBIL_PATH/lib/clan/poo/benchmarks/dense-repair-test.ssi"
+    just benchmark-dense-repair-built natural
+    just benchmark-dense-repair-built collected
+
+# Each sample owns its process and its complete predecessor and successor.
+benchmark-dense-repair-built regime:
+    test "$1" = natural || test "$1" = collected
+    test -n "{{ timeout-executable }}"
+    {{ timeout-executable }} --signal=TERM --kill-after=3s 180s just _test -r "^dense-repair-$1-test\$" "$GERBIL_PATH/lib/clan/poo/benchmarks/dense-repair-test.ssi"
 
 # These focused TestSuites load the explicitly built benchmark modules. The linked
 # startup probe is prepared separately for entries that actually execute it.
