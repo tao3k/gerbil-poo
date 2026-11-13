@@ -350,3 +350,11 @@ with a 2.26 GiB peak. Neither run produced a complete repair sample.
 Both kept the 2 GiB Scheme heap fence, 4 GiB process-tree guard and
 180 s deadline. This candidate stays in the experiment until the
 complete repair can be verified.
+
+The first repair diagnostic had no search markers after cold completion.
+Separating the existing pre-sample collection from ticket construction
+identified the earlier failure. The fixture printed the collection entry
+and hit the 2 GiB Scheme heap fence before the collection exit marker.
+Ticket construction and rank repair had yet to run. This control took
+37.32 s with a 2.26 GiB process-tree sample under the unchanged 4 GiB
+guard and 180 s deadline. The full repair gate remains open.
