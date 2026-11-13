@@ -358,3 +358,17 @@ and hit the 2 GiB Scheme heap fence before the collection exit marker.
 Ticket construction and rank repair had yet to run. This control took
 37.32 s with a 2.26 GiB process-tree sample under the unchanged 4 GiB
 guard and 180 s deadline. The full repair gate remains open.
+
+A natural-GC diagnostic retained the same fixture and heap fence.
+It passed ticket construction and entered backward search, where the
+original edited-bucket path hit a stack overflow after 21.67 s.
+The direct complete-bucket candidate reached the same phase and hit
+the Scheme heap fence after 48.93 s. Sampled process-tree peaks were
+2.27 and 2.17 GiB respectively. The pre-collection failure is retained
+separately. These results locate a remaining search allocation problem
+before rank sorting or persistent index writes.
+
+The support-replacement regression counts calls to the admitted
+representative enumerator. Applying the revision and enumerating the
+topological order call it zero times. Reading the source keys calls it
+once. This separates explicit roster demand from local schedule work.
