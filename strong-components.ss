@@ -870,7 +870,7 @@
            (%for-each-reverse-bucket (lambda (_) (return #f))
              (%index-ref (owned-partition-backward old) key []))
            #t)))))
-(def (%retire-partition-isolates prior keys)
+(def (%retire-partition-isolates prior keys (roster #f))
   (def old (and (partition? prior) (%partition-owned prior)))
   (unless (and old (list? keys)) (error "owned partition and finite retirements required"))
   (if (null? keys) prior
@@ -888,10 +888,31 @@
         (%index-write! owner key #f)
         (%index-write! members key #f))
       (owned-snapshot
-        (make-owned-partition (owned-partition-roster old)
+        (make-owned-partition (or roster (owned-partition-roster old))
           (owned-partition-forward old) (owned-partition-backward old) owner members
           (owned-partition-shape old) #t)
-        (.o retired-owners: (length keys) roster-materialized: 0)))))
+        (if roster
+          (.cc (partition-work prior) retired-owners: (length keys) roster-materialized: 0)
+          (.o retired-owners: (length keys) roster-materialized: 0))))))
+
+;; The predecessor inverse certifies that every surviving reader of a
+;; retired provider supplies a replacement before author row capture.
+(def (%check-partition-retirements prior removed codes)
+  (def old (%partition-owned prior))
+  (def removed-index (make-hash-table-eq))
+  (def edited (make-hash-table-eq))
+  (for (key removed)
+    (unless (and (symbol? key) (owned-active-owner old key) (not (hash-key? removed-index key)))
+      (error "conflicting or stale component membership contributions" key))
+    (hash-put! removed-index key #t))
+  (for (entry codes)
+    (when (pair? entry) (hash-put! edited (car entry) #t)))
+  (for (key removed)
+    (%for-each-reverse-bucket
+      (lambda (reader)
+        (unless (or (hash-key? removed-index reader) (hash-key? edited reader))
+          (error "component retirement still has an unedited reader" key reader)))
+      (%index-ref (owned-partition-backward old) key []))))
 
 ;; The component source has already reserved these exact ordinals. Seed empty
 ;; rows and singleton membership before the existing replacement algorithm.

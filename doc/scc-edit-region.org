@@ -225,8 +225,16 @@ one suffix, and guard growth uses the same positions. The quotient compares
 the repaired groups with the real predecessor: a new singleton that merges
 immediately is never retired from the predecessor, and a surviving new
 representative must be installed. Every appended owner seeds invalidation
-through its final group. Opaque builders and batches combining addition
-with removal use full support admission. The structural proofs cover
+through its final group. Opaque builders use full support admission.
+For a mixed append and retirement batch, the old inverse identifies
+surviving readers that must supply replacement rows before author capture.
+Replacement rows are validated against the successor roster. Retiring
+vertices take empty rows during SCC repair and are removed once both
+incident indexes confirm isolation. =retirement_preflight_exact= derives
+isolation from the inverse and row admission conditions. Quotient
+retirements refer to actual predecessor representatives, and guard
+retirement uses the old ordinal after the owner leaves the active roster.
+The structural proofs cover
 the padded partition and witness addressing; native registration,
 ticket retirement and value reuse have separate checks.
 

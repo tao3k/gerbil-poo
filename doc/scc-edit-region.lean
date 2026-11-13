@@ -174,6 +174,24 @@ theorem isolated_retirements_preserve_edges {active : V → Prop} {edge : V → 
       · exact False.elim (incoming a b target present)
     · exact False.elim (outgoing a b source present)
 
+theorem retirement_preflight_exact {V : Type} {active edited : V → Prop}
+    {old next : V → V → Prop}
+    (oldReader : ∀ a b, active a → ¬ active b → old a b → edited a)
+    (unchanged : ∀ a b, active a → ¬ edited a → next a b → old a b)
+    (checked : ∀ a b, active a → edited a → next a b → active b)
+    (empty : ∀ a b, ¬ active a → ¬ next a b) :
+    ActiveEdges active next = next := by
+  classical
+  apply isolated_retirements_preserve_edges empty
+  intro a b removed edge
+  by_cases present : active a
+  · by_cases changed : edited a
+    · exact removed (checked a b present changed edge)
+    · exact changed (oldReader a b present removed (unchanged a b present changed edge))
+  · exact empty a b present edge
+
+#print axioms retirement_preflight_exact
+
 -- Reuse a surviving group's old result only when its actual builder factors
 -- through the retained inputs. A whole-roster callback need not do so.
 theorem retired_member_can_change_opaque_builder :

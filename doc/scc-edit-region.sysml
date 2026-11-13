@@ -7,10 +7,11 @@ package SccEditRegion {
     }
     requirement def MembershipEditSupport {
         doc /* For a roster edit keep the old ordinals and isolate retired
-               vertices in the repair domain. Validate new rows and visit the
-               old inverse buckets of retired providers. Any active reader
-               in those buckets must have an edited row. Project only active
-               vertices into the successor graph. */
+               vertices in the repair domain. Check the predecessor inverse
+               before capturing author rows. Every surviving reader of a
+               retired provider must supply an edit. Admit edited rows over
+               the final active roster. Remove isolated retired vertices
+               after repair and retire only actual old representatives. */
     }
     requirement def RetiredGroupValueReuse {
         doc /* Reuse requires authenticated builder locality and unchanged

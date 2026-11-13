@@ -374,11 +374,12 @@
       (%splice-witness-tree #f span (reverse base-edits) attach-source-evidence! register) span))
   (%component-source-current! source)
   source)
-(def (%edit-component-source prior codes bases register added: (added []))
+(def (%edit-component-source prior codes bases register added: (added []) removed: (removed []))
   (%with-component-source prior
     (lambda ()
       (def previous (%component-source-roster prior))
-      (def roster (if (null? added) previous (%roster-append previous added)))
+      (def padded (if (null? added) previous (%roster-append previous added)))
+      (def roster (if (null? removed) padded (%roster-retire padded removed)))
       (def supported? (cut %roster-position roster <>))
       (def programs (table codes (make-hash-table-symbolic)))
       (def values (table bases (make-hash-table-symbolic)))
@@ -386,9 +387,9 @@
       (def base-keys (map car bases))
       (check-edit-targets supported? code-keys base-keys values)
       (def old (%component-source-storage prior))
-      (def next-programs (if (null? code-keys) (%owned-source-programs old)
+      (def next-programs (if (and (null? code-keys) (null? removed)) (%owned-source-programs old)
                            (%index-fork (%owned-source-programs old))))
-      (def next-bases (if (null? base-keys) (%owned-source-bases old)
+      (def next-bases (if (and (null? base-keys) (null? removed)) (%owned-source-bases old)
                         (%index-fork (%owned-source-bases old))))
       (def code-edits [])
       (def rows
@@ -399,6 +400,11 @@
           (%index-write! next-programs key captured)
           (cons key (program-row captured))))
       (for (key base-keys) (%index-write! next-bases key (hash-ref values key)))
+      (def removed-witnesses
+        (for/collect (key removed)
+          (%index-write! next-programs key #f)
+          (%index-write! next-bases key #f)
+          (cons (%roster-position previous key) #f)))
       (def span (%component-source-span prior))
       (def minimum (%roster-width roster))
       (def (splice tree edits)
@@ -409,12 +415,13 @@
       (def result
         (make-%component-source (make-%owned-source keys next-programs next-bases)
           roster (%component-source-authority prior)
-          (splice (%component-source-code-witnesses prior) code-edits)
+          (splice (%component-source-code-witnesses prior) (append removed-witnesses code-edits))
           (splice (%component-source-base-witnesses prior)
-            (map (lambda (key) (cons (supported? key) #f)) base-keys)) (%witness-span span minimum)))
+            (append removed-witnesses (map (lambda (key) (cons (supported? key) #f)) base-keys)))
+          (%witness-span span minimum)))
       (%component-source-current! result)
       ;; Only this combined result can supply both successor code and rows.
-      (vector result rows (append code-keys base-keys)))))
+      (vector result rows (append code-keys base-keys) padded))))
 
 ;; This source projection is paired with an admitted retirement in the same
 ;; predecessor partition. The coordinator still owns successor installation.
