@@ -126,6 +126,30 @@ Removing the rank predicate in an isolated native build made the new
 fixture visit four buckets instead of three and fail with exit 42.
 Restoring the predicate passed all 28 cases in the Graph order module.
 
+* Complete reverse search candidate
+
+=editedSearch_complete= proves that accepting every live reader yields
+the same ordered pending prefix, shared tail and edge count. The
+ceiling regression removes one borrowed reader before inserting the
+edge that triggers complete reverse search. It checks three visited
+buckets, one live edge, the exact repaired order and the predecessor
+order.
+
+The candidate reused the partial-interval visitor with an accept-all
+predicate. The guarded =-O0= diagnostic passed the 22 order cases and
+the interleaved bucket study. CPU medians in ms, reference / candidate:
+
+| Readers | Natural GC | Collection before sample |
+|---------+------------+--------------------------|
+| 100K    | 1.43 / 6.00 | 1.46 / 4.74 |
+| 1M      | 17.94 / 60.80 | 15.24 / 46.24 |
+
+The entire study took 51.04 s with a 1.62 GiB sampled peak. The standard
+Darwin build exceeded 4 GiB in =testing/property/generator=. Both
+targeted =-O2= Graph attempts also exceeded 4 GiB, with and without
+the test host-splitting flag. The diagnostic therefore gives no
+production timing. Keep the existing complete search implementation.
+
 * Retiring an inserted reader
 
 An insertion into an edited inverse bucket records whether the absent

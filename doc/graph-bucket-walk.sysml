@@ -45,6 +45,11 @@ package GraphBucketWalk {
                saved quotient error. A later owner cannot mask an earlier
                failure. Complete both checks before transferring ownership. */
     }
+    requirement def CompleteReverseSearch {
+        doc /* When the admitted rank frontier covers the reverse search
+               interval, include every live reader in bucket order.
+               Skip masked owners and count every live edge. */
+    }
     requirement def EditedSearchFrontier {
         doc /* Charge every live edge in the edited bucket, including edges
                outside the rank interval. Only accepted owners contribute fresh

@@ -75,6 +75,14 @@ theorem editedSearch_exact (keep accept : A → Bool) (added base rest : List A)
   rw [streaming_exact, searchRow_exact]
   simp [Except.map, finishSearch]
 
+theorem editedSearch_complete (keep : A → Bool) (added base rest : List A) :
+    ((walk (searchEdge (fun _ => true)) added ([], 0)).bind
+      (maskedWalk keep (searchEdge (fun _ => true)) base)).map (finishSearch rest) =
+        .ok (added ++ base.filter keep ++ rest, (added ++ base.filter keep).length) := by
+  have all (row : List A) : row.filter (fun _ => true) = row :=
+    List.filter_eq_self.mpr (fun _ _ => rfl)
+  rw [editedSearch_exact keep (fun _ => true) added base rest, all]
+
 #print axioms walk_append
 #print axioms masked_exact
 

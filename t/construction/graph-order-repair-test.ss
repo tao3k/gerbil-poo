@@ -138,10 +138,15 @@
       (check (valid-order? floor-next keys) => #t)
       (check-equal? (.get (graph.schedule-work floor-next) rank-writes) 3)
       (check-equal? (graph.schedule-order floor) keys)
-      (def ceiling (graph.schedule-owned keys [(cons 'c (code.need 'b identity))]))
+      (def ceiling (graph.schedule-owned keys
+        [(cons 'c (code.need 'b identity)) (cons 'd (code.need 'b identity))]))
       (def ceiling-next (graph.apply-schedule-revision ceiling
-        (graph.schedule-revision ceiling [(cons 'b (code.need 'f identity))])))
+        (graph.schedule-revision ceiling
+          [(cons 'b (code.need 'f identity)) (cons 'd #f)])))
       (check (valid-order? ceiling-next keys) => #t)
+      (check-equal? (.get (graph.schedule-work ceiling-next) search-buckets) 3)
+      (check-equal? (.get (graph.schedule-work ceiling-next) search-edges) 1)
+      (check-equal? (graph.schedule-order ceiling-next) '(a f b d e c))
       (check-equal? (.get (graph.schedule-work ceiling-next) rank-writes) 3)
       (check-equal? (graph.schedule-order ceiling) keys))
     (test-case "structural index forks preserve roots, false values and projection effects"
