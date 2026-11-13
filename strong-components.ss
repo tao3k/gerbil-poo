@@ -711,31 +711,36 @@
       (if owned?
         (let ((positions (and index (compact-graph-positions index)))
               (direction (and index (compact-graph-direction index))))
-          (lambda (part) (own-partition keys reads positions direction part)))
+          (lambda (part inverse cycle?)
+            (own-partition keys reads positions direction part inverse cycle?)))
         values))
-    (partition-captured keys reads captured-edges (length keys) declared-edges index owned? complete)))
+    (partition-captured keys reads captured-edges (length keys) declared-edges index owned? complete owned?)))
 
 ;; Pure phase over locally captured immutable rows. Production reaches this only
 ;; after validating every author. White-box studies may borrow an already
 ;; certified historical partition, charging zero NEW declaration validation.
 (def (partition-captured keys reads captured-edges validation-owners declared-edges
-                         (index #f) (owned? #f) (complete values))
+                         (index #f) (owned? #f) (complete values) (retain-inverse? #f))
   (let-values (((owners next component examined-edges finished popped) (discover keys reads captured-edges index)))
     ;; A tail handoff carries NO packed input or capture construction buffers.
     ;; Keep those roots out of normalization/certificate closure environments.
     (finish-partition keys reads validation-owners declared-edges
-      owners next component examined-edges finished popped owned? complete)))
+      owners next component examined-edges finished popped owned? complete retain-inverse?)))
 
 (def (finish-partition keys reads validation-owners declared-edges
-                       owners next component examined-edges finished popped (owned? #f) (complete values))
+                       owners next component examined-edges finished popped (owned? #f) (complete values)
+                       (retain-inverse? #f))
     (let-values (((groups members ranks) (normalize keys owners owned?)))
       ;; Independent ComponentWitness certificate: all quotient edges, and two
       ;; within-group spanning walks. Singleton paths are reflexive. Reverse
       ;; rows retain only internal edges of nontrivial groups (Lean pruning law).
-      (let ((reverse-reads (make-hash-table-eq))
+      (def whole? (and retain-inverse? (pair? keys) (pair? (cdr keys)) (null? (cdr groups))))
+      (let ((reverse-reads (if whole? (make-hash-table-symbolic size: next seed: (%graph-table-seed))
+                             (make-hash-table-eq)))
             (forward-seen (make-hash-table-eq)) (backward-seen (make-hash-table-eq))
             (certificate-buckets 0) (certificate-edges 0) (quotient-edges 0)
             (certificate-singletons 0) (reverse-edges 0) (quotient-error #f))
+        (def cycle? whole?)
         (def (span adjacency seen root)
           (let walk ((pending (list root)))
             (unless (null? pending)
@@ -752,7 +757,10 @@
         (for (key keys)
           (let* ((consumer (hash-ref owners key))
                  (nontrivial (> (car (hash-ref members consumer)) 1)))
-            (for (dep (hash-ref reads key))
+            (def row (hash-ref reads key))
+            (when (and cycle? (not (and (pair? row) (null? (cdr row)))))
+              (set! cycle? #f))
+            (for (dep row)
               (set! quotient-edges (1+ quotient-edges))
               (let (provider (hash-ref owners dep))
                 (if (eq? consumer provider)
@@ -776,11 +784,13 @@
               (error "invalid SCC spanning certificate" key)))
           (when (and quotient-error (eq? key (car quotient-error)))
             (error "invalid SCC quotient certificate" key (cdr quotient-error))))
-        (complete (make-%partition groups (cut hash-ref owners <>) (cut hash-ref reads <>) members
+        (def result (make-%partition groups (cut hash-ref owners <>) (cut hash-ref reads <>) members
           (work-receipt validation-owners declared-edges (if (zero? finished) 0 next)
             examined-edges finished popped next component
             certificate-buckets certificate-edges quotient-edges certificate-singletons reverse-edges
-            (if (zero? finished) next 0) (if (zero? finished) quotient-edges 0)) owners #f)))))
+            (if (zero? finished) next 0) (if (zero? finished) quotient-edges 0)) owners #f))
+        (if retain-inverse? (complete result (and whole? reverse-reads) cycle?)
+          (complete result)))))
 
 ;; Owned partition keeps the existing SCC result and only adds the indexes
 ;; required to revise that result without rereading a declaration.
@@ -797,17 +807,20 @@
     (lambda (key) (list-copy (lookup (owned-partition-forward owned) key)))
     #f work #f owned))
 
-(def (own-partition keys reads captured-positions direction part)
+(def (own-partition keys reads captured-positions direction part (inverse #f) (certified-cycle? #f))
   (def positions (or captured-positions (make-hash-table-symbolic seed: (%graph-table-seed))))
-  (def backward (make-hash-table-symbolic seed: (%graph-table-seed)))
-  (def cycle? (and (pair? keys) (pair? (cdr keys)) (= (hash-length (%partition-members part)) 1)))
-  (for ((key keys) (position (in-range (length keys))))
-    (unless captured-positions (hash-put! positions key position))
-    (def row (hash-ref reads key))
-    (when (and cycle? (not (and (pair? row) (null? (cdr row)))))
-      (set! cycle? #f))
-    (for (provider row)
-      (hash-put! backward provider (cons key (hash-ref backward provider [])))))
+  (def backward (or inverse (make-hash-table-symbolic seed: (%graph-table-seed))))
+  (def cycle? (if inverse certified-cycle?
+                (and (pair? keys) (pair? (cdr keys)) (= (hash-length (%partition-members part)) 1))))
+  (unless (and inverse captured-positions)
+    (for ((key keys) (position (in-range (length keys))))
+      (unless captured-positions (hash-put! positions key position))
+      (def row (hash-ref reads key))
+      (when (and cycle? (not (and (pair? row) (null? (cdr row)))))
+        (set! cycle? #f))
+      (unless inverse
+        (for (provider row)
+          (hash-put! backward provider (cons key (hash-ref backward provider [])))))))
   (owned-snapshot (make-owned-partition (%roster keys positions) (%index reads) (%index backward)
                     (%index (%partition-owners part)) (%index (%partition-members part))
                     ;; Capture already authenticated both rank-direction bits.

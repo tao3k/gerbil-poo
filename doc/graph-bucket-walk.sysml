@@ -33,6 +33,12 @@ package GraphBucketWalk {
                all retain their representatives has the same ordered projection.
                An authored row edit contributes its own invalidation seed. */
     }
+    requirement def WholeComponentInverse {
+        doc /* After certifying one nontrivial component, the private
+               internal inverse covers every edge in the admitted graph.
+               Transfer it in source-order reader representation to owned
+               state. For other partitions, construct the full inverse. */
+    }
     requirement def EditedSearchFrontier {
         doc /* Charge every live edge in the edited bucket, including edges
                outside the rank interval. Only accepted owners contribute fresh

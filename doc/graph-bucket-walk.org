@@ -229,3 +229,21 @@ When the deletion batch dirties one old component, borrow its already
 source-ordered member row. =single_dirty_component_order= proves that
 sorting the sole member row gives the same sequence. Multiple dirty
 components still require global source order across their member rows.
+
+* Cold inverse for one nontrivial component
+
+=WholeComponentInverse.certificate_inverse_eq= proves that the internal
+reader filter accepts every edge when the certified partition is one
+nontrivial component. Both builders prepend readers in source order.
+After the existing certificate accepts, ownership can retain that
+reverse index and the one-successor shape collected during the same
+edge pass. Multiple groups and singleton partitions still build the
+full inverse, including intergroup edges and self edges. The author
+capture and all certification checks precede the ownership handoff.
+
+In a Darwin ABBA comparison under the 180-second and 4 GiB process-tree
+guard, both arms validated 100K and 1M rings and their batched cuts. The
+invocation peak ranged from 1.40 to 1.41 GiB before and 1.25 to 1.28 GiB
+after. Million-ring cold CPU was 19.59/23.04 seconds before and
+20.37/18.83 seconds after. The first pair did not improve CPU. Allocation
+bytes are unqualified because the cold windows collected.

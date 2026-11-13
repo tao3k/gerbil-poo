@@ -237,3 +237,25 @@ theorem single_dirty_component_order {members : List K} {before : K → K → Bo
 #print axioms skip_self_edges
 
 end GraphDeletionRegion
+
+namespace WholeComponentInverse
+
+variable {K : Type}
+
+-- Both inverse builders visit consumer rows in source order and prepend
+-- readers. The certificate keeps only internal edges of nontrivial groups.
+def readers (rows : List (K × List K)) (provider : K)
+    (edge : K → K → Bool) [DecidableEq K] : List K :=
+  rows.foldl (fun acc (owner, deps) =>
+    if provider ∈ deps ∧ edge owner provider then owner :: acc else acc) []
+
+theorem certificate_inverse_eq [DecidableEq K] (representative : K → K)
+    (root provider : K) (rows : List (K × List K))
+    (whole : ∀ owner, representative owner = root)
+    (nontrivial : Bool) (size : nontrivial = true) :
+    readers rows provider (fun owner dep =>
+      decide (representative owner = representative dep) && nontrivial) =
+    readers rows provider (fun _ _ => true) := by
+  simp [readers, whole, size]
+
+end WholeComponentInverse

@@ -1416,6 +1416,11 @@
       (def names '(c a b))
       (def rows (list->hash-table-eq '((a b) (b a c) (c a))))
       (def ring (scc.partition-owned (row-source names rows)))
+      ;; The certificate visits consumers in source order and prepends readers.
+      (def inverse (owned-partition-backward (%partition-owned ring)))
+      (check-equal? (reverse-bucket-members (graph.%index-ref inverse 'a)) '(b c))
+      (check-equal? (reverse-bucket-members (graph.%index-ref inverse 'b)) '(a))
+      (check-equal? (reverse-bucket-members (graph.%index-ref inverse 'c)) '(b))
       (def next (scc.revise-partition ring '((c))))
       (hash-put! rows 'c [])
       (check (same-components? names next (scc.partition (row-source names rows))) => #t)
