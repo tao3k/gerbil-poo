@@ -1659,6 +1659,8 @@
 
 (def (local-component-pressure-study shape)
   (for (count '(100000 1000000))
+    (displayln (list 'GRAPH-LOCAL-SCC-PRESSURE-SETUP shape count))
+    (force-output)
     (def names (for/collect (index (in-range count))
       (string->symbol (string-append "scc-region-" (number->string index)))))
     (def first (car names))
@@ -1671,7 +1673,11 @@
       ((hub)
        (for (key (cdr names)) (hash-put! rows key (list first))))
       (else (error "unknown SCC pressure shape" shape)))
+    (displayln (list 'GRAPH-LOCAL-SCC-PRESSURE-CAPTURE shape count))
+    (force-output)
     (defvalues (old setup) (measure (lambda () (scc.partition-owned (row-source names rows))) 1))
+    (displayln (list 'GRAPH-LOCAL-SCC-PRESSURE-CAPTURED shape count (qualified-metrics setup)))
+    (force-output)
     (defvalues (next delta) (measure (lambda () (scc.revise-partition old (list (list final-key)))) 1))
     (def work (scc.partition-work next))
     ;; An ordered hub deletion retains the certified singleton maps; unlike

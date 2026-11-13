@@ -547,3 +547,21 @@ One cut took 0.121 ms CPU and 0.289 ms wall, with zero collections and
 77,920 allocated bytes. It preserved the old SCC size and returned a
 singleton in the successor. This isolates the cold and edit windows
 for that ring. The full multi-shape matrix still requires a passing run.
+
+With the =52d16fb= Graph runtime, both original ring and reverse-hub
+pressure cases passed in one 61.584 s run at a 2.52 GiB sampled footprint
+under the 180 s, 4 GiB guard and 2 GiB Scheme heap. The test invoked the
+unchanged pressure checks from their source via Just with phase markers.
+The separate mixed-owner suite remains a different gate.
+
+| 1M shape | Cold partition CPU | Cold GC CPU | One cut CPU | Cut allocation |
+|----------+--------------------+-------------+-------------+----------------|
+| Ring | 17.065 s | 6.813 s | 43 us | 77,920 B |
+| Reverse hub | 14.378 s | 3.976 s | 64 us | 77,376 B |
+
+Both edits removed one reverse edge with zero edge rewrite and zero
+rebased owners. The ring projected 1M singleton groups. Explicit
+enumeration took 7.943 ms CPU and allocated 96,000,288 B. The two-cut
+ring case took 103 us CPU and preserved the predecessor snapshot.
+The cold figures include the public per-owner POO read and partition
+certification. The edit and enumeration figures time separate operations.

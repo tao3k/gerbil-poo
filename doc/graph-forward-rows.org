@@ -40,6 +40,24 @@ time was 11.333/2.931/10.964/15.582 s. Every sample checked the business
 result, approval count, ordered groups and all declared rows. This study
 preceded the outer read-collection guard and had no active collector.
 
+With the read-collection guard installed, the first fresh-process block
+used the same fixture and passed every check. View/stored/stored/view CPU
+was 4.437/4.400/3.827/3.588 s. The wall times were
+22.256/26.279/9.832/5.161 s. This block does not establish a complete
+publication speedup. =sealed-publication-test= in
+[[file:../benchmarks/publication-phases-test.ss][the existing publication study]]
+preserves the fixture for comparison across compiled revisions:
+=just _test -r '^sealed-publication-test$' benchmarks/publication-phases-test.ss=.
+Use the same compiler flags and limits in both prefixes.
+
+The reverse-order block ran from that checked-in fixture with
+stored/view/view/stored CPU of 2.787/2.960/2.807/2.893 s and wall times of
+2.912/4.068/3.084/4.687 s. Every sample passed. Across both blocks the CPU
+medians were 3.274 s for the view and 3.360 s for stored rows. The stored
+path collected once less in each run. Sampled process peaks were at most
+1.11 GiB. These blocks retain the isolated SCC result but leave complete
+cold publication speedup unqualified on this shape.
+
 The 884.916 ms result in [[file:graph-cold-index.org][cold index qualification]] is CPU for
 the complete owned cold schedule of 1M admitted owners with no edges. It
 includes roster normalization, support admission, capture, order and ranks.
