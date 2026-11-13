@@ -2,7 +2,7 @@
 ;;; SPDX-FileCopyrightText: 2026 tao3k team and Contributors
 ;;; SPDX-License-Identifier: Apache-2.0 AND LGPL-2.1-or-later
 
-;;; Public upstream controls, kept distinct from Core's CLOS calling grammar.
+;;; Receiver generics, inherited method fragments, and multimethod dispatch.
 (import (only-in :std/test test-suite test-case check check-equal? check-exception)
         (only-in :clan/poo/object .o .get .ref)
         (only-in :clan/poo/declaration .declare declaration-forms object<-declaration-forms)
@@ -10,30 +10,30 @@
         (only-in :clan/poo/method-declaration MethodDeclaration. standard-combination)
         (prefix-in :clan/poo/method-combination combination.)
         (prefix-in :clan/poo/multimethod multi.))
-(export poo-clos-upstream-alignment-test)
+(export generic-dispatch-test)
 
-;; This runtime generic preserves Gerbil's optional/keyword/rest grammar; it
-;; must not be lowered through the separate CLOS &optional/&key parser.
+;; Receiver generics use Gerbil optional, keyword and rest parameters.
 (.defgeneric (forward-row receiver required (optional #f) label: (label #f) . rest)
   slot: .forward combination: (lambda (parts row) (list parts row)))
 (.defgeneric (score receiver units) slot: .score combination: standard-combination)
 
-(def poo-clos-upstream-alignment-test
-  (test-suite "Public upstream mechanisms used by Core"
-    (test-case "runtime forwarding retains keyword false and a private rest spine"
+(def (unpack-forwarded-row required (optional #f) label: (label #f) . rest)
+  (list required optional label rest))
+
+(def generic-dispatch-test
+  (test-suite "Generic dispatch"
+    (test-case "forwarding preserves a false keyword value and copies rest arguments"
       (def receiver (.o .forward: 'parts))
       (def supplied (list 2 3 label: #f 'tail))
       (def result (apply forward-row receiver supplied))
       ;; Gerbil's call row places keywords before the #!rest positional row.
       (check-equal? result '(parts (label: #f #!rest 2 3 tail)))
       (check-equal?
-        (apply (lambda (required (optional #f) label: (label #f) . rest)
-                 (list required optional label rest))
-               (cadr result))
+        (apply unpack-forwarded-row (cadr result))
         '(2 3 #f (tail)))
       (set-car! (list-tail (cadr result) 5) 'changed)
       (check-equal? supplied '(2 3 label: #f tail)))
-    (test-case "method fragments merge upstream without a Core registry"
+    (test-case "child methods compose with inherited fragments"
       (def events '())
       (def parent
         (.declare MethodDeclaration. (.o)
@@ -51,9 +51,7 @@
       (check-equal? (score child 2) 22)
       (check-equal? events '(before))
       (check-equal? (score parent 2) 20))
-    (test-case "separate upstream multimethods preserve two independent axes"
-      ;; Symbolic dispatch names are deliberately explicit here. They are not
-      ;; an adapter proving Core class/eql identity or next-method equivalence.
+    (test-case "multimethods select across two arguments"
       (def generic
         (multi.make (list Any Any) Any
           (lambda (arguments) (map list arguments))))

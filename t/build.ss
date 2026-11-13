@@ -103,7 +103,7 @@
     "poo-clos-method-combination-test"
     "poo-clos-model-test"
     "poo-clos-syntax-test"
-    "poo-clos-upstream-alignment-test"
+    "generic-dispatch-test"
     "inferred-declaration-test"
     (gxc: "method-declaration-test" (extra-inputs: ("method-declaration/method-combination.scm" "method-declaration/cases.scm" "method-declaration/multimethod.scm" "method-declaration/typed-method-declaration.scm"))))
     ("objects"

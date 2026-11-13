@@ -52,7 +52,7 @@
     supplied fallback))
 
 ;;; Stage all dependent runtime C4 projections before the first live mutation.
-;;; The tables only connect candidate prototypes and declarations; the upstream
+;;; The tables only connect candidate prototypes and declarations; the
 ;;; POO linearizer still owns the order and rejection decision.
 ;; : (-> [ClosClass] ClosClass SchemeValue SchemeValue [Pair])
 (def (preflight-dependent-projections classes root supers slots)

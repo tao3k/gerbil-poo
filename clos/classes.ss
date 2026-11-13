@@ -198,7 +198,7 @@
 
 ;;; POO is the sole precedence owner. Every class generation owns one
 ;;; instance prototype, and each prototype points back to that exact class
-;;; metaobject. Projecting upstream C4 preserves identity without a second
+;;; metaobject. Projecting prototype C4 preserves identity without a second
 ;;; class graph or linearization algorithm.
 ;; : (-> POOObject Symbol [ClosClass])
 (def (compute-class-precedence-list prototype identity-value)

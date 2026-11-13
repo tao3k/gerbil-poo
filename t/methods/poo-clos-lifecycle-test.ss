@@ -73,7 +73,7 @@
 
     (test-case "POO C4 preserves monotonic pedalo precedence"
       ;; Barrett et al., figure 2, separates the historical ANSI topological
-      ;; order from C4. POO CLOS intentionally follows upstream prototype
+      ;; order from C4. POO CLOS intentionally uses prototype
       ;; linearization, so day-boat remains before wheel-boat in pedalo.
       (let* ((boat (poo-clos-class 'boat))
              (day-boat
@@ -430,7 +430,7 @@
                                  direct-superclasses: (list x y)))
              (yx (poo-clos-class 'precedence-yx
                                  direct-superclasses: (list y x))))
-        ;; Upstream POO remains the sole C4 owner. The public CLOS boundary
+        ;; The CLOS boundary
         ;; translates its rejection without recomputing precedence.
         (check-exception
          (poo-clos-class 'inconsistent

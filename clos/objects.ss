@@ -50,9 +50,8 @@
 ;; : POOObject
 (def ClosMethodCombination.
   (.o (:: @ (.ref ClosMethodCombination 'proto) kind identity)
-    ;; This is one receiver policy, not an independently extensible argument
-    ;; crossing. Use upstream slot dispatch; derived policies can refine this
-    ;; method without adding a CLOS registry or editing the generic caller.
+    ;; Qualifier admission uses the combination object's slot dispatch.
+    ;; Derived combinations can refine it through inheritance.
     .admits-qualifier?:
     (lambda (qualifier)
       (case kind

@@ -139,7 +139,7 @@
           (.o id: 'dispatch path: (.ref dispatch 'path)
               binding: (.ref dispatch 'binding) caseCount: 0))
          => #f)))
-    (test-case "MOP evidence remains outside the POO CLOS core denominator"
+    (test-case "MOP extensions are optional for CLOS conformance"
       (let (extended
             (filter (lambda (row) (eq? (.ref row 'profile) 'mop-extended))
                     poo-clos-clause-ledger))

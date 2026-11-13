@@ -43,8 +43,8 @@ an incomplete instance. Hook/source edits while checking C3 are also rejected.
 | Hook | Trigger and inputs |
 | --- | --- |
 | Gerbil-POO `no-applicable-method(receiver, slot)` | A prototype slot read has no effective definition, or a slot refinement invokes its inherited thunk and there is no inherited definition. The second case can occur for a slot defined on the receiver. [Object implementation](../object.ss) |
-| CLOS `no-applicable-method(generic-function, &rest arguments)` | A generic function call has no applicable method. [Common Lisp HyperSpec](https://www.lispworks.com/documentation/HyperSpec/Body/f_no_app.htm) · [Yuanxu dispatch](https://github.com/tao3k/gebril-yuanxu/blob/7a04cf39736bcae59c4c17e7fed45f7c9668345a/poo-clos/dispatch.ss#L324-L355) |
-| CLOS `slot-missing(class, object, slot-name, operation, &optional new-value)` | A slot operation names a slot absent from the instance's class. A declared but unbound slot has its own `slot-unbound` hook. [Common Lisp HyperSpec](https://www.lispworks.com/documentation/HyperSpec/Body/f_slt_mi.htm) · [Slot unbound](https://www.lispworks.com/documentation/HyperSpec/Body/f_slt_un.htm) · [Yuanxu slot lifecycle](https://github.com/tao3k/gebril-yuanxu/blob/7a04cf39736bcae59c4c17e7fed45f7c9668345a/poo-clos/lifecycle.ss#L124-L161) |
+| CLOS `no-applicable-method(generic-function, &rest arguments)` | A generic function call has no applicable method. [Common Lisp HyperSpec](https://www.lispworks.com/documentation/HyperSpec/Body/f_no_app.htm) · [CLOS dispatch](../clos/dispatch.ss) |
+| CLOS `slot-missing(class, object, slot-name, operation, &optional new-value)` | A slot operation names a slot absent from the instance's class. A declared but unbound slot has its own `slot-unbound` hook. [Common Lisp HyperSpec](https://www.lispworks.com/documentation/HyperSpec/Body/f_slt_mi.htm) · [Slot unbound](https://www.lispworks.com/documentation/HyperSpec/Body/f_slt_un.htm) · [CLOS slot lifecycle](../clos/lifecycle.ss) |
 
 `fallback-to(thunk)` supplies the POO hook and obtains its delegate on demand.
 Separate presence and name hooks consult the same delegate. Local slots,
