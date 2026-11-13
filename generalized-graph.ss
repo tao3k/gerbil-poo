@@ -32,8 +32,10 @@
 (def schedule? %schedule?)
 (def schedule-source %schedule-source)
 (def (schedule-order scheduled)
-  (let (order (force (%schedule-order scheduled)))
-    (if (%schedule-owned scheduled) (list-copy order) order)))
+  (cond ((not (%schedule-owned scheduled)) (force (%schedule-order scheduled)))
+        ((not (%schedule-position-changes scheduled))
+         (vector->list (%schedule-positions scheduled)))
+        (else (list-copy (force (%schedule-order scheduled))))))
 (def schedule-reads %schedule-reads)
 (def schedule-work %schedule-work)
 (def (schedule-supports? scheduled key)
@@ -128,26 +130,29 @@
              (when (cdar rest) (add (cdar rest)))
              (loop (1+ index) (cdr rest)))
             (else (add (vector-ref positions index)) (loop (1+ index) rest))))))
-(def (indexed-schedule spec order reads supported receipt owned sparse-inverse? edgeless?
-                       implicit-empty? roster)
+(def (indexed-schedule spec emit reads read-row adjacency supported receipt owned
+                       sparse-inverse? edgeless? roster hub)
   (def ranks (if owned (make-hash-table-symbolic size: (hash-length supported) seed: (%graph-table-seed))
                        (make-hash-table-eq)))
   (def readers (if (and owned (not sparse-inverse?))
                  (make-hash-table-symbolic size: (hash-length supported) seed: (%graph-table-seed))
                  (make-hash-table-symbolic seed: (%graph-table-seed))))
   (def positions (make-vector (hash-length supported)))
-  (for ((key order) (rank (in-range (vector-length positions))))
+  (def rank 0)
+  (def hub-readers [])
+  (emit (lambda (key)
     (vector-set! positions rank key)
     (hash-put! ranks key rank)
-    (unless sparse-inverse? (hash-put! readers key [])))
-  (unless edgeless?
-    (for (key order)
-      (for (dep (hash-ref reads key))
-        (hash-put! readers dep (cons key (hash-ref readers dep []))))))
-  (def adjacency (if implicit-empty?
-                   (%index-project supported (lambda (_) []))
-                   (%index reads)))
-  (make-%schedule spec (delay order)
+    (set! rank (fx+ rank 1))
+    (unless sparse-inverse? (hash-put! readers key []))
+    (when (and hub (pair? (read-row key)))
+      (set! hub-readers (cons key hub-readers)))))
+  (cond (hub (hash-put! readers hub hub-readers))
+        ((not edgeless?)
+         (for (key (in-vector positions))
+           (for (dep (read-row key))
+             (hash-put! readers dep (cons key (hash-ref readers dep [])))))))
+  (make-%schedule spec (delay (vector->list positions))
     (if owned (read-projection adjacency owned) (lambda (key) (hash-ref reads key)))
     adjacency (%index ranks)
     (%index readers) supported receipt positions #f (vector-length positions) owned roster))
@@ -156,16 +161,17 @@
   (if code (keys! (.@ code reads)) []))
 (def (schedule spec)
   (schedule-rows spec (list-copy (.@ spec keys)) (cut source-row spec <>)))
-(def (schedule-rows spec keys row (owned #f) (known-support #f) (footprints #f))
+(def (schedule-rows spec keys row (owned #f) (known-support #f) (footprints #f)
+                    (borrow-rows? #f))
   ;; The empty-capture arm supplies no row reader: all authored capture has
   ;; already finished, and every admitted owner gets the implicit empty row.
   (def implicit-empty? (not row))
-  (def reads (if owned
-               (if implicit-empty? (make-hash-table-symbolic seed: (%graph-table-seed))
-                 (make-hash-table-symbolic size: (if known-support (hash-length known-support) (length keys))
-                   seed: (%graph-table-seed)))
-               (make-hash-table-eq)))
-  (def states (make-hash-table-eq))
+  (def projection (if implicit-empty? (lambda (_) []) (and borrow-rows? row)))
+  (def reads (and (not projection)
+    (if owned
+      (make-hash-table-symbolic size: (hash-length known-support) seed: (%graph-table-seed))
+      (make-hash-table-eq))))
+  (def read-row (or projection (cut hash-ref reads <>)))
   (def supported (or known-support (make-hash-table-eq)))
   ;; Private certificate: #f means no edges, a symbol means one provider,
   ;; #t means multiple providers (or an invalid row requiring ordinary DFS).
@@ -174,28 +180,44 @@
     (for (key keys)
       (unless known-support (hash-put! supported key #t))
       (def captured (row key))
-      (hash-put! reads key captured)
+      (when reads (hash-put! reads key captured))
       (when (and owned (not (eq? inverse-root #t)) (not (null? captured)))
         (set! inverse-root
           (if (and (pair? captured) (null? (cdr captured))
                    (or (not inverse-root) (eq? inverse-root (car captured))))
             (car captured) #t)))))
-  (def order
-    (if (and owned (not inverse-root)) (list-copy keys)
-      (with-list-builder (add)
-        (def (visit key)
-          (unless (hash-key? supported key) (raise (make-failure 'unsupported key)))
-          (case (hash-get states key)
-            ((done) (void))
-            ((active) (raise (make-failure 'cycle key)))
-            (else (hash-put! states key 'active)
-              (for-each visit (hash-ref reads key))
-              (hash-put! states key 'done) (add key))))
-        (for-each visit keys))))
-  (indexed-schedule spec order reads supported
+  (def (emit add)
+    (cond
+      ((and owned (not inverse-root)) (for-each add keys))
+      ((and (symbol? inverse-root) (hash-key? supported inverse-root)
+            (null? (read-row inverse-root)))
+       (def emitted? #f)
+       (for (key keys)
+         (cond
+           ((eq? key inverse-root)
+            (unless emitted? (add key))
+            (set! emitted? #t))
+           (else
+            (when (and (not emitted?) (pair? (read-row key)))
+              (add inverse-root)
+              (set! emitted? #t))
+            (add key)))))
+      (else
+       (def states (make-hash-table-eq))
+       (def (visit key)
+         (unless (hash-key? supported key) (raise (make-failure 'unsupported key)))
+         (case (hash-get states key)
+           ((done) (void))
+           ((active) (raise (make-failure 'cycle key)))
+           (else (hash-put! states key 'active)
+             (for-each visit (read-row key))
+             (hash-put! states key 'done) (add key))))
+       (for-each visit keys))))
+  (def adjacency (if projection (%index-project supported projection) (%index reads)))
+  (indexed-schedule spec emit reads read-row adjacency supported
     (work (length keys) (if implicit-empty? 0 (or footprints (length keys))) 0 0 0 0 0 (length keys)) owned
-    (and owned (not (eq? inverse-root #t))) (and owned (not inverse-root)) implicit-empty?
-    (and (not owned) keys)))
+    (and owned (not (eq? inverse-root #t))) (and owned (not inverse-root))
+    (and (not owned) keys) (and (symbol? inverse-root) inverse-root)))
 
 ;; The owned entry captures structural rows once. Computations and their
 ;; evaluator bodies remain author values. The rank graph never executes them.
@@ -472,16 +494,16 @@
   (def values (table bases (make-hash-table-symbolic seed: (%graph-table-seed))))
   (def code-keys (map car codes))
   (check-edit-targets (cut hash-key? supported <>) code-keys (map car bases) values)
-  (def captured (make-hash-table-symbolic seed: (%graph-table-seed)))
   (capture-program-batch
     (lambda ()
       (for (key code-keys)
-        (hash-put! captured key (capture-program (hash-ref programs key))))))
+        (hash-put! programs key (capture-program (hash-ref programs key))))))
   (def source (make-%owned-source names
-    (%index captured) (%index values)))
-  (def implicit-empty? (and implicit-allowed? (zero? (hash-length captured))))
+    (%index programs) (%index values)))
+  (def implicit-empty? (and implicit-allowed? (zero? (hash-length programs))))
   (schedule-rows (owned-declaration source) names
-    (and (not implicit-empty?) (lambda (key) (program-row (hash-get captured key)))) source supported))
+    (and (not implicit-empty?) (lambda (key) (program-row (hash-get programs key))))
+    source supported #f #t))
 ;; A quotient with a changed roster still needs a full schedule certificate.
 ;; Keep admitted program identities and capture only explicitly changed rows.
 (def (%reschedule-owned-support prior keys codes)
@@ -746,6 +768,7 @@
                    (added []) (retired []) (retirement-readers 0))
   (def reads (%index-fork (%schedule-adjacency prior)))
   (def ranks (%index-fork (%schedule-ranks prior)))
+  (def copied-entries 0)
   (def readers (%index-fork (%schedule-reverse prior)))
   (def positions (%schedule-positions prior))
   (def old-positions (%schedule-position-changes prior))
@@ -806,7 +829,7 @@
         (set! patch-writes (1+ patch-writes))))
     (index-retire! ranks key)
     (index-retire! readers key []))
-  (def (search adjacency root low high)
+  (def (search adjacency root low high (intersection #f))
     (def seen (make-hash-table-eq))
     ;; The admitted DAG certifies the other bound. Deletions cannot break it,
     ;; and each prior insertion was checked before this search starts.
@@ -814,8 +837,47 @@
     (def complete? (if forward? (zero? low) (>= high (1- frontier))))
     ;; Partial intervals keep the former predicate and its query path.
     (def within? (lambda (dep) (<= low (rank dep) high)))
+    (if complete?
+      (let ()
+      (def marks #f)
+      (def entered 0)
+      (def last-intersection #f)
+      (let walk ((frames (list (list root))) (found []))
+        (cond
+          ((null? frames) (values found (or marks seen) entered last-intersection))
+          ((null? (car frames)) (walk (cdr frames) found))
+          (else
+           (def frame (car frames))
+           (def key
+             (if (reverse-cursor? frame)
+               (let (reader (reverse-cursor-pop! frame))
+                 (when reader (set! edges (fx+ edges 1)))
+                 (when (reverse-cursor-empty? frame) (set-car! frames []))
+                 reader)
+               (begin0 (car frame) (set-car! frames (cdr frame)))))
+           (def label (and key marks (rank key)))
+           (if (or (not key)
+                   (if marks (fx= (u8vector-ref marks label) 1) (hash-key? seen key)))
+             (walk frames found)
+             (let (row (%index-ref adjacency key []))
+               (set! entered (fx+ entered 1))
+               (when (and intersection (hash-key? intersection key))
+                 (set! last-intersection key))
+               (cond (marks (u8vector-set! marks label 1))
+                     ((and (not forward?) (<= frontier (* 32 entered)))
+                      (set! marks (make-u8vector frontier 0))
+                      (for (owner found) (u8vector-set! marks (rank owner) 1))
+                      (u8vector-set! marks (rank key) 1)
+                      (set! seen #f))
+                     (else (hash-put! seen key #t)))
+               (set! buckets (fx+ buckets 1))
+               (if (reverse-bucket? row)
+                 (walk (cons (open-reverse-cursor row) frames) (if marks [] (cons key found)))
+                 (begin
+                   (set! edges (fx+ edges (length row)))
+                   (walk (if (null? row) frames (cons row frames)) (if marks [] (cons key found)))))))))))
     (let loop ((pending (list root)) (found []))
-      (if (null? pending) (values found seen)
+      (if (null? pending) (values found seen #f #f)
         (let ((key (car pending)) (rest (cdr pending)))
           (if (hash-key? seen key) (loop rest found)
             (begin
@@ -831,37 +893,104 @@
                     ;; Count boundary edges too; pruning is not free work.
                     (set! edges (+ edges (length members)))
                     (loop (append (if complete? members (filter within? members)) rest)
-                      (cons key found)))))))))))
+                      (cons key found))))))))))))
   (for (addition (reverse additions))
     (def consumer (car addition))
     (def provider (cdr addition))
     (unless (< (rank provider) (rank consumer))
       (let ((low (rank consumer)) (high (rank provider)))
-      (defvalues (forward f-index) (search reads provider low high))
+
+      (defvalues (forward f-index _forward-count _forward-cycle) (search reads provider low high))
       (when (hash-key? f-index consumer) (raise (make-failure 'cycle consumer)))
-      (defvalues (backward b-index) (search readers consumer low high))
+
+      (defvalues (backward b-index backward-count cycle) (search readers consumer low high f-index))
+      (when cycle (raise (make-failure 'cycle cycle)))
       (for (key backward)
         (when (hash-key? f-index key) (raise (make-failure 'cycle key))))
-      (def less? (lambda (a b) (< (rank a) (rank b))))
-      (def owners (append (list-sort less? forward) (list-sort less? backward)))
-      (def labels (list-sort < (map rank owners)))
-      ;; Every RHS is acquired before the first assignment. The old labels are
-      ;; permuted, never invented, and all other ranks retain their identity.
-      (for ((key owners) (label labels))
-        (index-set! ranks key label)
-        (patch! (position-index!) label key)
-        (set! assignments (1+ assignments)))
-      ;; Exact incident checks include unchanged consumers, not just outgoing
-      ;; edges of owners whose labels moved. No callback runs in this interval.
-      (for (key owners)
-        (for (dep (%index-ref reads key))
-          (set! checks (1+ checks))
-          (unless (< (rank dep) (rank key)) (raise (make-failure 'rank key))))
-        (%for-each-reverse-bucket
-          (lambda (reader)
-            (set! checks (1+ checks))
-            (unless (< (rank key) (rank reader)) (raise (make-failure 'rank reader))))
-          (%index-ref readers key [])))))
+      ;; Capture each old rank before writing any assignment. Sort each
+      ;; frontier once and merge the old labels as assignments consume them.
+      (def (ranked keys)
+        (list-sort! (lambda (a b) (< (car a) (car b)))
+          (map (lambda (key) (cons (rank key) key)) keys)))
+
+      (def providers (ranked forward))
+      (def dense? (u8vector? b-index))
+      (def rebase? (and dense? (>= frontier 32768) (null? added) (null? retired)
+                        (not old-positions) (not position-changes)
+                        (= frontier (vector-length positions))
+                        (>= backward-count (quotient frontier 2))))
+      (def new-positions (and rebase? (vector-copy positions)))
+
+
+      (def consumers (and (not dense?) (ranked backward)))
+      (set! backward #f)
+      (def old-overlay (and dense? position-changes (rbtree-copy position-changes)))
+      (def (old-owner label)
+        (def fallback (and (< label (vector-length positions)) (vector-ref positions label)))
+        (def overlay (or old-overlay old-positions))
+        (if overlay (rbtree-ref overlay label fallback) fallback))
+      (def (scan-mark label)
+        (let scan ((label label))
+          (cond ((fx= label frontier) #f)
+                ((fx= (u8vector-ref b-index label) 1) label)
+                (else (scan (fx+ label 1))))))
+      (def (each-owner visit)
+        (for (entry providers) (visit (cdr entry)))
+        (if dense?
+          (let loop ((label (scan-mark low)))
+            (when label (visit (old-owner label)) (loop (scan-mark (fx+ label 1)))))
+          (for (entry consumers) (visit (cdr entry)))))
+
+      (def pending-providers providers)
+      (def pending-consumers consumers)
+      (def pending-mark (and dense? (scan-mark low)))
+      (def (next-label!)
+        (def next (if dense? pending-mark (and (pair? pending-consumers) (caar pending-consumers))))
+        (if (and (pair? pending-providers)
+                 (or (not next) (< (caar pending-providers) next)))
+          (let (label (caar pending-providers))
+            (set! pending-providers (cdr pending-providers))
+            label)
+          (begin
+            (if dense? (set! pending-mark (scan-mark (fx+ next 1)))
+              (set! pending-consumers (cdr pending-consumers)))
+            next)))
+      (each-owner (lambda (key)
+        (def label (next-label!))
+        (if rebase?
+          (vector-set! new-positions label key)
+          (begin
+            (index-set! ranks key label)
+            (patch! (position-index!) label key)))
+        (set! assignments (1+ assignments))))
+      (when rebase?
+        (let (new-ranks (make-hash-table-symbolic size: frontier seed: (%graph-table-seed)))
+          (for ((key (in-vector new-positions)) (label (in-range frontier)))
+            (when key (hash-put! new-ranks key label)))
+          (set! ranks (%index-fork (%index new-ranks)))
+          (set! copied-entries (+ copied-entries frontier))))
+
+      ;; Exact incident checks include unchanged consumers. No callback
+      ;; runs between assigning ranks and checking their incident edges.
+      (def check-label #f)
+      (def (check-reader reader)
+        (set! checks (fx+ checks 1))
+        (unless (fx< check-label (rank reader))
+          (raise (make-failure 'rank reader))))
+      (each-owner (lambda (key)
+        (set! check-label (rank key))
+        (let loop ((row (%index-ref reads key)))
+          (unless (null? row)
+            (set! checks (fx+ checks 1))
+            (unless (fx< (rank (car row)) check-label)
+              (raise (make-failure 'rank key)))
+            (loop (cdr row))))
+        (%for-each-reverse-bucket check-reader (%index-ref readers key []))))
+
+      (when rebase?
+        (set! positions new-positions)
+        (set! old-positions #f)
+        (set! position-changes #f))))
     (unless (< (rank provider) (rank consumer)) (raise (make-failure 'rank consumer)))
     (index-set! reads consumer (cons provider (%index-ref reads consumer)))
     (index-set! readers provider (reverse-bucket-add (%index-ref readers provider []) consumer)))
@@ -870,10 +999,10 @@
   (for (entry changes) (index-set! reads (car entry) (cdr entry)))
   (for (key retired) (index-retire! reads key))
   (let (order (if position-changes (delay (materialize-order positions position-changes))
-                (%schedule-order prior)))
+                (if (positive? copied-entries) (delay (vector->list positions)) (%schedule-order prior))))
     (make-%schedule spec order (read-projection reads owned) reads ranks readers
       (and (null? added) (null? retired) (%schedule-supported prior))
-      (work checked footprints buckets edges assignments checks 0 0 patch-writes source-writes
+      (work checked footprints buckets edges assignments checks copied-entries 0 patch-writes source-writes
         (length retired) retirement-readers)
       positions (or position-changes old-positions) frontier owned (%schedule-roster prior))))
 

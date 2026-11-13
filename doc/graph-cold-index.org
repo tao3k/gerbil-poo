@@ -500,3 +500,22 @@ ticket construction precedes the measurement's explicit collection.
 This is a separate fixture-lifetime control. Earlier full-list and
 pre-collection failures are retained. Production integration and
 the exact-head CI comparison remain open.
+
+** Integrated Scheme candidate
+
+The candidate uses Gerbil's =list-sort!= on the freshly allocated
+sparse rank pairs. Dense reverse search reads the existing byte marks
+in order. Cold and dense successor positions use native vectors, and
+sparse position edits retain the existing =std/struct/rbtree= overlay.
+A dense rebuild is limited to unchanged support, an unpatched position
+base, at least 32,768 positions and a reverse frontier covering at least
+half of that base. Its copied position count is reported explicitly.
+
+The complete local construction and SCC test file passed all 36 cases.
+Both native million-reader full-order controls passed under 180 s and
+4 GiB with the 2 GiB Scheme heap fence. Natural and pre-collected repair
+measured 1.662/8.226 s and 1.765/8.421 s CPU/wall respectively, with zero
+collections and 46,524,104 allocated bytes per repair. Whole-run wall
+times were 123.79 s and 93.67 s. Sampled process-tree peaks were 2.19 GiB
+and 2.27 GiB. This is a focused Darwin qualification using prepared
+dependencies. The exact-head build and broader graph matrix remain open.
