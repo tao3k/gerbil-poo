@@ -519,3 +519,14 @@ collections and 46,524,104 allocated bytes per repair. Whole-run wall
 times were 123.79 s and 93.67 s. Sampled process-tree peaks were 2.19 GiB
 and 2.27 GiB. This is a focused Darwin qualification using prepared
 dependencies. The exact-head build and broader graph matrix remain open.
+
+The repository benchmark now builds =benchmarks/dense-repair-test.ss=
+through the existing Graph build. =just benchmark-scc= runs its natural
+and pre-collected cases in separate Gerbil processes. Each checks the
+complete old and new orders, live search edges, visited buckets and
+rank writes. The focused Darwin =-O2= run used the prepared dependencies
+and the unchanged 180 s and 4 GiB guard per invocation. The natural
+repair measured 1.769 s CPU and 11.633 s wall, and the collected repair
+measured 1.770 s CPU and 6.371 s wall. Both recorded zero collections
+and 46,524,104 allocated bytes during repair. Whole-run wall times
+were 120.44 s and 120.90 s, with 2.20 GiB sampled peaks.

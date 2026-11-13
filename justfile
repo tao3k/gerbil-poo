@@ -274,6 +274,8 @@ benchmark-combination: (build-benchmarks "combination")
 benchmark-scc: build-graph-study
     just _test benchmarks/scc-test.ss
     just _test benchmarks/owned-invalidation-test.ss
+    just _test -r '^dense-repair-natural-test$' "$GERBIL_PATH/lib/clan/poo/benchmarks/dense-repair-test.ssi"
+    just _test -r '^dense-repair-collected-test$' "$GERBIL_PATH/lib/clan/poo/benchmarks/dense-repair-test.ssi"
 
 # These focused TestSuites load the explicitly built benchmark modules. The linked
 # startup probe is prepared separately for entries that actually execute it.
