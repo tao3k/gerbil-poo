@@ -630,6 +630,19 @@ theorem first_representative_exact (roster : List V) (patched cold : V → Bool)
     roster.find? patched = roster.find? cold := by
   rw [show patched = cold from funext same]
 
+theorem quotient_roster_exact [DecidableEq V] (roster : List V) (patched cold : V → V)
+    (same : ∀ key ∈ roster, patched key = cold key) :
+    roster.filter (fun key => decide (patched key = key)) =
+      roster.filter (fun key => decide (cold key = key)) := by
+  induction roster with
+  | nil => rfl
+  | cons key rest ih =>
+    have head := same key (by simp)
+    have tail := ih (fun v member => same v (by simp [member]))
+    simp only [List.filter_cons, head, tail]
+
+#print axioms quotient_roster_exact
+
 -- A consumer is dirty if it can follow dependencies to any edited owner.
 -- This is exactly the direction enumerated by a reverse walk from the roots.
 def Dirty (edge : V → V → Prop) (root : V → Prop) (consumer : V) : Prop :=

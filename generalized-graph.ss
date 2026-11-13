@@ -530,11 +530,11 @@
 ;; Source ordering is supplied by the admitted partition's immutable ranks.
 ;; The successor roster itself is derived only from validated additions and
 ;; retirements, and is enumerated for public keys or independent approval.
-(def (%schedule-support-revision prior codes added retired before?)
-  (schedule-revision-for prior codes [] added retired before?))
+(def (%schedule-support-revision prior codes added retired before? representatives: (representatives #f))
+  (schedule-revision-for prior codes [] added retired before? representatives))
 (def (schedule-revision prior codes (bases []))
-  (schedule-revision-for prior codes bases [] [] #f))
-(def (schedule-revision-for prior codes bases added retired before?)
+  (schedule-revision-for prior codes bases [] [] #f #f))
+(def (schedule-revision-for prior codes bases added retired before? representatives)
   (unless (schedule-owned? prior) (error "revision requires an owned schedule"))
   (def old (%schedule-owned prior))
   (def checked-programs (table codes))
@@ -591,8 +591,11 @@
       (%index-write! programs key #f)
       (%index-write! values key #f)
       (set! changes (cons (list key) changes)))
-    (let (roster (delay (merge-support-roster (owned-source-names old)
-                          (list-sort before? (list-copy added-keys)) removes before?)))
+    ;; The admitted partition can supply the complete successor roster
+    ;; directly without forcing predecessor snapshots.
+    (let (roster (delay (if representatives (representatives)
+                          (merge-support-roster (owned-source-names old)
+                            (list-sort before? (list-copy added-keys)) removes before?))))
       (set! names (lambda () (force roster)))))
   (make-%revision prior (make-%owned-source names programs values)
     (reverse changes) (delete-duplicates/hash (append code-keys base-keys)

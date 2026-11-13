@@ -33,6 +33,11 @@ package SccEditRegion {
                indexes; mask a cold name to prevent fallback. Keep the
                ordinal high-water mark and all predecessor views. */
     }
+    requirement def QuotientRosterDemand {
+        doc /* Explicit quotient keys enumerate the admitted successor
+               representatives in source order. Publication and rank order
+               do not force this enumeration or any predecessor roster. */
+    }
     requirement def AppendedWitnessSpan {
         doc /* When positions exceed the witness span, double the existing span
                and put its root under the new left child. Link the new ancestor

@@ -282,7 +282,8 @@
               ((or (pair? added-groups) (pair? retired-groups))
                 (cache.%revise-with-builder prior edited builder
                          added: added-groups retired: retired-groups
-                         before?: (scc.%partition-key-before partition)))
+                         before?: (scc.%partition-key-before partition)
+                         representatives: (cut scc.%partition-representatives partition)))
               (else (cache.%revise-with-builder prior edited builder
                       invalidation: (and invalidation (invalidation))))))
       (def guard
@@ -304,7 +305,8 @@
       (defvalues (candidate guard)
         (%with-graph-table-seeds (lambda ()
           (def candidate (cache.%revise-with-builder (graph-cache-values old) [] builder
-                           retired: removed before?: (scc.%partition-key-before partition)))
+                           retired: removed before?: (scc.%partition-key-before partition)
+                           representatives: (cut scc.%partition-representatives partition)))
           (values candidate (%revise-feedback-guard (graph-cache-guard old) candidate
             (cut scc.%partition-key-position partition <>) removed register)))))
       (admit-graph old source partition build next candidate #f guard admit #t))))

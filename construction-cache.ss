@@ -137,14 +137,15 @@
 ;; Feedback publication supplies a fresh Builder per request. It runs only
 ;; the affected values, preserving the established reuse contract.
 (def (%revise-with-builder old codes builder added: (added []) retired: (retired []) before?: (before? #f)
-                           invalidation: (invalidation #f))
+                           invalidation: (invalidation #f) representatives: (representatives #f))
   (def guards (owned-guards old))
   (with-cache-guards guards
     (lambda ()
       (def owned-run (record-builder builder))
       (def ticket (owned-run (lambda (_)
         (if before?
-          (graph.%schedule-support-revision (cache-scheduled old) codes added retired before?)
+          (graph.%schedule-support-revision (cache-scheduled old) codes added retired before?
+            representatives: representatives)
           (graph.schedule-revision (cache-scheduled old) codes)))))
       (refresh-with-run old ticket guards owned-run invalidation))))
 (def (%rebuild-owned-support old keys codes builder)

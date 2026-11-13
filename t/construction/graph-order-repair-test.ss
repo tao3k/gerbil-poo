@@ -477,6 +477,23 @@
       (check (graph.schedule-supports? next 'spare) => #t)
       (check (graph.schedule-supports? restored 'spare) => #f)
       (check (valid-order? restored (append '(base fresh client outer retired) untouched)) => #t))
+    (test-case "explicit representative enumeration skips intermediate revision rosters"
+      (def old (graph.schedule-owned '(a) []))
+      (def enumerated [])
+      (def (append-owner prior key names)
+        (graph.apply-schedule-revision prior
+          (graph.%schedule-support-revision prior [(cons key #f)] (list key) []
+            (lambda (a b) (string<? (symbol->string a) (symbol->string b)))
+            representatives: (lambda () (set! enumerated (cons key enumerated)) names))))
+      (def next (append-owner old 'b '(a b)))
+      (def latest (append-owner next 'c '(a b c)))
+      (check-equal? enumerated [])
+      (check-equal? (graph.schedule-order latest) '(a b c))
+      (check-equal? enumerated [])
+      (check-equal? (.get (graph.schedule-source latest) keys) '(a b c))
+      (check-equal? enumerated '(c))
+      (check-equal? (.get (graph.schedule-source next) keys) '(a b))
+      (check-equal? enumerated '(b c)))
     (test-case "an owned revision reads only its edit and is bound to the exact parent"
       (def source-row (list 'a))
       (def scope (lambda (_) (error "graph scheduling evaluated a program")))

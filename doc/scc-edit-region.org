@@ -244,6 +244,12 @@ The structural proofs cover
 the padded partition and witness addressing; native registration,
 ticket retirement and value reuse have separate checks.
 
+The quotient schedule delays explicit key enumeration. When demanded,
+it enumerates representatives from the admitted successor partition in
+source order. It does not force intermediate revision rosters.
+=quotient_roster_exact= shows the output agrees with a cold enumeration
+when the active roster and representative mapping agree.
+
 ** Native checks
 
 The component publication test appends an isolated owner, retires it and
