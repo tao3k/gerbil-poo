@@ -135,6 +135,12 @@ row leaves neither an ordinal entry nor a mask. The transition does
 not search the borrowed spine. =discard_absent_base_mask= proves that
 dropping the redundant mask preserves the ordered borrowed output.
 
+The first insertion also preserves the distinction between the admitted
+spine and later readers. Removing the last outstanding insertion returns
+the original spine if no mask remains. The native regression checks
+pointer identity and the intermediate snapshot's order.
+=first_insertion_then_removal_restores_row= checks the ordered output.
+
 The regression adds and removes 10,000 distinct readers of one edited
 bucket. It checks the remaining edit count, re-removal of a borrowed
 reader, and the order of both predecessor and successor snapshots.

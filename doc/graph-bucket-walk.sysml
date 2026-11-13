@@ -15,9 +15,11 @@ package GraphBucketWalk {
                Public order and bucket enumeration remain explicit operations. */
     }
     requirement def InsertedReaderRetirement {
-        doc /* A new insertion remembers whether it masks a borrowed
+        doc /* Even the first insertion is separate from the admitted
+               row. An insertion remembers whether it masks a borrowed
                reader. On removal discard the insertion and retain a
-               mask only if the borrowed reader would reappear. */
+               mask only if the borrowed reader would reappear. When
+               no edits remain, return the original row. */
     }
     requirement def EditedSearchFrontier {
         doc /* Charge every live edge in the edited bucket, including edges

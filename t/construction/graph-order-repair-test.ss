@@ -1046,7 +1046,12 @@
       (check-equal? (reverse-bucket-members current) '(a b))
       (check-equal? (reverse-bucket-members (reverse-bucket-remove current 'a)) '(b))
       (check-equal? (reverse-bucket-members masked) '(b))
-      (check-equal? base '(a b)))
+      (check-equal? base '(a b))
+      (def fresh (gensym 'first-reader))
+      (def expanded (reverse-bucket-add base fresh))
+      (def restored (reverse-bucket-remove expanded fresh))
+      (check-eq? restored base)
+      (check-equal? (reverse-bucket-members expanded) (cons fresh base)))
     (test-case "retired fresh names leave no entries in either active roster index"
       (def cold (%roster '(a b) (list->hash-table-eq '((a . 0) (b . 1)))))
       (def old (%roster-append cold '(c)))

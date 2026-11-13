@@ -20,7 +20,7 @@
         (only-in :gerbil/runtime/table symbolic-table-ref symbolic-table-set!)
         (only-in :std/struct/rbtree RBTree rbtree-copy rbtree-ref rbtree-put! rbtree-put
                  rbtree-remove rbtree-fold rbtree-foldr rbtree-for-each rbtree-size rbtree->list
-                 in-rbtree-values)
+                 in-rbtree-values rbtree-empty?)
         (only-in ./support/base %compare-symbol-identity %graph-table-seed %with-application-table-seeds)
         (only-in ./support/index %index %index-project %index-ref %index-fork %index-write! %index-retire!
                  %index? %index-base %index-changes
@@ -669,11 +669,13 @@
     (let* ((edited (reverse-bucket-edited row))
            (insertion (rbtree-ref edited owner #f))
            (added (reverse-bucket-added row)))
-      (make-reverse-bucket (reverse-bucket-base row)
-        (if (and insertion (not (cdr insertion))) (rbtree-remove edited owner)
-          (rbtree-put edited owner #f))
-        (if insertion (rbtree-remove added (car insertion)) added)
-        (reverse-bucket-next row)))
+      (let (remaining
+             (if (and insertion (not (cdr insertion))) (rbtree-remove edited owner)
+               (rbtree-put edited owner #f)))
+        (if (rbtree-empty? remaining) (reverse-bucket-base row)
+          (make-reverse-bucket (reverse-bucket-base row) remaining
+            (if insertion (rbtree-remove added (car insertion)) added)
+            (reverse-bucket-next row)))))
     (make-reverse-bucket row (rbtree-put (RBTree %compare-symbol-identity) owner #f) (RBTree -) 0)))
 (def (reverse-bucket-add row owner)
   (if (reverse-bucket? row)
@@ -687,7 +689,13 @@
         (rbtree-put edited owner (cons ordinal masked?))
         (rbtree-put (reverse-bucket-added row) ordinal owner)
         (1+ (reverse-bucket-next row))))
-    (cons owner row)))
+    ;; Keep the admitted spine separate even when the first edit is an
+    ;; insertion. Otherwise the first deletion would borrow that insertion
+    ;; as cold data and retain its mask for the lifetime of the bucket.
+    (make-reverse-bucket row
+      (rbtree-put (RBTree %compare-symbol-identity) owner (cons 0 #f))
+      (rbtree-put (RBTree -) 0 owner)
+      1)))
 (defalias %reverse-bucket-remove reverse-bucket-remove)
 (defalias %reverse-bucket-add reverse-bucket-add)
 (def (only-masked-owner edited)

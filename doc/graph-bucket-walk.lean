@@ -91,6 +91,15 @@ theorem discard_absent_base_mask [DecidableEq A] (owner : A) (base : List A)
     simp [List.filter_cons, ne, ih tail]
 
 #print axioms discard_absent_base_mask
+
+theorem first_insertion_then_removal_restores_row [DecidableEq A]
+    (owner : A) (base : List A) (fresh : owner ∉ base) :
+    (owner :: base).filter (fun key => key != owner) = base := by
+  simp
+  intro key member same
+  exact fresh (same ▸ member)
+
+#print axioms first_insertion_then_removal_restores_row
 #print axioms streaming_exact
 #print axioms editedSearch_exact
 end GraphBucketWalk
