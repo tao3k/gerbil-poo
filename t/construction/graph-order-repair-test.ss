@@ -1555,6 +1555,8 @@
       (error "mixed owner quotient mismatch" count))
     (%retire-partition-isolates repaired '(bridge) (%roster-retire padded-roster '(bridge))))
   (def (sample side)
+    (displayln (list 'MIXED-OWNER-BEGIN count side))
+    (force-output)
     (defvalues (part clocks)
       (measure (if (eq? side 'local) local
                  (lambda () (scc.partition-owned (row-source final-keys rows)))) 1))
@@ -1633,6 +1635,8 @@
     (local-owner-append-study old count)
     (mixed-owner-study old names count))
   (for (count '(100000 1000000))
+    (displayln (list 'GRAPH-DELETION-SCC-BEGIN count))
+    (force-output)
     (deletion-region-study count))
   (displayln "GRAPH-LOCAL-SCC-OK observations=8 deletion-observations=2"))
 

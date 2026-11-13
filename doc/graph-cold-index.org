@@ -552,7 +552,7 @@ With the =52d16fb= Graph runtime, both original ring and reverse-hub
 pressure cases passed in one 61.584 s run at a 2.52 GiB sampled footprint
 under the 180 s, 4 GiB guard and 2 GiB Scheme heap. The test invoked the
 unchanged pressure checks from their source via Just with phase markers.
-The separate mixed-owner suite remains a different gate.
+The mixed-owner suite uses its own invocation and budget.
 
 | 1M shape | Cold partition CPU | Cold GC CPU | One cut CPU | Cut allocation |
 |----------+--------------------+-------------+-------------+----------------|
@@ -565,3 +565,14 @@ enumeration took 7.943 ms CPU and allocated 96,000,288 B. The two-cut
 ring case took 103 us CPU and preserved the predecessor snapshot.
 The cold figures include the public per-owner POO read and partition
 certification. The edit and enumeration figures time separate operations.
+
+The original local merge/split, owner append, mixed-owner and deletion-only
+checks also passed at both sizes. This source-run suite completed in
+40.805 s with a 2.91 GiB sampled footprint under the same guard. At 1M
+the mixed edit took 305 and 255 us CPU, with about 246 KB allocated and no
+collection. The two cold counterparts took 3.929 and 3.499 s CPU. The
+local counters show four affected owners, three quotient reader edges,
+one retired owner and no roster materialization. The separate deletion-only
+case took 116 us CPU, with four affected owners and no forward or reverse
+bucket walks. The exact predecessor and out-of-region reader checks ran
+with the existing fixtures.
