@@ -119,4 +119,23 @@ theorem merge_repair_labels (forward backward : List Nat) :
       (((List.mergeSort_perm forward _).append (List.mergeSort_perm backward _)).trans
         (List.mergeSort_perm (forward ++ backward) _).symm)
 
+
+-- The marked labels are the reached labels. Their ascending scan is
+-- therefore the same stream as sorting the reached list.
+theorem dense_scan_exact (reached scan : List Nat)
+    (same : scan.Perm reached) (ordered : scan.Pairwise (· ≤ ·)) :
+    scan = reached.mergeSort := by
+  have trans : ∀ a b c : Nat, decide (a ≤ b) → decide (b ≤ c) → decide (a ≤ c) := by
+    intro a b c ab bc
+    simpa using Nat.le_trans (of_decide_eq_true ab) (of_decide_eq_true bc)
+  have total : ∀ a b : Nat, decide (a ≤ b) || decide (b ≤ a) := by
+    intro a b
+    simp [Nat.le_total]
+  apply List.Perm.eq_of_pairwise (le := fun a b : Nat => a ≤ b)
+  · intro a b _ _ ab ba
+    exact Nat.le_antisymm ab ba
+  · exact ordered
+  · simpa using List.pairwise_mergeSort trans total reached
+  · exact same.trans (List.mergeSort_perm reached _).symm
+
 end GraphRankBounds

@@ -22,6 +22,11 @@ package GraphRankBounds {
                as sorting the combined frontier. Assignment and incident
                check order remain provider first, then consumer. */
     }
+    requirement def DenseRepairRankScan {
+        doc /* Enumerate only reached marks in ascending admitted rank order.
+               Resolve owner identity using the pre-assignment position
+               mapping. Unmarked gaps and retired ranks are skipped. */
+    }
     requirement def EffectsAndSnapshots {
         doc /* A rank query here is an internal immutable index read, not an
                author callback. Preserve source admission, callback checks,

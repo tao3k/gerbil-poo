@@ -393,3 +393,16 @@ completed reverse search and then hit a stack overflow during rank
 sorting, after 143.50 s at a 2.06 GiB process-tree peak. The 2 GiB Scheme
 heap fence, 4 GiB process-tree guard and 180 s deadline remain in force.
 The pre-collection failure remains a separate result.
+
+The next candidate consumes the reached rank marks directly in ascending
+order. Its owner lookup reads the pre-assignment position vector and a
+shared copy of the prior overlay root. The sparse branch keeps its
+frontier sort. Lean =dense_scan_exact= establishes that a sorted
+permutation of the reached labels equals their sorted stream. The
+focused Darwin =-O2= build and 22 local order cases passed. The million
+reader diagnostic reached the rank-sort completion marker, then hit the
+2 GiB Scheme heap fence before the index-write completion marker.
+Total wall time was 52.99 s at a 2.11 GiB sampled process-tree peak.
+The 4 GiB guard and 180 s deadline were unchanged. This moves the
+remaining failure to rank and position index construction. The Scheme
+candidate stays isolated.
