@@ -45,11 +45,12 @@
 
 ;; An absent cold key needs no override. A cold value stays borrowed
 ;; by historical snapshots and must be masked in the private fork.
+(def absent-cold-entry (gensym 'absent-cold-entry))
 (def (%index-retire! source key (absent #f))
   (def base (index-base source))
   (def present?
     (if (procedure? base)
-      (not (eq? (base key missing-index-entry) missing-index-entry))
+      (not (eq? (base key absent-cold-entry) absent-cold-entry))
       (hash-key? base key)))
   (if present? (%index-write! source key absent)
     (rbtree-remove! (index-changes source) key)))

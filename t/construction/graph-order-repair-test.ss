@@ -4,7 +4,7 @@
 (import :std/test :std/iter :clan/poo/object :clan/poo/support/option
         (only-in :clan/poo/benchmarks/closure-measure measure measure-pair qualified-metrics)
         (only-in :std/error Error? Error-message UnboundKeyError?)
-        (only-in :clan/poo/support/index %index-changes %index-base %roster %roster-append
+        (only-in :clan/poo/support/index %index-changes %index-base %index-retire! %roster %roster-append
                  %roster-retire %roster-keys %roster-width %roster-position)
         (only-in :std/struct/rbtree rbtree-size)
         (only-in :clan/poo/lens-laws lens-check)
@@ -186,7 +186,14 @@
       (check-equal? (graph.%index-ref overlay 'present) [])
       (check-equal? calls 2)
       (check-eq? (graph.%index-ref projected 'present 'missing) #f)
-      (check-equal? calls 3))
+      (check-equal? calls 3)
+      (graph.%index-write! overlay 'fresh 'added)
+      (%index-retire! overlay 'fresh)
+      (check-eq? (graph.%index-ref overlay 'fresh 'missing) 'missing)
+      (check-equal? calls 3)
+      (%index-retire! overlay 'present 'retired)
+      (check-eq? (graph.%index-ref overlay 'present 'missing) 'retired)
+      (check-eq? (graph.%index-ref projected 'present 'missing) #f))
     (test-case "released owned schedules and continuations leave no strong registry roots"
       (def objects (make-hash-table test: eq? weak-keys: #t))
       (def owners (make-hash-table test: eq? weak-keys: #t))
