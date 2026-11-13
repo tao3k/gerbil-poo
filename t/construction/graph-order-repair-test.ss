@@ -668,8 +668,21 @@
       (def program (code.need 'hub identity))
       (def prior (graph.schedule-owned '(hub a b c)
         (map (cut cons <> program) '(a b c))))
-      (def (members scheduled)
-        (reverse-bucket-members (graph.%index-ref (%schedule-reverse scheduled) 'hub)))
+      (def (bucket scheduled)
+        (graph.%index-ref (%schedule-reverse scheduled) 'hub))
+      (def (members scheduled) (reverse-bucket-members (bucket scheduled)))
+      (def first (graph.schedule-owned '(hub a b) [(cons 'a program)]))
+      (def inserted (graph.apply-schedule-revision first
+        (graph.schedule-revision first [(cons 'b program)])))
+      (def withdrawn (graph.apply-schedule-revision inserted
+        (graph.schedule-revision inserted [(cons 'b #f)])))
+      (check-eq? (bucket withdrawn) (bucket first))
+      (check-equal? (members inserted) '(b a))
+      (check-equal? (members withdrawn) '(a))
+      (def (hub-impact schedule)
+        (graph.schedule-invalidate! schedule (graph.schedule-invalidation schedule) '(hub)))
+      (check ((hub-impact inserted) 'b) => #t)
+      (check ((hub-impact withdrawn) 'b) => #f)
       (def old (members prior))
       (def removed (graph.apply-schedule-revision prior
         (graph.schedule-revision prior (list (cons 'b #f)))))
