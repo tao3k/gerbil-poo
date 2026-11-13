@@ -148,3 +148,21 @@ and 3.602 s CPU. The ring and hub deletion windows took 0.064 and
 0.065 ms CPU, each removing one reverse edge without rewriting its
 bucket. Maximum RSS for the complete invocation, including fixture
 preparation, cold controls and explicit output, was 2,736,816,128 bytes.
+
+The matched fault build, which always retains the deletion mask, also
+served as the reference for a separate four-process comparison in
+reference/candidate/candidate/reference order. Each process used the
+same 10,000 distinct insert/remove pairs on both prepared reader spines.
+Four samples per size checked exact ordered output and the predecessor
+row. For the 1M spine, eight samples per arm produced these ranges:
+
+| Window | Retain masks CPU, ms | Drop redundant masks CPU, ms | Retain masks wall, ms | Drop redundant masks wall, ms |
+|--------+----------------------+------------------------------+-----------------------+--------------------------------|
+| Edits  | 16.96–29.22          | 5.39–11.97                   | 16.96–76.51           | 5.39–23.14                     |
+| Demand | 103.25–161.84        | 8.25–14.69                   | 117.75–427.88         | 8.25–145.93                    |
+
+All measured windows had zero collections. The 1M edit window allocated
+47,465,616 bytes with retained masks and 23,200,400 bytes when dropping
+them. Explicit demand reported 529,312 and 480 bytes respectively.
+The demand wall-clock ranges overlap. These windows isolate one prepared
+inverse bucket, and peak RSS was not collected for this comparison.
