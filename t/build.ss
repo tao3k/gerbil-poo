@@ -91,6 +91,19 @@
     (gxc: "descriptor-inference/intrinsic" (extra-inputs: ("descriptor-inference/cases.scm")))
     (gxc: "descriptor-inference-test" (extra-inputs: ( "descriptor-inference/empty-inference.scm" "descriptor-inference/optional-inference.scm" "descriptor-inference/record-inference.scm"))))
     ("methods"
+    "clause-ledger"
+    "poo-clos-clause-ledger-test"
+    "poo-clos-dispatch-test"
+    "poo-clos-evolution-test"
+    "poo-clos-funcs-test"
+    "poo-clos-generic-evolution-test"
+    "poo-clos-lifecycle-test"
+    "poo-clos-load-form-test"
+    "poo-clos-method-bundle-test"
+    "poo-clos-method-combination-test"
+    "poo-clos-model-test"
+    "poo-clos-syntax-test"
+    "poo-clos-upstream-alignment-test"
     "inferred-declaration-test"
     (gxc: "method-declaration-test" (extra-inputs: ("method-declaration/method-combination.scm" "method-declaration/cases.scm" "method-declaration/multimethod.scm" "method-declaration/typed-method-declaration.scm"))))
     ("objects"
