@@ -808,7 +808,23 @@
         (error "wide inverse pause scanned beyond the first reader" size receipt))
       pending)
     (defvalues (_pending pause) (measure pause-first-reader 8 #t))
-    (displayln "REVERSE-BUCKET-PAUSE readers=" size " pauses=8 clocks=" pause)))
+    (displayln "REVERSE-BUCKET-PAUSE readers=" size " pauses=8 clocks=" pause)
+    ;; Reuse the same prepared spine to qualify removal of later edges.
+    (def transient (for/collect (_ (in-range 10000)) (gensym 'later-reader)))
+    (def (churn)
+      (let loop ((keys transient) (current row))
+        (if (null? keys) current
+          (let (key (car keys))
+            (loop (cdr keys)
+              (reverse-bucket-remove (reverse-bucket-add current key) key))))))
+    (defvalues (after edit-cost) (measure churn 1 #t))
+    (defvalues (ordered demand-cost) (measure (cut reverse-bucket-members after) 1 #t))
+    (def edit-count (rbtree-size (reverse-bucket-edited after)))
+    (unless (and (= edit-count 1) (equal? ordered expected)
+                 (equal? (reverse-bucket-members row) expected))
+      (error "reverse bucket churn oracle" size edit-count))
+    (displayln (list 'INVERSE-CHURN size edit-count
+      (qualified-metrics edit-cost) (qualified-metrics demand-cost)))))
 
 ;; Standard full scheduling versus sparse repair, with identical prepared inputs.
 ;; Initial declaration/order preparation remains separate from each update row.

@@ -166,3 +166,9 @@ All measured windows had zero collections. The 1M edit window allocated
 them. Explicit demand reported 529,312 and 480 bytes respectively.
 The demand wall-clock ranges overlap. These windows isolate one prepared
 inverse bucket, and peak RSS was not collected for this comparison.
+
+The maintained =reverse-bucket-benchmark-test= now also exercises the
+10,000-pair workload at both sizes on its existing prepared spines.
+It checks exact ordered output and requires a single retained mask.
+The study is available through =just benchmark-scc= and the same suite
+filter used for the other Graph studies.
