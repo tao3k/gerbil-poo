@@ -8,6 +8,12 @@ The CLOS extension provides multiple dispatch, class, prototype and `eql`
 specializers, method combination, next-method continuations and class
 lifecycle. It uses POO objects, Slot reads and C4 precedence.
 
+Descriptor contracts pair each required slot with its value check in
+`required-slots?`. The expansion shares ordinary presence and demand with
+the default Slot checker. It preserves check order, lazy demand, receiver
+protocols and read observation. The Lens probe inspects stored values after
+route admission and issues no reads. [Lean model](https://github.com/tao3k/lean-poo/blob/8b5eb49faf3598efa6eb71d8f60dd7a165b60a74/LeanPoo/Object/SlotContracts.lean)
+
 A call with no applicable method passes its original generic and arguments
 to the extensible `no-applicable-method` generic before keyword admission.
 The default method delegates to the generic's protocol hook when supplied

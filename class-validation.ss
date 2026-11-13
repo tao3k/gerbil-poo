@@ -1,9 +1,22 @@
 ;;; Recursive Class validation through its current effective Slot protocols.
-(export class-diagnostics class-shape class-slot-shape class-slot-validate class-validation-fields validate-class)
+(export class-diagnostics class-shape class-slot-shape class-slot-validate class-validation-fields validate-class
+        with-present-slot required-slots?)
 (import (only-in :std/list/list filter-map)
         (only-in ./object .o .slot? .get .ref .call .all-slots object?)
         (only-in ./validation-rebinding rebind-validation finish-validation)
         (only-in ./value-diagnostics diagnose-structure diagnose-value))
+
+;; Default Slot membership and fixed field contracts share ordinary POO reads.
+(defrule (with-present-slot (value candidate name) present absent)
+  (let ((receiver candidate) (key name))
+    (if (.slot? receiver key)
+      (let (value (.ref receiver key)) present)
+      absent)))
+
+;; Keep declaration order, short-circuit, and return a Boolean like andmap.
+(defrule (required-slots? candidate (name predicate) ...)
+  (let (receiver candidate)
+    (and (with-present-slot (value receiver 'name) (predicate value) #f) ... #t)))
 
 ;; A standard Slot checks required/optional presence and constants before its
 ;; declared child Type. Missing optional fields never demand their child Type.

@@ -230,6 +230,52 @@
                        (failure-code? 'invalid-effective-method))
       (check-exception (make-invocation-frame effective args 42 'primary method)
                        (failure-code? 'invalid-invocation-frame)))
+    (test-case "CLOS field contracts preserve lazy demand, protocol and issued reads"
+      (def policy (.o current: 'method))
+      (def demanded '())
+      (def (note name value)
+        (set! demanded (cons name demanded))
+        value)
+      (def prototype (.ref ClosMethod 'proto))
+      (def invalid
+        (.o (:: @ prototype)
+            identity: (note 'invalid 42)
+            specializers: (error "later field demanded after rejection")))
+      (check-equal? (element? ClosMethod invalid) #f)
+      (check-equal? demanded '(invalid))
+      (set! demanded '())
+      (def method
+        (.o (:: @ prototype)
+            identity: (note 'identity (.ref policy 'current))
+            specializers: (note 'specializers (list any-specializer))
+            qualifier: 'primary
+            body: (lambda _ 'done)
+            lambda-list: #f
+            generic-function: #f
+            synthetic-effective-method?: #f))
+      (object-protocol-set! method
+        (.o compute-slot:
+            (lambda (_receiver next name)
+              (let (inherited (next))
+                (if (eq? name 'identity)
+                  (lambda () (note 'protocol (inherited)))
+                  inherited)))))
+      (def read #f)
+      (check-equal?
+        (call-with-slot-read-observer
+          (lambda (record)
+            (when (and (eq? (slot-read-receiver record) method)
+                       (eq? (slot-read-key record) 'identity))
+              (set! read record)))
+          (lambda () (element? ClosMethod method)))
+        #t)
+      (check-equal? demanded '(specializers protocol identity))
+      (check-equal? (object-read-issued? read) #t)
+      (replay-slot-reads! (list read) (lambda (_receiver _key) (void)))
+      (.put! policy 'current 'changed)
+      (check-exception
+        (replay-slot-reads! (list read) (lambda (_receiver _key) (void)))
+        error?))
     (test-case "runtime prototype and any specializers participate in multi-argument dispatch"
       (let* ((generic (poo-clos-generic-function 'meet 2))
              (generic

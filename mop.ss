@@ -419,11 +419,10 @@
   .slot.check:
     (λ (@@ slot-name x)
       (with-slots (type constant optional) @@
-        (if (.slot? x slot-name)
-          (let ((value (.ref x slot-name)))
-            (and
-              (or (not (.has? @@ type)) (element? type value))
-              (or (not (.has? @@ constant)) (equal? constant value))))
+        (with-present-slot (value x slot-name)
+          (and
+            (or (not (.has? @@ type)) (element? type value))
+            (or (not (.has? @@ constant)) (equal? constant value)))
           (and (.has? @@ optional) optional))))
   ;; Shape and validation are separate overridable Slot methods. Class checks
   ;; final .slot.check after every changed field has been persistently installed.
