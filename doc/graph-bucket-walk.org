@@ -209,3 +209,18 @@ whole run took 70.70 seconds and peaked at 2.78 GiB. A separate standard
 Darwin Graph build with Gambit's host splitting enabled reached and compiled
 the SCC module, then failed the 4 GiB process-tree limit during =table=
 compilation. That run is retained as a build failure.
+
+** Successor inverse and quotient targets
+
+A retained consumer row has the same ordered projection if none of its
+surviving providers changes representative. =quotient_seed_exact= expresses
+the corresponding edge test as a walk from remapped providers through the
+successor inverse. =unchanged_row_projection= preserves the ordered row,
+including duplicate projected representatives. An authored row edit remains
+a separate invalidation seed. The quotient layer can deduplicate or remove
+internal edges after this projection.
+
+The matched fault uses the predecessor inverse for this walk. The bounded
+fixture then visits four reader edges where the successor has one. Its
+outside reader with a deleted edge must be absent from the quotient seeds;
+a different outside reader whose edge survives must be present.

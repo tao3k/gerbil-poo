@@ -194,6 +194,37 @@ theorem restricted_exact {old next : K → K → Prop} {root a b : K}
     exact fun h => ⟨h.1.map drop, h.2.map drop⟩
   · exact fun h => ⟨restrict_path sub h.1 ha.1 hb.2, restrict_path sub h.2 hb.1 ha.2⟩
 
+-- For a surviving edge, comparing the provider's representatives is the
+-- exact test for whether that edge contributes a different quotient target.
+-- A deleted edge is covered by the authored row edit, so it contributes no
+-- extra successor-inverse seed.
+def QuotientSeed (next : K → K → Prop) (before after : K → K)
+    (consumer : K) : Prop :=
+  ∃ provider, next consumer provider ∧ before provider ≠ after provider
+
+theorem quotient_seed_exact {next : K → K → Prop} {before after : K → K}
+    {consumer : K} :
+    QuotientSeed next before after consumer ↔
+      ∃ provider, (before provider ≠ after provider) ∧ next consumer provider := by
+  constructor <;> rintro ⟨provider, h₁, h₂⟩ <;> exact ⟨provider, h₂, h₁⟩
+
+theorem unchanged_projection {next : K → K → Prop} {before after : K → K}
+    {consumer : K} (clean : ¬ QuotientSeed next before after consumer) :
+    ∀ provider, next consumer provider → before provider = after provider := by
+  intro provider live
+  exact Classical.byContradiction fun changed => clean ⟨provider, live, changed⟩
+
+theorem unchanged_row_projection {next : K → K → Prop} {before after : K → K}
+    {consumer : K} (clean : ¬ QuotientSeed next before after consumer)
+    (row : List K) (valid : ∀ provider ∈ row, next consumer provider) :
+    row.map before = row.map after := by
+  induction row with
+  | nil => rfl
+  | cons provider rest ih =>
+    rw [List.map_cons, List.map_cons,
+      unchanged_projection clean provider (valid provider (by simp))]
+    exact congrArg (List.cons (after provider)) (ih fun key h => valid key (by simp [h]))
+
 #print axioms clean_exact
 #print axioms restrict_path
 #print axioms skip_self_edges

@@ -27,6 +27,12 @@ package GraphBucketWalk {
                edges inside each such component. Preserve cross-component
                edges for quotient maintenance and retain untouched snapshots. */
     }
+    requirement def SuccessorQuotientReaders {
+        doc /* Remapped providers enumerate their surviving readers through
+               the successor inverse. An unchanged consumer row whose providers
+               all retain their representatives has the same ordered projection.
+               An authored row edit contributes its own invalidation seed. */
+    }
     requirement def EditedSearchFrontier {
         doc /* Charge every live edge in the edited bucket, including edges
                outside the rank interval. Only accepted owners contribute fresh
