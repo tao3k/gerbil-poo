@@ -694,7 +694,11 @@
 (def (partition spec) (capture-partition spec #f))
 (def (partition-owned spec) (capture-partition spec #t))
 (def (capture-partition spec owned?)
-  (def keys (.@ spec keys))
+  (capture-partition-rows (.@ spec keys)
+    (lambda (key)
+      (let (code (.call spec .code key)) (if code (.@ code reads) [])))
+    owned?))
+(def (capture-partition-rows keys read-owner owned?)
   ;; The encoding index admits symbols and uniqueness before any author.
   ;; Keep finite-list admission here, then own the roster; do not build a
   ;; second duplicate table (empty_owner_index_admits_exactly_nodup).
@@ -702,9 +706,7 @@
   ;; Own the admitted roster before the first independent author callback.
   (set! keys (append keys []))
   (let-values (((reads index declared-edges captured-edges)
-                 (capture-graph keys (lambda (key)
-                   (let (code (.call spec .code key)) (if code (.@ code reads) [])))
-                   #t 4294967295 'adjacent owned?)))
+                 (capture-graph keys read-owner #t 4294967295 'adjacent owned?)))
     ;; Retain only the ownership fields across discovery/certification. Keeping
     ;; index in this continuation also keeps its packed edges and capture arrays.
     (def complete

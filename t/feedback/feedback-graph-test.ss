@@ -5,6 +5,8 @@
         (only-in :clan/poo/benchmarks/closure-measure measure)
         (only-in :clan/poo/component-closure component-group-builder)
         (only-in :clan/poo/read-route gc-table-route-current?)
+        (only-in :clan/poo/slot-observation %call-with-recorded-slot-reads
+                 slot-read-receiver slot-read-key)
         (prefix-in (only-in :gerbil/runtime/mop object-class slot-ref slot-set! &class-type-interface
                            &class-type-slot-table class-slot-offset) runtime.)
         (only-in :gerbil/runtime/table symbolic-table-set!)
@@ -23,6 +25,44 @@
 ;; Native controls include topology changes, final approval, and independent hits.
 (def feedback-graph-test
   (test-suite "automatic SCC revision and joint service approval"
+    (test-case "sealed cold partition agrees with the public source view"
+      (def names '(provider reader isolated))
+      (def source (graph.declaration names
+        [(cons 'reader (code.need 'provider identity))]
+        [(cons 'provider (some (code.make-success 0)))
+         (cons 'isolated (some (code.make-success 0)))]))
+      (def build (component-group-builder names (lambda (_) (.lens)) 0 0 8))
+      (def (accept _ __) #t)
+      (defvalues (stock stock-failure) (publish-owned-feedback-graph source build accept))
+      (defvalues (public public-failure)
+        (publish-owned-feedback-graph source build accept builder: (.cc cache.Builder.)))
+      (check-eq? stock-failure #f)
+      (check-eq? public-failure #f)
+      (def fast (graph-cache-partition stock))
+      (def baseline (graph-cache-partition public))
+      (check-equal? (scc.partition-groups fast) (scc.partition-groups baseline))
+      (check-equal? (scc.partition-groups fast) '((provider) (reader) (isolated)))
+      (def row (scc.partition-reads fast))
+      (set-car! (row 'reader) 'isolated)
+      (for (key names)
+        (check-equal? (row key) ((scc.partition-reads baseline) key))
+        (check-eq? ((scc.partition-owner fast) key) ((scc.partition-owner baseline) key)))
+      (def invalid (graph.define source 'reader (code.need 'missing identity)))
+      (def (unexpected-approval _ __) (error "invalid source reached approval"))
+      (defvalues (denied cause) (publish-owned-feedback-graph invalid build unexpected-approval))
+      (check-eq? denied #f)
+      (check-eq? (graph.failure-kind cause) 'unsupported)
+      (check-eq? (graph.failure-key cause) 'missing)
+      (defvalues (observed reads)
+        (%call-with-recorded-slot-reads
+          (lambda ()
+            (defvalues (head failure) (publish-owned-feedback-graph source build accept))
+            (when failure (raise failure))
+            head)))
+      (def frozen (graph-cache-source observed))
+      (check (ormap (lambda (read)
+        (and (eq? (slot-read-receiver read) frozen)
+             (eq? (slot-read-key read) 'keys))) reads) => #t))
     (test-case "stock quotient and public wrapper protect the same program reads"
       (for (start (list cache.start-owned start-owned-cache-quotient))
         (def dependency (.o marker: 0))

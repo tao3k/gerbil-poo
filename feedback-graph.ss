@@ -6,7 +6,7 @@
 (import :std/iter (only-in :std/list/list filter append-map delete-duplicates/hash)
         (only-in :std/list/list-builder with-list-builder)
         (only-in ./component-closure %component-member-builder? %with-member-fragment-seeds)
-        (only-in ./slot-observation slot-read-observers-compatible?)
+        (only-in ./slot-observation slot-read-observers-compatible? %slot-read-active?)
         (only-in ./support/base %graph-table-seed %with-graph-table-seeds %with-application-table-seeds)
         ./object ./mop ./support/option ./feedback-cache ./lens-laws
         (prefix-in ./strong-components scc.) (prefix-in ./generalized-graph graph.)
@@ -17,9 +17,10 @@
 (extern namespace: clan/poo/construction-cache %default-builder-current?)
 (extern (start-owned-cache-quotient clan/poo/construction-cache#%start-owned-quotient))
 (extern namespace: clan/poo/dependency-analysis %computation-constructor-current?)
-(extern namespace: clan/poo/generalized-graph %retire-component-source %component-source-roster)
+(extern namespace: clan/poo/generalized-graph %retire-component-source %component-source-roster
+  %with-component-source-rows)
 (extern namespace: clan/poo/strong-components %retire-partition-isolates %isolated-partition-owner?
-  %append-partition-owners %check-partition-retirements)
+  %append-partition-owners %check-partition-retirements capture-partition-rows)
 (defstruct %stock-builder (value) final: #t)
 (def (%stock-builder-current?)
   (and (%default-builder-current?) (slot-read-observers-compatible? '())))
@@ -205,10 +206,14 @@
                 (else (freeze source))))
         (def partition
           (cond (same-source? (graph-cache-partition old))
-                ;; This projection uses the sealed, already captured rows.
-                ;; Source access and value construction remain outside.
+                ;; An outer read collector still sees the original slot reads.
+                ;; Without observation, borrow the already captured rows.
                 (private-seeds?
-                 (%with-graph-table-seeds (lambda () (scc.partition-owned frozen))))
+                 (%with-graph-table-seeds (lambda ()
+                   (if (%slot-read-active?)
+                     (scc.partition-owned frozen)
+                     (%with-component-source-rows ownership
+                       (lambda (keys row) (capture-partition-rows keys row #t)))))))
                 (ownership (scc.partition-owned frozen))
                 (else (scc.partition frozen))))
         (def same-quotient? (and same-source? (eq? build (graph-cache-build old))))

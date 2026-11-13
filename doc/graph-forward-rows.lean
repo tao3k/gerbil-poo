@@ -169,6 +169,48 @@ theorem all_authored_rows_empty (captured : Rows K)
   | none => simp [ownedRow, h]
   | some row => simp [ownedRow, h, noEdges key row h]
 
+-- A sealed program view returns a defensive copy of the stored row.
+-- Lean lists already have value semantics.
+def rowsThroughView (keys : List K) (program : K → Option P)
+    (row : P → List K) : List (K × List K) :=
+  keys.map fun key => (key, ((program key).map row).getD [])
+
+def rowsFromStore (keys : List K) (program : K → Option P)
+    (row : P → List K) : List (K × List K) :=
+  keys.map fun key => (key, match program key with
+    | none => []
+    | some entry => row entry)
+
+theorem sealed_rows_exact (keys : List K) (program : K → Option P)
+    (row : P → List K) : rowsThroughView keys program row =
+      rowsFromStore keys program row := by
+  unfold rowsThroughView rowsFromStore
+  apply List.map_congr_left
+  intro key _
+  cases program key <;> rfl
+
+-- Source admission, the body, and the independent recheck use the same
+-- operations. Events can include the full observed effect trace.
+def prepareSealed (observe : Except E (List K × (K → Option P)) × List Event)
+    (rows : List K → (K → Option P) → List (K × List K))
+    (finish : List (K × List K) → Except E A)
+    (recheck : A → Except E A) : Except E A × List Event :=
+  (observe.1 >>= fun (keys, program) => finish (rows keys program) >>= recheck,
+   observe.2)
+
+theorem sealed_row_handoff_exact
+    (observe : Except E (List K × (K → Option P)) × List Event)
+    (row : P → List K) (finish : List (K × List K) → Except E A)
+    (recheck : A → Except E A) :
+    prepareSealed observe (fun keys program => rowsThroughView keys program row) finish recheck =
+    prepareSealed observe (fun keys program => rowsFromStore keys program row) finish recheck := by
+  have same : (fun keys program => rowsThroughView keys program row) =
+      (fun keys program => rowsFromStore keys program row) := by
+    funext keys program
+    exact sealed_rows_exact keys program row
+  rw [same]
+
+#print axioms sealed_row_handoff_exact
 #print axioms cold_base_exact
 #print axioms fused_cold_exact
 #print axioms revised_rows_exact

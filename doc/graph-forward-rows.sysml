@@ -10,6 +10,13 @@ package GraphForwardRows {
                from an unsupported owner. Preserve exact row order, defaults,
                refusal and the public copy boundary. */
     }
+    requirement def SealedComponentRows {
+        doc /* Within the existing component source admission and recheck,
+               the pure SCC body may borrow stored rows with the same owner
+               and dependency order as the sealed public view. Preserve the
+               public defensive copy, and keep mutable row spines private.
+               Unrestricted sources still use their authored read boundary. */
+    }
     requirement def PersistentPatch {
         doc /* Absent patch falls through; a present empty patch or a retirement
                tombstone masks the cold base. A fork cannot change its predecessor. */

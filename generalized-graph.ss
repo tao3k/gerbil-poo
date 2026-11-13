@@ -357,6 +357,13 @@
     (begin0 (action) (%component-source-current! source))))
 (def (%component-source-view source raw?: (raw? #f))
   (owned-declaration (%component-source-storage source) raw?))
+(def (%with-component-source-rows source prepare)
+  ;; Called within %with-component-source. Only the structural SCC
+  ;; preparation borrows these rows; public declarations return copies.
+  (def storage (%component-source-storage source))
+  (def programs (%owned-source-programs storage))
+  (prepare (owned-source-names storage)
+    (lambda (key) (program-row (%index-ref programs key #f)))))
 (def (%capture-component-source spec register)
   (defvalues (names key-reads) (capture-source-evidence (lambda () (list-copy (.get spec keys)))))
   (def count (length names))

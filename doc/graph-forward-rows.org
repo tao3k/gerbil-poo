@@ -1,5 +1,45 @@
 #+title: Cold owned schedule: sparse forward rows with exact support
 
+* Sealed component rows at the SCC boundary
+
+The 100K single-edge ring diagnostic on the compiled SCC path separated
+capture (2080.4 ms CPU, including 796.6 ms GC), discovery (16.4 ms),
+normalization and certification (305.0 ms), and ownership handoff
+(0.008 ms). A separate authored/direct/direct/authored comparison reused
+the same input rows and verified every captured row. Authored capture
+used 2006.9 and 1851.5 ms CPU. Direct symbolic-table capture used
+101.3 and 160.2 ms CPU. This synthetic comparison includes construction
+of one POO result object per authored call. It identifies a boundary to
+measure in production; it establishes no publication speedup.
+
+=sealed_rows_exact= proves ordered row equality between the sealed program
+view and the stored footprint, including missing programs and empty rows.
+=sealed_row_handoff_exact= retains the same admission observation, partition
+operation, and recheck in the model. The stock Scheme path borrows rows
+inside =%with-component-source=, using the existing program index.
+The capture routine builds owned symbolic rows before discovery and
+certification. The public partition reader returns a defensive copy.
+Custom builders, unrestricted source readers and active slot-read collection
+keep the public POO route.
+
+On a 100K ring captured once through the component source API, the same
+compiled partition ran in view/stored/stored/view order. CPU was
+10.930/0.282/0.256/9.606 s, and wall time was 14.104/0.425/0.257/12.434 s.
+All four samples checked every row and representative. The stored windows
+had zero collections and qualified allocations of 91.7 MB each. The view
+windows collected twice and three times, so their allocation totals are
+unqualified. The entire run exited in 39.664 s at 2.17 GiB peak process
+footprint, with the original 180 s and 4 GiB limits. Setup and row checks
+were outside the partition windows. This measures partition preparation
+from an already admitted source.
+
+A separate cold publication study used the public owned publisher, 10K
+component programs and one dependency. Fresh processes ran in
+view/stored/stored/view order. CPU was 3.883/2.712/3.952/4.442 s. Wall
+time was 11.333/2.931/10.964/15.582 s. Every sample checked the business
+result, approval count, ordered groups and all declared rows. This study
+preceded the outer read-collection guard and had no active collector.
+
 The 884.916 ms result in [[file:graph-cold-index.org][cold index qualification]] is CPU for
 the complete owned cold schedule of 1M admitted owners with no edges. It
 includes roster normalization, support admission, capture, order and ranks.
