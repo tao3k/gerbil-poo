@@ -124,6 +124,12 @@ theorem retired_position_absent (cold : Option Nat) :
 
 theorem fresh_retirement_needs_no_override : retiredPosition none = none := rfl
 
+theorem retired_index_uses_absence_value {A : Type} (cold : Option A) (absent : A) :
+    ((if cold.isSome then some absent else none).or cold).getD absent = absent := by
+  cases cold <;> rfl
+
+#print axioms retired_index_uses_absence_value
+
 theorem live_suffix_removal_preserves_order {V : Type} [DecidableEq V]
     (position : V → Option Nat) (entries : List (Nat × V)) (key : V)
     (retired : position key = none) :

@@ -244,6 +244,15 @@ The structural proofs cover
 the padded partition and witness addressing; native registration,
 ticket retirement and value reuse have separate checks.
 
+The component source and SCC indexes use the same retirement rule.
+The source program and base indexes remove overrides for names absent
+from their cold bases. The partition applies this rule to owners, members
+and both directions of adjacency after confirming isolation. Cold rows
+retain an empty override only when required to mask the borrowed row.
+=retired_index_uses_absence_value= covers both false values and empty rows.
+The existing partition can share an unchanged adjacency index when no
+override needs editing.
+
 The quotient schedule delays explicit key enumeration. When demanded,
 it enumerates representatives from the admitted successor partition in
 source order. It does not force intermediate revision rosters.

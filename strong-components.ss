@@ -14,7 +14,8 @@
         (only-in :gerbil/runtime/table symbolic-table-ref symbolic-table-set!) (only-in :std/list/list delete-duplicates/hash foldl)
         (only-in :std/list/list-builder with-list-builder)
         (only-in ./support/base %graph-table-seed)
-        (only-in ./support/index %roster %roster-width %roster-position %roster-keys %roster-for-each %roster-project)
+        (only-in ./support/index %roster %roster-width %roster-position %roster-keys %roster-for-each %roster-project
+                 %index-retire! %index-overridden?)
         (only-in ./generalized-graph %index %index-project %index-ref %index-fork %index-write!
                  %reverse-bucket-remove %reverse-bucket-add %for-each-reverse-bucket)
         ./object)
@@ -877,6 +878,10 @@
     (let ()
       (def owner (%index-fork (owned-partition-owner old)))
       (def members (%index-fork (owned-partition-members old)))
+      (def prior-forward (owned-partition-forward old))
+      (def prior-backward (owned-partition-backward old))
+      (def forward #f)
+      (def backward #f)
       (for (key keys)
         (unless (and (symbol? key) (eq? key (%index-ref owner key #f)))
           (error "component retirement requires an active isolated owner" key))
@@ -885,13 +890,19 @@
         (%for-each-reverse-bucket
           (lambda (reader) (error "component retirement still has readers" key reader))
           (%index-ref (owned-partition-backward old) key []))
-        (%index-write! owner key #f)
-        (%index-write! members key #f))
+        (%index-retire! owner key)
+        (%index-retire! members key)
+        (when (%index-overridden? prior-forward key)
+          (unless forward (set! forward (%index-fork prior-forward)))
+          (%index-retire! forward key []))
+        (when (%index-overridden? prior-backward key)
+          (unless backward (set! backward (%index-fork prior-backward)))
+          (%index-retire! backward key [])))
       (owned-snapshot
         (make-owned-partition (or roster (owned-partition-roster old))
-          (owned-partition-forward old) (owned-partition-backward old) owner members
+          (or forward prior-forward) (or backward prior-backward) owner members
           (owned-partition-shape old) #t)
-        (if roster
+        (if (and roster (partition-work prior))
           (.cc (partition-work prior) retired-owners: (length keys) roster-materialized: 0)
           (.o retired-owners: (length keys) roster-materialized: 0))))))
 

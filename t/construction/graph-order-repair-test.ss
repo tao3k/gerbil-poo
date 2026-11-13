@@ -26,7 +26,7 @@
   %schedule-reverse reverse-bucket-remove reverse-bucket-members edited-search-frontier
   %schedule-owned %owned-source-programs
   start-affected-work advance-affected-work! affected-work-marked %retire-component-source
-  %component-source-code-witnesses)
+  %component-source-code-witnesses %component-source-storage %component-source-roster %owned-source-bases)
 (extern namespace: clan/poo/strong-components %partition-owned owned-partition-backward
   owned-partition-owner owned-partition-members owned-partition-forward
   owned-partition-roster %retire-partition-isolates %append-partition-owners
@@ -1020,9 +1020,10 @@
       (def next (%retire-partition-isolates isolated '(a)))
       (def retained (%partition-owned isolated))
       (def successor (%partition-owned next))
-      (for (index [owned-partition-roster
-                  owned-partition-forward owned-partition-backward])
+      (for (index [owned-partition-roster owned-partition-forward])
         (check-eq? (index retained) (index successor)))
+      (check-eq? (%index-base (owned-partition-backward retained))
+                 (%index-base (owned-partition-backward successor)))
       (check-equal? (scc.partition-group-size next 'a) #f)
       (check-exception ((scc.partition-owner next) 'a) UnboundKeyError?)
       (check-exception ((scc.partition-reads next) 'a) UnboundKeyError?)
@@ -1039,6 +1040,25 @@
       (def rebuilt (scc.partition (row-source '(b c d) rows)))
       (check (same-components? '(b c d) edited rebuilt) => #t)
       (check-equal? (scc.%partition-representatives edited) '(b)))
+    (test-case "retired fresh names leave no source or SCC overrides"
+      (def (register action) (action))
+      (def spec (graph.declaration '(a) []))
+      (def source (graph.%capture-component-source spec register))
+      (def partition (scc.partition-owned spec))
+      (def update (graph.%edit-component-source source [(cons 'b (code.pure 1))]
+                    [(cons 'b (some (code.make-success 2)))] register added: '(b)))
+      (def expanded (vector-ref update 0))
+      (def padded (%append-partition-owners partition (%component-source-roster expanded) '(b)))
+      (def retired (%retire-component-source expanded '(b) register))
+      (def next (%retire-partition-isolates padded '(b) (%component-source-roster retired)))
+      (for (index [%owned-source-programs %owned-source-bases])
+        (check-equal? (rbtree-size (%index-changes (index (%component-source-storage retired)))) 0)
+        (check-equal? (rbtree-size (%index-changes (index (%component-source-storage expanded)))) 1))
+      (for (index [owned-partition-owner owned-partition-members owned-partition-forward owned-partition-backward])
+        (check-equal? (rbtree-size (%index-changes (index (%partition-owned next)))) 0)
+        (check-equal? (rbtree-size (%index-changes (index (%partition-owned padded)))) 1))
+      (check-equal? (scc.partition-groups next) '((a)))
+      (check-equal? (scc.partition-groups padded) '((a) (b))))
     (test-case "source retirement drops only the retired ordinal's witnessed inputs"
       (def input (.o dependencies: []))
       (def retired-program (.o reads: (.get input dependencies)

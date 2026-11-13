@@ -1,6 +1,6 @@
 ;;; Persistent structural snapshots shared by source and Graph preparation.
-(export %index %index-project %index-ref %index-fork %index-write!
-        %index? %index-base %index-changes
+(export %index %index-project %index-ref %index-fork %index-write! %index-retire!
+        %index? %index-base %index-changes %index-overridden?
         %roster %roster-width %roster-position %roster-keys %roster-for-each
         %roster-project %roster-append %roster-retire)
 (import (only-in :std/struct/rbtree RBTree rbtree-copy rbtree-ref rbtree-put!
@@ -39,6 +39,20 @@
 ;; Only a private fork is writable. The cold base and previously published
 ;; roots remain unchanged; callers already own that publication discipline.
 (def (%index-write! source key value) (rbtree-put! (index-changes source) key value))
+(def (%index-overridden? source key)
+  (let (changes (index-changes source))
+    (and changes (not (eq? (rbtree-ref changes key missing-index-entry) missing-index-entry)))))
+
+;; An absent cold key needs no override. A cold value stays borrowed
+;; by historical snapshots and must be masked in the private fork.
+(def (%index-retire! source key (absent #f))
+  (def base (index-base source))
+  (def present?
+    (if (procedure? base)
+      (not (eq? (base key missing-index-entry) missing-index-entry))
+      (hash-key? base key)))
+  (if present? (%index-write! source key absent)
+    (rbtree-remove! (index-changes source) key)))
 
 ;; The cold order is shared. The suffix index contains only active ordinals.
 ;; Width is the witness address high-water mark, independent of live count.
@@ -86,8 +100,5 @@
               (def ordinal (%index-ref positions key #f))
               (unless ordinal (error "active component owner required" key))
               (when appended (rbtree-remove! appended ordinal))
-              ;; Only a key in the cold table needs to mask a fallback.
-              (if (hash-key? (%index-base positions) key)
-                (%index-write! positions key #f)
-                (rbtree-remove! (%index-changes positions) key))) names)
+              (%index-retire! positions key)) names)
   (make-roster (roster-initial roster) appended positions (roster-width roster)))

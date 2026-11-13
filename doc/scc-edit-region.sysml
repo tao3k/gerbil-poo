@@ -31,7 +31,10 @@ package SccEditRegion {
         doc /* Share the cold roster. Enumerate only live appended ordinals
                after the cold entries. Retire a fresh name from both sparse
                indexes; mask a cold name to prevent fallback. Keep the
-               ordinal high-water mark and all predecessor views. */
+               ordinal high-water mark and all predecessor views.
+               Program, base, membership and adjacency indexes remove
+               retired overrides absent from their cold bases. Mask
+               borrowed cold entries with the index's absence value. */
     }
     requirement def QuotientRosterDemand {
         doc /* Explicit quotient keys enumerate the admitted successor

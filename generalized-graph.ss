@@ -22,7 +22,7 @@
                  rbtree-remove rbtree-fold rbtree-foldr rbtree-for-each rbtree-size rbtree->list
                  in-rbtree-values)
         (only-in ./support/base %compare-symbol-identity %graph-table-seed %with-application-table-seeds)
-        (only-in ./support/index %index %index-project %index-ref %index-fork %index-write!
+        (only-in ./support/index %index %index-project %index-ref %index-fork %index-write! %index-retire!
                  %index? %index-base %index-changes
                  %roster %roster-width %roster-position %roster-keys %roster-append %roster-retire)
         (only-in ./slot-observation %call-with-recorded-slot-reads %record-slot-reads!)
@@ -402,8 +402,8 @@
       (for (key base-keys) (%index-write! next-bases key (hash-ref values key)))
       (def removed-witnesses
         (for/collect (key removed)
-          (%index-write! next-programs key #f)
-          (%index-write! next-bases key #f)
+          (%index-retire! next-programs key)
+          (%index-retire! next-bases key)
           (cons (%roster-position previous key) #f)))
       (def span (%component-source-span prior))
       (def minimum (%roster-width roster))
@@ -437,8 +437,8 @@
         (map (lambda (key)
                (def position (and (symbol? key) (%roster-position previous key)))
                (unless position (raise (make-failure 'unsupported key)))
-               (%index-write! programs key #f)
-               (%index-write! bases key #f)
+               (%index-retire! programs key)
+               (%index-retire! bases key)
                (cons position #f)) keys))
       (def edits (list-sort (lambda (a b) (< (car a) (car b))) removed))
       (def span (%component-source-span prior))
