@@ -330,3 +330,23 @@ and completion markers, with a 2.23 GiB sampled process-tree peak and
 80.75 s total wall time. The 2 GiB Scheme heap fence, 4 GiB process-tree
 guard and 180 s deadline stayed in force. Removing the order spine
 from cold construction did not qualify the combined candidate.
+
+** Collect the inverse during position emission
+
+Phase markers in the direct-position candidate reached program
+admission, rank allocation and rank emission. The first failing phase
+was inverse population, before schedule sealing. That diagnostic took
+96.52 s and reached a 2.22 GiB sampled process-tree peak.
+
+For the certified single-provider shape, collect readers by prepending
+during rank emission and install the finished bucket once. Lean
+=single_provider_inverse= proves the bucket is in the same order as
+the second edge pass. The guarded Darwin =-O2= build and 22 local order
+cases passed. The million-reader fixture reached its cold completion
+marker, then hit the Scheme heap fence during repair after 29.09 s,
+with a 2.26 GiB sampled process-tree peak. Adding the previously
+measured rank-stream merge reached the same boundary after 24.63 s
+with a 2.26 GiB peak. Neither run produced a complete repair sample.
+Both kept the 2 GiB Scheme heap fence, 4 GiB process-tree guard and
+180 s deadline. This candidate stays in the experiment until the
+complete repair can be verified.

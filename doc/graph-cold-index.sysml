@@ -10,6 +10,11 @@ package GraphColdIndex {
                roster position. Preserve roster order for other owners
                and the ordinary refusal for unsupported or cyclic rows. */
     }
+    requirement def SingleProviderInverseOrder {
+        doc /* When collecting a certified single-provider inverse bucket
+               during rank emission, prepend readers in emission order.
+               The resulting bucket equals the ordinary second edge pass. */
+    }
     requirement def SparseInverse {
         doc /* For owned snapshots with zero or one distinct provider, do not
                write one empty inverse bucket per owner. Multi-provider graphs

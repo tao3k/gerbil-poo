@@ -239,4 +239,21 @@ theorem capture_overwrite_preserves_pending (table : K → A) (key : K)
 theorem positions_recover_order (order : List K) :
     order.toArray.toList = order := by simp
 
+
+-- Folding the inverse during owner emission is the same as folding the
+-- single-provider edge stream afterwards. Both prepend in emission order.
+theorem single_provider_inverse (provider : K) (reads : K → Bool)
+    (order : List K) (prior : Rows K) :
+    row (build ((order.filter reads).map fun consumer => (consumer, provider)) prior) provider =
+      (order.filter reads).reverse ++ row prior provider := by
+  induction order generalizing prior with
+  | nil => simp [build]
+  | cons key rest ih =>
+    cases found : reads key
+    · simpa [List.filter_cons, found] using ih prior
+    · simp only [List.filter_cons, found, ↓reduceIte, List.map_cons, build, List.foldl_cons]
+      have next := ih (insert prior provider key)
+      simp [build, row, insert, List.reverse_cons, List.append_assoc] at next ⊢
+      exact next
+
 end GraphColdIndex
