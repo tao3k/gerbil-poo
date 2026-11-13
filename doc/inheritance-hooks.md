@@ -38,12 +38,33 @@ automatically merged into a new protocol. Hook failure clears partial constructi
 state. Reading a receiver during its own construction refuses instead of exposing
 an incomplete instance. Hook/source edits while checking C3 are also rejected.
 
-## Missing slots
+## Slot lookup and generic dispatch
 
-`no-applicable-method(receiver, slot)` handles a missing slot, using the CLOS
-hook name. `fallback-to(thunk)` supplies this hook and obtains its delegate
-on demand. Presence and name queries use the same delegate. Existing local
-slots, including slots with value `#f`, take precedence.
+| Hook | Trigger and inputs |
+| --- | --- |
+| Gerbil-POO `no-applicable-method(receiver, slot)` | A prototype slot read has no effective definition, or a slot refinement invokes its inherited thunk and there is no inherited definition. The second case can occur for a slot defined on the receiver. [Object implementation](../object.ss) |
+| CLOS `no-applicable-method(generic-function, &rest arguments)` | A generic function call has no applicable method. [Common Lisp HyperSpec](https://www.lispworks.com/documentation/HyperSpec/Body/f_no_app.htm) · [Yuanxu dispatch](https://github.com/tao3k/gebril-yuanxu/blob/7a04cf39736bcae59c4c17e7fed45f7c9668345a/poo-clos/dispatch.ss#L324-L355) |
+| CLOS `slot-missing(class, object, slot-name, operation, &optional new-value)` | A slot operation names a slot absent from the instance's class. A declared but unbound slot has its own `slot-unbound` hook. [Common Lisp HyperSpec](https://www.lispworks.com/documentation/HyperSpec/Body/f_slt_mi.htm) · [Slot unbound](https://www.lispworks.com/documentation/HyperSpec/Body/f_slt_un.htm) · [Yuanxu slot lifecycle](https://github.com/tao3k/gebril-yuanxu/blob/7a04cf39736bcae59c4c17e7fed45f7c9668345a/poo-clos/lifecycle.ss#L124-L161) |
+
+`fallback-to(thunk)` supplies the POO hook and obtains its delegate on demand.
+Separate presence and name hooks consult the same delegate. Local slots,
+including slots with value `#f`, take precedence. An unhandled read raises
+`NoApplicableMethod` with the receiver and slot.
+
+The POO name fits a model where effective slot methods compute values. It is
+misleading as a CLOS contract, since a slot miss and an empty applicable-method
+set carry different inputs and continuation rules. Keep the existing spelling
+for the released POO API. A CLOS extension can give each ANSI hook its own
+binding while reusing the POO object and Slot implementation.
+
+### POO-CLOS ownership
+
+Yuanxu currently owns the CLOS extension over Gerbil-POO. Moving that
+extension into this package would put generic dispatch, method combination
+and class lifecycle in one reusable library. The transfer requires removing
+the runtime's dependency on Yuanxu's read projection while preserving the
+consumer's read checks. Carry the existing CLOS conformance tests with the
+runtime and switch Yuanxu to import it from Gerbil-POO. [Original Core ownership](https://github.com/tao3k/gebril-yuanxu/pull/6) · [Current read-projection dependency](https://github.com/tao3k/gebril-yuanxu/blob/7a04cf39736bcae59c4c17e7fed45f7c9668345a/poo-clos/dispatch.ss#L8-L13)
 
 ## Source mutation and cache validity
 
