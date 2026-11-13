@@ -140,8 +140,7 @@ theorem live_suffix_removal_preserves_order {V : Type} [DecidableEq V]
   | nil => rfl
   | cons row rest ih =>
     by_cases same : row.2 = key
-    · simpa only [List.filter_cons, same, decide_true, Bool.not_true,
-        Bool.false_eq_true, ite_false, retired, reduceCtorEq] using ih
+    · simpa [List.filter_cons, same, retired] using ih
     · simp only [List.filter_cons, decide_eq_false same, Bool.not_false, ite_true, ih]
 
 #print axioms retired_position_absent
