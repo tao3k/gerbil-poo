@@ -70,8 +70,9 @@
         (set! valid? #f))))
   valid?)
 
-(def graph-order-repair-test
-  (test-suite "local topological repair and independent value invalidation"
+;; Keep case registration in separate C host functions. Gambit groups the
+;; closures under their enclosing function, even in multiple-host mode.
+(def (check-owned-graph-admission)
     (test-case "owned empty and single-provider cold graphs retain domain effects and snapshots"
       (def calls 0)
       (def program (.o reads: (begin (set! calls (1+ calls)) [])
@@ -247,7 +248,9 @@
       (check-equal? (cache.cache-evaluated next) both-owners)
       (def cold (cache.start (cache.cache-source next)))
       (for (key '(root client outer other tail))
-        (check-equal? (value next key) (value cold key))))
+        (check-equal? (value next key) (value cold key)))))
+
+(def (check-rank-repair)
     (test-case "owner patches distinguish hash collisions and same-name symbols"
       (def left (string->uninterned-symbol "shared-owner" 17))
       (def right (string->uninterned-symbol "shared-owner" 17))
@@ -415,7 +418,9 @@
             (unless (or valid? first-failure)
               (set! first-failure (list mask consumer provider (graph.schedule-order (graph.reschedule prior next))))))))
       (check-equal? cases 1024)
-      (check-equal? first-failure #f))
+      (check-equal? first-failure #f)))
+
+(def (check-quotient-edits)
     (test-case "complete quotient replacement builds a private program base and preserves surviving inputs"
       (def kept (some (code.make-success 7)))
       (def retired (some (code.make-success 19)))
@@ -561,7 +566,9 @@
       (check-equal? ((graph.schedule-reads next) 'a) '(d))
       (check-equal? (.call (graph.schedule-source removal) .base 'a) #f)
       (check-eq? (.call (graph.schedule-source prior) .base 'a) original-base)
-      (check-eq? (.call (graph.schedule-source next) .base 'a) original-base))
+      (check-eq? (.call (graph.schedule-source next) .base 'a) original-base)))
+
+(def (check-cache-publication)
     (test-case "owned staging detaches its inputs and rejects cross-callback drift"
       (def prior (graph.schedule-owned '(a b c d) []))
       (def second (cons 'b (code.need 'c identity)))
@@ -663,7 +670,9 @@
       (.put! builder '.run (lambda (_key resolve) (resolve)))
       (def replaced (caught (cut cache.refresh-revision old ticket)))
       (check-equal? (Error-message replaced) "stale slot dependency")
-      (check-equal? (value old 'b) 1))
+      (check-equal? (value old 'b) 1)))
+
+(def (check-inverse-buckets)
     (test-case "reverse deletion and re-addition keep the old ordered bucket"
       (def program (code.need 'hub identity))
       (def prior (graph.schedule-owned '(hub a b c)
@@ -760,7 +769,15 @@
       (check (eq? (graph.schedule-order next) (graph.schedule-order prior)) => #t)
       (check (eq? (graph.schedule-reads next) (graph.schedule-reads prior)) => #t)
       (check-equal? (.@ (graph.schedule-work next) search-buckets) 0)
-      (check-equal? (.@ (graph.schedule-work next) copied-entries) 0))))
+      (check-equal? (.@ (graph.schedule-work next) copied-entries) 0)))
+
+(def graph-order-repair-test
+  (test-suite "local topological repair and independent value invalidation"
+    (check-owned-graph-admission)
+    (check-rank-repair)
+    (check-quotient-edits)
+    (check-cache-publication)
+    (check-inverse-buckets)))
 
 ;; Compare the exact prior and candidate bucket operation on one cold spine.
 ;; The explicit demand is measured separately because it enumerates live readers.
@@ -1044,8 +1061,7 @@
               (equal? (scc.partition-group-of left key) (scc.partition-group-of right key))
               (= (scc.partition-group-size left key) (scc.partition-group-size right key)))) keys)))
 
-(def local-components-test
-  (test-suite "local SCC partition against cold discovery"
+(def (check-component-retirement)
     (test-case "edited inverse buckets release removed insertions while masking borrowed readers"
       (def base '(a b))
       (def masked (reverse-bucket-remove base 'a))
@@ -1169,7 +1185,9 @@
       (check (graph.%witness-tree-current? old) => #f)
       (check (graph.%witness-tree-current? sibling) => #f)
       (def late (graph.%splice-witness-tree old 3 [] attach register minimum-width: 11))
-      (check (graph.%witness-tree-current? late) => #f))
+      (check (graph.%witness-tree-current? late) => #f)))
+
+(def (check-retained-component-publication)
     (test-case "retained direction skips SCC walks and a back edge still merges"
       (for (names '((a b c d outside) (outside d c b a)))
         (let* ((rows (list->hash-table-eq '((b a) (c b) (d c) (outside a))))
@@ -1308,7 +1326,9 @@
       (check-equal? (cache.cache-evaluated (graph-cache-values final-graph)) '(untouched))
       (check-equal? (read final-graph 'untouched) 100)
       (check-equal? (read final-graph 'consumer) 17)
-      (check-eq? (graph-cache-ref final-graph 'a) (graph-cache-ref next 'a)))
+      (check-eq? (graph-cache-ref final-graph 'a) (graph-cache-ref next 'a))))
+
+(def (check-component-merge-and-split)
     (test-case "merge across a connector, split again, and retain the old owner maps"
       (def names '(isolated b bridge a tail c))
       (def rows (list->hash-table-eq '((a b) (b a bridge) (bridge c) (tail c))))
@@ -1403,7 +1423,13 @@
           (def expected (filter (lambda (consumer) (memq provider (hash-ref rows consumer []))) names))
           (check-equal? (length actual) (length expected))
           (check-equal? (filter (cut memq <> actual) names) expected))
-        (set! old next)))))
+        (set! old next))))
+
+(def local-components-test
+  (test-suite "local SCC partition against cold discovery"
+    (check-component-retirement)
+    (check-retained-component-publication)
+    (check-component-merge-and-split)))
 
 (def (local-owner-append-study old count)
   (def prior-roster (owned-partition-roster (%partition-owned old)))

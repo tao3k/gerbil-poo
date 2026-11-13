@@ -14,6 +14,25 @@ Fixture construction, public source acquisition, prepared kernels and
 output materialization have separate windows. A separate getter pass
 does not contribute time to the public partition window.
 
+* Local compiler memory
+
+The Scheme heap limit applies to the test VM. For local native preparation,
+wrap the existing Just entry point with the Gerbil Bazel process-tree guard
+so the same budget also covers GCC and its =cc1= children. For example, with
+=guard= pointing to =gerbil/resource_guard_v19.ss= in the Gerbil Bazel checkout
+and =receipt= pointing outside the build prefix:
+
+#+begin_src sh
+GERBIL_BUILD_CORES=1 GERBIL_BAZEL_GUARD_MAX_RSS_BYTES=4294967296 \
+  GERBIL_BAZEL_GUARD_SAMPLE_SECONDS=0.1 \
+  gerbil -:max-heap=256M,debug=q "$guard" "$receipt" graph-build 0 \
+  just build-graph-study
+#+end_src
+
+The sampled memory threshold can be crossed between samples. An
+=rss-limit-exceeded= receipt is a failed build. Use a fresh isolated prefix
+for the next verification if the interrupted build left partial products.
+
 * Algorithm selection
 
 A verified source order gives singleton SCC labels directly. Other packed
