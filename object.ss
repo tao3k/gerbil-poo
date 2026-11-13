@@ -515,7 +515,8 @@
               (lambda (self slot)
                 (if (reserved? slot)
                   (raise (NoApplicableMethod self: self slot: slot))
-                  (.ref (.ref self '.fallback-handler) slot))))))))
+                  (with-slot-dependencies self
+                    (lambda () (.ref (.ref self '.fallback-handler) slot))))))))))
 
 ;; : (Object A) <- (IndexedList ? ((Pair s (A s)) <- s:Symbol)) \
 ;;     supers: ? (ConsTreeOf (Object ?)) defaults: ? (Table ? Symbol)

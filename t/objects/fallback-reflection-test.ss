@@ -24,6 +24,19 @@
       (check-equal? (filter (lambda (key) (memq key '(local remote reserved))) (.all-slots value))
                     '(local remote))
       (check-equal? constructions 1))
+    (test-case "delegated cached values follow transitive slot invalidation"
+      (def config (.o port: 5432))
+      (def scope
+        (.o (:: self [])
+          plan: (with-slot-dependencies self (lambda () (list (.get config port))))))
+      (def leaf (fallback-to (lambda () scope)))
+      (def first (.get leaf plan))
+      (check-equal? first '(5432))
+      (check-eq? (.get leaf plan) first)
+      (.put! config 'port 5440)
+      ;; The leaf is the first demand after the edit.
+      (check-equal? (.get leaf plan) '(5440))
+      (check-eq? (.get leaf plan) (.get scope plan)))
     (test-case "cyclic reflection refuses before publishing a query"
       (def value (fallback-to (lambda () value)))
       (check-exception (.slot? value 'missing) error?)
