@@ -4,8 +4,11 @@
 ;;; SPDX-License-Identifier: Apache-2.0 AND LGPL-2.1-or-later
 
 (import :std/test
-        (only-in :clan/poo/object .def .o .ref)
+        (only-in :clan/poo/object .def .o .ref seal-object! object-revision
+                 replay-slot-reads!)
         (only-in :clan/poo/mop element?)
+        (only-in :clan/poo/slot-observation %call-with-recorded-slot-reads)
+        (only-in :std/error Error? Error-message)
         :clan/poo/clos)
 
 (export poo-clos-method-bundle-test)
@@ -203,7 +206,47 @@
         (check (poo-clos-compose-method-bundles
                 generic (list base-bundle replacement-bundle))
                => generic)
-        (check (poo-clos-call generic 'payload) => '(replacement payload))))
+        (check (poo-clos-call generic 'payload) => '(replacement payload))
+        (check-equal? (poo-clos-generic-generation generic) 2)
+        (check-equal? (poo-clos-method-generic-function
+                        (car (.ref base-bundle 'methods))) #f)
+        (check (eq? (poo-clos-method-generic-function
+                      (car (.ref replacement-bundle 'methods))) generic) => #t)))
+    (test-case "a refused method or write preserves dispatch, owners and revisions"
+      (let* ((generic (poo-clos-generic-function 'atomic 1 protocol: bundle-protocol))
+             (old (fresh-method 'old 'original))
+             (replacement (fresh-method 'new 'replacement))
+             (invalid (poo-clos-method 'bad '() (lambda (_frame) 'bad)))
+             (first (poo-clos-method-bundle 'first bundle-protocol (list replacement)))
+             (mixed (poo-clos-method-bundle 'mixed bundle-protocol (list replacement invalid)))
+             (last (poo-clos-method-bundle 'last bundle-protocol (list invalid))))
+        (poo-clos-add-method generic old)
+        (defvalues (original-methods reads)
+          (%call-with-recorded-slot-reads (cut .ref generic 'methods)))
+        (def original-revision (object-revision generic))
+        (def old-revision (object-revision old))
+        (def (check-unchanged)
+          (check (eq? (.ref generic 'methods) original-methods) => #t)
+          (check-equal? (poo-clos-generic-generation generic) 1)
+          (check-equal? (object-revision generic) original-revision)
+          (check-equal? (object-revision old) old-revision)
+          (check (eq? (poo-clos-method-generic-function old) generic) => #t)
+          (check-equal? (poo-clos-method-generic-function replacement) #f)
+          (replay-slot-reads! reads void)
+          (check-equal? (poo-clos-call generic 'payload) '(original payload)))
+        (def (arity-failure? failure)
+          (and (poo-clos-failure? failure)
+               (eq? (.ref failure 'code) 'method-required-argument-mismatch)))
+        (check-exception (poo-clos-compose-method-bundle generic mixed) arity-failure?)
+        (check-unchanged)
+        (check-exception (poo-clos-compose-method-bundles generic (list first last)) arity-failure?)
+        (check-unchanged)
+        (seal-object! replacement)
+        (check-exception
+         (poo-clos-compose-method-bundle generic first)
+         (lambda (failure)
+           (and (Error? failure) (equal? (Error-message failure) "sealed prototype"))))
+        (check-unchanged)))
     (test-case "protocol identity mismatch fails before method ownership changes"
       (let* ((generic (poo-clos-generic-function 'render 1 protocol: bundle-protocol))
              (bundle (fresh-bundle 'wrong other-protocol 'wrong 'wrong)))

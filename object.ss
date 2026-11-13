@@ -12,7 +12,8 @@
                     require-current-read-sweep! %pure-read-sweep?
                     record-key-field record-dependencies-field record-value-field
                     slot-spec-discards-super? compile-slot-specs prepare-declaration-specifications compute-object-precedence!
-                    %prepared-vector-slots? %bind-current-slot-reads) @object? @make-object)
+                    %prepared-vector-slots? %bind-current-slot-reads
+                    %with-slot-edit-protection %publish-slot-edits!) @object? @make-object)
 
 (import
   (prefix-in (only-in Runtime object? make-object) @) ;; Rename them before we shadow them
@@ -879,6 +880,41 @@
       (set! (object-%overrides self) (make-hash-table test: eq? hash: symbolic-hash seed: (%graph-table-seed))))
     (hash-put! (object-%overrides self) slot value)
     (hash-put! (object-instance self) slot value)))
+
+;; Protect the selected receivers while checking an edit that may run hooks.
+(def (%with-slot-edit-protection owners action)
+  (def protected (make-hash-table-eq))
+  (for-each (lambda (owner) (hash-put! protected owner #t)) owners)
+  (parameterize ((active-read-replays (cons protected (active-read-replays))))
+    (action)))
+
+;; Each row is (receiver . ((slot . value) ...)), with distinct receivers.
+;; Prepare replacement overrides and check the entire invalidation closure
+;; before advancing any revision. Reconstruct value stores on demand.
+(def (%publish-slot-edits! edits)
+  (def replacements
+    (%with-slot-edit-protection (map car edits)
+      (lambda ()
+        (map-in-order
+          (lambda (edit)
+            (def owner (car edit))
+            (def old (object-%overrides owner))
+            (def overrides (if old (hash-copy old) (make-hash-table-symbolic)))
+            (for-each (lambda (entry) (hash-put! overrides (car entry) (cdr entry)))
+                      (cdr edit))
+            (cons owner overrides))
+          edits))))
+  (def roots
+    (map (lambda (edit)
+           (def owner (car edit))
+           (def state (object-%state owner))
+           (when (object-state-sealed? state) (error "sealed prototype"))
+           (cons owner state))
+         replacements))
+  (def invalidate! (prepare-invalidation roots check-object-edit clear-object-cache!))
+  (invalidate!)
+  (for-each (lambda (entry) (set! (object-%overrides (car entry)) (cdr entry)))
+            replacements))
 
 (defrules .set! () ((_ object. slot value) (.put! object. 'slot value)))
 

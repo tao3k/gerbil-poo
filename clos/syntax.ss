@@ -6,7 +6,7 @@
 ;;; Thin hygienic declaration surface for the POO CLOS kernel.
 
 (import :std/stxparam
-        (only-in "generic-syntax.ss" .defgeneric .defmethod
+        (only-in "generic-syntax.ss" .defgeneric .defmethod .generic-object
                  clos-generic-binding-identifier lower-optional-bindings lower-key-bindings)
         (only-in "method-bundle-syntax.ss" .defmethod-bundle %method-declaration-only)
         "objects.ss" "classes.ss" "lifecycle.ss" "dispatch.ss"
@@ -15,7 +15,7 @@
                     "declaration-ir.ss"
                     (only-in :std/list/list filter-map find iota)))
 
-(export .defclass .defgeneric .defmethod .defmethod-bundle
+(export .defclass .defgeneric .defmethod .defmethod-bundle .generic-object
         .define-method-combination
         .with-slots .with-accessors)
 
@@ -387,9 +387,7 @@
            (optional (clos-lambda-declaration-ir-optional lambda-ir))
            (rest? (if (clos-lambda-declaration-ir-rest lambda-ir) #t #f))
            (keys (clos-lambda-declaration-ir-keys lambda-ir))
-           (key? (if (or (pair? keys)
-                         (clos-lambda-declaration-ir-allow-other-keys lambda-ir))
-                   #t #f))
+           (key? (clos-lambda-declaration-ir-key? lambda-ir))
            (allow-other?
             (if (clos-lambda-declaration-ir-allow-other-keys lambda-ir) #t #f))
            (configuration-bindings

@@ -8,7 +8,7 @@
         "objects.ss" "dispatch.ss" "lambda-list.ss"
         (for-syntax :gerbil/expander "declaration-ir-core.ss"
                     (only-in :std/list/list filter-map find iota)))
-(export .defgeneric .defmethod
+(export .defgeneric .defmethod .generic-object
         (phi: +1 clos-generic-binding-identifier lower-optional-bindings lower-key-bindings))
 
 (begin-syntax
@@ -53,9 +53,7 @@
            (optional (clos-lambda-declaration-ir-optional lambda-ir))
            (rest? (if (clos-lambda-declaration-ir-rest lambda-ir) #t #f))
            (keys (clos-lambda-declaration-ir-keys lambda-ir))
-           (key? (if (or (pair? keys)
-                         (clos-lambda-declaration-ir-allow-other-keys lambda-ir))
-                   #t #f))
+           (key? (clos-lambda-declaration-ir-key? lambda-ir))
            (allow-other?
             (if (clos-lambda-declaration-ir-allow-other-keys lambda-ir) #t #f))
            (precedence
@@ -164,18 +162,15 @@
           (supplied (clos-key-declaration-ir-supplied key)))
       (with-syntax ((name name) (variable variable) (initform initform)
                     (start start) (arguments arguments))
-        (let (value-binding
-              #'(variable
-                 (let (entry
-                       (poo-clos-key-argument arguments start 'name))
-                   (if (car entry) (cdr entry) initform))))
-          (if supplied
-            (with-syntax ((supplied supplied))
-              (list
-               value-binding
-               #'(supplied
-                  (car (poo-clos-key-argument arguments start 'name)))))
-            (list value-binding))))))
+        (if supplied
+          (with-syntax ((supplied supplied)
+                        (entry (datum->syntax #'variable (gensym 'keyword-entry))))
+            (list #'(entry (poo-clos-key-argument arguments start 'name))
+                  #'(variable (if (car entry) (cdr entry) initform))
+                  #'(supplied (car entry))))
+          (list #'(variable
+                   (let (entry (poo-clos-key-argument arguments start 'name))
+                     (if (car entry) (cdr entry) initform))))))))
 
   ;; : (-> ClosMethodDeclarationIR Syntax Syntax)
   (def (lower-poo-clos-method ir source (deferred? #f))
@@ -244,7 +239,7 @@
            (required-count (length required))
            (optional-count (length optional))
            (rest? (if rest-variable #t #f))
-           (key? (if (or (pair? keys) allow-other?) #t #f))
+           (key? (clos-lambda-declaration-ir-key? lambda-ir))
            ((key-name ...) (map clos-key-declaration-ir-name keys))
            (allow-other? allow-other?))
         (let (method-value
@@ -298,6 +293,14 @@
        #'name #'lambda-list (syntax->list #'(option ...)) stx)
       stx))))
 
+;; Resolve the generic in the same lexical scope as .defmethod.
+(defsyntax (.generic-object stx)
+  (syntax-case stx ()
+    ((_ name)
+     (with-syntax ((binding (clos-generic-binding-identifier
+                             (clos-function-name #'name "expected a CLOS generic name"))))
+       #'(poo-clos-generic-binding-current binding)))))
+
 ;; | ClosMethod = POOObject
 ;; .defmethod
 ;;   : (-> (Identifier SpecializedParameter ...) Body ...)
@@ -315,24 +318,13 @@
 ;;       ```
 ;;     %
 (defsyntax (.defmethod stx)
-  (def (lower ir)
-    (lower-poo-clos-method
-     ir stx (if (syntax-parameter-value #'%method-declaration-only) #t #f)))
-  (syntax-case stx (qualifier)
-    ((_ (name parameter ...) (qualifier method-qualifier) body ...)
-     (lower
-      (parse-poo-clos-method-declaration-ir
-       #'name #'method-qualifier #'(parameter ...)
-       (syntax->list #'(body ...)) stx)))
-    ((_ (name parameter ...) body ...)
-     (lower
-      (parse-poo-clos-method-declaration-ir
-       #'name #'primary #'(parameter ...) (syntax->list #'(body ...)) stx)))
-    ((_ name (parameter ...) body ...)
-     (lower
-      (parse-poo-clos-method-declaration-ir
-       #'name #'primary #'(parameter ...) (syntax->list #'(body ...)) stx)))
-    ((_ name qualifier lambda-list body ...)
-     (lower
-      (parse-poo-clos-method-declaration-ir
-       #'name #'qualifier #'lambda-list (syntax->list #'(body ...)) stx)))))
+  (defvalues (name qualifier parameters body)
+    (syntax-case stx (qualifier)
+      ((_ (name parameter ...) (qualifier method-qualifier) body ...)
+       (values #'name #'method-qualifier #'(parameter ...) #'(body ...)))
+      ((_ (name parameter ...) body ...)
+       (values #'name #'primary #'(parameter ...) #'(body ...)))))
+  (lower-poo-clos-method
+    (parse-poo-clos-method-declaration-ir name qualifier parameters
+                                         (syntax->list body) stx)
+    stx (syntax-parameter-value #'%method-declaration-only)))

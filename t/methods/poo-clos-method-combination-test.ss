@@ -61,6 +61,11 @@
   (object)
   (method-combination declared-long))
 
+(.define-method-combination empty-key-options
+  (long (&rest options &key))
+  ((primary () (required #t)))
+  (call-method (car primary) (cdr primary)))
+
 (poo-clos-generic-binding-add-method!
  declared-long-values$poo-clos-generic
  (poo-clos-method
@@ -229,7 +234,10 @@
     (test-case "long declaration binds groups and lexical call-method"
       (check (element? ClosMethodCombination declared-long) => #t)
       (check-equal? (declared-long-values combination-dog)
-                    '(dog animal)))
+                    '(dog animal))
+      (check-exception
+       (poo-clos-configure-method-combination empty-key-options unknown: 1)
+       (failure-code? 'invalid-method-combination-options)))
 
     (test-case "combination options configure short order without mutation"
       (check-equal? (declared-values combination-dog) '(animal dog))

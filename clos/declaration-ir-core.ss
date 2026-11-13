@@ -54,7 +54,7 @@
         clos-method-group-declaration-ir-required
         clos-method-group-declaration-ir-description
         clos-lambda-declaration-ir-required clos-lambda-declaration-ir-optional
-        clos-lambda-declaration-ir-rest clos-lambda-declaration-ir-keys
+        clos-lambda-declaration-ir-rest clos-lambda-declaration-ir-key? clos-lambda-declaration-ir-keys
         clos-lambda-declaration-ir-allow-other-keys
         clos-lambda-declaration-ir-aux
         clos-parameter-declaration-ir-variable clos-parameter-declaration-ir-kind
@@ -109,7 +109,7 @@
 ;;; Lambda-list IRs keep parameter families distinct so congruence can be
 ;;; computed without reparsing source forms.
 (defclass clos-lambda-declaration-ir
-  (required optional rest keys allow-other-keys aux source))
+  (required optional rest key? keys allow-other-keys aux source))
 ;;; Required parameter IRs distinguish universal, class, prototype, and eql dispatch.
 (defclass clos-parameter-declaration-ir (variable kind target source))
 ;;; Optional parameter IRs preserve default and supplied-p ownership.
@@ -317,7 +317,7 @@
   (let item-loop
       ((rest (clos-syntax-list source "lambda list must be a proper list"))
        (phase 'required) (required '()) (optional '()) (rest-variable #f)
-       (keys '()) (allow-other? #f) (aux '()))
+       (keys '()) (key? #f) (allow-other? #f) (aux '()))
     (if (null? rest)
       (begin
         (clos-require-unique-identifiers
@@ -325,7 +325,7 @@
          'poo-clos-duplicate-lambda-variable source)
         (clos-lambda-declaration-ir
          required: (reverse required) optional: (reverse optional)
-         rest: rest-variable keys: (reverse keys)
+         rest: rest-variable key?: key? keys: (reverse keys)
          allow-other-keys: allow-other? aux: (reverse aux) source: source))
       (let (item (car rest))
         (cond
@@ -334,7 +334,7 @@
             (clos-syntax-error 'poo-clos-invalid-lambda-list-order
                                "&optional is out of order" item))
           (item-loop (cdr rest) 'optional required optional rest-variable
-                     keys allow-other? aux))
+                     keys key? allow-other? aux))
          ((clos-literal=? item #'&rest)
           (unless (and (memq phase '(required optional))
                        (pair? (cdr rest)))
@@ -344,25 +344,25 @@
                 (clos-identifier (cadr rest)
                                  "&rest requires an identifier"))
             (item-loop (cddr rest) 'post-rest required optional variable
-                       keys allow-other? aux)))
+                       keys key? allow-other? aux)))
          ((clos-literal=? item #'&key)
           (unless (memq phase '(required optional post-rest))
             (clos-syntax-error 'poo-clos-invalid-lambda-list-order
                                "&key is out of order" item))
           (item-loop (cdr rest) 'key required optional rest-variable
-                     keys allow-other? aux))
+                     keys #t allow-other? aux))
          ((clos-literal=? item #'&allow-other-keys)
           (unless (eq? phase 'key)
             (clos-syntax-error 'poo-clos-invalid-lambda-list-order
                                "&allow-other-keys requires &key" item))
           (item-loop (cdr rest) 'post-key required optional rest-variable
-                     keys #t aux))
+                     keys key? #t aux))
          ((clos-literal=? item #'&aux)
           (when (not specialized?)
             (clos-syntax-error 'poo-clos-invalid-generic-lambda-list
                                "generic lambda lists cannot contain &aux" item))
           (item-loop (cdr rest) 'aux required optional rest-variable
-                     keys allow-other? aux))
+                     keys key? allow-other? aux))
          ((eq? phase 'required)
           (let-values (((variable kind target)
                         (parse-required-parameter item specialized?)))
@@ -371,18 +371,18 @@
              (cons (clos-parameter-declaration-ir
                     variable: variable kind: kind target: target source: item)
                    required)
-             optional rest-variable keys allow-other? aux)))
+             optional rest-variable keys key? allow-other? aux)))
          ((eq? phase 'optional)
           (item-loop (cdr rest) phase required
                      (cons (parse-optional-parameter item (not specialized?))
                            optional)
-                     rest-variable keys allow-other? aux))
+                     rest-variable keys key? allow-other? aux))
          ((eq? phase 'key)
           (item-loop (cdr rest) phase required optional rest-variable
                      (cons (parse-key-parameter item (not specialized?)) keys)
-                     allow-other? aux))
+                     key? allow-other? aux))
          ((eq? phase 'aux)
-          (item-loop (cdr rest) phase required optional rest-variable keys
+          (item-loop (cdr rest) phase required optional rest-variable keys key?
                      allow-other? (cons (parse-aux-parameter item) aux)))
          (else
           (clos-syntax-error 'poo-clos-invalid-lambda-list-order

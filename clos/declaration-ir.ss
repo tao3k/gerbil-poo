@@ -58,7 +58,7 @@
         clos-method-group-declaration-ir-required
         clos-method-group-declaration-ir-description
         clos-lambda-declaration-ir-required clos-lambda-declaration-ir-optional
-        clos-lambda-declaration-ir-rest clos-lambda-declaration-ir-keys
+        clos-lambda-declaration-ir-rest clos-lambda-declaration-ir-key? clos-lambda-declaration-ir-keys
         clos-lambda-declaration-ir-allow-other-keys
         clos-lambda-declaration-ir-aux
         clos-parameter-declaration-ir-variable clos-parameter-declaration-ir-kind

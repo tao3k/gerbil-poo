@@ -8,7 +8,7 @@
 (import :clan/poo/object
         (only-in :clan/poo/mop element? .defgeneric)
         (only-in :std/hash/misc hash-ref/default)
-        (only-in :std/list/list iota)
+        (only-in :std/list/list iota map-in-order delete-duplicates/hash)
         "types.ss" "funcs.ss"
         (only-in :clan/poo/read-projection owned-read-value! owned-read-open!))
 
@@ -38,6 +38,8 @@
         make-synthetic-effective-method
         make-effective-method make-invocation-frame clos-call-carrier-policy-guard
         %prepare-effective-method)
+
+(extern namespace: clan/poo/object %with-slot-edit-protection %publish-slot-edits!)
 
 ;;; Cached owner-local prototype avoids repeated descriptor demand in constructors.
 ;; : POOObject
@@ -474,29 +476,31 @@
                documentation: documentation-value)
            'invalid-method-bundle))
 
-;;; Bundle composition delegates every method admission to the existing CLOS
-;;; generic owner.  It adds no second registry, ordering rule, or evaluator.
+;;; Check every bundle and build the replacement table before editing owners.
 ;; : (-> ClosGenericFunction ClosMethodBundle ClosGenericFunction)
 (def (poo-clos-compose-method-bundle generic-source bundle-value)
-  (let (generic-value (require-clos-generic generic-source))
-    (unless (element? ClosMethodBundle bundle-value)
-      (clos-fail 'invalid-method-bundle
-                 generic: (.ref generic-value 'identity)))
-    (unless (eq? (.ref generic-value 'protocol)
-                 (.ref bundle-value 'protocol))
-      (clos-fail 'method-bundle-protocol-mismatch
-                 generic: (.ref generic-value 'identity)))
-    (for-each (lambda (method-value)
-                (poo-clos-add-method generic-value method-value))
-              (.ref bundle-value 'methods))
-    generic-value))
+  (poo-clos-compose-method-bundles generic-source (list bundle-value)))
 
 ;; : (-> ClosGenericFunction [ClosMethodBundle] ClosGenericFunction)
 (def (poo-clos-compose-method-bundles generic-source bundle-values)
-  (foldl (lambda (bundle-value generic-value)
-           (poo-clos-compose-method-bundle generic-value bundle-value))
-         (require-clos-generic generic-source)
-         bundle-values))
+  (def generic (require-clos-generic generic-source))
+  (def edits
+    (%with-slot-edit-protection (list generic)
+      (lambda ()
+        (def methods
+          (apply append
+            (map-in-order
+              (lambda (bundle)
+                (unless (element? ClosMethodBundle bundle)
+                  (clos-fail 'invalid-method-bundle generic: (.ref generic 'identity)))
+                (unless (eq? (.ref generic 'protocol) (.ref bundle 'protocol))
+                  (clos-fail 'method-bundle-protocol-mismatch generic: (.ref generic 'identity)))
+                (.ref bundle 'methods))
+              bundle-values)))
+        (and (pair? methods)
+             (plan-bundle-edits generic methods)))))
+  (when edits (%publish-slot-edits! edits))
+  generic)
 
 ;; | ClosGenericFunction = POOObject
 ;; poo-clos-generic-function
@@ -580,23 +584,8 @@
        (same-specializers? (.ref left 'specializers)
                            (.ref right 'specializers))))
 
-;; | ClosGenericFunction = POOObject
-;; poo-clos-add-method
-;;   : (-> ClosGenericFunction ClosMethod ClosGenericFunction)
-;;   | contract: associates the method with exactly one generic function,
-;;     replaces an agreeing method, and preserves generic-function identity.
-;;   | doc m%
-;;   | # Examples
-;;   | ```scheme
-;;   | (poo-clos-add-method generic method)
-;;   | ```
-;;   | result: the same POO generic-function with generation + 1.
-;;; Removing an absent method is identity preserving; a real removal alone
-;;; advances the generation.
-;; : (-> ClosGenericFunction ClosMethod ClosGenericFunction)
-(def (poo-clos-add-method generic-value method-value)
-  (set! generic-value (require-clos-generic generic-value))
-  (set! method-value (require-clos-method method-value))
+;; : (-> ClosGenericFunction ClosMethod Unit)
+(def (admit-method! generic-value method-value)
   (unless (poo-clos-method-combination-admits-qualifier?
            (.ref generic-value 'method-combination)
            (.ref method-value 'qualifier))
@@ -618,16 +607,57 @@
                generic: (.ref generic-value 'identity)
                qualifier: (.ref method-value 'qualifier)
                method: (.ref method-value 'identity)))
-  (let ((owner (.ref method-value 'generic-function))
-        (replaced
-         (filter (lambda (existing)
-                   (method-agrees? method-value existing))
-                 (.ref generic-value 'methods))))
+  (let (owner (.ref method-value 'generic-function))
     (when (and owner (not (eq? owner generic-value)))
       (clos-fail 'method-owned-by-another-generic
                  generic: (.ref generic-value 'identity)
                  qualifier: (.ref method-value 'qualifier)
-                 method: (.ref method-value 'identity)))
+                 method: (.ref method-value 'identity)))))
+
+(def (plan-bundle-edits generic methods)
+  (def original (.ref generic 'methods))
+  (%with-slot-edit-protection (append original methods)
+    (lambda ()
+      (def replaced '())
+      (def installed
+        (foldl (lambda (method current)
+                 (admit-method! generic (require-clos-method method))
+                 (cons method
+                   (filter (lambda (old)
+                             (if (method-agrees? method old)
+                               (begin (set! replaced (cons old replaced)) #f)
+                               #t))
+                           current)))
+               original methods))
+      (def retained (make-hash-table-eq))
+      (for-each (lambda (method) (hash-put! retained method #t)) installed)
+      (cons (list generic (cons 'methods installed)
+                  (cons 'generation (+ (.ref generic 'generation) (length methods))))
+        (map (lambda (method)
+               (list method (cons 'generic-function
+                                  (and (hash-key? retained method) generic))))
+             (delete-duplicates/hash (append methods replaced)
+                                     table: (make-hash-table-eq)))))))
+
+;; | ClosGenericFunction = POOObject
+;; poo-clos-add-method
+;;   : (-> ClosGenericFunction ClosMethod ClosGenericFunction)
+;;   | contract: associates the method with exactly one generic function,
+;;     replaces an agreeing method, and preserves generic-function identity.
+;;   | doc m%
+;;   | # Examples
+;;   | ```scheme
+;;   | (poo-clos-add-method generic method)
+;;   | ```
+;;   | result: the same POO generic-function with generation + 1.
+(def (poo-clos-add-method generic-value method-value)
+  (set! generic-value (require-clos-generic generic-value))
+  (set! method-value (require-clos-method method-value))
+  (admit-method! generic-value method-value)
+  (let (replaced
+         (filter (lambda (existing)
+                   (method-agrees? method-value existing))
+                 (.ref generic-value 'methods)))
     (for-each (lambda (existing)
                 (unless (eq? existing method-value)
                   (.put! existing 'generic-function #f)))
@@ -641,6 +671,8 @@
     (.put! generic-value 'generation (+ 1 (.ref generic-value 'generation)))
     generic-value))
 
+;;; Removing an absent method is identity preserving; a real removal alone
+;;; advances the generation.
 ;; : (-> ClosGenericFunction ClosMethod ClosGenericFunction)
 (def (poo-clos-remove-method generic-value method-value)
   (set! generic-value (require-clos-generic generic-value))

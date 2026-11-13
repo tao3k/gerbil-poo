@@ -96,6 +96,6 @@
         poo-clos-generic-documentation
         poo-clos-generic-function-class poo-clos-generic-method-class
         poo-clos-mop-extended-profile poo-clos-mop-profile-admits?
-        .defclass .defgeneric .defmethod .defmethod-bundle
+        .defclass .defgeneric .defmethod .defmethod-bundle .generic-object
         .with-slots .with-accessors
         .define-method-combination)

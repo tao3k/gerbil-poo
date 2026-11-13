@@ -173,12 +173,34 @@
   (protocol syntax-protocol)
   (method ((object (prototype SyntaxPrototype.))) 'protocol-inline))
 
+(.defgeneric empty-generic-key (value &rest tail &key))
+(.defmethod (empty-generic-key value &rest tail) tail)
+(.defmethod (empty-generic-key (value (eql 'known)) &key ((known: key))) key)
+(.defgeneric empty-method-key (value &rest tail))
+(.defmethod (empty-method-key value &rest tail &key) tail)
+(.defgeneric empty-key-miss (value &key))
+(.defmethod (empty-key-miss (value (eql 'match)) &key) value)
+
 (def poo-clos-syntax-test
   (test-suite "hygienic POO CLOS declarations"
+    (test-case "empty key markers survive generic and method lowering"
+      (check-equal? (empty-generic-key 'probe) '())
+      (check-equal? (empty-generic-key 'known known: #f) #f)
+      (check-equal? (empty-method-key 'probe allow-other-keys: #t unknown: 1)
+                    '(allow-other-keys: #t unknown: 1))
+      (check-exception (empty-generic-key 'probe unknown: 1)
+                       (failure-code? 'invalid-keyword-argument))
+      (check-exception (empty-method-key 'probe unknown: 1)
+                       (failure-code? 'invalid-keyword-argument))
+      (check-exception (poo-clos-call (.generic-object empty-generic-key) 'probe 'odd)
+                       (failure-code? 'malformed-keyword-arguments))
+      (check-exception (empty-key-miss 'probe unknown: 1)
+                       (failure-code? 'no-applicable-method)))
     (test-case "generic protocol identity reaches inline method admission"
-      (check (eq? (.ref (poo-clos-generic-binding-current
-                         protocol-inline$poo-clos-generic) 'protocol)
+      (check (eq? (.ref (.generic-object protocol-inline) 'protocol)
                   syntax-protocol) => #t)
+      (check-equal? (poo-clos-generic-name (.generic-object (setf explicit-name)))
+                    '(setf explicit-name))
       (check-equal? (protocol-inline (.o (:: @ SyntaxChildPrototype.)))
                     'protocol-inline))
     (test-case "protocol clauses reject duplicates and malformed arity"
