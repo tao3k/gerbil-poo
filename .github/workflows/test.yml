@@ -17,9 +17,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
-      # The shared make graph retains compiler jobs and their continuations.
-      # Bound concurrent backends on CI as on the local Darwin build.
-      GERBIL_BUILD_CORES: '2'
+      # One worker uses the synchronous compiler path in std/make.
+      # The asynchronous shared build failed with a worker stack overflow.
+      GERBIL_BUILD_CORES: '1'
     outputs:
       matrix: ${{ steps.groups.outputs.matrix }}
       compiler-key: ${{ steps.gerbil.outputs.compiler-key }}
