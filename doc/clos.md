@@ -122,6 +122,9 @@ uses the existing fixed checkpoint. A replay callback still gets immediate
 validation of each record and a fresh return sweep.
 [LeanPoo replay proof](https://github.com/tao3k/lean-poo/blob/55387de58a13ea89bf4143852687f463c94a2c79/LeanPoo/Object/ReadRouteRuns.lean)
 
+[LeanPoo call-local validation model](https://github.com/tao3k/lean-poo/blob/25871efd66df0bee63ea7d6fe0d9d89c4d9ff5b3/LeanPoo/Object/ClosAdmission.lean#L136-L292)
+defines the conditions for reusing a checked descriptor within one call.
+
 The [method suites](../t/methods/) run through the standard test build. The
 [clause ledger](../t/methods/clause-ledger.ss) maps the 41 CLHS §7.7 entries
 to their conformance suites. The migrated sources retain their Apache-2.0
