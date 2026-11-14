@@ -9,7 +9,8 @@
                  test-suite test-case check-equal? check-exception check)
         :std/error
         (only-in :clan/poo/object .o .ref .put! .all-slots object-slots $constant-slot-spec $constant-slot-spec?
-                 .putslot! object-slots-set! object-protocol-set! replay-slot-reads! object-read-issued?)
+                 .putslot! object-slots-set! object-supers-set! object-protocol-set!
+                 replay-slot-reads! object-read-issued?)
         (only-in :clan/poo/mop Type. element?)
         (only-in :std/list/list foldl)
         (only-in :clan/poo/slot-observation call-with-slot-read-observer
@@ -361,6 +362,35 @@
                         qualifier: (.ref method 'qualifier)
                         lambda-list: (.ref method 'lambda-list))))))))))
 
+    (test-case "wide prototype ranking follows replacement and parent invalidation"
+      (def root (.o))
+      (def parent (.o (:: @ root)))
+      (def argument (.o (:: @ parent)))
+      (def generic (poo-clos-generic-function 'wide-index 1))
+      (for-each
+        (lambda (ordinal)
+          (poo-clos-add-method generic
+            (primary-method 'unrelated (list (poo-clos-prototype-specializer (.o))) ordinal)))
+        '(0 1 2 3 4 5 6 7))
+      (def fallback (primary-method 'root (list (poo-clos-prototype-specializer root)) 'root))
+      (def primary (primary-method 'parent (list (poo-clos-prototype-specializer parent)) 'parent))
+      (poo-clos-add-method generic fallback)
+      (poo-clos-add-method generic primary)
+      (def (applicable)
+        (map (cut .ref <> 'identity) (poo-clos-compute-applicable-methods generic argument)))
+      (check-equal? (applicable) '(parent root))
+      (check-equal? (applicable) '(parent root))
+      (def reads 0)
+      (check-equal? (call-with-slot-read-observer
+                       (lambda (_) (set! reads (1+ reads))) applicable)
+                    '(parent root))
+      (check-equal? (> reads 0) #t)
+      (poo-clos-add-method generic
+        (primary-method 'new-parent (list (poo-clos-prototype-specializer parent)) 'new-parent))
+      (check-equal? (applicable) '(new-parent root))
+      (object-supers-set! parent '())
+      (check-equal? (applicable) '(new-parent))
+      (check-equal? (applicable) '(new-parent)))
     (test-case "runtime prototypes cannot masquerade as CLOS classes"
       (check-exception
        (poo-clos-class-specializer animal-class)

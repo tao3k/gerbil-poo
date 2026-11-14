@@ -115,6 +115,11 @@ carriers. An observer that can receive those reads or a callback that can
 change the carrier policy takes the ordinary path. Public carrier calls and
 calls with replacement arguments also retain their independent admission.
 
+The [LeanPoo indexed rank model](https://github.com/tao3k/lean-poo/blob/4fb891761b655abab1987bf655453510ba47b2ee/LeanPoo/Object/ClosAdmission.lean#L409) preserves the ordered scan when an index replaces only a pure rank lookup.
+Candidate buckets additionally need a proof that an excluded method cannot
+deliver a read or cause a failure. Matching a generic generation alone does
+not certify the argument's live C4 order.
+
 It forwards the original signed reads to the enclosing observation frame and
 checks the boundary before dispatching an open hook. Issuance and replay stay
 with the existing Slot implementation. Replay with the exact runtime `void`
