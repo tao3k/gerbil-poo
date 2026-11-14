@@ -7,7 +7,7 @@
         (only-in ./validation-rebinding rebind-validation finish-validation)
         (only-in ./value-diagnostics diagnose-structure diagnose-value))
 
-(extern namespace: clan/poo/object %prepared-slot-present?)
+(extern namespace: clan/poo/object %prepared-slot-present? %prepared-vector-slot-ref)
 
 ;; Query POO's prepared method table. Cold and bootstrap receivers, observed
 ;; checks and unknown table adapters use the ordinary reflective path.
@@ -24,10 +24,22 @@
       (let (value (.ref receiver key)) present)
       absent)))
 
-;; Keep declaration order, short-circuit, and return a Boolean like andmap.
-(defrule (required-slots? candidate (name predicate) ...)
+;; Probe only already stored metadata. Callers use the ordinary demand path
+;; when this check declines, and carry their own semantic read evidence.
+(defrule (with-stored-slot (value candidate name) present absent)
+  (let (value (%prepared-vector-slot-ref candidate name))
+    (if (eq? value absent-value) absent present)))
+
+;; Both checks keep field order, short-circuit and return a Boolean.
+(defrule (check-required-slots with-slot candidate (name predicate) ...)
   (let (receiver candidate)
-    (and (with-present-slot (value receiver 'name) (predicate value) #f) ... #t)))
+    (and (with-slot (value receiver 'name) (predicate value) #f) ... #t)))
+
+(defrules required-slots? ()
+  ((_ candidate stored: fields ...)
+   (check-required-slots with-stored-slot candidate fields ...))
+  ((_ candidate fields ...)
+   (check-required-slots with-present-slot candidate fields ...)))
 
 ;; A standard Slot checks required/optional presence and constants before its
 ;; declared child Type. Missing optional fields never demand their child Type.

@@ -12,7 +12,7 @@
                     require-current-read-sweep! %pure-read-sweep?
                     record-key-field record-dependencies-field record-value-field
                     slot-spec-discards-super? compile-slot-specs prepare-declaration-specifications compute-object-precedence!
-                    %prepared-vector-slots? %bind-current-slot-reads %prepared-slot-present?
+                    %prepared-vector-slot-ref %bind-current-slot-reads %prepared-slot-present?
                     %with-slot-edit-protection %publish-slot-edits!) @object? @make-object)
 
 (import
@@ -243,9 +243,7 @@
   ;; Default warm queries need neither traversal state nor a second admission.
   ;; Explicit diagnostic heads retain their original preparation and error order.
   (or (and (null? heads) (object-%precedence-list self)) (let ()
-      ;; Same eq? table as Gerbil's (make-hash-table-eq), with the keyword
-      ;; passed directly to its constructor instead of forwarding via apply.
-      (def active (make-hash-table test: eq?))
+      (def active (make-hash-table-eq))
       (for-each (lambda (head) (hash-put! active head #t)) heads)
       (let compute ((object self) (heads heads))
         (cond
@@ -292,8 +290,9 @@
 ;; Incremental scratch visibility remains local to each catalog; nothing pending
 ;; escapes or survives a failed build. Direct specifications still override declarations.
 (def (compute-slot-funs! self)
-  ;; The component builder supplies a fixed hash seed during checked graph
-  ;; preparation. Outside that scope Gerbil draws its normal random seed.
+  ;; support/base.ss binds seed 0 for private graph tables so preparation does
+  ;; not consume the application's random sequence. The default #f lets Gerbil
+  ;; draw its usual seed. Component callbacks run with that default.
   (def h (make-hash-table test: eq? hash: symbolic-hash seed: (%graph-table-seed)))
   (def prepared (map-in-order (lambda (super) (cons super (prepare-declaration-specifications super)))
                              (reverse (object-%precedence-list self))))
@@ -444,20 +443,17 @@
                   (unless (slot-cache-hit? cache self revision layout)
                     (slot-cache-bind! cache self revision layout
                       (if same-shape? index (slot-layout-index layout slot)))) value)))))))))
-;; Check stored values against a nonempty list of (symbol . pure predicate)
-;; requirements. This probe neither forces slots nor issues semantic reads.
-(def (%prepared-vector-slots? self requirements)
-  (and (object? self)
-       (let (instance (object-%instance self))
-         (and instance (not (object-protocol self)) (slot-values-layout instance)
-              (with-catch (lambda (_) #f)
-                (lambda ()
-                  (require-read-route! (caar requirements) #f instance)
-                  (andmap (lambda (requirement)
-                            (let (value (hash-ref instance (car requirement) absent-value))
-                              (and (not (eq? value absent-value))
-                                   ((cdr requirement) value))))
-                          requirements)))))))
+;; Read an already stored vector cell through the stock HashTable route.
+;; A cold cell or an unsupported table returns absent-value. A stored #f
+;; remains a value. This probe does not instantiate, demand, or issue a read.
+(def (%prepared-vector-slot-ref self slot)
+  (let (instance (and (object? self) (object-%instance self)))
+    (if (and instance (not (object-protocol self)) (slot-values-layout instance))
+      (with-catch (lambda (_) absent-value)
+        (lambda ()
+          (require-read-route! slot #f instance)
+          (hash-ref instance slot absent-value)))
+      absent-value)))
 
 ;; Get an existing cached slot value from an object
 (def (.ref/cached self (slot :~ symbol?) (default false))
