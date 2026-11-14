@@ -5,7 +5,7 @@
 ;; Inspecting a report never constructs a service, contract or publication family.
 ;; Exact source identities cover the producer and this admission definition.
 (def sources '("contract-family.ss" "build.ss" "dependency-analysis.ss" "generalized-graph.ss" "construction-cache.ss" "declarative-metadata.ss" "generic-family.ss" "staged-publication.ss" "cyclic-publication.ss" "dispatch-extension.ss" "multimethod.ss"
-               "closure.ss" "object.ss" "object/observation.scm" "slot-observation.ss" "mop.ss" "type.ss" "number.ss" "justfile"
+               "closure.ss" "object.ss" "object/observation.ss" "slot-observation.ss" "mop.ss" "type.ss" "number.ss" "justfile"
                "examples/shared-contracts.ss" "examples/construction-workflow.ss" "examples/service-metadata.ss" "examples/service-bundle.ss" "examples/protected-dispatch.ss" "examples/cyclic-access.ss"
                "benchmarks/closure-measure.ss" "benchmarks/metadata-benchmark.ss" "benchmarks/metadata-report.ss"))
 ;; Preserve the established ordered matrix, including refusal and full workflows.

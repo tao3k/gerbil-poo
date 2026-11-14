@@ -334,13 +334,18 @@
                             (eq? (hash-ref store first absent) #f))
                  (error "Slot index refill"))
                (verify snapshot keys))))))))
-  ;; Resolve the same names and one same-spelling miss on independent layouts.
-  ;; Serial order establishes the positional oracle without using either lookup.
+  ;; Fix the hash order and allocate serials in reverse. Only the first two
+  ;; keys collide, so the expected order swaps that pair and keeps the rest.
+  ;; Neither lookup defines the oracle.
   (def (offset-action guarded?)
-    (def keys (names))
-    (for-each object->serial-number keys)
+    (def keys
+      (for/collect (i (in-range width))
+        (string->uninterned-symbol (number->string i) (if (= i 1) 0 i))))
+    (def miss (string->uninterned-symbol "0" 0))
+    (for-each object->serial-number (reverse keys))
     (let* ((layout (make-slot-layout keys #f missing))
-           (names (append keys (list sibling)))
+           (ordered (cons (cadr keys) (cons (car keys) (cddr keys))))
+           (names (append ordered (list miss)))
            (targets (if guarded? (map make-slot-cache names) names))
            (resolve (if guarded? (cut slot-cache-index <> layout)
                       (cut slot-layout-index layout <>))))

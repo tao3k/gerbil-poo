@@ -1,9 +1,45 @@
 ;;; Recursive Class validation through its current effective Slot protocols.
-(export class-diagnostics class-shape class-slot-shape class-slot-validate class-validation-fields validate-class)
-(import (only-in :std/list/list append-map filter-map)
+(export class-diagnostics class-shape class-slot-shape class-slot-validate class-validation-fields validate-class
+        with-present-slot required-slots?)
+(import (only-in :std/list/list filter-map)
         (only-in ./object .o .slot? .get .ref .call .all-slots object?)
+        (only-in ./slot-observation %slot-read-active?)
         (only-in ./validation-rebinding rebind-validation finish-validation)
         (only-in ./value-diagnostics diagnose-structure diagnose-value))
+
+(extern namespace: clan/poo/object %prepared-slot-present? %prepared-vector-slot-ref)
+
+;; Query POO's prepared method table. Cold and bootstrap receivers, observed
+;; checks and unknown table adapters use the ordinary reflective path.
+(def (%prepared-local-slot? receiver key)
+  (and (symbol? key)
+       (not (%slot-read-active?))
+       (%prepared-slot-present? receiver key)))
+
+;; Default Slot membership and fixed field contracts share ordinary POO reads.
+;; Prepared local presence can use the existing Slot index when unobserved.
+(defrule (with-present-slot (value candidate name) present absent)
+  (let ((receiver candidate) (key name))
+    (if (or (%prepared-local-slot? receiver key) (.slot? receiver key))
+      (let (value (.ref receiver key)) present)
+      absent)))
+
+;; Probe only already stored metadata. Callers use the ordinary demand path
+;; when this check declines, and carry their own semantic read evidence.
+(defrule (with-stored-slot (value candidate name) present absent)
+  (let (value (%prepared-vector-slot-ref candidate name))
+    (if (eq? value absent-value) absent present)))
+
+;; Both checks keep field order, short-circuit and return a Boolean.
+(defrule (check-required-slots with-slot candidate (name predicate) ...)
+  (let (receiver candidate)
+    (and (with-slot (value receiver 'name) (predicate value) #f) ... #t)))
+
+(defrules required-slots? ()
+  ((_ candidate stored: fields ...)
+   (check-required-slots with-stored-slot candidate fields ...))
+  ((_ candidate fields ...)
+   (check-required-slots with-present-slot candidate fields ...)))
 
 ;; A standard Slot checks required/optional presence and constants before its
 ;; declared child Type. Missing optional fields never demand their child Type.
@@ -37,9 +73,17 @@
           (filter-map (lambda (name) (and (not (memq name names))
                          (.o kind: 'unknown-field path: (append location (list name)))))
                       (.all-slots candidate)) '())
-        (append-map (lambda (name)
-                      (def slot (.ref slots name))
-                      (.call (.get slot .type) .slot.shape slot name candidate location check-field)) names)))))
+        ;; Keep append-map's callback order and final fold, but allocate its
+        ;; immutable group spine only for non-empty results. A mutable builder
+        ;; would share that spine across captured continuation re-entry.
+        (let collect ((remaining names) (groups '()))
+          (if (pair? remaining)
+            (let* ((name (car remaining))
+                   (rest (cdr remaining))
+                   (slot (.ref slots name))
+                   (group (.call (.get slot .type) .slot.shape slot name candidate location check-field)))
+              (collect rest (if (null? group) groups (cons group groups))))
+            (foldl (lambda (group result) (foldl cons result group)) remaining groups)))))))
 
 ;; Full diagnostics retain custom Class membership and Slot checker refusals.
 ;; Structural traversal alone remains available for wrapping nested refinements.

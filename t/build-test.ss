@@ -11,7 +11,7 @@
         (only-in :std/encoding/json string->json JSONReadOptions) (only-in :std/list/list delete-duplicates/hash take drop) (only-in "build.ss" test-build-spec test-build-partitions call-with-build-jobs))
 
 ;; Preserve the declaration/input projection independently of backend flags;
-;; a separate assertion checks one shared compiler option for every root.
+;; a separate assertion checks each root has one tracked compiler policy.
 (def (build-inputs specs) (map (cut take <> 3) specs))
 
 (include "../testing/property/build.scm")
@@ -81,8 +81,8 @@
     (test-case "standard build metadata exclude progress output"
       ;; Consume one datum from the generated build protocol; never evaluate it
       ;; or reconstruct the compiler's dependency graph.
-      (def (metadata entry command)
-        (call-with-input-string (with-output-to-string (cut entry command))
+      (def (metadata entry . commands)
+        (call-with-input-string (with-output-to-string (lambda () (apply entry commands)))
           (lambda (port)
             (def value (read port))
             (check (eof-object? (read port)) => #t)
@@ -95,6 +95,27 @@
         (list root.main development.main))
       (def core (metadata root.main "spec"))
       (def development (metadata development.main "spec"))
+      (def graph-study (metadata development.main "graph" "spec"))
+      ;; The focused study retains the entire core/compiler policy, and selects
+      ;; only these declared study inputs. It never builds a representation exe.
+      (check-equal? (take graph-study (length core)) core)
+      (check-equal? (executables graph-study) '())
+      (check-equal? (map cadr (drop graph-study (length core)))
+        '("examples/object-contracts" "examples/contract-publication"
+          "examples/recursive-validation" "examples/recursive-revision"
+          "examples/recursive-migration" "examples/recursive-topology"
+          "examples/recursive-staging" "examples/recursive-restaging"
+          "examples/recursive-publication" "examples/recursive-approvals"
+          "examples/recursive-competition" "examples/recursive-submissions"
+          "examples/recursive-recovery" "examples/recursive-coordination"
+          "examples/closed-declarations" "examples/component-services"
+          "examples/service-revisions" "examples/component-membership"
+          "examples/component-migration" "examples/component-rounds" "examples/component-requests"
+          "benchmarks/closure-measure" "benchmarks/dense-repair-test" "benchmarks/ordered-scc-study"
+          "t/feedback/graph-algorithms-test"
+          "t/feedback/feedback-graph-test" "t/components/component-membership-test"
+          "t/construction/graph-order-repair-test"
+          "t/contracts/recursive-approvals-test" "t/contracts/recursive-validation-test"))
       (check (list? core) => #t)
       (check (list? development) => #t)
       (check-equal? (executables core) '())
@@ -129,13 +150,20 @@
         (check (build-inputs (test-build-spec "recovery")) =>
           '((gxc: "coordinator-interleaving-test" (extra-inputs: ("../build.ss")))))
         (check (length parts) => 4)
-        (check (length all) => 68)
-        ;; Retain the 62 original roots plus the byte-I/O and FUN acceptance roots.
-        (check (length (filter (lambda (spec) (string-suffix? "-test" (cadr spec))) all)) => 64)
+        (check (length all) => 85)
+        ;; Original roots, byte-I/O, FUN and the two Graph acceptance roots.
+        (check (length (filter (lambda (spec) (string-suffix? "-test" (cadr spec))) all)) => 80)
+        (for (name '("construction/graph-order-repair-test" "feedback/graph-algorithms-test"
+                     "objects/class-diagnostics-test" "objects/shape-admission-test"))
+          (check (and (member name (map cadr all)) #t) => #t))
         ;; Grouping cannot leave any root unbounded or duplicate its policy.
         (for (spec all)
+          (check-equal? (length (filter (cut equal? <> "-cc-options") (drop spec 3))) 1)
           (check-equal? (drop spec 3)
-            '("-cc-options" "-Og -D___SINGLE_HOST_LIMIT=4096")))
+            (if (member (cadr spec)
+                  '("feedback/graph-algorithms-test" "construction/graph-order-repair-test"))
+              '("-cc-options" "-O2 -D___SINGLE_HOST_LIMIT=4096")
+              '("-cc-options" "-Og -D___SINGLE_HOST_LIMIT=4096"))))
         (check (length groups) => 25)
         (check (length (delete-duplicates/hash groups)) => (length groups))
         (check (apply + (map (lambda (group) (length (test-build-spec group))) groups)) => (length all))))

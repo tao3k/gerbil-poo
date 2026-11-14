@@ -2,7 +2,8 @@
 (export Protocol. Prepared? prepare prepare-inheritance prepared-protocol prepared-fragments
         lens-compiler focus-compiler focus-protocol prepare-focused prepare-focused-inheritance sum-compiler reindex-self cook-fields bind-observer bind-context-observer
         assemble step approximate observe observation-action)
-(import (only-in :std/list/list foldr delete-duplicates/hash) ./object (only-in ./mop define-type))
+(import (only-in :std/list/list foldr delete-duplicates/hash) ./object (only-in ./mop define-type)
+        (only-in ./support/base %graph-table-seed %with-application-table-seeds))
 ;; Public immutable-in-practice descriptor: compile returns (delayed self, delayed
 ;; raw parent) -> raw. Cook is the sole raw -> public interface boundary.
 (define-type (Protocol. @ [] cook compile))
@@ -15,10 +16,16 @@
 ;; Appendix B lens-gen, matching Lean lensCompiler: getter remains delayed until
 ;; the wrapper needs inherited data; setter receives replacement then original raw.
 (def (lens-compiler getter setter wrapper)
-  (lambda (fragment)
-    (lambda (self parent)
-      (def raw (parent))
-      (setter (wrapper fragment self (lambda () (getter raw))) raw))))
+  (if (%graph-table-seed)
+    (lambda (fragment)
+      (lambda (self parent)
+        (def raw (parent))
+        (%with-application-table-seeds
+          (lambda () (setter (wrapper fragment self (lambda () (getter raw))) raw)))))
+    (lambda (fragment)
+      (lambda (self parent)
+        (def raw (parent))
+        (setter (wrapper fragment self (lambda () (getter raw))) raw)))))
 ;; Adapt the existing Gerbil Lens protocol, including nested Lens.compose, without
 ;; introducing a second lens representation or redoing method lookup per fragment.
 (def (focus-compiler lens wrapper)

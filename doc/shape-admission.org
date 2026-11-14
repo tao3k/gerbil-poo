@@ -1,0 +1,234 @@
+#+title: Cold POO preparation and shared-shape admission
+#+language: en
+
+* Current path and measured boundary
+
+Gerbil 1cfb032 already returns the head directly for zero parent lists in
+=gerbil/runtime/c3.ss=. Do not replace the POO outer cycle/construction/hook
+protocol on the assumption that C4 itself scans a large Graph in this case.
+
+=slot-layout.ss= owns one weak =shapes= index. The former no-hint path always
+built a symbolic deduplication table before querying it. The guarded scalar
+path now avoids that scratch table on an existing-index hit. General requests
+and unrecognized routes retain ordinary admission. Cells remain receiver-local.
+
+The optional [[file:../benchmarks/cold-preparation-test.ss][Scheme study]] is absent from the default build and CI. It uses the
+existing native compiler, measurement helper and heap-fenced Just test runner;
+it adds no runner, production API, loader or cache. Compile after the ordinary
+Core/closure-measure preparation, with the same host compiler environment:
+
+#+begin_src sh
+GERBIL_PATH="$PWD/.build/package" GERBIL_LOADPATH="$PWD/.build/package/lib" \
+GAMBOPT=max-heap=2G,debug=q \
+gxc -:max-heap=2G,debug=q -O -cc-options -O2 benchmarks/cold-preparation-test.ss
+just test-file "$PWD/.build/package/lib/clan/poo/benchmarks/cold-preparation-test.ssi"
+#+end_src
+
+On macOS, use the compiler environment already specified by Just's
+=platform-env=. The observed runtime is Gerbil 1cfb032 / Gambit ea114fc.
+Native execution passes both cases, Module/Harness/final OK and natural exit
+zero: 3.10 s wall, 1.84 s user, 0.31 s system. Preparation is separate.
+
+The root case uses actual mutable receiver parent fields, not a literal empty
+input that the compiler can fold away. Two balanced blocks retain all four
+samples per arm. At 65536 operations/sample, CPU medians are 2.370 ms for
+the runtime root case and 0.8725 ms for its direct-result control. All have
+zero GC. This isolates only the pure call; it does not measure the POO wrapper,
+authorize skipping its effects, or establish a complete EVAL speedup.
+
+The shape case retains one layout anchor to guarantee existing-index hits.
+Only metadata is shared; each full/cells construction owns fresh empty cells.
+The intern/cells subphases are diagnostics on preadmitted constant keys, not
+alternate public construction entrypoints. Sixteen interleaved windows retain
+all four samples per phase. Per 16384 operations:
+
+| Phase | CPU median ms | Samples with GC | Bytes/op in zero-GC samples, approximately |
+|-------+---------------+-----------------+-------------------------------------------|
+| Full layout | 25.7045 | 2/4 | 4880 |
+| Shape admission + hit | 33.7930 | 3/4 | 4720 |
+| Existing intern hit | 0.8275 | 0/4 | 64 |
+| Receiver-local cells | 0.0775 | 0/4 | 160 |
+
+GC phase differs between windows. Do not subtract/add these medians or discard
+GC samples. Cross-GC byte deltas remain unqualified, with raw inputs retained
+locally. The allocation contrast identifies an investigation target; it does
+not prove that all scratch work is removable, or transfer to Core 10K EVAL.
+
+* Admission contract
+
+[[https://github.com/tao3k/lean-poo/blob/bbba642946c7ef98c98eee52387013e9da2fd171/LeanPoo/Proof/Gerbil/ShapeAdmission.lean][Lean]] proves =scalar_selection_exact=: empty and singleton key preparation
+preserve symbol identity and invalid-key position. The reference follows the
+actual Gerbil =delete-duplicates/hash= default: reverse traversal, last copies
+retained, and RIGHTMOST invalid original position refused first. Multi-key
+input, including duplicates, deliberately falls back. Canonical sorting stays
+in the existing post-admission path; scalar lists need no ordering change.
+
+=guarded_exact= preserves results, errors and semantic state for arbitrary
+admission and publication actions, PROVIDED the selected route establishes
+scratch purity. =unsupported_fallback= retains the complete original path.
+The stateful counterexample proves that a shape hit alone cannot justify
+omitting a scratch adapter. These are guarded model laws, not proof that
+Gerbil's current adapters meet the premise. Lean 4.35.0 checks them using
+standard axioms (propext, Quot.sound and Classical.choice for HashMap reasoning);
+no sorry axiom is admitted. Reproduce with
+=lake env lean LeanPoo/Proof/Gerbil/ShapeAdmission.lean=.
+
+Native constructor audit adds a necessary effect: =make-hash-table-symbolic=
+calls =random-integer (macro-max-fixnum32)= for its default seed. Removing the
+constructor can change the subsequent random stream even with default method
+routes. The whole constructor must NOT be assumed pure. =seed_effect_preserved=
+models separating that effect once, before key admission, from an otherwise
+closed allocation interval. The same captured seed must reach miss construction;
+generating another seed there is not equivalent. The existing =seed:= argument
+and public Gerbil primitives are the relevant mechanisms, not a second RNG.
+The pointwise =seededGuarded_exact= law admits routes AFTER the necessary
+effect. A counterexample changes the route during that effect: retaining a
+previous true guard loses the constructor callback, while fresh admission
+falls back and preserves it. An arbitrary effect cannot carry a guard verdict.
+=framed_seed_guard_shared= separately proves sharing across a primitive that
+preserves route metadata and caller spines. The native fixed Gambit RNG meets
+that premise in the supported serial runtime; an author callback does not.
+=scalar_index_exact= proves the default HashMap offset, including zero.
+The route model selects the current prototype descriptor entry rather than
+assuming that an earlier cached adapter remains unchanged. These are model
+laws; native conformance remains an independently tested implementation claim.
+
+[[file:shape-admission.sysml][SysML]] records the same implementation obligations:
+
+- Authenticate the actual existing interner and future scratch/constructor
+  routes. Keep the original path if callback freedom cannot be established.
+  A shape, successful value or unchanged revision is not such authentication.
+- Keep the native seed effect and its ordering, including invalid requests and
+  index hits. A guard may span only the proven metadata-preserving native RNG.
+  Revalidate across arbitrary effects; never consume a miss seed twice.
+- Retain all independent checks around author callbacks and source effects.
+  This optimization must stay inside the already closed metadata interval.
+- Own the canonical cache key AND shape name spines. Storing a caller-owned
+  mutable list as a weak-index key is forbidden, including on a singleton miss.
+- Construct fresh receiver cells through the existing layout path. Never reuse
+  a layout/value, return a cached scope, or treat a shape hit as currentness.
+- Match failure/effect controls, identity and mutation tests, natural cold/warm
+  constructor samples and complete EVAL before adoption.
+
+* Scheme refinement
+
+The private guard reads Gerbil's existing interface prototype cache, physical
+slot map and current interner backend configuration. It neither creates an
+adapter nor retains the old backend. A cold adapter, changed method or unknown
+layout uses the complete ordinary constructor; Gerbil owns adapter creation.
+The native seed is drawn once before symbol admission. A miss passes it through
+the existing =seed:= constructor option. Singleton input is copied before
+interning, so caller mutation cannot edit the canonical key. Every receiver
+still gets fresh cells. This is a closed metadata optimization, with no change
+to issued reads, publication/currentness checks or author callback boundaries.
+
+The ten native =objects/shape-admission-test= cases pass through the heap-fenced
+Just runner. They cover active and cold adapter routes, seed progression on
+empty/hit/miss/error, zero seed, symbol identity, caller-spine ownership, fresh
+cells, reverse refusal order, custom methods, callbacks changing future methods
+and moved physical slot metadata. A failed compile/import is not a passed fault
+control. The build declaration uses std/make's =include-gambit-sharp= for the
+Gambit table macros; default build targets remain core-only.
+
+The optional =scalar-layout-paired-test= compares the frozen former public
+constructor and the selected constructor in balanced ABBA/BAAB windows. Both
+retain contracts, keyword entry, fresh receiver cells and identical checks.
+Hits keep one metadata anchor alive; misses use independent uninterned names
+for each arm. Enumeration is timed separately. All GC samples remain reported;
+unqualified allocation deltas are not converted into allocation claims.
+This microbenchmark does not establish complete Yuanxu 10K EVAL acceptance.
+Existing Graph/publication proofs and QNT transitions are unchanged.
+
+The standard native objects group passes 171 cases (including these ten and
+issued-read/callback controls); the existing Graph suite passes 19 cases,
+including its generated properties and bounded 10000-owner families. Both
+have Module/Harness/final OK and natural exit, without error/overflow markers.
+These focused checks are distinct from the full PR matrix and Core acceptance.
+
+* Paired native candidate result
+
+Same Gerbil/Gambit host, balanced four windows per arm, natural GC retained:
+
+| Regime | Operations/window | Former CPU median ms | Selected CPU median ms |
+|--------+-------------------+----------------------+------------------------|
+| Anchored scalar hit | 16384 | 34.363 | 5.0685 |
+| Independent scalar miss | 1024 | 1.3745 | 1.5300 |
+
+Hit allocation in zero-GC windows drops from approximately 4896 to 288 bytes
+per receiver. Three former hit windows collect; all selected hit windows have
+zero GC. Misses remain full native index construction and are approximately
+11% slower in this small batch: the guard and copied key are additional work.
+This is an optimization for repeated scalar shapes, not a cold miss speed claim.
+The complete optional study exits naturally with Module/Harness/final OK
+(3.14 s wall). Source enumeration is separate in every reported window.
+
+The initial conditional keyword-procedure alias was NOT a valid comparison:
+the optimized Scheme emitted only the selected constructor call in both arms.
+The final study uses two direct call sites, and generated Scheme was checked
+for both =ordinary-layout__%= and =make-slot-layout__%= branches. The invalid
+comparison is retained only in local evidence, never included in these medians.
+
+* Complete cold-path follow-up
+
+At =18e3aad= the unchanged =cold-handoff-test= passes its 100K/1M ABBA,
+author-call counts, ownership lifetime control and full output checks. The 1M
+projected CPU samples are 14.815087 and 14.372015 seconds; the retained samples
+are 16.659267 and 15.151716 seconds. The command exits naturally with final OK
+(88.07 s wall, 74.09 s user). This still includes one author-created POO leaf
+per owner. It is not the SCC discovery kernel and is not a Module EVAL test.
+The earlier revision's measurements are historical, not a paired comparison
+against this revision. No total speedup is inferred from that comparison.
+
+The optional study now also separates complete public root precedence from
+lexical =.o reads:= construction and first/repeated =.get=. Each cold window
+has 4096 fresh receivers; warm demand uses exactly those receivers. No business
+scope, value or precedence is warmed before the cold request. Four windows per
+phase, natural GC retained, before adding the endpoint observer:
+
+| Boundary | CPU median ms | Windows with GC |
+|----------+---------------+-----------------|
+| Lexical leaf construction | 1.0015 | 0/4 |
+| First leaf .get | 43.2615 | 3/4 |
+| Repeated leaf .get | 1.2035 | 0/4 |
+| Complete cold root precedence | 3.0665 | 1/4 |
+
+Inputs are prepared before these windows; these are phase diagnostics, not an
+additive decomposition of a complete Graph request. The GC-free first-demand
+sample is 20.586 ms. Cold root precedence contains the existing cycle hash and
+hooks; the native pure C4 base case alone is a different, much smaller boundary.
+These measurements do not justify skipping hooks or independently required
+read issuance/return checks, or attributing all cold cost to Graph search.
+
+Some zero-GC cold windows still have negative raw allocation. The optional
+endpoint observer records native indices 6 (collections), 7 (allocation total)
+and 9 (statistics-object space), after timing. It is not a POO source observer.
+On this host index 7 itself decreases without a collection, while index 9
+remains 208. Do not treat those windows as byte counts or blame GC alone.
+The formula matches the native compiled-thunk formula in Gambit ea114fc
+[[https://github.com/gambit/gambit/blob/ea114fc/lib/_repl.scm#L5278][_repl.scm]];
+[[https://github.com/gambit/gambit/blob/ea114fc/lib/_kernel.scm#L3999][_kernel.scm]] defines the endpoint layout. The observation does not establish
+the native runtime cause. Existing qualification remains conservative; raw
+endpoints stay local. Endpoint-observed runs are separate diagnostic evidence.
+
+* Static dependency ownership
+
+The first exact-head CI exposed a dynamic/static mismatch: dynamic interfaces
+passed, but representation and property-replay executables failed at
+=slot-layout= initialization with =Operator is not a PROCEDURE=. The static
+source contained unresolved Gambit macro calls. A per-module compiler option
+alone does not carry their definitions into a linked dependency closure.
+
+Following =io.ss=, the module now includes Gambit's standard macro definitions
+through =begin-foreign= in its own static source, alongside std/make's compiler
+configuration. This changes neither the admission contract nor the guards.
+The existing linked-entry and fresh-process property-replay gates are required
+controls; dynamic unit tests alone cannot qualify this optimization.
+
+Local restoration passes the same linked business child (including
+=SERVICE-WORKFLOW-OK=), all 9 representation-entry cases, all 541 Cases in the
+complete property suite (including fresh-process counterexample restoration),
+and all 10 scalar admission controls. Each official harness has final OK and
+natural exit without error/overflow markers. The property command takes
+118.10 s wall including its existing independent-library build/test. No child
+budget or test inventory changes. This is compiler-source conformance evidence,
+not a Lean proof of Gerbil/Gambit compilation or a full new-head CI result.

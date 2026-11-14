@@ -3764,7 +3764,7 @@ no registration after failed full admission. Lean connects concrete registration
 to the existing finite invalidation model; this is bounded cache-invalidation
 future work, not a gap in the author's original pure-by-default policy.
 
-Object read issuance/replay lives in `object/observation.scm`, included in the
+Object read issuance/replay lives in `object/observation.ss`, included in the
 existing Object namespace and tracked by standard make `extra-inputs`. There is
 no additional runtime image, cache, loader or namespace. Existing benchmark
 source identities include that input. Slot workload bodies reuse the existing

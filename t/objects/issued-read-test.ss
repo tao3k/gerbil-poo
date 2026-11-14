@@ -1,17 +1,23 @@
-;;; Producer-owned issuance tests; no Core fixtures or dependencies.
+;;; Replay runtime-issued Slot reads and reject fabricated or stale records.
 (export issued-read-test test-cleanup!)
 (import (only-in :clan/poo/slot-layout make-slot-cache) :std/iter :std/test (only-in :clan/poo/io module-action) :clan/poo/object :clan/poo/slot-observation
-        (prefix-in (only-in :gerbil/runtime/mop slot-ref slot-set! find-method bind-method! object-class) runtime.)
+        (only-in :clan/poo/read-route make-read-issuer %issued-read?)
+        (only-in :gerbil/runtime/gambit unbound-global-exception?)
+        (prefix-in (only-in :gerbil/runtime/mop slot-ref slot-set! find-method bind-method! object-class
+                            class-slot-offset &class-type-slot-table) runtime.)
+        (only-in :gerbil/runtime/table symbolic-table-set!)
+        (only-in :gerbil/runtime/hash HashTable::interface)
         (only-in :gerbil/expander current-expander-context make-top-context
-                 core-import-module module-context-export module-export-name)
+                 core-import-module module-context-export module-export-name eval-syntax)
         (only-in :std/error Error? Error-message contract-violation-error?))
 (def completed 0)
 (def (test-cleanup!)
-  (check-equal? completed 25)
-  (displayln "ISSUED-READ: 25 cases completed"))
+  (check-equal? completed 35)
+  (displayln "ISSUED-READ: 35 cases completed"))
 ;; White-box ownership check only. This private entry is NOT a public export;
-;; all ordinary consumers keep replay-slot-reads!/reobserve-slot-reads!.
-(extern namespace: clan/poo/object call-with-issued-reads)
+;; Ordinary consumers use the public replay and protected checkpoint entries.
+(extern namespace: clan/poo/object call-with-issued-reads object-read-key
+        object-read-dependencies object-read-value require-current-read-sweep!)
 (def (captured-order roots)
   (call-with-issued-reads roots (lambda (reads _current! _receivers) reads) #t))
 (def (recorded action)
@@ -34,8 +40,46 @@
   (for-each (lambda (read) (hash-put! watcher read #t))
     (recorded (cut .ref/cached receiver 'missing (lambda () #f))))
   watcher)
+(def (with-declared-field-fixture action)
+  (.def Source port: 5432)
+  (.def Alternative empty: '())
+  (def source-read (selected (recorded (lambda () (.get Source port))) 'port))
+  (def alternative-read (selected (recorded (lambda () (.get Alternative empty))) 'empty))
+  (.def Target payload: (begin (.get Source port) (list alternative-read)))
+  (def target-read (selected (recorded (lambda () (.get Target payload))) 'payload))
+  (check-equal? (and (memq source-read (slot-read-dependencies target-read)) #t) #t)
+  (action target-read source-read))
+(def (with-moved-declared-field read field replacement-field action)
+  (def class (runtime.object-class read))
+  (def offsets (runtime.&class-type-slot-table class))
+  (def original (runtime.class-slot-offset class field))
+  (def replacement (runtime.class-slot-offset class replacement-field))
+  (dynamic-wind
+    (lambda () (symbolic-table-set! offsets field replacement))
+    action
+    (lambda () (symbolic-table-set! offsets field original))))
 (def issued-read-test
  (test-suite "Read issuance with transient tokens and guarded replay"
+  (test-case "pinned key access preserves live symbolic and structural fields"
+    (.def Owner value: #f)
+    (def reads (recorded (lambda () (.get Owner value) (.all-slots Owner)
+                             (.ref/cached Owner 'missing (lambda () #f)))))
+    (for (read reads)
+      (check-equal? (object-read-issued? read) #t)
+      (check-eq? (object-read-key read) (runtime.slot-ref read 'key))
+      (check-eq? (object-read-dependencies read) (runtime.slot-ref read 'dependencies))
+      (check-eq? (object-read-value read) (runtime.slot-ref read 'value)))
+    (def read (selected reads 'value))
+    ;; Every access sees the live field. No captured key may survive a
+    ;; mutated record, even if a previous currentness check accepted it.
+    (check-equal? (object-read-current? read) #t)
+    (try
+      (runtime.slot-set! read 'key '(names))
+      (check-equal? (object-read-key read) '(names))
+      (check-equal? (object-read-current? read) #f)
+      (finally (runtime.slot-set! read 'key 'value)))
+    (check-equal? (object-read-current? read) #t)
+    (set! completed (1+ completed)))
   (test-case "vector value and index routes refuse replaced refs before dispatch"
     (for (index? '(#f #t))
       (def owner (.o value: #f))
@@ -52,6 +96,34 @@
         (refuses "changed metadata ref" (cut reobserve-slot-reads! roots))
         (check-equal? calls 0)
         (finally (runtime.slot-set! table 'ref original))))
+    (def owner (.o value: 1))
+    (def roots (recorded (cut .ref owner 'value)))
+    (def instance (object-instance owner))
+    (def backend (runtime.slot-ref instance 'object))
+    (def shape (runtime.slot-ref backend 'shape))
+    (def foreign-shape (make-hash-table-symbolic))
+    (def method (runtime.slot-ref instance 'ref))
+    (try
+      (runtime.slot-set! backend 'shape foreign-shape)
+      (try
+        (runtime.slot-set! instance 'ref void)
+        (refuses "changed metadata ref" (cut call-with-current-slot-reads roots values))
+        (finally (runtime.slot-set! instance 'ref method)))
+      (refuses "foreign vector shape" (cut call-with-current-slot-reads roots values))
+      (finally (runtime.slot-set! backend 'shape shape)))
+    (check (object-read-current? (selected roots 'value)) => #t)
+    ;; A compatible table instance is insufficient if hash-ref would cast it
+    ;; through a different live interface descriptor.
+    (def read (selected roots 'value))
+    (def descriptor-class (runtime.slot-ref HashTable::interface 'type))
+    (def failure
+      (dynamic-wind
+        (lambda () (runtime.slot-set! HashTable::interface 'type (runtime.object-class read)))
+        (lambda () (with-catch values (cut object-read-current? read)))
+        (lambda () (runtime.slot-set! HashTable::interface 'type descriptor-class))))
+    (check-equal? (and (Error? failure) (Error-message failure))
+                  "changed HashTable interface")
+    (check-equal? (object-read-current? read) #t)
     (set! completed (1+ completed)))
   (test-case "vector storage exposure and shape growth preserve genuine read authority"
     (def parent (.o value: #f))
@@ -127,6 +199,21 @@
                     'clan/poo/examples/representation-service#replay-workflow) []) '#(9 12 9 3))
     (set! completed (+ completed 1)))
   (test-case "the Gerbil export interface does not expose private read-issuance helpers"
+    (def forged-public-read?
+      (parameterize ((current-expander-context (make-top-context)))
+        (eval-syntax '(import :gerbil/core :clan/poo/object))
+        (def issue
+          (with-catch
+            (lambda (cause) (if (unbound-global-exception? cause) #f (raise cause)))
+            (lambda () (eval-syntax '%issue-read))))
+        (and issue
+             (let* ((owner (.o answer: 9))
+                    (value (.get owner answer))
+                    (read (issue owner 'answer (object-revision owner)
+                                 (object-%instance owner) value [] object-read-current?)))
+               (hash-put! (object-read-table owner) 'answer read)
+               (object-read-current? read)))))
+    (check-equal? forged-public-read? #f)
     (def names
       (parameterize ((current-expander-context (make-top-context)))
         (map module-export-name
@@ -134,8 +221,42 @@
     (for-each (lambda (name) (check-equal? (memq name names) #f))
       '(object-record-read object-read-query object-read-bootstrap
         object-deliver-value object-issued-read-current? require-object-read-route!
-        call-with-issued-reads active-read-replays))
+        call-with-issued-reads active-read-replays object-read-key
+        object-read-dependencies object-read-value record-key-field
+        record-dependencies-field record-value-field
+        require-current-read-sweep! %pure-read-sweep?))
     (check-equal? (and (memq 'object-read-issued? names) #t) #t)
+    (check-equal? (and (memq '%issue-read names) #t) #f)
+    (def route-names
+      (parameterize ((current-expander-context (make-top-context)))
+        (map module-export-name
+          (module-context-export (core-import-module ':clan/poo/read-route)))))
+    (check-equal? (memq '%issue-read route-names) #f)
+    (for-each (lambda (name) (check-equal? (memq name route-names) #f))
+      '(record-key-field record-value-field record-current-field
+        record-dependencies-field record-birth-field record-birth-set! %pure-read-sweep?))
+    (check-equal? (and (memq '%issued-read? route-names) #t) #t)
+    ;; A descriptor that cannot use identity conversion takes the original
+    ;; checker. Keep all framework/Test operations outside the temporary edit.
+    (let* ((owner (.o answer: 9))
+           (roots (recorded (cut .get owner answer)))
+           (read (selected roots 'answer))
+           (saved-type (runtime.slot-ref HashTable::interface 'type))
+           (delivered []))
+      (dynamic-wind
+        (lambda () (runtime.slot-set! HashTable::interface 'type (runtime.object-class read)))
+        (lambda ()
+          ;; No receiver map is supplied: fallback must not inspect it.
+          (require-current-read-sweep! (list read) #f '#(0)
+            (lambda (record) (set! delivered (cons record delivered))) #t))
+        (lambda () (runtime.slot-set! HashTable::interface 'type saved-type)))
+      (check-equal? delivered (list read))
+      ;; An index built on the unsupported path remains ordinary even if the
+      ;; descriptor is restored by the time the next check occurs.
+      (set! delivered [])
+      (require-current-read-sweep! (list read) #f #f
+        (lambda (record) (set! delivered (cons record delivered))) #t)
+      (check-equal? delivered (list read)))
     (set! completed (+ completed 1)))
   (test-case "real persistent records authenticate but public copies do not"
     (.def Root port: 5432 unused: (error "unselected branch forced"))
@@ -201,6 +322,13 @@
     (.def Root port: #f)
     (def roots (recorded (cut .slot? Root 'port)))
     (def genuine (selected roots '(presence port)))
+    ;; Warm indexed presence keeps the same record and delivers both occurrences.
+    (def warm (recorded (lambda () (.slot? Root 'port) (.slot? Root 'port))))
+    (check-equal? (length warm) 2)
+    (for (read warm) (check-eq? read genuine))
+    (def nested (recorded (lambda () (call-with-slot-read-observer void (cut .slot? Root 'port)))))
+    (check-equal? (length nested) 1)
+    (check-eq? (car nested) genuine)
     (def edited (slot-read-key genuine))
     (set-car! (cdr edited) 'missing)
     (check-equal? edited '(presence missing))
@@ -227,6 +355,15 @@
     (.put! Root 'port 5432)
     (refuses "stale slot dependency" (cut replay-slot-reads! fresh void))
     (check (.slot? Root 'port) => #t)
+    (def checks 0)
+    (def observed
+      (call-with-slot-read-observer void (cut .slot? Root 'port)
+        before: (lambda (receiver key)
+                  (when (and (eq? receiver Root) (equal? key '(presence port)))
+                    (set! checks (+ checks 1))
+                    (.removeslot! Root 'port)))))
+    (check-equal? checks 1)
+    (check-equal? observed #f)
     (check-equal? ((module-action "clan/poo/examples/inherited-services"
                    'clan/poo/examples/inherited-services#read-key-workflow) []) '(10 20 #t))
     (set! completed (+ completed 1)))
@@ -257,6 +394,21 @@
                 (lambda () (runtime.slot-set! read 'dependencies (list read)))))))
         (check-equal? delivered 0))
       (lambda () (runtime.slot-set! read 'dependencies original)))
+    ;; A receiver's name cache is producer-owned metadata. Editing both that
+    ;; cache and the exposed raw record must not rewrite its original birth.
+    (def producer (runtime.slot-ref Root '%all-slots))
+    (def presentation (runtime.slot-ref read 'value))
+    (def producer-first (car producer))
+    (def presentation-first (car presentation))
+    (dynamic-wind void
+      (lambda ()
+        (set-car! producer 'forged-source-name)
+        (set-car! presentation 'forged-source-name)
+        (check-equal? (object-read-issued? read) #f))
+      (lambda ()
+        (set-car! producer producer-first)
+        (set-car! presentation presentation-first)))
+    (check-equal? (object-read-issued? read) #t)
     (.putslot! Root 'extra ($constant-slot-spec 7))
     (refuses "stale slot dependency" (cut replay-slot-reads! roots void))
     (set! completed (+ completed 1)))
@@ -275,6 +427,25 @@
   (test-case "a borrowed birth cannot authorize a copy or a changed payload"
     (.def Root port: 5432)
     (def genuine (selected (recorded (cut .get Root port)) 'port))
+    ;; Object and lower source preparation check ONE existing authority. A
+    ;; separately created factory still cannot introduce evidence into it.
+    (check-equal? (%issued-read? genuine) #t)
+    (check-equal? (object-read-issued? genuine) #t)
+    (defvalues (foreign-issue foreign-issued? _foreign-inspect) (make-read-issuer))
+    (def foreign (foreign-issue Root 'port (object-revision Root)
+      (slot-read-instance genuine) 5432 (slot-read-dependencies genuine) object-read-current?))
+    (check-equal? (foreign-issued? foreign) #t)
+    (check-equal? (foreign-issued? genuine) #f)
+    (check-equal? (%issued-read? foreign) #f)
+    (check-equal? (object-read-issued? foreign) #f)
+    ;; The signed key must not borrow the producer's mutable list either.
+    (def original-key (list 'presence 'port))
+    (def structural (foreign-issue Root original-key (object-revision Root)
+      (slot-read-instance genuine) #t '() object-read-current?))
+    (check-equal? (foreign-issued? structural) #t)
+    (set-car! original-key 'cache-miss)
+    (set-car! (runtime.slot-ref structural 'key) 'cache-miss)
+    (check-equal? (foreign-issued? structural) #f)
     (def forged (copy-read genuine))
     (runtime.slot-set! forged 'birth (runtime.slot-ref genuine 'birth))
     (check-equal? (object-read-issued? forged) #f)
@@ -530,4 +701,253 @@
       (check-eq? (caddr returned) cause)
       (check-eq? (slot-read-precheck-active? before) #f))
     (set! completed (+ completed 1)))
+  (test-case "checkpoint counts native identity traversal once without read delivery"
+    (.def Root field: 1 unused: (error "unselected slot was forced"))
+    (def roots (recorded (cut .get Root field)))
+    (def repeated (append roots roots))
+    (def visits 0)
+    (replay-slot-reads! repeated (lambda (_receiver _key) (set! visits (1+ visits))))
+    (check-equal? (> visits 0) #t)
+    (def calls 0)
+    (def delivered
+      (recorded (lambda ()
+        (call-with-current-slot-reads repeated
+          (lambda (count)
+            (set! calls (1+ calls))
+            (check-equal? count visits))))))
+    (check-equal? calls 1)
+    (check-equal? delivered '())
+    (check-equal? (call-with-current-slot-reads repeated values) visits)
+    (check-equal? (call-with-current-slot-reads '() values) 0)
+    (call-with-current-slot-reads '() (lambda (count) (check-equal? count 0)))
+    ;; A genuine miss is usable without entering the receiver's read cache.
+    (def misses (recorded (cut .ref/cached Root 'missing (lambda () #f))))
+    (def miss (selected misses '(cache-miss missing)))
+    (check-equal? (object-read-issued? miss) #t)
+    (check-equal? (hash-get (object-read-table Root) '(cache-miss missing)) #f)
+    (call-with-current-slot-reads misses (lambda (count) (check-equal? (> count 0) #t)))
+    (set! completed (1+ completed)))
+  (test-case "checkpoint preflight refuses forgery before stale support or action"
+    (.def Root field: 1)
+    (def read (selected (recorded (cut .get Root field)) 'field))
+    (def calls 0)
+    (def (action _count) (set! calls (1+ calls)))
+    (.put! Root 'field 2)
+    (refuses "unissued slot dependency"
+      (cut call-with-current-slot-reads (list read (copy-read read)) action))
+    (refuses "unissued slot dependency"
+      (cut call-with-current-slot-reads (list read (copy-read read)) values))
+    (refuses "stale slot dependency"
+      (cut call-with-current-slot-reads (list read) values))
+    (refuses "stale slot dependency"
+      (cut call-with-current-slot-reads (list read) action))
+    ;; A later issuance refusal must win over an earlier bad receiver route,
+    ;; both on cold acquisition and after the same traversal has been indexed.
+    ;; Fixed checkpoints and observer delivery owe the same preflight order.
+    (for (warm? '(#f #t))
+      (def first (.o first: 1))
+      (def last (.o last: 2))
+      (def competing (append (recorded (cut .ref first 'first))
+                             (recorded (cut .ref last 'last))))
+      (when warm? (call-with-current-slot-reads competing values))
+      (def invoked 0)
+      (runtime.slot-set! (selected competing 'last) 'value 3)
+      (runtime.slot-set! (object-%reads first) 'ref
+        (lambda (_self _key _default) (set! invoked (+ invoked 1)) #f))
+      (for (action (list values void))
+        (refuses "unissued slot dependency"
+          (cut call-with-current-slot-reads competing action)))
+      (refuses "unissued slot dependency"
+        (cut replay-slot-reads! competing
+          (lambda (_receiver _key) (set! invoked (+ invoked 1)))))
+      (check-equal? invoked 0))
+    (check-equal? calls 0)
+    (set! completed (1+ completed)))
+  (test-case "checkpoint protects selected ancestors and restores nested failure frames"
+    (.def Parent port: 5432 unused: (error "unselected slot was forced"))
+    (def Child (.o inherit: [Parent]))
+    (def Other (.o port: 7000))
+    (def roots (recorded (cut .get Child port)))
+    (def cause (list 'checkpoint-error))
+    (call-with-current-slot-reads roots
+      (lambda (_count)
+        (refuses "object mutation during read replay" (cut .put! Parent 'port 5440))
+        (refuses "object mutation during read replay" (cut .put! Child 'port 5440))
+        (.put! Other 'port 7001)
+        (check-eq?
+          (with-catch values
+            (lambda () (call-with-current-slot-reads roots (lambda (_) (raise cause)))))
+          cause)
+        (refuses "object mutation during read replay" (cut .put! Child 'port 5440))))
+    (check-equal? (.get Parent port) 5432)
+    (check-equal? (.get Child port) 5432)
+    (check-equal? (.get Other port) 7001)
+    (.put! Child 'port 5440)
+    (check-equal? (.get Parent port) 5432)
+    (check-equal? (.get Child port) 5440)
+    (set! completed (1+ completed)))
+  (test-case "changed class slot routing refuses despite unchanged wrapper identity"
+    (.def Owner value: #f)
+    (def roots (recorded (cut .get Owner value)))
+    (def table (object-%reads Owner))
+    (def class (runtime.object-class table))
+    (def offsets (runtime.&class-type-slot-table class))
+    (def original (runtime.class-slot-offset class 'ref))
+    (def replacement (runtime.class-slot-offset class 'object))
+    (for (action (list (cut call-with-current-slot-reads roots values)
+                      (cut call-with-current-slot-reads roots void)
+                      (cut replay-slot-reads! roots
+                        (lambda (_receiver _key) (error "must not deliver")))))
+      (def failure
+        (dynamic-wind
+          (lambda () (symbolic-table-set! offsets 'ref replacement))
+          (lambda () (with-catch values action))
+          (lambda () (symbolic-table-set! offsets 'ref original))))
+      (check-equal? (Error? failure) #t)
+      (when (Error? failure)
+        (check-equal? (Error-message failure) "changed metadata ref")))
+    (check-eq? (runtime.object-class table) class)
+    (call-with-current-slot-reads roots values)
+    ;; Entry layout success cannot survive the author callback. The return
+    ;; loop must start a new interval and refuse the changed class mapping.
+    (try
+      (refuses "changed metadata ref"
+        (lambda () (call-with-current-slot-reads roots
+          (lambda (_) (symbolic-table-set! offsets 'ref replacement)))))
+      (finally (symbolic-table-set! offsets 'ref original)))
+    (call-with-current-slot-reads roots values)
+    (set! completed (1+ completed)))
+  (test-case "fixed checkpoints recheck alternating receivers and callback return"
+    (for (warm? '(#f #t))
+      ;; Explicit temporal binding: taking the metadata snapshot must FOLLOW
+      ;; the observed demand, in both compiled and source execution.
+      (let* ((Left (.o a: #f c: 3))
+             (Right (.o b: 2))
+             (Root (.o value: (list (.get Left a) (.get Right b) (.get Left c))))
+             (roots (recorded (cut .get Root value))))
+        ;; The existing topology set also owns dense stable positions. Flags
+        ;; are absent from this shared index, including after callback return.
+        (call-with-issued-reads roots
+          (lambda (_reads _current! receivers)
+            (def positions (hash-values receivers))
+            (for (index (in-range (hash-length receivers)))
+              (check (memv index positions) ? values))) #t)
+        (when warm? (call-with-current-slot-reads roots values))
+        (let* ((calls 0) (table (object-%reads Right))
+               (saved (runtime.slot-ref table 'ref)))
+          (try
+            (runtime.slot-set! table 'ref
+              (lambda (_self _key _default) (set! calls (+ calls 1)) #f))
+            (for (action (list values void))
+              (refuses "changed metadata ref" (cut call-with-current-slot-reads roots action)))
+            (finally (runtime.slot-set! table 'ref saved)))
+          (check-equal? calls 0)
+          (call-with-current-slot-reads roots values)
+          (try
+            (refuses "changed metadata ref"
+              (lambda ()
+                (call-with-current-slot-reads roots
+                  (lambda (_count)
+                    (runtime.slot-set! table 'ref
+                      (lambda (_self _key _default) (set! calls (+ calls 1)) #f))))))
+            (finally (runtime.slot-set! table 'ref saved)))
+          (check-equal? calls 0)
+          (call-with-current-slot-reads roots void))))
+    ;; Return keeps serial first-refusal order, rather than moving a later
+    ;; issuance refusal ahead of an earlier stale live value.
+    (.def First value: 1)
+    (.def Last value: 2)
+    (def roots (append (recorded (cut .get First value)) (recorded (cut .get Last value))))
+    (def last-read (car (filter (lambda (read) (eq? (slot-read-receiver read) Last))
+                         (filter (lambda (read) (eq? (slot-read-key read) 'value)) roots))))
+    (try
+      (refuses "stale slot dependency"
+        (lambda ()
+          (call-with-current-slot-reads roots
+            (lambda (_count)
+              (hash-put! (object-%instance First) 'value 3)
+              (runtime.slot-set! last-read 'value 4)))))
+      (finally
+        (hash-put! (object-%instance First) 'value 1)
+        (runtime.slot-set! last-read 'value 2)))
+    (call-with-current-slot-reads roots values)
+    (set! completed (1+ completed)))
+  (test-case "checkpoint authenticates after action and preserves multiple return values"
+    (.def Root port: 5432)
+    (def roots (recorded (cut .get Root port)))
+    (def read (selected roots 'port))
+    (def checker (runtime.slot-ref read 'current?))
+    (try
+      (refuses "unissued slot dependency"
+        (lambda () (call-with-current-slot-reads roots
+          (lambda (_) (runtime.slot-set! read 'current? (lambda (_) #t))))))
+      (finally (runtime.slot-set! read 'current? checker)))
+    (defvalues (left right)
+      (call-with-current-slot-reads roots (lambda (_) (values 'left 'right))))
+    (check-equal? (list left right) '(left right))
+    (check-equal? (object-read-current? read) #t)
+    ;; A lazy fill is an observation effect even when both the old default
+    ;; and computed value are false and the logical revision is unchanged.
+    (.def Lazy value: #f)
+    (defvalues (absent before-fill)
+      (%call-with-recorded-slot-reads (lambda () (.ref/cached Lazy 'value))))
+    (check-eq? absent #f)
+    (def miss (selected before-fill '(cache-miss value)))
+    (def revision (object-revision Lazy))
+    (call-with-current-slot-reads (list miss) void)
+    (refuses "stale slot dependency"
+      (lambda () (call-with-current-slot-reads (list miss)
+        (lambda (_) (check-eq? (.get Lazy value) #f) 'returned))))
+    (check-equal? (object-revision Lazy) revision)
+    (defvalues (present after-fill)
+      (%call-with-recorded-slot-reads (lambda () (.get Lazy value))))
+    (check-eq? present #f)
+    (call-with-current-slot-reads after-fill void)
+    (set! completed (1+ completed)))
+  (test-case "symbolic field metadata cannot redirect a cold closure"
+    (with-declared-field-fixture
+      (lambda (root _source)
+        (def normal (call-with-current-slot-reads (list root) values))
+        (check-equal? (> normal 2) #t)
+        (def redirected
+          (with-moved-declared-field root 'dependencies 'value
+            (lambda () (call-with-current-slot-reads (list root) values))))
+        (check-equal? redirected normal)))
+    (set! completed (1+ completed)))
+  (test-case "cold replay authenticates the original parent after a metadata move"
+    (with-declared-field-fixture
+      (lambda (root source)
+        (def revision (slot-read-revision source))
+        (def (attempt)
+          (with-catch values
+            (lambda () (call-with-current-slot-reads (list root) values))))
+        (dynamic-wind
+          (lambda () (runtime.slot-set! source 'revision (1+ revision)))
+          (lambda ()
+            (def ordinary (attempt))
+            (check-equal? (Error? ordinary) #t)
+            (when (Error? ordinary)
+              (check-equal? (Error-message ordinary) "unissued slot dependency"))
+            (def moved
+              (with-moved-declared-field root 'dependencies 'value attempt))
+            (check-equal? (Error? moved) #t)
+            (when (Error? moved)
+              (check-equal? (Error-message moved) "unissued slot dependency")))
+          (lambda () (runtime.slot-set! source 'revision revision)))))
+    (set! completed (1+ completed)))
+  (test-case "a new issuer retains constructor field meanings after display edits"
+    (def sample (make-slot-read #f 'sample 0 #f #f '() values))
+    (for-each
+      (lambda (field)
+        (with-moved-declared-field sample field (if (eq? field 'value) 'revision 'value)
+          (lambda ()
+            (defvalues (issue issued? _inspect) (make-read-issuer))
+            (def read (issue #f 'metadata-field 0 #f 'payload '() values))
+            (check-equal? (issued? read) #t)
+            (check-equal? (slot-read-key read) 'metadata-field)
+            (check-equal? (slot-read-value read) 'payload)
+            (check-equal? (slot-read-dependencies read) '())
+            (check-equal? (%issued-read? read) #f))))
+      '(key value current? dependencies birth))
+    (set! completed (1+ completed)))
 ))

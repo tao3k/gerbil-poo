@@ -3,7 +3,8 @@
 (export main)
 (import :std/build-script (only-in :std/source this-source-file)
         (only-in "build.ss" +gerbil-poo-build-spec+ production-spec)
-        (only-in "t/build.ss" call-with-build-jobs)
+        (only-in "t/build.ss" call-with-build-jobs test-build-spec prefix-test-spec)
+        (only-in :std/list/list filter)
         (prefix-in "examples/build.ss" entry-build.))
 (include "testing/property/build.scm")
 
@@ -96,6 +97,11 @@
     "benchmarks/closure-benchmark-support"
     "benchmarks/closure-cases"
     "benchmarks/closure-measure"
+    "benchmarks/read-field-test"
+    "benchmarks/read-replay-test"
+    "benchmarks/cold-handoff-test"
+    "benchmarks/dense-repair-test"
+    "benchmarks/ordered-scc-study"
     "benchmarks/closure-paired-benchmark"
     "benchmarks/closure-paired-suite"
     "benchmarks/closure-parity"
@@ -104,6 +110,9 @@
     "benchmarks/closure-scale-benchmark"
     "benchmarks/closure-suite"
     "benchmarks/prototype-map-benchmark"
+    "benchmarks/collection-paired-slots"
+    "benchmarks/collection-paired-order"
+    "benchmarks/collection-paired-backends"
     "benchmarks/collection-paired-benchmark"
     "benchmarks/generation-benchmark"
     "benchmarks/combination-benchmark"
@@ -151,5 +160,55 @@
         (else modules)))
     main))
 
+;; Project the same native declarations without unrelated executable studies.
+(def graph-build
+  (let ()
+    (def libraries
+      (filter (lambda (entry)
+                (and (string? entry)
+                  (member entry '("examples/closed-declarations"
+                                  "examples/component-services"
+                                  "examples/service-revisions"
+                                  "examples/component-membership"
+                                  "examples/component-migration"
+                                  "examples/component-rounds"
+                                  "examples/component-requests"
+                                  "benchmarks/closure-measure"
+                                  "benchmarks/dense-repair-test"
+                                  "benchmarks/ordered-scc-study"
+                                  "examples/object-contracts"
+                                  "examples/contract-publication"
+                                  "examples/recursive-validation"
+                                  "examples/recursive-revision"
+                                  "examples/recursive-migration"
+                                  "examples/recursive-topology"
+                                  "examples/recursive-staging"
+                                  "examples/recursive-restaging"
+                                  "examples/recursive-publication"
+                                  "examples/recursive-approvals"
+                                  "examples/recursive-competition"
+                                  "examples/recursive-submissions"
+                                  "examples/recursive-recovery"
+                                  "examples/recursive-coordination"))))
+        +gerbil-poo-development-spec+))
+    (unless (= (length libraries) 24) (error "missing Graph study library declaration"))
+    (def (tests group names)
+      (def selected (filter (lambda (entry) (member (cadr entry) names))
+                       (test-build-spec group)))
+      (unless (= (length selected) (length names))
+        (error "missing Graph study test declaration" group names))
+      (map (cut prefix-test-spec (string-append "t/" group) <>) selected))
+    (defbuild-script
+      (append (map production-spec (append +gerbil-poo-build-spec+ libraries))
+        (tests "feedback" '("graph-algorithms-test" "feedback-graph-test"))
+        (tests "components" '("component-membership-test"))
+        (tests "construction" '("graph-order-repair-test"))
+        (tests "contracts" '("recursive-validation-test" "recursive-approvals-test"))))
+    main))
+
 (def (main . options)
-  (call-with-build-jobs (cut apply build options)))
+  (call-with-build-jobs
+    (lambda ()
+      (match options
+        (["graph" . rest] (apply graph-build rest))
+        (else (apply build options))))))

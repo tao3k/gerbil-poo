@@ -2,7 +2,7 @@
 (export feedback-closure-action publish-feedback feedback-equation-failure? feedback-equation-failure-name
         feedback-revision-action publish-feedback-revision
         feedback-approval-failure? feedback-approval-failure-kind)
-(import ./object ./mop ./lens-laws ./generalized-declaration ./generalized-closure
+(import (only-in ./support/base %with-application-table-seeds) ./object ./mop ./lens-laws ./generalized-declaration ./generalized-closure
         (prefix-in (only-in ./fun Observation.) fun.))
 ;; A whole assembled fixed point may hide cancelling overlapping contributions.
 ;; Preserve the declared name of a component whose independent equation refuses.
@@ -29,13 +29,14 @@
 (def (feedback-closure-action prepared base budget checks: (checks []))
   (lambda (seed)
     (with-fragment-sources prepared (lambda ()
-      (def automatic (map (lambda (part)
+      (def automatic (%with-application-table-seeds (lambda () (map (lambda (part)
         (def focus (.@ part focus))
-        (lens-check focus [((.@ focus .get) base)])) (fragment-descriptors prepared)))
+        (lens-check focus [((.@ focus .get) base)])) (fragment-descriptors prepared)))))
       (def all (append automatic checks))
       (with-lens-checks all (lambda ()
         ((.call fun.Observation. .map (lambda (closed)
-          (check-feedback-equations prepared base closed) closed)
+          (%with-application-table-seeds (lambda () (check-feedback-equations prepared base closed)))
+          closed)
           (closure-action prepared base budget checks: all)) seed)))))))
 ;; Only a completely closed and residual-checked receipt replaces publication.
 ;; Budget/lens/source errors keep their original types; residual errors name the

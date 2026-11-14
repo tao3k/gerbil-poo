@@ -8,24 +8,12 @@ This object model is directly inspired by that of Nix, isomorphic to that of Jso
 Copyright 2020 François-René Rideau
 Gerbil-POO is distributed under the Apache License, version 2.0. See the file [LICENSE](LICENSE).
 
-### Release scope
-
-Version 0.1.2 includes finite typed contracts, incremental collections and the
-source-checked property-testing protocols. Generalized MOP work extends the
-original paper's future-work direction; this is not a claim that every research
-boundary is solved. See the [abstraction and release review](doc/pbt/architecture.md#release-readiness-and-abstraction-review)
-for checked mechanisms, executable evidence and explicit premises.
-
 ### Documentation
 
-The [Scheme Workshop 2021 video](https://youtu.be/2szKoUQoNm8) and the
-[associated paper](https://github.com/metareflection/poof).
+Start at the [documentation index](doc/README.md).
 
-[Prototype Object Orientation in Gerbil Scheme](doc/poo.md),
-a document explaining Gerbil-POO.
-
-[Prototype Object Programming in Gerbil Scheme](doc/prototypes.md),
-notes from a talk at LispNYC in November 2020.
+See [Prototypes: Object-Orientation, Functionally](https://namin.seas.harvard.edu/pubs/scheme-poof.pdf)
+and the [Scheme Workshop 2021 talk](https://youtu.be/2szKoUQoNm8) for the original model.
 
 ### Property testing and debugging
 
@@ -104,24 +92,3 @@ See [test execution](doc/test-execution.md) and [CI checks](doc/ci-checks.md).
 Standalone executables use `pkg-config --libs openssl` through `std/make`.
 Configure the toolchain’s standard pkg-config search path for your installation;
 no platform-specific OpenSSL prefix is embedded.
-
-### v0.1.2 scope
-
-The Scheme library and companion [LeanPoo](https://github.com/tao3k/lean-poo)
-use the same `v0.1.2` release tag. This release includes finite prototype/MOP,
-checked declaration and type protocols, source-aware caches, incremental
-collections, and bounded generated testing with shrinking/replay. It advances the
-article's future-work constructions; it does not declare every research TODO done.
-See the [standard-mechanism follow-up audit](doc/gerbil-mechanisms.md#post-v012-abstraction-audit).
-
-### Unreleased I/O follow-up
-
-The following changes are not part of the published v0.1.2 tag.
-Byte helpers in `io` accept standard ports and Gerbil Reader/Writer endpoints:
-`read-bytes-into` returns the actual count (with optional `need:`),
-`object-read-bytes` returns exactly the requested count or raises premature EOF,
-and byte/bulk output returns Unit. Offset/length admission precedes stream effects;
-callers retain closing/flushing and partial-I/O recovery responsibility.
-The [bounded FUN transfer example](examples/byte-io.ss) composes these operations
-without another I/O interpreter. Build and test through `gerbil build` and
-`gerbil test`; `just check` retains the full project acceptance.

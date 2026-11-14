@@ -1,7 +1,13 @@
 ;;; Persistent ordered prototype specifications: compact vectors and standard trees.
 (export prototype-map? prototype-map prototype-map-policy prototype-map-list prototype-map-keys
-        prototype-map-merge-first prototype-map-filter prototype-map-length prototype-map-ref prototype-map-for-each prototype-map-put prototype-map-remove)
+        prototype-map-merge-first prototype-map-filter prototype-map-length prototype-map-ref prototype-map-for-each prototype-map-fold-key prototype-map-put prototype-map-remove)
 (import :std/struct/rbtree :std/iter
+        (only-in :gerbil/runtime/mop &class-type-constructor &class-type-methods
+                 class-type-metaclass? class-type-struct? class-type-field-count class-type-sealed?)
+        (only-in :gerbil/runtime/table make-raw-table raw-table-for-each
+                 raw-table? &raw-table-hash &raw-table-test &raw-table-lock
+                 symbolic-hash symbolic-table-ref symbolic-table-set!)
+        (only-in ./support/base %compare-symbol-identity)
         (only-in :std/vector/vector vector-filter vector-fold-right/index)
         (only-in :std/list/list length<=n? delete-duplicates/hash foldr))
 
@@ -17,13 +23,10 @@
   (let loop ((index 0))
     (and (< index (vector-length entries))
       (if (eq? name (car (vector-ref entries index))) index (loop (1+ index))))))
-;; Symbol identity, including distinct uninterned symbols with the same spelling,
-;; determines the tree order. Serial numbers are process-local, not serialized IDs.
-(def (compare-name left right) (- (object->serial-number left) (object->serial-number right)))
 ;; Empty snapshots are immutable roots, not cached mutable builders. Sharing them
 ;; avoids allocating two empty trees for each undeclared receiver; persistent put
 ;; still creates a successor. Deleted tree roots retain their own ordinal history.
-(def empty-tree (make-specifications (RBTree -) (RBTree compare-name) 0 0 #f))
+(def empty-tree (make-specifications (RBTree -) (RBTree %compare-symbol-identity) 0 0 #f))
 ;; Compact policy stays distinct even when there are no contributions.
 (def empty-compact (make-specifications '#() #f 0 0 #t))
 ;; Count ordered contributions, including duplicate names, without exporting pairs.
@@ -66,8 +69,12 @@
           (else (tree-map entries (eq? policy 'compact)))))))))
 ;; The official RBTree supplies construction and persistent update. Capturing
 ;; each entry also makes promotion independent of private vector entry handles.
+(def (remember-position positions ordinal)
+  (cond ((not positions) ordinal)
+        ((pair? positions) (cons (car positions) (cons ordinal (cdr positions))))
+        (else (list positions ordinal))))
 (def (tree-map entries (compact? #f))
-  (let ((ordered (RBTree -)) (names (RBTree compare-name)) (count 0))
+  (let ((ordered (RBTree -)) (names (RBTree %compare-symbol-identity)) (count 0))
     (for (input entries)
       (let (entry (capture-entry input))
         ;; The first ordinal remains the replacement target. Later ordinals need
@@ -75,13 +82,76 @@
         ;; Keep the common singleton as its ordinal, without allocating a list.
         ;; Only actual duplicate methods require a position spine.
         (rbtree-update! names (car entry)
-          (lambda (positions)
-            (cond ((not positions) count)
-                  ((pair? positions) (cons (car positions) (cons count (cdr positions))))
-                  (else (list positions count)))) #f)
+          (lambda (positions) (remember-position positions count)) #f)
         (rbtree-put! ordered count entry)
         (set! count (+ count 1))))
     (make-specifications ordered names count count compact?)))
+
+;; Only the stock layouts can receive the private rows or a prebuilt root.
+;; Inspect constructor metadata without selecting an author method.
+(def (%stock-struct-construction? klass fields (init #f))
+  (and (class-type-struct? klass) (not (class-type-metaclass? klass))
+       (= (class-type-field-count klass) fields)
+       (eq? (&class-type-constructor klass) (and init ':init!))
+       (or (not init)
+           (and (not (class-type-sealed? klass))
+                (let (methods (&class-type-methods klass))
+                  (and (raw-table? methods) (eq? (&raw-table-hash methods) symbolic-hash)
+                       (eq? (&raw-table-test methods) eq?) (not (&raw-table-lock methods))
+                       (eq? (symbolic-table-ref methods ':init! #f) init)))))))
+
+(extern namespace: std/struct/rbtree RBTree::t RBTree:::init! make-Tree Tree::t +empty+)
+
+;; A complete black core holds capacity-1 rows. Place extra red leaves below
+;; it from left to right. The stock RBTree owns subsequent persistent edits.
+(def (bulk-tree rows ordinal?)
+  (def size (vector-length rows))
+  (def capacity
+    (let find ((level 1))
+      (let (next (* level 2))
+        (if (<= next (+ size 1)) (find next) level))))
+  (def (node color left right index)
+    (let (row (vector-ref rows index))
+      (if ordinal? (make-Tree color left right index row)
+        (make-Tree color left right (car row) (cdr row)))))
+  (def (build start capacity extra)
+    (if (= capacity 1)
+      (if (zero? extra) +empty+ (node 'red +empty+ +empty+ start))
+      (let* ((half (quotient capacity 2))
+             (left-extra (min half extra))
+             (middle (+ start (- half 1) left-extra)))
+        (node 'black
+          (build start half left-extra)
+          (build (+ middle 1) half (- extra left-extra)) middle))))
+  (RBTree (if ordinal? - %compare-symbol-identity)
+          (build 0 capacity (- (+ size 1) capacity))))
+
+;; Called only on the fresh pairs generated by object<-fun. The hash table
+;; and vectors are private scratch. Only the original two trees are retained.
+(def (%bulk-generated-prototype-map rows)
+  (and (not (length<=n? rows small-map-limit))
+       (%stock-struct-construction? specifications::t 5)
+       (%stock-struct-construction? RBTree::t 2 RBTree:::init!)
+       (%stock-struct-construction? Tree::t 5)
+       (let* ((ordered (list->vector rows))
+              (count (vector-length ordered))
+              (buckets (make-raw-table count symbolic-hash eq?))
+              (names []))
+         (let collect ((index 0))
+           (when (< index count)
+             (let (name (car (vector-ref ordered index)))
+               (unless (symbol? name) (error "symbolic specification required"))
+               (symbolic-table-set! buckets name
+                 (remember-position (symbolic-table-ref buckets name #f) index))
+               (collect (+ index 1)))))
+         (raw-table-for-each buckets
+           (lambda (name positions) (set! names (cons (cons name positions) names))))
+         (let (sorted
+               (list-sort (lambda (left right) (negative? (%compare-symbol-identity (car left) (car right))))
+                 names))
+           (make-specifications (bulk-tree ordered #t)
+             (bulk-tree (list->vector sorted) #f) count count #f)))))
+
 ;; Detect repeated names using existing private positions, without building a
 ;; second set. Tree positions are a scalar for a unique name and a pair otherwise.
 ;; Small vectors remain bounded by eight; standard folds inspect existing positions.
@@ -160,6 +230,27 @@
     (let (positions (rbtree-ref (specifications-names source) name #f))
       (if positions
         (cdr (rbtree-ref entries (if (pair? positions) (car positions) positions))) default))))
+;; Fold ALL contributions for one name in chronological order. The private
+;; name/ordinal index is authoritative; no side index, payload snapshot or
+;; receiver binding is constructed. Large maps query only matching ordinals.
+;; The duplicate spine retains the first ordinal then later ones newest-first.
+;; Reverse that tail before any consumer call; never collapse it to first/last.
+;; Payloads stay opaque and are delivered at their original callback positions.
+(def (prototype-map-fold-key source name consume initial)
+  (using ((name :~ symbol?) (consume :~ procedure?))
+    (def entries (specifications-entries source))
+    (if (vector? entries)
+      (for/fold (result initial) (entry (in-vector entries))
+        (if (eq? (car entry) name) (consume (cdr entry) result) result))
+      (let (positions (rbtree-ref (specifications-names source) name #f))
+        (cond
+          ((not positions) initial)
+          ((not (pair? positions)) (consume (cdr (rbtree-ref entries positions)) initial))
+          (else
+            (let (later (reverse (cdr positions)))
+              (for/fold (result (consume (cdr (rbtree-ref entries (car positions))) initial))
+                        (at later)
+                (consume (cdr (rbtree-ref entries at)) result)))))))))
 ;; Copy a bounded compact vector or standard balanced-tree paths. Promotion keeps
 ;; every contribution in order; all later same-name methods retain their identity.
 (def (prototype-map-put source name value)

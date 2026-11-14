@@ -1,62 +1,167 @@
-;;; Read provenance and metadata routes; no receiver getters or user callbacks.
-(export require-read-route! make-read-issuer)
-(import (only-in ./slot-layout slot-value-storage make-slot-values) :std/error ./slot-observation (only-in :gerbil/runtime/hash HashTable)
-  (prefix-in (only-in :gerbil/runtime/mop object-class slot-ref slot-set!) read-runtime.)
-  (only-in :gerbil/runtime/table &raw-table-hash &raw-table-test &raw-table-lock))
-;; Validate the actual selected metadata route, without calling its methods.
-;; This is a serial supported-runtime guard, not a sandbox against raw FFI writes.
-(defstruct route (wrapper ref backend hash test) final: #t)
-;; Pin only class/method identities, never a receiver, value or validation result.
-(defstruct value-route (ref backend shape missing) final: #t)
-(def require-read-route!
+;;; Record which SlotRead objects POO created and what they contained.
+;;; To replay a read of 'port, the object checks its saved record and cached
+;;; value for 'port. This module checks the HashTable accessors first, so a
+;;; replaced lookup method cannot run during that comparison.
+(export require-read-route! make-read-issuer standard-symbol-table-writes? gc-table-route-current?
+        %issued-read? %read-issuance)
+(import (only-in ./slot-layout slot-value-storage make-slot-values) :std/error ./slot-observation
+  (prefix-in (only-in :gerbil/runtime/mop object? object-class make-class-slot-accessor
+                      class-slot-offset slot-ref slot-set!) read-runtime.)
+  (only-in :gerbil/runtime/table &raw-table-hash &raw-table-test &raw-table-lock
+           symbolic-table-set! symbolic-hash gc-table-ref gc-table-set!)
+  (only-in :gerbil/runtime/hash HashTable::interface gc-hash-table::t)
+  (only-in :gerbil/runtime/interface &interface-descriptor-type))
+
+;; Share table checks within one replay pass when casting an existing
+;; HashTable wrapper returns that wrapper. With a different descriptor, use
+;; the per-record checker. Each receiver's tables still need their own checks.
+(def %pure-read-sweep?
+  (let (wrapper (read-runtime.object-class (make-hash-table)))
+    (lambda () (eq? wrapper (&interface-descriptor-type HashTable::interface)))))
+
+;; Use SlotRead's generated field accessors. Public inspectors copy some
+;; fields, and reflective name lookup can be redirected by a class edit.
+(extern
+  (record-key-field clan/poo/slot-observation#slot-read-key)
+  (record-value-field clan/poo/slot-observation#slot-read-value)
+  (record-current-field clan/poo/slot-observation#slot-read-current?)
+  (record-dependencies-field clan/poo/slot-observation#slot-read-dependencies)
+  (record-birth-field clan/poo/slot-observation#slot-read-birth)
+  (record-birth-set! clan/poo/slot-observation#slot-read-birth-set!))
+
+;; Can hash-put! reach Gerbil's symbolic writer without an adapter or callback?
+;; Rehashing also uses the backend's hash/test, so check those and its lock.
+(def standard-symbol-table-writes?
+  (let* ((sample (make-hash-table-symbolic))
+         (wrapper (read-runtime.object-class sample))
+         (object-field (read-runtime.make-class-slot-accessor wrapper 'object))
+         (set-field (read-runtime.make-class-slot-accessor wrapper 'set!))
+         (object-offset (read-runtime.class-slot-offset wrapper 'object))
+         (set-offset (read-runtime.class-slot-offset wrapper 'set!))
+         (backend-class (read-runtime.object-class (object-field sample))))
+    (lambda (table)
+      (and (eq? wrapper (&interface-descriptor-type HashTable::interface))
+           (read-runtime.object? table)
+           (eq? (read-runtime.object-class table) wrapper)
+           ;; A shared class can keep its identity while its field map moves.
+           (eqv? (read-runtime.class-slot-offset wrapper 'object) object-offset)
+           (eqv? (read-runtime.class-slot-offset wrapper 'set!) set-offset)
+           (eq? (set-field table) symbolic-table-set!)
+           (let (backend (object-field table))
+             (and (read-runtime.object? backend)
+                  (eq? (read-runtime.object-class backend) backend-class)
+                  (eq? (&raw-table-hash backend) symbolic-hash)
+                  (eq? (&raw-table-test backend) eq?)
+                  (not (&raw-table-lock backend))))))))
+
+;; Callback-free identity-table operations for a private owned key domain.
+;; This only checks the LIVE route. The owner must separately retain native
+;; origin and retire it before any operation crosses an unknown route.
+;; No sample table/adapter is constructed or warmed by this guard.
+(def gc-table-route-current?
+  (let* ((wrapper (&interface-descriptor-type HashTable::interface))
+         (object-offset (read-runtime.class-slot-offset wrapper 'object))
+         (ref-offset (read-runtime.class-slot-offset wrapper 'ref))
+         (set-offset (read-runtime.class-slot-offset wrapper 'set!))
+         (object-field (read-runtime.make-class-slot-accessor wrapper 'object))
+         (ref-field (read-runtime.make-class-slot-accessor wrapper 'ref))
+         (set-field (read-runtime.make-class-slot-accessor wrapper 'set!)))
+    (lambda (table)
+      (and (eq? wrapper (&interface-descriptor-type HashTable::interface))
+           (read-runtime.object? table)
+           (eq? (read-runtime.object-class table) wrapper)
+           (eqv? (read-runtime.class-slot-offset wrapper 'object) object-offset)
+           (eqv? (read-runtime.class-slot-offset wrapper 'ref) ref-offset)
+           (eqv? (read-runtime.class-slot-offset wrapper 'set!) set-offset)
+           (eq? (ref-field table) gc-table-ref)
+           (eq? (set-field table) gc-table-set!)
+           (let (backend (object-field table))
+             (and (read-runtime.object? backend)
+                  (eq? (read-runtime.object-class backend) gc-hash-table::t)))))))
+
+;; Expected wrapper class, offsets and methods for hash-ref.
+(defstruct route (wrapper ref backend hash test object-field ref-field object-offset ref-offset) final: #t)
+;; A vector store also needs the symbol-to-cell index and the missing sentinel.
+(defstruct value-route (ref backend shape missing cells-field missing-field shape-field indices-field) final: #t)
+;; KEY is the slot name or a structural query such as '(presence port).
+;; READS maps keys to SlotRead records. INSTANCE holds cached slot values.
+;; Either table may be #f. A bootstrap read checks its constant directly.
+(defvalues (require-read-route! %standard-symbol-table-lookup?)
   (let ()
     ;; Pin the standard wrapper, primitive lookup and hash/test identities once.
     (def (capture table)
-      (def backend (read-runtime.slot-ref table 'object))
-      (make-route (read-runtime.object-class table) (read-runtime.slot-ref table 'ref)
-        (read-runtime.object-class backend) (&raw-table-hash backend) (&raw-table-test backend)))
+      (def wrapper (read-runtime.object-class table))
+      (def object-field (read-runtime.make-class-slot-accessor wrapper 'object))
+      (def ref-field (read-runtime.make-class-slot-accessor wrapper 'ref))
+      (def backend (object-field table))
+      (make-route wrapper (ref-field table) (read-runtime.object-class backend)
+        (&raw-table-hash backend) (&raw-table-test backend) object-field ref-field
+        (read-runtime.class-slot-offset wrapper 'object)
+        (read-runtime.class-slot-offset wrapper 'ref)))
     (def reads-route (capture (make-hash-table)))
     (def instance-route (capture (make-hash-table-symbolic)))
     (def vector-route
       (parameterize ((slot-value-storage 'vector))
         (let* ((table (make-slot-values [] #f [] absent-value))
                (backend (read-runtime.slot-ref table 'object))
-               (shape (read-runtime.slot-ref backend 'shape)))
-          (make-value-route (read-runtime.slot-ref table 'ref)
-            (read-runtime.object-class backend) (read-runtime.object-class shape)
-            (read-runtime.slot-ref backend 'missing)))))
-    ;; Refuse changed metadata without dispatching its mutable public methods.
-    (def (check table expected)
+               (shape (read-runtime.slot-ref backend 'shape))
+               (backend-class (read-runtime.object-class backend))
+               (shape-class (read-runtime.object-class shape)))
+          (make-value-route (read-runtime.slot-ref table 'ref) backend-class shape-class
+            (read-runtime.slot-ref backend 'missing)
+            (read-runtime.make-class-slot-accessor backend-class 'cells)
+            (read-runtime.make-class-slot-accessor backend-class 'missing)
+            (read-runtime.make-class-slot-accessor backend-class 'shape)
+            (read-runtime.make-class-slot-accessor shape-class 'indices)))))
+    ;; Check the wrapper before using its saved field accessors.
+    (def (check-wrapper table expected)
       (unless (eq? (read-runtime.object-class table) (route-wrapper expected))
         (error "foreign metadata wrapper"))
-      (unless (eq? (read-runtime.slot-ref table 'ref) (route-ref expected))
+      ;; hash-ref casts through the live descriptor before reading the wrapper.
+      (unless (eq? (&interface-descriptor-type HashTable::interface) (route-wrapper expected))
+        (error "changed HashTable interface"))
+      ;; Class identity alone does not freeze Gerbil's mutable field map.
+      ;; Authenticate the live layout before invoking a pinned field accessor.
+      (unless (= (read-runtime.class-slot-offset (route-wrapper expected) 'object)
+                 (route-object-offset expected))
+        (error "changed metadata object layout")))
+    (def (check-ref table expected ref)
+      (unless (= (read-runtime.class-slot-offset (route-wrapper expected) 'ref)
+                 (route-ref-offset expected))
         (error "changed metadata ref"))
-      (let (backend (read-runtime.slot-ref table 'object))
-        (unless (eq? (read-runtime.object-class backend) (route-backend expected))
-          (error "foreign metadata backend"))
-        (unless (and (eq? (&raw-table-hash backend) (route-hash expected))
-                     (eq? (&raw-table-test backend) (route-test expected))
-                     (not (&raw-table-lock backend)))
-          (error "changed metadata hash/test"))))
-    ;; Authenticate the vector route before any HashTable/index method can run.
-    ;; Index metadata uses the same pinned standard symbolic hash/test implementation.
+      (unless (eq? ((route-ref-field expected) table) ref)
+        (error "changed metadata ref")))
+    (def (check-backend backend expected)
+      (unless (eq? (read-runtime.object-class backend) (route-backend expected))
+        (error "foreign metadata backend"))
+      (unless (and (eq? (&raw-table-hash backend) (route-hash expected))
+                   (eq? (&raw-table-test backend) (route-test expected))
+                   (not (&raw-table-lock backend)))
+        (error "changed metadata hash/test")))
+    (def (check table expected)
+      (check-wrapper table expected)
+      (check-ref table expected (route-ref expected))
+      (check-backend ((route-object-field expected) table) expected))
+    ;; Vector lookup uses the shape's symbolic index to find a value cell.
+    ;; Check that index as well as the outer table before hash-ref can use it.
     (def (check-instance table)
-      (unless (eq? (read-runtime.object-class table) (route-wrapper instance-route))
-        (error "foreign metadata wrapper"))
-      (let (backend (read-runtime.slot-ref table 'object))
+      (check-wrapper table instance-route)
+      (let (backend ((route-object-field instance-route) table))
         (if (eq? (read-runtime.object-class backend) (value-route-backend vector-route))
           (begin
-            (unless (eq? (read-runtime.slot-ref table 'ref) (value-route-ref vector-route))
-              (error "changed metadata ref"))
-            (unless (and (vector? (read-runtime.slot-ref backend 'cells))
-                         (eq? (read-runtime.slot-ref backend 'missing) (value-route-missing vector-route)))
+            (check-ref table instance-route (value-route-ref vector-route))
+            (unless (and (vector? ((value-route-cells-field vector-route) backend))
+                         (eq? ((value-route-missing-field vector-route) backend)
+                              (value-route-missing vector-route)))
               (error "changed value cells"))
-            (let (shape (read-runtime.slot-ref backend 'shape))
+            (let (shape ((value-route-shape-field vector-route) backend))
               (unless (eq? (read-runtime.object-class shape) (value-route-shape vector-route))
                 (error "foreign vector shape"))
-              (check (read-runtime.slot-ref shape 'indices) instance-route)))
-          (check table instance-route))))
-    (lambda (key reads instance)
+              (check ((value-route-indices-field vector-route) shape) instance-route)))
+          (begin
+            (check-ref table instance-route (route-ref instance-route))
+            (check-backend backend instance-route)))))
+    (def (require-route! key reads instance)
       (unless (or (symbol? key)
                   (and (pair? key)
                     (case (car key)
@@ -67,19 +172,40 @@
         (error "unsupported metadata key"))
       (unless (and (pair? key) (eq? (car key) 'bootstrap))
         (when reads (check reads reads-route))
-        (when instance (check-instance instance))))))
+        (when instance (check-instance instance))))
+    (def (standard-lookup? table)
+      (and (eq? (read-runtime.object-class table) (route-wrapper instance-route))
+           (eq? (&interface-descriptor-type HashTable::interface) (route-wrapper instance-route))
+           (= (read-runtime.class-slot-offset (route-wrapper instance-route) 'object)
+              (route-object-offset instance-route))
+           (= (read-runtime.class-slot-offset (route-wrapper instance-route) 'ref)
+              (route-ref-offset instance-route))
+           (eq? ((route-ref-field instance-route) table) (route-ref instance-route))
+           (let (backend ((route-object-field instance-route) table))
+             (and (eq? (read-runtime.object-class backend) (route-backend instance-route))
+                  (eq? (&raw-table-hash backend) (route-hash instance-route))
+                  (eq? (&raw-table-test backend) (route-test instance-route))
+                  (not (&raw-table-lock backend))))))
+    (values require-route! standard-lookup?)))
 
 
-;; One authority owns the original weak table and authenticated birth closures.
-;; Its caller owns finite private canonical names. Only issued copies are exposed;
-;; another factory's records cannot be authenticated by this authority.
+;; Each issuer keeps a weak table of the records it created and their original
+;; field checkers. Its structural keys are independent copies.
 (def (make-read-issuer)
   (let ()
     ;; Both sides are weak: the registry is not a root for records, receivers or
     ;; birth closures. A live record itself keeps its original closure alive.
-    (def issued (HashTable (make-table test: eq? weak-keys: #t weak-values: #t)))
+    (def issued (make-table test: eq? weak-keys: #t weak-values: #t))
     (def record-class
       (read-runtime.object-class (make-slot-read #f #f 0 #f #f '() values)))
+    ;; The exact final record class is admitted before any of these accessors.
+    ;; Each invocation reads live fields rather than retaining a verdict.
+    (def read-key record-key-field)
+    (def read-value record-value-field)
+    (def read-current? record-current-field)
+    (def read-dependencies record-dependencies-field)
+    (def read-birth record-birth-field)
+    (def write-birth! record-birth-set!)
     ;; Recurse over the private finite sequence: a cyclic or improper presented
     ;; spine cannot extend the comparison past the saved sequence's length.
     (def (same-list? current saved)
@@ -98,12 +224,15 @@
                  (loop (cdr current) (1+ index)))))
         (and (pair? current) (eq? (car current) saved) (null? (cdr current)))))
     ;; Receiver state is captured by the caller; ordinary payload identities stay
-    ;; unchanged. The receiver owns the index key; the record owns a separate
-    ;; structural key spine so even a raw edit cannot damage hash placement.
+    ;; unchanged. The receiver owns the index key. The issuer and record
+    ;; retain separate structural spines so neither can rewrite the signature.
     (def (issue self key revision instance value parents checker)
-      (def names (and (equal? key '(names)) value))
+      ;; The producer's name spine is reachable through its ordinary runtime
+      ;; metadata. Freeze it before creating the separate exposed presentation.
+      (def names (and (equal? key '(names)) value (map values value)))
       (def shown (if names (map values names) value))
-      (def record-key (if (pair? key) (list-copy key) key))
+      (def signed-key (if (pair? key) (list-copy key) key))
+      (def record-key (if (pair? signed-key) (list-copy signed-key) signed-key))
       (def parent-copy
         (cond ((null? parents) '#())
               ((and (null? (cdr parents)) (not (vector? (car parents)))) (car parents))
@@ -123,45 +252,52 @@
             ;; Copy primitive metadata; do not dispatch a mutable class constructor.
             (if (not candidate)
                 (values read
-                  (vector self (if (pair? key) (list-copy key) key) revision instance
+                  (vector self (if (pair? signed-key) (list-copy signed-key) signed-key) revision instance
                     (if names (list-copy names) value)
                     (if (vector? parent-copy) (vector->list parent-copy) (list parent-copy)) checker)
-                  (and (pair? key) (list-copy key)))
+                  (and (pair? signed-key) (list-copy signed-key)))
             (and (eq? candidate read)
                  (eq? (slot-read-receiver read) self)
-                 (eq? (read-runtime.slot-ref read 'key) record-key)
-                 (or (not (pair? key)) (same-list? record-key key))
+                 (eq? (read-key read) record-key)
+                 (or (not (pair? signed-key)) (same-list? record-key signed-key))
                  (= (slot-read-revision read) revision)
                  (eq? (slot-read-instance read) instance)
-                 (eq? (read-runtime.slot-ref read 'value) value)
-                 (eq? (read-runtime.slot-ref read 'current?) checker)
-                 (same-dependencies? (read-runtime.slot-ref read 'dependencies) parent-copy))))))
+                 (eq? (read-value read) value)
+                 (eq? (read-current? read) checker)
+                 (same-dependencies? (read-dependencies read) parent-copy))))))
       ;; Ordinary values use the original predicate alone. A names record alone
       ;; adds a guard comparing its exposed spine to the private canonical names.
       (def birth
         (if names
           (lambda (candidate)
             (if (not candidate) (base-birth #f)
-              (and (base-birth candidate) (same-list? (read-runtime.slot-ref candidate 'value) names))))
+              (and (base-birth candidate) (same-list? (read-value candidate) names))))
           base-birth))
-      (read-runtime.slot-set! read 'birth birth)
-      (hash-put! issued read birth)
+      (write-birth! read birth)
+      (table-set! issued read birth)
       read)
     ;; Authenticate class and registered procedure identity BEFORE invoking it.
     (def (issued? read)
       (and (eq? (read-runtime.object-class read) record-class)
-        (let (birth (read-runtime.slot-ref read 'birth))
-          (and (procedure? birth) (eq? birth (hash-get issued read)) (birth read)))))
+        (let (birth (read-birth read))
+          (and (procedure? birth) (eq? birth (table-ref issued read #f)) (birth read)))))
     ;; Inspect the actual private association, not a caller's alleged birth.
     ;; Only the registered closure is invoked, and only in copy mode.
     (def (inspect read)
       (unless (eq? (read-runtime.object-class read) record-class)
         (error "foreign slot-read type"))
-      (def presented (read-runtime.slot-ref read 'birth))
-      (def original (hash-get issued read))
+      (def presented (read-birth read))
+      (def original (table-ref issued read #f))
       (if original
         (let-values (((signed snapshot shape) (original #f)))
           (values presented original signed snapshot shape))
         (values presented #f #f #f #f)))
     (values issue issued? inspect)))
+
+;; The existing live authority belongs below object preparation, so structural
+;; source views can authenticate the same evidence without importing object.ss.
+;; Keep its writer private. This replaces the former object-local allocation;
+;; it does not add another registry. Foreign make-read-issuer factories still
+;; cannot authenticate this authority's records, or vice versa.
+(defvalues (%issue-read %issued-read? %read-issuance) (make-read-issuer))
 

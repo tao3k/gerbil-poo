@@ -1,0 +1,170 @@
+#+title: Use the admitted DAG to bound local search
+
+* Contract before Scheme
+
+In =repair-order=, all deletions precede additions. Each addition is searched
+before insertion; previous additions have already been checked and relabelled.
+The current DAG therefore certifies provider rank < consumer rank at search
+entry. Forward search starts at =high=, reverse search at =low=. Every accepted
+pending owner remains in that interval; the same inductive premise applies to
+its next row. [[https://github.com/tao3k/lean-poo/blob/bbba642946c7ef98c98eee52387013e9da2fd171/LeanPoo/Proof/Gerbil/GraphRankBounds.lean][Lean]] proves the per-row sequence equalities:
+
+- Forward: rank(provider) < rank(owner) <= high, so only low needs checking.
+- Reverse: low <= rank(owner) < rank(reader), so only high needs checking.
+- Forward low=0: every row member qualifies, with no rank query.
+- Reverse high>=frontier-1: every live reader qualifies, with no rank query.
+
+The rank frontier is monotone, not the active owner count. Cold ranks are
+0..N-1; relabelling permutes old labels, new owners append labels, and removal
+leaves holes. The patch and reused-label theorems preserve bounds without
+enumerating the complete support. [[file:graph-rank-bounds.sysml][SysML]] records these obligations.
+
+This is not permission to drop an arbitrary predicate: rank reads are internal
+immutable index operations on already admitted owners. No author callback,
+Gerbil expansion, source currentness, unsupported-owner refusal or publication
+check is removed. Unknown-source =reschedule= keeps its full authentication.
+Bucket materialization, edge accounting, frontier output and incident checking
+stay in place. The candidate adopts only the two complete-range shortcuts;
+partial intervals retain the original two-bound predicate and query path.
+The one-sided theorems justify the complete shortcuts, not a claim that the
+partial-interval implementation has been replaced or measured faster.
+
+* Validation
+
+Keep the existing construction and 100K/1M rank/owned-Delta suites. Add a focused
+interval-boundary fixture that observes both outside providers and outside
+consumers, plus forward-floor and reverse-ceiling cases. Force the complete
+range branch on partial intervals as a matched fault: extra expansion must fail
+the work oracle, not time out. Benchmark empty/sparse/dense admitted monotone
+rows in both directions, with the same native index, natural GC and same-side
+controls. Complete output order and historical buckets remain unchanged.
+
+* Qualification
+
+Lean 4.35.0 accepts all ten named theorems with no sorry axiom (only standard
+propext/Quot.sound where needed). A finite counterexample also rejects replacing
+the rank frontier with active cardinality after deleting a label.
+
+The construction group passes all 43 cases, including forward floor, reverse
+ceiling, interval-external providers/consumers and deletion holes. Two deliberate
+faults are compiled and executed through the same official Just test entry:
+
+- Force complete=true: partial-interval search opens 4 buckets instead of 2.
+- Substitute active cardinality for frontier: the deletion-hole fixture opens
+  3 buckets instead of 2.
+
+Both fail real work assertions with exit 1, not timeout or compiler errors.
+After restoration the final 43 cases exit naturally with Module/Harness/final
+OK (22.84 s wall, 3.19 user, 0.50 system); the earlier hole run is retained too
+(4.66 s wall). Do not attribute this wall gap to the search without scheduling
+evidence. Test code uses its existing -O2/-D___SINGLE_HOST_LIMIT=4096 policy;
+the first diagnostic without the latter is not the accepted policy build.
+
+The existing 100K/1M rank and owned-Delta integration retains all 32+16 paired
+observations and original work/output oracles, with Module/Harness/final OK
+and natural exit (58.42 s wall). No Core 10K or downstream gate is implied.
+
+* Matched selection kernel
+
+The optional =certified-frontier-test= uses the same native structural index,
+admitted monotone row and pending tail on both arms, in both directions.
+The accepted partial arm calls the identical original predicate. The first
+pilot instead had a per-edge direction branch in its one-sided predicate;
+that pilot is retained but is not timing evidence for this production path.
+
+Four paired samples/arm, ABBA/BAAB plus A/A and B/B, natural GC. CPU medians ms:
+
+| Size | Direction | Selected | Original | Certified |
+|------+-----------+----------+----------+-----------|
+| 100K | forward | empty | 10.6470 | 10.0185 |
+| 100K | forward | sparse | 10.0005 | 9.9280 |
+| 100K | forward | dense | 10.4955 | 0.4290 |
+| 100K | reverse | empty | 9.7280 | 9.7120 |
+| 100K | reverse | sparse | 9.7070 | 9.7360 |
+| 100K | reverse | dense | 10.3605 | 0.4795 |
+| 1M | forward | empty | 72.6485 | 73.2520 |
+| 1M | forward | sparse | 72.4255 | 73.1830 |
+| 1M | forward | dense | 82.2065 | 6.2200 |
+| 1M | reverse | empty | 72.0835 | 73.1670 |
+| 1M | reverse | sparse | 71.6080 | 73.9410 |
+| 1M | reverse | dense | 78.7540 | 5.9040 |
+
+Partial intervals have no demonstrated benefit and include slower candidate
+medians (up to about 3.3%). Keep them. Dense 1M A/A is 81.361/80.970 ms forward
+and 78.623/78.578 reverse; B/B is 6.733/6.738 and 5.900/5.849 ms. Each dense
+1M original arm has one collection across its four paired windows; the matching
+certified arm has none. All other paired windows have zero collections.
+
+Dense 1M wall medians are 82.2300/6.2200 ms forward and 78.7655/5.9025 reverse.
+Every raw CPU/wall/GC and same-side record is retained. Signed allocation
+endpoints are not treated as attributable allocation. The entire invocation
+exits naturally in 9.99 s, with max RSS 1,488,404,480 bytes including both arms,
+fixtures and harness. This is not candidate-only memory or complete Graph EVAL.
+
+No published state or transaction transition is added. This pure row-sequence
+refinement leaves the existing publication/QNT observation boundary intact;
+it is not a claim of a new QNT model-check run or complete formal acceptance.
+
+* Same-program old/new Graph comparison
+
+Reference sources are the exact green =aea898d90f559ba031b325d2e5654b7b4b86ce28=
+Git archive. A clone-on-write copy of the completed candidate output prefix
+shares the identical compiled libraries and test program; only the reference
+=generalized-graph= unit is recompiled from that archive, with the same native
+-O2 policy. =cmp= confirms identical object and graph-study runtime artifacts,
+and different Graph runtime artifacts. Both directories have only =generalized-graph~0.o1=
+for that runtime unit, avoiding higher-ordinal shadowing. No product resolver,
+load-path reordering, cache or alternative runner is introduced.
+
+The original owned-Delta suite runs A/B/B/A in independent official Just
+processes. All four retain 16 observations, exact work/output oracles,
+Module/Harness/final OK and natural exit. Each table cell below aggregates eight
+timed updates; no owned update has a collection.
+
+| Nodes | Version | Owned CPU / wall median ms | Uncontrolled CPU median ms |
+|-------+---------+----------------------------+----------------------------|
+| 100K | reference | 0.1015 / 0.1016 | 57.5815 |
+| 100K | candidate | 0.0845 / 0.0840 | 54.2970 |
+| 1M | reference | 0.1015 / 0.1019 | 578.2850 |
+| 1M | candidate | 0.1020 / 0.1025 | 575.0705 |
+
+This partial-interval integration establishes preservation of the original
+path, not a general end-to-end speedup. Both versions check exactly one owner,
+read one footprint, write two ranks/eight patch entries and materialize/copy
+zero complete-index entries during each owned update. The unrestricted source
+still checks N owners. Independent complete order projection and verification
+remain outside the update timing.
+
+Cold setup remains substantial: at 1M, the two-run owned-setup CPU medians are
+1782.0555 ms reference and 1715.3475 ms candidate; explicit order output is
+12.6135/13.7065 ms. These stages are retained and are not called warm demand.
+The four whole-process wall/user/system times are 63.13/10.09/0.61,
+11.30/10.08/0.61, 14.84/10.35/0.67 and 13.61/10.90/0.69 s. The first long wall
+sample is preserved; no claim assigns its untimed gap to Graph work or host
+contention. This does not close real Module admission or its first business get.
+
+* Merge captured repair labels
+
+The local repair already sorts the provider and consumer frontiers by
+old rank. A candidate captures each affected rank once before the
+first assignment, sorts the two frontiers by their captured ranks,
+and merges those rank streams while assigning providers before
+consumers. =merge_repair_labels= proves equality with sorting the
+concatenated rank labels again. The incident checks retain the same
+owner order and still use the successor ranks.
+
+The focused Darwin =-O2= build took 19.93 s at 1.40 GiB sampled
+process-tree peak. All 22 local order cases passed. In the complete
+100K reverse-hub repair, both arms examined 99,999 live edges and
+rewrote 100,001 ranks. The reference/candidate CPU medians were
+648.43/452.60 ms, wall medians were 701.32/459.77 ms and GC CPU
+medians were 75.84/73.55 ms. Each sample collected once, so allocation
+estimates are unavailable. Peak process-tree memory was 0.77 GiB
+in both arms after rounding. The earlier queue-only candidate
+measured 612.49/640.12 ms CPU on its own four-arm comparison.
+
+The isolated 1M reference printed the cold construction entry and
+failed the 2 GiB Scheme heap fence before the exit marker. The 4 GiB
+process-tree guard measured 2.28 GiB at that failure. There is no
+million-reader rank timing for either arm. The merge candidate remains
+in the experiment pending that comparison.

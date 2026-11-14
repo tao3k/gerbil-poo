@@ -1,0 +1,332 @@
+;;; Optional cold Graph phase study; absent from default build and CI.
+(export cold-topology-test cold-inverse-test cold-capacity-test cold-owned-phases-test
+        cold-symbol-normalization-test cold-forward-implicit-test)
+(import :std/test :std/iter
+        (only-in :std/error UnboundKeyError?)
+        (only-in :std/list/list delete-duplicates/hash)
+        (only-in :std/list/list-builder with-list-builder)
+        (only-in :clan/poo/benchmarks/closure-measure measure qualified-metrics)
+        (only-in :gerbil/runtime/interface interface-instance-object)
+        (only-in :gerbil/runtime/mop object-class slot-ref)
+        (prefix-in :clan/poo/generalized-graph graph.)
+        (prefix-in :clan/poo/dependency-analysis code.)
+        (only-in :clan/poo/object .@)
+        (only-in :clan/poo/support/index %index)
+        (only-in :gerbil/runtime/gambit default-random-source))
+(extern namespace: #f random-source-state-ref random-source-state-set!)
+(extern namespace: clan/poo/generalized-graph
+  keys! index-keys table check-edit-targets capture-program-batch capture-program
+  make-%owned-source owned-declaration schedule-rows schedule-owned/rows)
+
+(def (forward-edit state codes (added []) (retired []))
+  (graph.apply-schedule-revision state
+    (graph.%schedule-support-revision state codes added retired
+      (lambda (a b) (string<? (symbol->string a) (symbol->string b))))))
+
+(def cold-forward-implicit-test
+  (test-suite "implicit empty rows for an admitted owned source"
+    (test-case "first edge, unbound key and existing authored edge"
+      (def cold (graph.schedule-owned '(a b) []))
+      (check-exception ((graph.schedule-reads cold) 'unknown) UnboundKeyError?)
+      (def codes (list (cons 'a (code.need 'b identity))))
+      (def edited (forward-edit cold codes))
+      (def authored (graph.schedule-owned '(a b) codes))
+      (check-equal? (graph.schedule-order edited) '(b a))
+      (check-equal? (graph.schedule-order authored) '(b a))
+      (check-equal? ((graph.schedule-reads edited) 'a) '(b))
+      (check-equal? ((graph.schedule-reads authored) 'a) '(b))
+      (check-equal? ((graph.schedule-reads cold) 'a) [])
+      (check-exception (forward-edit edited [] [] '(b)) graph.failure?)
+      (def removed (forward-edit edited [] [] '(a)))
+      (check-exception ((graph.schedule-reads removed) 'a) graph.failure?)
+      (def revived (forward-edit removed '((a . #f)) '(a)))
+      (check-equal? ((graph.schedule-reads revived) 'a) [])
+      (check-equal? ((graph.schedule-reads edited) 'a) '(b)))
+    (test-case "empty row storage preserves the constructor RNG trace"
+      (def support (index-keys '(a b) (make-hash-table-symbolic size: 2)))
+      (def state (random-source-state-ref default-random-source))
+      (def (rng-end row)
+        (random-source-state-set! default-random-source state)
+        (schedule-rows #f '(a b) row #t support)
+        (random-source-state-ref default-random-source))
+      (def dense (rng-end (lambda (_) [])))
+      (def implicit (rng-end #f))
+      (check-equal? implicit dense))
+    (test-case "complete empty cold cost with same-side controls"
+      (for (size '(100000 1000000))
+        (def keys (for/collect (i (in-range size))
+          (string->symbol (string-append "cold-forward-owner-" (number->string i)))))
+        (for* ((group '((paired #f implicit-empty implicit-empty #f)
+                        (paired implicit-empty #f #f implicit-empty)
+                        (aa #f #f) (bb implicit-empty implicit-empty)))
+               (side (cdr group)))
+          (defvalues (result clocks)
+            (measure (lambda ()
+              (if side (graph.schedule-owned keys []) (schedule-owned/rows keys [] [] #f))) 1))
+          (check-equal? (graph.schedule-order result) keys)
+          (check-equal? (.@ (graph.schedule-work result) footprint-reads) (if side 0 size))
+          (def reads (graph.schedule-reads result))
+          (unless (andmap (lambda (key) (null? (reads key))) keys)
+            (error "implicit cold schedule has nonempty row" side size))
+          (displayln (list 'COLD-FORWARD-IMPLICIT size (car group) side (qualified-metrics clocks)))
+          (force-output))))))
+
+;; Optional candidate only. Retain the same validator, one native constructor,
+;; and the SAME standard-library deduplicator. Never admit non-symbol keys.
+(def (symbol-keys keys)
+  (unless (and (list? keys) (andmap symbol? keys)) (error "component keys must be symbols"))
+  (delete-duplicates/hash keys table: (make-hash-table-symbolic size: (length keys)) from-end?: #t))
+(def (symbol-default-keys keys)
+  (unless (and (list? keys) (andmap symbol? keys)) (error "component keys must be symbols"))
+  (delete-duplicates/hash keys table: (make-hash-table-symbolic) from-end?: #t))
+
+(def cold-symbol-normalization-test
+  (test-suite "validated symbol normalization backend refinement"
+    (test-case "identity order refusal and constructor random-source effects"
+      (def first (gensym 'same-spelling))
+      (def second (gensym 'same-spelling))
+      (for (keys (list [] '(a b a c b) (list first second first 'a second)))
+        (def state (random-source-state-ref default-random-source))
+        (def original (keys! keys))
+        (def after (random-source-state-ref default-random-source))
+        (random-source-state-set! default-random-source state)
+        (def candidate (symbol-keys keys))
+        (check-equal? candidate original)
+        (for ((a original) (b candidate)) (check-eq? a b))
+        (check-equal? (random-source-state-ref default-random-source) after)
+        (random-source-state-set! default-random-source state)
+        (check-equal? (symbol-default-keys keys) original)
+        (check-equal? (random-source-state-ref default-random-source) after))
+      (check-equal? (symbol-keys (list first second first)) (list first second))
+      (for (invalid (list #f 1 '(a 1) '(a . b)))
+        (def state (random-source-state-ref default-random-source))
+        (check-exception (keys! invalid) error-object?)
+        (check-equal? (random-source-state-ref default-random-source) state)
+        (check-exception (symbol-keys invalid) error-object?)
+        (check-equal? (random-source-state-ref default-random-source) state)
+        (check-exception (symbol-default-keys invalid) error-object?)
+        (check-equal? (random-source-state-ref default-random-source) state)))
+    (test-case "paired unique and duplicate-heavy normalization at fixed cardinalities"
+      (for* ((size '(100000 1000000)) (shape '(unique duplicate-heavy)))
+        (def keys (for/collect (i (in-range size))
+          (if (eq? shape 'unique)
+            (string->symbol (string-append "normalization-owner-" (number->string i)))
+            (vector-ref '#(a b c a) (modulo i 4)))))
+        (def expected (if (eq? shape 'unique) keys '(a b c)))
+        (def state (random-source-state-ref default-random-source))
+        (keys! keys)
+        (def after (random-source-state-ref default-random-source))
+        (random-source-state-set! default-random-source state)
+        (check-equal? (symbol-keys keys) expected)
+        (check-equal? (random-source-state-ref default-random-source) after)
+        (for* ((schedule '((paired original symbolic symbolic original symbolic original original symbolic)
+                          (aa original original) (bb symbolic symbolic)
+                          (default-paired original symbolic-default symbolic-default original
+                                          symbolic-default original original symbolic-default)
+                          (default-bb symbolic-default symbolic-default)))
+               (side (cdr schedule)))
+          (defvalues (result clocks)
+            (measure (lambda ()
+              ((case side ((original) keys!) ((symbolic) symbol-keys)
+                 (else symbol-default-keys)) keys)) 1))
+          (check-equal? result expected)
+          (displayln (list 'COLD-SYMBOL-NORMALIZATION size shape (car schedule) side
+            (qualified-metrics clocks) 'result-count (length result)
+            'raw-allocation (vector-ref clocks 4))))))))
+
+;; Same current schedule-owned callees, with metrics BETWEEN calls. No callback
+;; enters production, no field/source observer changes authentication behavior.
+;; Fixed fixture: fully given names, zero code/base bindings, zero edges.
+(def (owned-phases keys)
+  (def phases [])
+  (def (phase name action)
+    (defvalues (value clocks) (measure action 1))
+    (set! phases (cons (list name (qualified-metrics clocks) 'raw-allocation (vector-ref clocks 4)) phases))
+    value)
+  (def normalized (phase 'validate-deduplicate (lambda () (keys! keys))))
+  (def names (phase 'private-name-copy (lambda () (list-copy normalized))))
+  (def supported (phase 'support-index
+    (lambda () (index-keys names (make-hash-table-symbolic size: (length names))))))
+  (def programs #f)
+  (def base-values #f)
+  (def captured #f)
+  (phase 'binding-admission
+    (lambda ()
+      (set! programs (table []))
+      (set! base-values (table [] (make-hash-table-symbolic)))
+      (check-edit-targets (cut hash-key? supported <>) [] [] base-values)
+      (set! captured (make-hash-table-symbolic))
+      (capture-program-batch (lambda () (void)))))
+  (def source (phase 'owned-source
+    (lambda () (make-%owned-source names (%index captured) (%index base-values)))))
+  (def public (phase 'poo-source (lambda () (owned-declaration source))))
+  (def scheduled (phase 'rows-order-ranks
+    (lambda () (schedule-rows public names #f source supported))))
+  (values scheduled (reverse phases)))
+
+(def cold-owned-phases-test
+  (test-suite "actual cold owned scheduling callees"
+    (test-case "complete versus staged same functions for given names and no bindings"
+      (for (size '(100000 1000000))
+        (def keys (for/collect (i (in-range size))
+          (string->symbol (string-append "cold-phase-owner-" (number->string i)))))
+        (for (side '(complete staged staged complete))
+          (def stages [])
+          (defvalues (result clocks)
+            (measure (lambda ()
+              (if (eq? side 'complete) (graph.schedule-owned keys [])
+                (let-values (((scheduled trace) (owned-phases keys)))
+                  (set! stages trace) scheduled))) 1))
+          ;; Outside timing. Full public order is an explicitly requested copy.
+          (check-equal? (graph.schedule-order result) keys)
+          (check (graph.schedule-supports? result (car keys)) => #t)
+          (check (graph.schedule-supports? result 'missing-cold-phase-owner) => #f)
+          (check-equal? ((graph.schedule-reads result) (car keys)) [])
+          (displayln (list 'COLD-OWNED-PHASES size side 'total (qualified-metrics clocks)
+            'stages stages 'raw-allocation (vector-ref clocks 4))))))))
+
+(def (fill-capacity keys hinted?)
+  (def result (if hinted? (make-hash-table-symbolic size: (length keys))
+                         (make-hash-table-symbolic)))
+  (for ((key keys) (rank (in-range (length keys)))) (hash-put! result key rank))
+  result)
+
+;; Structural work diagnostic, separate from timing. Native raw-table rehash
+;; scans the old backing vector and initializes the replacement vector.
+(def (capacity-work keys hinted?)
+  (def table (if hinted? (make-hash-table-symbolic size: (length keys))
+                        (make-hash-table-symbolic)))
+  (def backend (interface-instance-object table))
+  (def previous (slot-ref backend 'table))
+  (def rehashes 0)
+  (def scanned 0)
+  (def initialized (vector-length previous))
+  (for ((key keys) (rank (in-range (length keys))))
+    (hash-put! table key rank)
+    (def current (slot-ref backend 'table))
+    (unless (eq? current previous)
+      (set! rehashes (1+ rehashes))
+      (set! scanned (+ scanned (vector-length previous)))
+      (set! initialized (+ initialized (vector-length current)))
+      (set! previous current)))
+  (vector (hash-length table) rehashes scanned initialized))
+
+(def cold-capacity-test
+  (test-suite "known cardinality native table reservation"
+    (test-case "same entries backend and native seed effects on both capacities"
+      (for (size '(100000 1000000))
+        (def keys (for/collect (_ (in-range size)) (gensym 'capacity-owner)))
+        (def state (random-source-state-ref default-random-source))
+        (def original (fill-capacity keys #f))
+        (def after (random-source-state-ref default-random-source))
+        (random-source-state-set! default-random-source state)
+        (def reserved (fill-capacity keys #t))
+        (check-equal? (random-source-state-ref default-random-source) after)
+        (check-eq? (object-class (interface-instance-object original))
+                  (object-class (interface-instance-object reserved)))
+        (check-equal? (slot-ref (interface-instance-object original) 'seed)
+                      (slot-ref (interface-instance-object reserved) 'seed))
+        (for (method '(ref set! for-each))
+          (check-eq? (slot-ref original method) (slot-ref reserved method)))
+        (for (side '(default hinted))
+          (def work (capacity-work keys (eq? side 'hinted)))
+          (check-equal? (vector-ref work 0) size)
+          (when (eq? side 'hinted) (check-equal? (vector-ref work 1) 0))
+          (displayln (list 'COLD-CAPACITY-WORK size side work)))
+        (for* ((schedule '((paired default hinted hinted default hinted default default hinted)
+                          (aa default default) (bb hinted hinted)))
+               (side (cdr schedule)))
+          (defvalues (result clocks)
+            (measure (lambda () (fill-capacity keys (eq? side 'hinted))) 1))
+          (check-equal? (hash-length result) size)
+          (for ((key keys) (rank (in-range size)))
+            (unless (= (hash-ref result key) rank) (error "reserved rank changed" key)))
+          ;; Capacity never admits a name and does not conflate false/absence.
+          (check-eq? (hash-ref result 'unknown-capacity-owner #f) #f)
+          (hash-put! result 'capacity-false #f)
+          (check-eq? (hash-ref result 'capacity-false 'missing) #f)
+          (displayln (list 'COLD-CAPACITY size (car schedule) side
+            (qualified-metrics clocks) 'entries (hash-length result)
+            'raw-allocation (vector-ref clocks 4))))))))
+
+;; Frozen former schedule-rows traversal, with admitted zero-edge inputs.
+;; Native constructors are prepared equally on both arms before phase timing.
+(def (full-order keys reads supported states)
+  (with-list-builder (add)
+    (def (visit key)
+      (unless (hash-key? supported key) (error "unsupported cold fixture" key))
+      (case (hash-get states key)
+        ((done) (void))
+        ((active) (error "cyclic cold fixture" key))
+        (else (hash-put! states key 'active)
+          (for-each visit (hash-ref reads key))
+          (hash-put! states key 'done) (add key))))
+    (for-each visit keys)))
+
+(def cold-topology-test
+  (test-suite "admitted empty Graph topology phase"
+    (test-case "full traversal versus unique-roster copy"
+      (for (size '(100000 1000000))
+        (def keys (for/collect (_ (in-range size)) (gensym 'cold-owner)))
+        (def supported (make-hash-table-symbolic))
+        (def reads (make-hash-table-symbolic))
+        (for (key keys) (hash-put! supported key #t) (hash-put! reads key []))
+        (for* ((schedule '((paired full copy copy full copy full full copy)
+                          (aa full full) (bb copy copy)))
+               (side (cdr schedule)))
+          (def states (make-hash-table-eq))
+          (defvalues (result clocks)
+            (measure (lambda ()
+              (if (eq? side 'full) (full-order keys reads supported states) (list-copy keys))) 1))
+          (check-equal? result keys)
+          (check-equal? (hash-length states) (if (eq? side 'full) size 0))
+          ;; The private result spine is fresh on both arms.
+          (check-eq? (eq? result keys) #f)
+          (displayln (list 'COLD-TOPOLOGY size (car schedule) side
+            (qualified-metrics clocks) 'states (hash-length states)
+            'raw-allocation (vector-ref clocks 4))))))))
+
+;; Same insertion order as indexed-schedule; this helper is a study only.
+(def (inverse keys reads dense?)
+  (def readers (make-hash-table-symbolic))
+  (when dense? (for (key keys) (hash-put! readers key [])))
+  (for (key keys)
+    (for (dep (hash-ref reads key))
+      (hash-put! readers dep (cons key (hash-ref readers dep [])))))
+  readers)
+
+(def cold-inverse-test
+  (test-suite "owned inverse construction phase"
+    (test-case "empty chain hub retain rows native RNG and sparse bucket counts"
+      (for (size '(100000 1000000))
+        (def keys (for/collect (_ (in-range size)) (gensym 'inverse-owner)))
+        (def positions (list->vector keys))
+        (for (shape '(empty chain hub))
+          (def reads (make-hash-table-symbolic))
+          (for ((key keys) (i (in-range size)))
+            (hash-put! reads key
+              (cond ((or (zero? i) (eq? shape 'empty)) [])
+                    ((eq? shape 'chain) (list (vector-ref positions (1- i))))
+                    (else (list (car keys))))))
+          (def state (random-source-state-ref default-random-source))
+          (def expected (inverse keys reads #t))
+          (def after (random-source-state-ref default-random-source))
+          (random-source-state-set! default-random-source state)
+          (def initial (inverse keys reads #f))
+          (check-equal? (random-source-state-ref default-random-source) after)
+          (def width (case shape ((empty) 0) ((chain) (1- size)) (else 1)))
+          (check-equal? (hash-length initial) width)
+          (for* ((schedule '((paired dense sparse sparse dense sparse dense dense sparse)
+                            (aa dense dense) (bb sparse sparse)))
+                 (side (cdr schedule)))
+            (defvalues (result clocks)
+              (measure (lambda () (inverse keys reads (eq? side 'dense))) 1))
+            (check-equal? (hash-length result) (if (eq? side 'dense) size width))
+            ;; Full ordered oracle outside timing, without per-owner harness IO.
+            (for (key keys)
+              (unless (equal? (hash-ref result key []) (hash-ref expected key []))
+                (error "inverse row differs" shape key)))
+            (check-equal? (hash-ref result 'unknown-cold-owner []) [])
+            (displayln (list 'COLD-INVERSE size shape (car schedule) side
+              (qualified-metrics clocks) 'buckets (hash-length result)
+              'raw-allocation (vector-ref clocks 4)))))))))

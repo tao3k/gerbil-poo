@@ -1,0 +1,73 @@
+#+title: Graph algorithms and incremental publication
+
+* Contract
+
+A node is a key in a finite POO declaration. An edge from A to B means A
+declares a read of B. A dependency change can invalidate A even when A
+lies outside the region whose topological order or SCC membership changes.
+
+An edit produced by the existing Graph API can reuse the previous snapshot's
+indices. The local path checks the edited rows and visits the affected
+dependencies and consumers. A replacement without matching source evidence
+uses full validation. Full enumeration of order or groups has its own cost.
+
+An SCC uses its first member in source order as representative. The
+condensation graph schedules dependencies before their consumers. A failed
+admission or superseded request leaves the current publication intact.
+Readers observe graph and metadata from the same published snapshot.
+
+* Topological order, components and publication
+
+For edge edits on a fixed set of owners, the SCC repair region is
+=R = Reach(U,D) ∩ Reach(reverse(U),D)=. =U= contains the old and new edges,
+and =D= contains owners whose outgoing edges changed. Recompute SCCs inside
+=R= and retain membership outside it. Value invalidation follows reverse
+edges from changed inputs and edited readers, including consumers outside
+=R=.
+
+| Question | Implementation | Contract and checks |
+|----------+----------------+---------------------|
+| What changed, and which part of the order needs repair? | [[file:../generalized-graph.ss][Graph edits and scheduling]] | [[https://github.com/tao3k/lean-poo/blob/31b550d15e81b095795078efb8344442d8ba6edd/LeanPoo/Functional/DependencyOrderRepair.lean#L110-L121][Lean interval search]], [[https://github.com/tao3k/lean-poo/blob/31b550d15e81b095795078efb8344442d8ba6edd/LeanPoo/Functional/DependencyOrderRepair.lean#L147-L164][Lean rank checks]], [[file:../t/construction/graph-order-repair-test.ss][Differential tests]] |
+| Which SCCs can merge or split? | [[file:../strong-components.ss][SCC capture, certification and repair]] | [[https://github.com/tao3k/lean-poo/blob/31b550d15e81b095795078efb8344442d8ba6edd/LeanPoo/Functional/LocalSccRegion.lean#L128-L141][Lean local repair equals cold computation]], [[file:scc-edit-region.sysml][SysML]], [[file:../t/feedback/graph-algorithms-test.ss][Graph tests]] |
+| Which values must be recomputed? | [[file:../feedback-graph.ss][Condensation and value invalidation]] | [[file:strong-components.md][SCC semantics]], [[file:../t/feedback/feedback-graph-test.ss][Closure tests]] |
+| When does an edited snapshot become visible? | [[file:../component-revision.ss][Revision preparation]], [[file:../component-publication.ss][Publication]] | [[file:component-publication.md][Snapshot and request contract]], [[https://github.com/tao3k/lean-poo/blob/31b550d15e81b095795078efb8344442d8ba6edd/LeanPoo/Functional/ComponentPublication.lean#L154-L173][Lean snapshot reads]], [[file:../t/components/component-membership-test.ss][Publication tests]] |
+
+* Performance
+
+CPU milliseconds from paired Scheme measurements with equivalent prepared inputs.
+The chain uses verified source order to label singleton SCCs. The cyclic
+band uses bulk retirement once Algorithm T establishes a single component.
+The feedback revision reuses the published inverse index to find consumers.
+
+| Operation | Input | Baseline | Optimized |
+|-----------+-------+----------+-----------|
+| SCC discovery, chain | 100K nodes | 8.166–8.226 | 0.627–0.642 |
+| SCC discovery, cyclic band | 1M nodes, 15,999,865 edges | 282.970–286.469 | 41.884–43.148 |
+| Feedback revision, one base edit and its consumer | 10K groups | 10.775–13.505 | 0.505–0.636 |
+
+Run =just benchmark-scc=. The [[file:graph-benchmark.org][benchmark report]]
+records the inputs, comparison revisions, capture, validation, GC and output
+costs. The discovery figures cover the SCC kernel. Yuanxu Module admission
+and first business demand have separate measurements.
+
+* Relation to POOF
+
+Rideau, Knauth and Amin describe selective invalidation in POOF §6.2:
+
+#+begin_quote
+the system can automatically track which mutations happen, and invalidate those caches that need be
+#+end_quote
+
+POO applies this to declared reads and tracked revisions. The reverse
+dependency index identifies consumers of an edited input. Graph repair updates
+the order or SCC partition, and publication checks that the edited snapshot
+is still current. [[https://github.com/metareflection/poof/blob/532e0c8aa6f3168e374604cb8aa7818870694bf6/poof.scrbl#L1527-L1556][POOF §6.2, Cache invalidation]]
+
+* References
+
+- [[https://arxiv.org/abs/2201.07197v3][Tarjan and Zwick, Finding Strong Components Using Depth-First Search]] describes Algorithm T and the traversal state used by SCC discovery.
+- [[https://www.doc.ic.ac.uk/~phjk/Publications/DynTopoSortWEA2004.pdf][Pearce and Kelly, A Dynamic Topological Sort Algorithm for Directed Acyclic Graphs]] describes order repair via affected vertices.
+
+The fixed [[https://github.com/tao3k/gerbil-poo/tree/f9d56443b3b56be6dfbac73441fe0996e5447565/doc][research archive]]
+retains the cold-index, forward-row, bucket-walk, cold-handoff, roster and
+frontier studies. The benchmark report gives the current measurement windows.

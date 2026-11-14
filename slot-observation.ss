@@ -84,7 +84,9 @@
   ;; Only replay-root consumers opt in. Dependency capture keeps every
   ;; edge occurrence; no signed dependency list is edited or reconstructed.
   (unless (boolean? unique-roots?) (error "invalid root collection policy"))
-  (def frame (make-read-collection (and unique-roots? (make-hash-table-eq)) '()))
+  ;; This private identity membership has no public adapter or callbacks.
+  ;; Keep the original first-occurrence spine and the delivery scope below.
+  (def frame (make-read-collection (and unique-roots? (make-table test: eq?)) '()))
   (def parent (current-read-scope))
   (def value (parameterize ((current-read-scope
     (if (read-scope? parent)
@@ -93,19 +95,24 @@
   (values value (reverse (read-collection-reversed frame))))
 ;; One recording boundary serves normal delivery and already-delivered child
 ;; captures. Respect the current collector's occurrence/deduplication policy.
+(defrule (record-in-collection! frame seen read)
+  (unless (and seen (table-ref seen read #f))
+    (when seen (table-set! seen read #t))
+    (set! (read-collection-reversed frame)
+      (cons read (read-collection-reversed frame)))))
 (def (record-slot-read! frame read)
   (when frame
     (let (seen (read-collection-seen frame))
-      (unless (and seen (hash-key? seen read))
-        (when seen (hash-put! seen read #t))
-        (set! (read-collection-reversed frame)
-          (cons read (read-collection-reversed frame)))))))
+      (record-in-collection! frame seen read))))
 ;; Merge an authenticated child capture under one parent-scope lookup, without
 ;; replaying observers/prechecks. Recording never mints or authenticates provenance.
 (def (%record-slot-reads! reads)
   (def scope (current-read-scope))
   (def frame (if (read-scope? scope) (read-scope-frame scope) scope))
-  (when frame (for-each (cut record-slot-read! frame <>) reads)))
+  (when frame
+    ;; A batch keeps the same private identity table throughout.
+    (let (seen (read-collection-seen frame))
+      (for-each (lambda (read) (record-in-collection! frame seen read)) reads))))
 ;; Record the original read, then deliver it in order without observing callbacks.
 (def (%deliver-slot-read read value)
   (def scope (current-read-scope))
@@ -113,11 +120,18 @@
   (record-slot-read! (if observed? (read-scope-frame scope) scope) read)
   ;; Deduplicate storage, NEVER delivery. Duplicate events, observer ordering,
   ;; effects and exceptions keep their original per-delivery boundary.
-  (let (observers (if observed? (read-scope-observers scope) '()))
+  (let (observers (if observed? (%delivery-observers (read-scope-observers scope)) '()))
     (unless (null? observers)
       (without-observation
         (lambda () (for-each (lambda (observe) (observe read)) observers)))))
   value)
+
+;; Keep the dynamic scope intact for prechecks and compatibility inspection.
+;; A leading runtime void can be ignored before entering a callback boundary.
+(def (%delivery-observers observers)
+  (if (and (pair? observers) (eq? (car observers) void))
+    (%delivery-observers (cdr observers))
+    observers))
 ;; Nested observers receive the same actual reads. Final replay is owned by the
 ;; consumer's admission boundary, not memoized as a successful previous check.
 (def (call-with-slot-read-observer observe action before: (before #f))

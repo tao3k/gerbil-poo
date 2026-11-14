@@ -1,0 +1,44 @@
+#+title: Component family membership
+
+* Prepared families
+
+=component-group-builder= owns a copy of the declared family keys and
+selects each focus once in declaration order. Its private =lenses= table
+already maps each family key to its Lens. A group request can use
+=hash-key?= on that table to check that all requested keys belong to the
+family. An absent key is refused before any component program runs.
+
+The builder uses Gerbil's standard identity-table methods for membership.
+A focus callback can replace a table method, so the builder checks the
+current lookup and write methods before using the index. If the check fails,
+membership uses the owned list for the rest of that builder's life.
+
+For example, suppose a family contains =invoice=, =tax= and =rate=.
+If =invoice= and =tax= form an SCC, the =tax= read inside the =invoice=
+equation uses the current fixed-point input. If =rate= is in a predecessor
+SCC, its read uses the closed predecessor value. All three keys pass family
+membership. The equation uses its current SCC members to choose the source.
+
+An experimental index for the SCC itself increased a sparse cold lookup at
+one million members from 4.6830 to 180.0730 ms CPU and was withdrawn.
+[[https://github.com/tao3k/gerbil-poo/blob/f9d56443b3b56be6dfbac73441fe0996e5447565/doc/component-routing.org][Archived experiment]]
+
+* Checks and measurements
+
+[[file:../t/components/component-membership-test.ss][Component tests]] exercise caller-list edits,
+focus callback order, wrong keys and the admission checks for prepared lenses.
+[[file:../t/feedback/feedback-graph-test.ss][Feedback tests]] exercise changes to the table adapter.
+[[file:component-family.sysml][SysML]] describes the ownership and effect boundaries.
+The [[https://github.com/tao3k/lean-poo/blob/bbba642946c7ef98c98eee52387013e9da2fd171/LeanPoo/Proof/Gerbil/ComponentFamily.lean][family-index model]] checks the captured domain,
+first refusal and retirement of the shortcut.
+
+The prepared lookup study compares the family scan with the existing index.
+Both arms start after family construction and make 256 membership queries.
+CPU medians in milliseconds:
+
+| Family keys | List | Checked index |
+|-------------+------+---------------|
+|     100,000 | 282.7980 | 0.0465 |
+|   1,000,000 | 181.5160 | 0.0325 |
+
+[[file:../benchmarks/component-family-test.ss][Benchmark source]] · [[https://github.com/tao3k/gerbil-poo/blob/f9d56443b3b56be6dfbac73441fe0996e5447565/doc/component-family.org][Measurements and controls]]

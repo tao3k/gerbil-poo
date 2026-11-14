@@ -16,6 +16,10 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      # One worker uses the synchronous compiler path in std/make.
+      # The asynchronous shared build failed with a worker stack overflow.
+      GERBIL_BUILD_CORES: '1'
     outputs:
       matrix: ${{ steps.groups.outputs.matrix }}
       compiler-key: ${{ steps.gerbil.outputs.compiler-key }}
@@ -32,13 +36,15 @@ jobs:
       # Root make imports t/build.ss and compiles the top-level t/*.ss fixtures.
       # Nested test packages/includes belong to compile-tests, not this artifact.
       # Keep every root/production/benchmark input; a test edit must still run all jobs.
+      # Most benchmark TestSuite sources run from checkout. Include the
+      # compiled dense repair fixture in the shared artifact key.
       - uses: actions/cache@v4
         id: shared-cache
         with:
           path: |
             .ci-library/lib
             .ci-library/bin
-          key: scheme-shared-${{ runner.os }}-${{ runner.arch }}-${{ steps.gerbil.outputs.compiler-key }}-${{ hashFiles('**/*.ss', '**/*.scm', '**/gerbil.pkg', 'justfile', '.github/actions/setup-gerbil/action.yml', '!t/*/**', 't/*.ss', '!t/build-test.ss') }}
+          key: scheme-shared-${{ runner.os }}-${{ runner.arch }}-${{ steps.gerbil.outputs.compiler-key }}-${{ hashFiles('**/*.ss', '**/*.scm', '**/gerbil.pkg', 'justfile', '.github/workflows/test.yml', '.github/actions/setup-gerbil/action.yml', '!t/*/**', 't/*.ss', '!t/build-test.ss', '!benchmarks/*-test.ss', 'benchmarks/dense-repair-test.ss') }}
       - name: Check public module packaging
         run: just check-layout
       - name: Prepare the declared libraries and benchmark programs
@@ -157,3 +163,13 @@ jobs:
           merge-multiple: true
       - name: Run every compiled suite in one process and the complete paired study
         run: time -p just check-built 2 1 4
+      - name: Check certified Graph work and preserved paired controls
+        # Each independent benchmark Module owns its interned fixture names.
+        # Functional suites above still share one process; all benchmark
+        # workloads and heap limits stay unchanged.
+        run: |
+          just _test -r '^cold-handoff-contract-test$' "$GERBIL_PATH/lib/clan/poo/benchmarks/cold-handoff-test.ssi"
+          just _test benchmarks/scc-test.ss
+          just _test benchmarks/owned-invalidation-test.ss
+          just benchmark-dense-repair-built natural
+          just benchmark-dense-repair-built collected

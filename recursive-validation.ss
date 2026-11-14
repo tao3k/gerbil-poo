@@ -3,16 +3,25 @@
         validation-failure? validation-failure-kind validation-failure-cause
         validation-node revise-validation revision-action closed-evaluated closed-reused
         reconfigure-validation reconfiguration-action closed-reads validation-checkpoint)
-(import (only-in :std/list/list delete-duplicates/hash filter find)
+(import (only-in ./generalized-graph affected-owners)
+        (only-in :std/list/list delete-duplicates/hash filter)
         (only-in :std/hash/misc hash-ensure-ref)
+        (only-in ./strong-components capture-reachability-procedure)
         ./object (only-in ./mop Type. Type validate raise-type-error)
         (only-in ./value-diagnostics diagnose-structure)
         (only-in ./validation-rebinding prepare-rebinding force-rebinding with-deferred-validation))
 
 ;; No partially allocated graph is a public closed value. Runtime provenance is
 ;; separate from Lean's finite proof; callbacks remain trusted terminating code.
-(defstruct closed (names nodes types fresh owner entries local-stamps dependencies
-                   revoked retired specifications evaluated reused) final: #t)
+(defstruct %closed (names nodes types fresh owner entries local-stamps dependencies
+                   revoked retired specifications evaluated reused directory) final: #t)
+(defstruct %catalog (recipes reverse) final: #t)
+(defstruct %directory (recipes reverse entries reused) final: #t)
+;; Lists are observations, never mutable authority over private graph state.
+(def closed? %closed?)
+(def (closed-names graph) (append (%closed-names graph) []))
+(def (closed-evaluated graph) (append (%closed-evaluated graph) []))
+(def (closed-reused graph) (append (%closed-reused graph) []))
 ;; Immutable recipe identity is the change token. Watches cover external POO
 ;; inputs; dependencies must include links, computed reads and local obligations.
 (defstruct node-spec (name dependencies watches build) final: #t)
@@ -22,7 +31,7 @@
   (unless (and (symbol? name) (list? dependencies) (andmap symbol? dependencies)
                (list? watches) (andmap object? watches) (procedure? build))
     (error "invalid recursive validation node"))
-  (make-node-spec name (delete-duplicates/hash dependencies) watches build))
+  (make-node-spec name (delete-duplicates/hash dependencies) (append watches []) build))
 
 ;; Snapshot supported POO mutation, including revision propagation from ancestors.
 (def (snapshot objects)
@@ -32,12 +41,6 @@
 (def (stamps-current? stamps)
   (andmap (lambda (entry) (= (object-revision (car entry)) (cdr entry))) stamps))
 
-;; Finite reachability terminates on shared nodes and SCCs without unfolding Types.
-(def (reachable dependencies root)
-  (let loop ((todo (list root)) (seen []))
-    (if (null? todo) seen
-      (if (memq (car todo) seen) (loop (cdr todo) seen)
-        (loop (append (hash-ref dependencies (car todo)) (cdr todo)) (cons (car todo) seen))))))
 ;; Preserve both the phase and original cause; no failure is a successful #f node.
 (defstruct validation-failure (kind cause) final: #t)
 
@@ -63,14 +66,14 @@
 
 ;; Look up a named node only after the whole graph passed admission and is current.
 (def (closed-ref graph name)
-  ((closed-fresh graph))
-  (hash-ref (closed-nodes graph) name))
+  ((%closed-fresh graph))
+  (hash-ref (%closed-nodes graph) name))
 
 ;; Reference Types preserve canonical graph identity on later validation. They
 ;; rerun final graph admission, rather than constructing a different cyclic root.
 (def (closed-type graph name)
-  ((closed-fresh graph))
-  (hash-ref (closed-types graph) name))
+  ((%closed-fresh graph))
+  (hash-ref (%closed-types graph) name))
 
 ;; Allocate all receiver identities before normalizing any link. The builder gets
 ;; an owner-scoped reference-Type constructor and returns (name descriptor source)
@@ -78,30 +81,39 @@
 ;; they cut structural recursion, while every named target is independently
 ;; normalized and finally admitted. No general coinductive Type rule is asserted.
 (def (close-validation build (limit 256))
-  (close-catalog build limit #f #f [] #f #f))
+  (close-catalog build limit #f #f #f #f #f #f))
 
 ;; Shared closure engine: revision callers may retain only dependency-closed clean
 ;; nodes. Ordinary callers keep the original whole-graph Reference discipline.
-(def (close-catalog build limit previous dependencies dirty specifications watches
+(def (close-catalog build limit previous dependencies dirty specifications watches catalog
                     (admit-result (lambda (_) #t)))
   (unless (and (exact-integer? limit) (> limit 0)) (error "positive graph limit required"))
-  (def owner (if previous (closed-owner previous) (gensym 'validation)))
+  (def owner (if previous (%closed-owner previous) (gensym 'validation)))
   (def sources (make-hash-table-eq))
   (def nodes (make-hash-table-eq))
   (def types (make-hash-table-eq))
   (def phase 'building)
   (def stamps '())
   (def declarations '())
+  (def entry-index (make-hash-table-symbolic))
+  (def reused-index (make-hash-table-symbolic))
   (def local-stamps (make-hash-table-eq))
   (def revoked (make-hash-table-eq))
   (def retired (vector #f))
-  (def reused (if previous (filter (lambda (name) (not (memq name dirty)))
+  (def reused (if previous (filter (lambda (name) (not (hash-key? dirty name)))
                                   (hash-keys dependencies)) []))
+  (for-each (lambda (name) (hash-put! reused-index name #t)) reused)
   (when previous
     (for-each (lambda (name)
-      (hash-put! nodes name (hash-ref (closed-nodes previous) name))
-      (hash-put! types name (hash-ref (closed-types previous) name))
-      (hash-put! revoked name (hash-ref (closed-revoked previous) name))) reused))
+      (hash-put! nodes name (hash-ref (%closed-nodes previous) name))
+      (hash-put! types name (hash-ref (%closed-types previous) name))
+      (hash-put! revoked name (hash-ref (%closed-revoked previous) name))) reused))
+  ;; This graph owns ONE structural footprint index. No source or approval is
+  ;; memoized; effect-side freshness still runs independently before/after use.
+  (def reachable
+    (and dependencies
+      (capture-reachability-procedure (map node-spec-name specifications)
+        (lambda (key) (hash-ref dependencies key)))))
   ;; An unaffected reference reads only its declared reachable subgraph. Whole
   ;; graph access still checks every node; an installed revision retires its old
   ;; snapshot while invalidated old Reference capabilities explicitly refuse.
@@ -113,16 +125,16 @@
     (when (and (hash-key? revoked name) (vector-ref (hash-ref revoked name) 0)) (raise (make-validation-failure 'stale name)))
     (if (and dependencies (hash-key? local-stamps name))
       (for-each (lambda (key) (check-stamps (hash-ref local-stamps key)))
-                (reachable dependencies name))
+                (reachable name))
       (check-stamps stamps)))
   ;; Scoped final checks permit a clean reference to survive unrelated revisions.
   ;; Every new graph nevertheless passes the complete admission gate below.
   (def (admit-reference name)
     (reference-fresh name)
     (for-each (lambda (key)
-      (def entry (assq key declarations))
+      (def entry (hash-ref entry-index key))
       (unless (.call (cadr entry) .element? (hash-ref nodes key))
-        (raise (make-validation-failure 'admission key)))) (reachable dependencies name))
+        (raise (make-validation-failure 'admission key)))) (reachable name))
     (reference-fresh name))
   ;; Admission occurs only after every field batch finishes. Leaf references use
   ;; exact owner/name identity and do not recursively invoke this whole-graph gate.
@@ -170,7 +182,12 @@
     (def names (map car declarations))
     (unless (= (length names) (length (delete-duplicates/hash names)))
       (raise (make-validation-failure 'duplicate #f)))
-    (for-each (lambda (entry) (hash-put! sources (car entry) (caddr entry))) declarations)
+    ;; Own both list levels; builders retain their caller-facing containers.
+    ;; Payload object identities are preserved and remain revision-watched.
+    (set! declarations (map (lambda (entry) (list (car entry) (cadr entry) (caddr entry))) declarations))
+    (for-each (lambda (entry)
+      (hash-put! entry-index (car entry) entry)
+      (hash-put! sources (car entry) (caddr entry))) declarations)
     (for-each reference names)
     ;; Missing references fail before any validator; unused declared targets are
     ;; still checked, so no bad node can hide behind an unobserved cyclic edge.
@@ -184,7 +201,7 @@
         ;; Retention preserves the OLD evidence stamps. A callback cannot edit a
         ;; clean source during build and have its stale cache silently re-stamped.
         (hash-put! local-stamps name
-          (if (memq name reused) (hash-ref (closed-local-stamps previous) name)
+          (if (hash-key? reused-index name) (hash-ref (%closed-local-stamps previous) name)
             (append (snapshot (list (cadr entry) (caddr entry) (hash-ref types name)))
                     (hash-ref watches name))))) declarations)
       (set! stamps (append stamps (apply append
@@ -198,17 +215,17 @@
                   (raise (make-validation-failure 'protocol (car entry))))
                 (def issues (diagnose-structure (cadr entry) (caddr entry) (list (car entry))))
                 (unless (null? issues) (raise (make-validation-failure 'shape issues))))
-              (filter (lambda (entry) (not (memq (car entry) reused))) declarations))
+              (filter (lambda (entry) (not (hash-key? reused-index (car entry)))) declarations))
     (set! phase 'allocation)
     (def batches (map (lambda (entry)
                        (cons (car entry) (.call (cadr entry) .validation-fields (caddr entry))))
-                     (filter (lambda (entry) (not (memq (car entry) reused))) declarations)))
+                     (filter (lambda (entry) (not (hash-key? reused-index (car entry)))) declarations)))
     (for-each (lambda (batch)
-                (hash-put! nodes (car batch) (prepare-rebinding (caddr (assq (car batch) declarations)) (cdr batch)))) batches)
+                (hash-put! nodes (car batch) (prepare-rebinding (caddr (hash-ref entry-index (car batch))) (cdr batch)))) batches)
     (set! stamps (append stamps (map (lambda (node) (cons node (object-revision node))) (hash-values nodes))))
     (when dependencies
       (for-each (lambda (name)
-        (unless (memq name reused)
+        (unless (hash-key? reused-index name)
           (hash-put! local-stamps name (append (hash-ref local-stamps name)
                                              (snapshot (list (hash-ref nodes name))))))) names))
     (set! phase 'normalization)
@@ -223,17 +240,19 @@
     ;; Joint graph/metadata obligations run before this attempt becomes a closed
     ;; graph or retires its predecessor. Failed-attempt References stay unusable
     ;; through the existing phase guard; clean predecessor References still work.
-    (def result (make-closed names nodes types (lambda ()
+    (def directory (make-%directory (and catalog (%catalog-recipes catalog))
+      (and catalog (%catalog-reverse catalog)) entry-index reused-index))
+    (def result (make-%closed names nodes types (lambda ()
       (unless (memq phase '(admission closed)) (raise (make-validation-failure 'stale #f)))
       (when (vector-ref retired 0) (raise (make-validation-failure 'stale #f)))
       (check-stamps stamps)
       (when watches (for-each (lambda (name) (check-stamps (hash-ref watches name))) names)))
       owner declarations local-stamps dependencies revoked retired specifications
-      (filter (lambda (name) (not (memq name reused))) names) reused))
+      (filter (lambda (name) (not (hash-key? reused-index name))) names) reused directory))
     (unless (eq? (admit-result result) #t) (raise (make-validation-failure 'joint-admission #f)))
     ;; Admission may inspect watched inputs: recheck every captured source/version
     ;; before retiring the predecessor, even when the callback returned true.
-    ((closed-fresh result))
+    ((%closed-fresh result))
     (set! phase 'closed)
     result)
     (catch (cause) (set! phase 'failed) (raise cause))))
@@ -253,37 +272,51 @@
   (unless (and (list? specifications) (pair? specifications)
                (andmap node-spec? specifications) (<= (length specifications) limit))
     (raise (make-validation-failure 'catalog #f)))
-  (when (and previous (or (not (closed? previous)) (not (closed-dependencies previous))
-                          (vector-ref (closed-retired previous) 0)))
+  (when (and previous (or (not (%closed? previous)) (not (%closed-dependencies previous))
+                          (vector-ref (%closed-retired previous) 0)))
     (raise (make-validation-failure 'stale #f)))
-  (def names (map node-spec-name specifications))
+  ;; Snapshot command containers before any builder or admission callback.
+  (def frozen-specs (append specifications []))
+  (def names (map node-spec-name frozen-specs))
   (unless (= (length names) (length (delete-duplicates/hash names)))
     (raise (make-validation-failure 'duplicate #f)))
+  (def recipes (make-hash-table-symbolic size: (length names)))
+  (for-each (lambda (spec) (hash-put! recipes (node-spec-name spec) spec)) frozen-specs)
   (def dependencies (make-hash-table-eq))
   (def watches (make-hash-table-eq))
+  (def reverse-index (make-hash-table-symbolic size: (length names)))
+  (for-each (lambda (name) (hash-put! reverse-index name [])) names)
   (for-each (lambda (spec)
-    (unless (andmap (cut memq <> names) (node-spec-dependencies spec))
-      (raise (make-validation-failure 'missing-reference (node-spec-name spec))))
-    (hash-put! dependencies (node-spec-name spec) (node-spec-dependencies spec))
-    (hash-put! watches (node-spec-name spec) (snapshot (node-spec-watches spec)))) specifications)
-  ;; Recipe identity, not equal outputs, licenses reuse. Current local stamps also
-  ;; include generated descriptors/sources/receivers, so edits cannot hide there.
-  (def dirty (filter (lambda (name)
-    (or (not previous) (not (memq name (closed-names previous)))
-        (not (eq? (find (lambda (spec) (eq? (node-spec-name spec) name)) specifications)
-                  (find (lambda (spec) (eq? (node-spec-name spec) name)) (closed-specifications previous))))
-        (not (stamps-current? (hash-ref (closed-local-stamps previous) name))))) names))
-  ;; Saturate reverse dependencies. Each productive pass adds a finite name; SCC
-  ;; membership needs no separate eager computed evaluation or successful #f memo.
-  (let loop ()
-    (def more (filter (lambda (name) (and (not (memq name dirty))
-      (ormap (cut memq <> dirty) (hash-ref dependencies name)))) names))
-    (unless (null? more) (set! dirty (append dirty more)) (loop)))
+    (def name (node-spec-name spec))
+    (def deps (node-spec-dependencies spec))
+    (unless (andmap (cut hash-key? recipes <>) deps)
+      (raise (make-validation-failure 'missing-reference name)))
+    (hash-put! dependencies name deps)
+    (hash-put! watches name (snapshot (node-spec-watches spec)))
+    (for-each (lambda (dep)
+      (hash-put! reverse-index dep (cons name (hash-ref reverse-index dep)))) deps)) frozen-specs)
+  (def old-directory (and previous (%closed-directory previous)))
+  (def prior-recipes (and old-directory (%directory-recipes old-directory)))
+  ;; Exact recipe identity and old stamps still govern reuse, in source order.
+  (def roots (filter (lambda (name)
+    (or (not previous) (not (hash-key? prior-recipes name))
+        (not (eq? (hash-ref recipes name) (hash-ref prior-recipes name)))
+        (not (stamps-current? (hash-ref (%closed-local-stamps previous) name))))) names))
+  (def removed (if previous (filter (lambda (name) (not (hash-key? recipes name)))
+                              (%closed-names previous)) []))
+  ;; All changed/added/removed declarations are roots. Unchanged consumer rows
+  ;; are identical, so the OLD immutable inverse gives the same affected set.
+  (def dirty (if previous
+               (affected-owners (%directory-reverse old-directory) roots #f removed)
+               (let (index (make-hash-table-symbolic size: (length names)))
+                 (for-each (lambda (name) (hash-put! index name #t)) names) index)))
+  (def recipe-index recipes)
+  (def catalog (make-%catalog recipe-index reverse-index))
   (def sources (make-hash-table-eq))
   (when previous
     (for-each (lambda (entry) (hash-put! sources (car entry)
-      (if (memq (car entry) dirty) (caddr entry)
-          (hash-ref (closed-nodes previous) (car entry))))) (closed-entries previous)))
+      (if (hash-key? dirty (car entry)) (caddr entry)
+          (hash-ref (%closed-nodes previous) (car entry))))) (%closed-entries previous)))
   (def result (close-catalog (lambda (reference)
     (map (lambda (spec)
       (def name (node-spec-name spec))
@@ -292,22 +325,23 @@
       (def (allowed target)
         (unless (memq target (node-spec-dependencies spec))
           (raise (make-validation-failure 'dependency (list name target)))))
-      (if (not (memq name dirty)) (assq name (closed-entries previous))
+      (if (not (hash-key? dirty name)) (hash-ref (%directory-entries old-directory) name)
         (let (pair ((node-spec-build spec)
                      (lambda (target) (allowed target) (reference target))
                      (lambda (target) (allowed target) (hash-ref sources target))))
           (unless (and (list? pair) (= (length pair) 2) (andmap object? pair))
             (raise (make-validation-failure 'catalog name)))
           (hash-put! sources name (cadr pair))
-          (cons name pair)))) specifications))
-    limit previous dependencies dirty specifications watches admit-result))
+          (cons name pair)))) frozen-specs))
+    limit previous dependencies dirty frozen-specs watches catalog admit-result))
   ;; Commit only after normalization and every final obligation. Reentrant callers
   ;; may have retired this snapshot during a callback: refuse instead of installing.
   (when previous
-    (when (vector-ref (closed-retired previous) 0) (raise (make-validation-failure 'stale #f)))
-    (for-each (lambda (name) (unless (memq name (closed-reused result))
-      (vector-set! (hash-ref (closed-revoked previous) name) 0 #t))) (closed-names previous))
-    (vector-set! (closed-retired previous) 0 #t))
+    (let (retained (%directory-reused (%closed-directory result)))
+      (when (vector-ref (%closed-retired previous) 0) (raise (make-validation-failure 'stale #f)))
+      (for-each (lambda (name) (unless (hash-key? retained name)
+        (vector-set! (hash-ref (%closed-revoked previous) name) 0 #t))) (%closed-names previous))
+      (vector-set! (%closed-retired previous) 0 #t)))
   result)
 
 ;; FUN Reader action: thread the current graph through one complete revision.
@@ -321,31 +355,35 @@
 ;; revise-validation checks final dependency support before rebuilding anything.
 (def (reconfigure-validation previous added removed replacements (limit 256)
                             admit: (admit-result (lambda (_) #t)))
-  (unless (and (closed? previous) (closed-dependencies previous)
-               (not (vector-ref (closed-retired previous) 0)))
+  (unless (and (%closed? previous) (%closed-dependencies previous)
+               (not (vector-ref (%closed-retired previous) 0)))
     (raise (make-validation-failure 'stale #f)))
   (unless (and (list? added) (andmap node-spec? added)
                (list? replacements) (andmap node-spec? replacements)
                (list? removed) (andmap symbol? removed))
     (raise (make-validation-failure 'edit #f)))
-  (def old (closed-specifications previous))
-  (def names (closed-names previous))
+  (def old (%closed-specifications previous))
+  (def known (%directory-recipes (%closed-directory previous)))
   (def additions (map node-spec-name added))
   (def updates (map node-spec-name replacements))
-  ;; Distinct writes and surviving targets are validated together; equal recipes
-  ;; do not excuse duplicate contributions from separate services.
+  ;; Validate exact writes before constructing a candidate. Indices select the
+  ;; same unique recipe tokens; they do not authorize outputs or skip admission.
   (def (distinct? keys) (= (length keys) (length (delete-duplicates/hash keys))))
-  (unless (and (distinct? (append additions updates)) (distinct? removed)
-               (andmap (lambda (name) (not (memq name names))) additions)
-               (andmap (cut memq <> names) removed)
-               (andmap (lambda (name) (and (memq name names) (not (memq name removed)))) updates)
-               (andmap (lambda (name) (not (memq name removed))) additions))
+  (unless (and (distinct? (append additions updates)) (distinct? removed))
     (raise (make-validation-failure 'edit #f)))
-  (def survivors (filter (lambda (spec) (not (memq (node-spec-name spec) removed))) old))
+  (def removed-index (make-hash-table-symbolic size: (length removed)))
+  (def replacement-index (make-hash-table-symbolic size: (length replacements)))
+  (for-each (lambda (name) (hash-put! removed-index name #t)) removed)
+  (for-each (lambda (spec) (hash-put! replacement-index (node-spec-name spec) spec)) replacements)
+  (unless (and (andmap (lambda (name) (not (hash-key? known name))) additions)
+               (andmap (cut hash-key? known <>) removed)
+               (andmap (lambda (name) (and (hash-key? known name) (not (hash-key? removed-index name)))) updates)
+               (andmap (lambda (name) (not (hash-key? removed-index name))) additions))
+    (raise (make-validation-failure 'edit #f)))
+  (def survivors (filter (lambda (spec) (not (hash-key? removed-index (node-spec-name spec)))) old))
   (revise-validation previous
-    (append (map (lambda (spec)
-      (or (find (lambda (replacement) (eq? (node-spec-name spec) (node-spec-name replacement))) replacements)
-          spec)) survivors) added) limit admit: admit-result))
+    (append (map (lambda (spec) (or (hash-get replacement-index (node-spec-name spec)) spec)) survivors)
+            added) limit admit: admit-result))
 
 ;; FUN Reader action from the actual current snapshot to the complete final graph.
 ;; Publication/evidence effects remain the existing caller-owned next action.
@@ -358,20 +396,20 @@
 ;; selective Reference survival does not grant whole-snapshot publication rights.
 ;; Complete watches and immutable recipe metadata remain caller obligations.
 (def (validation-checkpoint previous specifications)
-  (unless (and (closed? previous) (closed-dependencies previous)
+  (unless (and (%closed? previous) (%closed-dependencies previous)
                (list? specifications) (andmap node-spec? specifications))
     (raise (make-validation-failure 'protocol #f)))
-  ((closed-fresh previous))
+  ((%closed-fresh previous))
   (def watched (snapshot (apply append (map node-spec-watches specifications))))
   (lambda (current)
     (unless (eq? previous current) (raise (make-validation-failure 'stale #f)))
-    ((closed-fresh previous))
+    ((%closed-fresh previous))
     (check-stamps watched)))
 
 ;; Reflect only the explicitly declared footprint of a current revision catalog.
 ;; Copy the list spine: editing the returned metadata cannot rewrite this graph's
 ;; invalidation directory. Ordinary fresh-owner closure has no declared footprint.
 (def (closed-reads graph name)
-  ((closed-fresh graph))
-  (unless (closed-dependencies graph) (raise (make-validation-failure 'protocol name)))
-  (append (hash-ref (closed-dependencies graph) name) []))
+  ((%closed-fresh graph))
+  (unless (%closed-dependencies graph) (raise (make-validation-failure 'protocol name)))
+  (append (hash-ref (%closed-dependencies graph) name) []))

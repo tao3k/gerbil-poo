@@ -1,0 +1,144 @@
+#+title: Revision currentness: stream fixed fields, retain every boundary
+
+* Contract before Scheme
+
+The closure and finite-lens guards compare a captured revision list with
+=map object-revision sources=. Every successful check constructs a temporary
+list which is immediately discarded. The source and version spines are private
+proper lists of valid objects and captured revisions. The fixed
+=object-revision= implementation reads =object-%state= and its revision field;
+it performs no Slot getter, author callback or source-observer operation.
+
+[[https://github.com/tao3k/lean-poo/blob/bbba642946c7ef98c98eee52387013e9da2fd171/LeanPoo/Proof/Gerbil/RevisionStream.lean][Four Lean theorems]] prove direct structural comparison equals streamed
+comparison, different lengths refuse, changes to unrelated owners are irrelevant,
+and arbitrary accept/refuse continuations remain identical. Lean 4.35.0 accepts
+all four with only propext/Quot.sound and no sorry. The initial unrelated-owner
+proof needed an explicit map rewrite; its failed output is retained locally.
+
+Two additional work-count theorems pass the same Lean check: a fully current
+list requires one field read per owner; with k matching entries followed by a
+mismatch, exactly k+1 fields are read, independent of the suffix. These are
+counts of modeled field reads, not claims about machine time or synchronization.
+
+These proofs depend on a pure total reader. They do not license this change
+for arbitrary getters, a throwing reader, malformed private storage, or concurrent
+raw metadata mutation. Native field behavior is a separate refinement obligation.
+[[file:revision-stream.sysml][SysML]] records the same limits.
+
+The shared internal helper lives beside =object-revision=. The two callers
+keep their original error messages, active-source protection and independent
+checks at each existing boundary. No earlier verdict crosses compilation,
+expansion or an author callback. Capturing a revision snapshot still uses
+=map=; only comparison with that snapshot changes. No cache or evaluator is added.
+
+* Fixed same-process native comparison
+
+The optional =benchmarks/revision-stream-test.ss= runs through existing Just.
+Each prepared source is a distinct real POO object. Preparation is outside
+BOTH arms. Sizes 8/64/1024 represent source metadata in guards, not Module
+discovery or million-node Graph traversal. Each timed observation executes
+1024 checks. Keep ABBA/BAAB, A/A and B/B, current/head-stale/tail-stale scenarios,
+natural GC and all raw observations. These are separate guard workloads.
+
+CPU medians milliseconds, four paired observations per arm:
+
+| Sources | Scenario | Original map+compare | Streamed | GC counts, original/streamed |
+|---------+----------+----------------------+----------+------------------------------|
+| 8 | current | 0.2220 | 0.1545 | 0/0 |
+| 8 | head stale | 0.2000 | 0.0240 | 0/0 |
+| 8 | tail stale | 0.2255 | 0.1500 | 0/0 |
+| 64 | current | 1.6695 | 1.0880 | 0/0 |
+| 64 | head stale | 1.4825 | 0.0280 | 0/0 |
+| 64 | tail stale | 1.6150 | 1.0805 | 0/0 |
+| 1024 | current | 38.4885 | 17.5130 | 1,0,1,0 / 0,0,0,0 |
+| 1024 | head stale | 34.1455 | 0.0260 | 0,1,0,1 / 0,0,0,0 |
+| 1024 | tail stale | 37.1990 | 17.4070 | 0,1,0,1 / 0,0,0,0 |
+
+All streamed windows allocate 96 qualified bytes. Zero-GC original windows
+allocate 393312 bytes at 8 sources and 3145824 at 64. At 1024/current, the
+zero-GC original windows allocate 50331744 bytes; GC-contaminated endpoints
+are unqualified and retained. Tail-stale original windows include different
+allocation observations; do not replace them with the current-case numbers.
+Native functional controls cover empty/length mismatch and actual revision
+mutation of the second source. Both cases pass with Module/Case/Harness/final
+OK and natural exit: 5.27 s invocation wall / 2.53 user / 0.37 system;
+343523328-byte peak invocation RSS. These are not per-arm peak-memory claims.
+
+This establishes a pure comparison/allocation improvement. Complete publication,
+Module EVAL and downstream construction require their own gates; a measured
+kernel gain does not close them. Production adoption also requires an actual
+matched functional fault and restored native integration, recorded below.
+
+Current-case A/A versus B/B CPU medians (milliseconds) are respectively
+0.2305/0.2180 at 8 sources, 1.6150/1.0890 at 64, and 36.9005/17.5760 at
+1024. The 1024 A/A pair includes one collection; all B/B observations have
+zero collections. Retain the small-case variation: no universal fixed speedup
+factor is claimed from submillisecond windows.
+
+* Matched failure oracle
+
+An isolated compiled fault makes =fragment-sources-current?= always true.
+The original stale-publication test still passes because a later residual
+check can reject the candidate. That observation is a gap in the old oracle,
+not evidence that the missing entry guard is acceptable or was caught.
+
+Strengthen that same existing stale case, without a new suite: call the entry
+boundary with an explicit action, require the original stale-source error,
+and require the action to remain unentered. This distinguishes early source
+refusal from an unrelated later failure. Raw outputs from both oracle versions
+are retained locally.
+
+The strengthened oracle does fail against the same successfully compiled
+fault: =ERROR CHECK= reports =failure result: entered= instead of an error
+object, then =ERROR HARNESS= and exit 1. The supplied action demonstrably ran.
+The fault is then restored and the production module recompiled before any
+integration gate. No compiler error or timeout is counted as fault detection.
+
+The first generalized-group invocation could not start because its compiled
+test interface was absent in the qualification prefix (exit 70). Preserve that
+output as preparation failure. The existing =just build-group generalized=
+then supplies the interface; do not call the missing-file failure a functional
+refusal or rerun already passing unrelated groups to hide it.
+
+Restored serial local gates pass: objects 171 cases, feedback 60, generalized
+33, construction 44, plus the frozen 1K/10K owned-publication case. All have
+Module/Case/Harness/final OK, natural exit and no error/overflow marker.
+Publication invocation is 21.82 s wall / 6.94 user / 0.94 system, peak RSS
+941326336 bytes, under the unchanged 180-second/2GiB POO limits. Its 10K cold
+window is 3133.054 ms CPU / 8984.123 ms wall, including 916.076 ms GC CPU
+and 12 collections. This is a single candidate run, so it does not establish
+an end-to-end speedup. The original and streamed kernel comparison above
+cannot be used in place of the complete publication comparison.
+
+* Matched complete publication
+
+Run the frozen =owned-quotient-benchmark-test= through Just in separate
+processes, reference/candidate/candidate/reference. Both arms share the same
+fresh native object unit, =cc319ed= Graph unit, fixture and other test artifacts.
+Reference guards come from the exact =cc319ed= archive. Only
+=generalized-declaration.ss= and =lens-laws.ss= differ; both arms are built
+with =-O2=, and only the candidate generated code calls the streamed helper.
+The 180-second watchdog, 2 GiB heap, natural GC and all original work oracles
+stay unchanged. The outer shell initially tried to unset zsh's reserved
+=status= variable after the first completed arm. Its successful process
+and receipt are retained, and the other three arms continue in the original
+order using a regular variable.
+
+| Arm | 1K cold CPU / wall (ms) | 10K cold CPU / wall (ms) | 10K GC CPU (ms) / count | Process wall (s) | Peak process RSS (bytes) |
+|-----+-----------------------+------------------------+------------------------+------------------+--------------------------|
+| Reference 1 | 234.067 / 234.202 | 2294.294 / 2295.347 | 613.439 / 11 | 16.66 | 927842304 |
+| Candidate 1 | 221.599 / 221.741 | 2265.209 / 2266.223 | 608.156 / 11 | 12.52 | 918405120 |
+| Candidate 2 | 222.138 / 222.216 | 2236.562 / 2237.451 | 602.324 / 11 | 6.59 | 918831104 |
+| Reference 2 | 224.525 / 224.593 | 2289.797 / 2294.326 | 621.877 / 11 | 6.60 | 927055872 |
+
+All four processes exit naturally with Module/Harness/final OK and no
+error/overflow marker. Both 10K candidate cold CPU windows are below both
+references, with medians 2292.046 → 2250.886 ms (1.8%). GC accounts for part
+of the difference. Process startup/exit variation is much larger than the
+cold-window difference; no whole-process speedup is inferred. Do not infer
+cold allocations from collected windows. Zero-GC 10K edits allocate
+842880/767424 bytes reference and 838080/762624 candidate. Every edit still
+checks one source row, visits two inverse buckets, writes two values and
+does not materialize the order; no-op and old-snapshot demand oracles pass.
+This qualifies the guard change for POO. It is not 10K Yuanxu Interface or
+business EVAL evidence.

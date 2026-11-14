@@ -1,0 +1,19 @@
+#+title: Preparing external reads for an SCC
+
+=group-code= in [[file:../feedback-graph.ss][feedback-graph.ss]] prepares two inputs from the declared
+reads of a group. For each edge to a different group, it records both the
+target node and that node's SCC representative.
+
+- =deps= lists the representatives. The scheduler uses them to run providers
+  before their consumers.
+- =allowed= contains the actual target nodes. The resolver checks this table
+  before fetching a closed provider group. A declaration to read =rate=
+  cannot authorize a read of another node in =rate='s group.
+
+One traversal collects both lists from the same partition. The existing
+deduplicator retains the scheduler's provider order. Within-group reads use
+the current iteration value through the component's lens.
+
+[[file:../t/feedback/feedback-graph-test.ss][Feedback tests]] cover provider order, an allowed nonrepresentative node
+and an undeclared node. See [[file:graph-benchmark.org::*Preparing external reads for an SCC][benchmark results]] and the
+[[https://github.com/tao3k/gerbil-poo/blob/5d7715f18e707c885e16e1d99dc7b93fbac248df/doc/quotient-routes.org][original experiment]] for the complete evidence.

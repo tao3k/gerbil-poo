@@ -13,6 +13,41 @@
 ;; receipts across rejection/re-preparation. Arbitrary foreign writes are excluded.
 (def approval-revision-test
   (test-suite "approval revision invalidation and several staged requests"
+    (test-case "a public revision cannot skip registration of its source reads"
+      (def (admit _ __) #t)
+      (defvalues (old startup)
+        (publish-owned-feedback-graph (rounds.source 3 4) rounds.build-group admit))
+      (check-equal? startup #f)
+      (def owner (publication.publication old))
+      (def source (.o tag: 'before))
+      (def original (.call (graph-cache-source old) .code 'stable))
+      (def guarded
+        (.+ original (.o reads: (begin (.get source tag) (.get original reads)))))
+      (def fragments (list (revision.fragment [] [] (list (cons 'stable guarded)))))
+      (def (stale-source? cause)
+        (and (Error? cause) (equal? (Error-message cause) "component source generation is stale")))
+      (def request (publication.stage owner fragments rounds.build-group admit))
+      (defvalues (native failure) (publication.submit! owner request))
+      (check-equal? failure #f)
+      (def imported-register
+        (parameterize ((current-expander-context (make-top-context)))
+          (eval-syntax '(import :gerbil/core :clan/poo/feedback-graph))
+          (with-catch
+            (lambda (cause) (if (unbound-global-exception? cause) #f (raise cause)))
+            (lambda () (eval-syntax '%feedback-component-revision-action)))))
+      (def unregistered
+        (and imported-register
+             ((imported-register fragments rounds.build-group admit [] (.cc cache.Builder.)
+                  #f (lambda (_attach!) (void))) old)))
+      (.putslot! source 'tag ($constant-slot-spec 'after))
+      (check-exception (graph-cache-current! native) stale-source?)
+      (def accepted-unregistered?
+        (and unregistered
+             (with-catch
+               (lambda (cause) (if (stale-source? cause) #f (raise cause)))
+               (lambda () (graph-cache-current! unregistered) #t))))
+      (check-equal? accepted-unregistered? #f)
+      (check-equal? imported-register #f))
     (test-case "three staged siblings invalidate even when policy values are changed back"
       (def approvals (approval-revision.service.policies))
       (def owner (approval-revision.service.start approvals))

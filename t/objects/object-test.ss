@@ -58,7 +58,7 @@
 
 ;; Give slot-observation-test its own compiler function and private fixture scope.
 (def (make-slot-observation-test)
-  (include "object/slot-observation.scm"))
+  (include "object/slot-observation.ss"))
 
 (def slot-observation-test (make-slot-observation-test))
 

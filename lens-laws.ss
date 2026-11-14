@@ -1,7 +1,13 @@
 ;;; Executable finite-domain get-put, put-get and put-put controls for Gerbil lenses.
 (export check-lens-laws lens-check lens-check? lens-check-focus run-lens-check with-lens-checks
-        lens-law-failure? lens-law-failure-law)
-(import :std/iter ./object ./mop)
+        lens-law-failure? lens-law-failure-law %watch-lens-sources)
+(import :std/iter ./object ./mop
+        (only-in ./class-validation required-slots?))
+
+;; Component construction may reuse a focus whose callbacks are already stored.
+(def (%prepared-vector-lens? focus)
+  (required-slots? focus stored: (.get procedure?) (.set procedure?)))
+
 ;; A failed law retains its precise name; it is not a universal proof certificate.
 (defstruct lens-law-failure (law) final: #t)
 ;; A finite check uses actual immutable carrier values and structural equality.
@@ -32,15 +38,17 @@
 (def (lens-check focus values sources: (sources []))
   (unless (and (object? focus) (list? values) (pair? values) (list? sources) (andmap object? sources))
     (error "lens check needs a nonempty focus domain and source objects"))
-  (def all (cons focus sources))
+  (def all (cons focus (list-copy sources)))
   (for-each instantiate-object! all)
   (make-law-check focus values all (map object-revision all)))
 ;; Refuse changed metadata and supported writes while checking actual states.
 ;; Include actual computed replacement values in addition to the captured domain;
 ;; dynamic coverage still does not prove universal laws or callback termination.
+(def (lens-check-current? check)
+  (and (lens-check? check)
+       (%object-revisions-current? (law-check-sources check) (law-check-versions check))))
 (def (run-lens-check check states extra-values: (extra-values []))
-  (unless (and (lens-check? check) (equal? (law-check-versions check)
-                                        (map object-revision (law-check-sources check))))
+  (unless (lens-check-current? check)
     (error "stale or invalid lens check"))
   (parameterize ((active-object-constructions (append (law-check-sources check) (active-object-constructions))))
     (check-lens-laws (law-check-focus check) states (append (law-check-values check) extra-values))))
@@ -48,10 +56,12 @@
 ;; raw steps and cooking between checks. This prevents a callback changing a lens
 ;; after admission and before the next check; supported writes refuse pre-mutation.
 (def (with-lens-checks checks action)
-  (unless (and (list? checks) (andmap lens-check? checks)
-    (andmap (lambda (check) (equal? (law-check-versions check)
-      (map object-revision (law-check-sources check)))) checks))
+  (unless (and (list? checks) (andmap lens-check-current? checks))
     (error "stale or invalid lens checks"))
   (parameterize ((active-object-constructions
       (append (apply append (map law-check-sources checks)) (active-object-constructions))))
     (action)))
+(def (%watch-lens-sources checks witness)
+  (for (check checks)
+    (for-each (cut depend-on-object! witness <>) (law-check-sources check)))
+  (andmap lens-check-current? checks))

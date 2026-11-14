@@ -1,6 +1,8 @@
-# Competing staged component requests
+# Component publication snapshots and request families
 
-This is finite generalized-prototype future work. Original Racket Appendix B
+The existing coordinator now publishes a graph and associated POO metadata as
+one private snapshot, and distinguishes independent stages from explicit
+restaging within one request family. This remains finite generalized-prototype work. Original Racket Appendix B
 `$lens-gen` (source pin `9affa8fbbb4f12cbd98cb97f8b8b84474fc39429`, lines
 2108–2133) supplies the lens/wrapper construction, not a concurrent transaction
 algorithm. This increment composes the existing source revision, FUN Reader,
@@ -33,6 +35,46 @@ its metadata guards remain valid. Policy revisions require fresh preparation;
 a rival publication requires a new request against current topology. Refused
 candidates never become a publication or retry cache. No arbitrary callback
 side-effect rollback is promised.
+
+## Atomic graph and metadata
+
+`publication initial metadata: value` associates a POO object (or `#f`) with an
+already-approved graph. `snapshot` captures one immutable observation;
+`snapshot-graph` and `snapshot-metadata` project that same object. `current`
+continues to return its graph. Metadata follows the existing immutable-source
+and registered-guard discipline; snapshot identity does not authenticate it.
+
+`stage ... metadata: value` binds the proposed metadata to that request.
+Omitting it inherits the **captured published** metadata, not a later head.
+`submit-snapshot!` returns the complete accepted or refused snapshot and failure;
+`submit!` projects the graph from this same operation. A caller must not pair a
+graph return with a second lookup of current metadata. Even equal-valued commits
+create a fresh snapshot identity and retire earlier expected-snapshot tickets.
+
+`call-with-snapshot owner action guards: guards` checks the captured head before
+and after the callback, outside the installation lock, and preserves multiple
+return values. Head identity and captured lens-source revisions are checked
+under the same domain lock at entry and return. A policy-only write can leave
+the head unchanged and still refuse the read. A rival commit
+causes refusal before values are released; historical snapshot inspection itself
+is not a live-source claim. Callback effects are never rolled back.
+
+## Explicit request families
+
+Each `stage` creates an independent family. Sharing an expected head does not
+merge callbacks, fragments or family tickets; the existing first-winner rule
+remains. `restage owner previous complete-fragments build admit ...` explicitly
+replaces one family's complete proposal. It requires the same owner, live expected
+snapshot and current family ticket. It issues a new ticket before preparing the
+replacement action; a later admission refusal cannot rearm its predecessor.
+Invalid command metadata is rejected before a ticket is issued. The replacement
+supplies its own callbacks and guards; nothing silently combines author programs.
+
+Restaging during an older admission makes that return obsolete even though the
+published head has not moved. Final installation checks both snapshot and family
+version under the same domain lock. These are prerequisites for binding future
+reverse-index continuation to the correct request. This cut does **not** implement
+that traversal or wire Yuanxu `.refresh`; it adds no loader or approval cache.
 
 ## Practical examples and controls
 
@@ -97,3 +139,19 @@ paused requests, policy change-back invalidation and explicit fresh restaging.
 The [shared-approvals.md](shared-approvals.md) extension permits several endpoints
 to share an explicit approval domain, retaining independent heads and dependency-
 selective guard invalidation. Foreign-domain/raw writes remain outside the protocol.
+
+The additional native controls cover atomic metadata inheritance/replacement,
+restage-before-submit and restage-during-admission, refusal/retry without old-ticket
+reactivation, independent shared-domain metadata, a paused snapshot reader, and
+source guards with multiple return values. An unused metadata slot traps eager
+forcing. `Functional.ComponentPublication` adds family noninterference,
+continuation rejection, no-op retirement, paired projections and guarded-read laws.
+Core's existing `GraphSnapshot` model adds metadata-head and family-isolation
+invariants with matched faults; neither model is a native compiler/mutex proof.
+
+A denied replacement preserves the installed snapshot and retires the older
+ticket in that request family. The final check under the publication lock
+therefore checks both snapshot identity and request lineage after approval.
+The two-thread test pauses an old submitter in approval, restages and denies
+its replacement, then checks that the old submitter cannot publish.
+[LeanPoo proof](https://github.com/tao3k/lean-poo/blob/31b550d15e81b095795078efb8344442d8ba6edd/LeanPoo/Functional/ComponentPublication.lean#L106-L132) · [SysML](component-publication.sysml)

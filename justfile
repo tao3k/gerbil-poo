@@ -4,7 +4,8 @@ set positional-arguments
 platform-env := if os() == "macos" { "env -u SDKROOT -u CPATH -u LIBRARY_PATH -u C_INCLUDE_PATH -u CPLUS_INCLUDE_PATH -u MACOSX_DEPLOYMENT_TARGET COMPILER_PATH=/usr/bin" } else { "env" }
 physical-cores := if os() == "macos" { `sysctl -n hw.physicalcpu 2>/dev/null || getconf _NPROCESSORS_ONLN` } else { `getconf _NPROCESSORS_ONLN` }
 export GERBIL_PATH := env_var_or_default("GERBIL_PATH", justfile_directory() + "/.build/package")
-export GERBIL_BUILD_CORES := env_var_or_default("GERBIL_BUILD_CORES", physical-cores)
+# cc1 runs outside the Scheme heap fence. Limit concurrent Darwin backends.
+export GERBIL_BUILD_CORES := env_var_or_default("GERBIL_BUILD_CORES", if os() == "macos" { "2" } else { physical-cores })
 export GERBIL_BUILD_VERBOSE := env_var_or_default("GERBIL_BUILD_VERBOSE", "3")
 test-context-limit := if os() == "macos" { "2" } else { "4" }
 test-context-recipe := if os() == "macos" { "_test-shared-packages" } else { "_test-packages" }
@@ -25,6 +26,9 @@ build-core: check-layout (_build-root "core")
 
 build-development: check-layout (_build-root "development")
 
+# Existing Scheme build entry projects the Graph study dependency closure.
+build-graph-study: check-layout (_build-root "graph")
+
 _build-root graph:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -39,7 +43,9 @@ _build-root graph:
     case "$1" in
         core) entry=(gerbil {{ test-runtime-options }}); action=build ;;
         development) entry=(./build-development.ss); action=compile ;;
+        graph) entry=(./build-development.ss graph); action=compile ;;
     esac
+    printf 'BUILD-CONCURRENCY root=%s cores=%s\n' "$1" "$GERBIL_BUILD_CORES"
     if /usr/bin/time -p {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 0 "${entry[@]}" "$action"; then
         exit 0
     else
@@ -223,8 +229,8 @@ benchmark-slot-dependencies: build-shared
 benchmark-class-proto width='1000' samples='3': (build-benchmarks "class-proto")
     {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=5s 300s "$GERBIL_PATH/bin/class-proto-benchmark" {{ test-runtime-options }} "$1" "$2"
 
-benchmark-object-scale: (build-benchmarks "object-scale")
-    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=5s 90s "$GERBIL_PATH/bin/object-scale-benchmark" {{ test-runtime-options }}
+benchmark-object-scale regime='natural' policy='tree' width='all' depth='all': (build-benchmarks "object-scale")
+    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=5s 90s "$GERBIL_PATH/bin/object-scale-benchmark" {{ test-runtime-options }} "$1" "$2" "$3" "$4"
 
 example-representation: build-shared
     {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s "$GERBIL_PATH/bin/representation-main" {{ test-runtime-options }} clan/poo/examples/representation-service 'clan/poo/examples/representation-service#main' 64 symbolic
@@ -264,8 +270,18 @@ benchmark-combination: (build-benchmarks "combination")
     mkdir -p .build/combination
     {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=5s 300s "$GERBIL_PATH/bin/combination-suite" {{ test-runtime-options }} "$GERBIL_PATH/bin/combination-benchmark" "{{ timeout-executable }}" .build/combination/results.scm
 
-benchmark-scc: build
-    {{ platform-env }} gerbil {{ test-runtime-options }} test -v 5 benchmarks/scc-test.ss
+# Native make builds the Graph projection; the ordinary TestSuite runs it.
+benchmark-scc: build-graph-study
+    just _test benchmarks/scc-test.ss
+    just _test benchmarks/owned-invalidation-test.ss
+    just benchmark-dense-repair-built natural
+    just benchmark-dense-repair-built collected
+
+# Each sample owns its process and its complete predecessor and successor.
+benchmark-dense-repair-built regime:
+    test "$1" = natural || test "$1" = collected
+    test -n "{{ timeout-executable }}"
+    {{ timeout-executable }} --signal=TERM --kill-after=3s 180s just _test -r "^dense-repair-$1-test\$" "$GERBIL_PATH/lib/clan/poo/benchmarks/dense-repair-test.ssi"
 
 # These focused TestSuites load the explicitly built benchmark modules. The linked
 # startup probe is prepared separately for entries that actually execute it.

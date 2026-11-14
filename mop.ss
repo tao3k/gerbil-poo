@@ -4,7 +4,7 @@
 ;; as an instance is a type descriptor.
 
 (export #t (except-out (import: ./slot-observation) without-observation)
-        replay-slot-reads! reobserve-slot-reads! object-read-issued? object-read-issuance)
+        replay-slot-reads! reobserve-slot-reads! call-with-current-slot-reads object-read-issued? object-read-issuance)
 
 (import ./slot-observation
         ./value-diagnostics
@@ -25,7 +25,7 @@
         (only-in ./support/json string<-json json<-string)
         (only-in ./support/syntax call<-formals)
         (only-in ./support/repr repr pr)
-        (only-in ./object replay-slot-reads! reobserve-slot-reads! object-read-issued? object-read-issuance
+        (only-in ./object replay-slot-reads! reobserve-slot-reads! call-with-current-slot-reads object-read-issued? object-read-issuance
            make-object object object? .def/ctx .cc .mix .ref .@ .get .has? .call
            .all-slots with-slots .slot? .putslot! .putdefault! .for-each!
            NoApplicableMethod? NoApplicableMethod-self NoApplicableMethod-slot
@@ -419,11 +419,10 @@
   .slot.check:
     (λ (@@ slot-name x)
       (with-slots (type constant optional) @@
-        (if (.slot? x slot-name)
-          (let ((value (.ref x slot-name)))
-            (and
-              (or (not (.has? @@ type)) (element? type value))
-              (or (not (.has? @@ constant)) (equal? constant value))))
+        (with-present-slot (value x slot-name)
+          (and
+            (or (not (.has? @@ type)) (element? type value))
+            (or (not (.has? @@ constant)) (equal? constant value)))
           (and (.has? @@ optional) optional))))
   ;; Shape and validation are separate overridable Slot methods. Class checks
   ;; final .slot.check after every changed field has been persistently installed.
@@ -588,7 +587,7 @@
    (.defclass (class) (slotdefs ...) options ...)))
 
 ;; Build the existing Lens protocol from pure callbacks, matching MonoLens.ofGetSet.
-;; Get/set laws remain caller premises; functions do not prove those laws by shape.
+;; Get/set laws remain caller premises.
 (def (lens-of-get-set getter setter)
   (unless (and (procedure? getter) (procedure? setter)) (error "lens callbacks required"))
   (instance Lens .get: getter .set: setter))

@@ -7,8 +7,13 @@
 ;; Reexport renamed version of core things we shadow
 (export (except-out #t object-record-read object-read-query object-read-bootstrap
                     object-deliver-value require-object-read-route! object-issued-read-current?
-                    call-with-issued-reads active-read-replays issue-object-read object-slot-names object-slot-present?
-                    slot-spec-discards-super? compile-slot-specs prepare-declaration-specifications compute-object-precedence!) @object? @make-object)
+                    call-with-issued-reads active-read-replays issue-object-read %issue-read object-slot-names object-slot-present?
+                    object-read-key object-read-dependencies object-read-value
+                    require-current-read-sweep! %pure-read-sweep?
+                    record-key-field record-dependencies-field record-value-field
+                    slot-spec-discards-super? compile-slot-specs prepare-declaration-specifications compute-object-precedence!
+                    %prepared-vector-slot-ref %bind-current-slot-reads %prepared-slot-present?
+                    %with-slot-edit-protection %publish-slot-edits!) @object? @make-object)
 
 (import
   (prefix-in (only-in Runtime object? make-object) @) ;; Rename them before we shadow them
@@ -22,8 +27,9 @@
   (only-in :std/hash/misc hash->list/sort hash-ref/default hash-ensure-modify!)
   :std/iter
   ./slot-observation
-  (prefix-in (only-in :gerbil/runtime/mop object-class slot-ref slot-set! find-method) read-runtime.)
-  (only-in ./read-route require-read-route! make-read-issuer)
+  (prefix-in (only-in :gerbil/runtime/mop object-class find-method) read-runtime.)
+  (only-in ./read-route require-read-route! standard-symbol-table-writes?
+           %issued-read? %read-issuance)
   ./object-state
   ./prototype-map
   ./slot-layout
@@ -33,7 +39,8 @@
   :std/stxparam
   (only-in :std/values first-value)
   (only-in :gerbil/runtime/c3 c4-linearize*)
-  (only-in ./support/base λ let-id-rule defonce awhen))
+  (only-in :gerbil/runtime/table symbolic-hash)
+  (only-in ./support/base λ let-id-rule defonce awhen %graph-table-seed))
 
 ;; TODO: formalize (Object A S D) and the type conditions under which an object is instantiatable?
 (defstruct object ;; = (Object A)
@@ -105,6 +112,17 @@
   (depend-on-state! (object-%state source) self (object-%state self)))
 ;; Read-only revision identity for source-bound external caches.
 (def (object-revision self) (object-state-revision (object-%state self)))
+;; SOURCES is an ordered list of POO objects. REVISIONS is the list captured
+;; by (map object-revision sources) when a Lens or fragment was prepared.
+;; Both lists must end together and every live revision must match its snapshot.
+;; Compare revision fields without demanding slots or running callbacks.
+(def (%object-revisions-current? sources revisions)
+  (let loop ((sources sources) (revisions revisions))
+    (cond
+      ((null? sources) (null? revisions))
+      ((null? revisions) #f)
+      (else (and (equal? (car revisions) (object-revision (car sources)))
+                 (loop (cdr sources) (cdr revisions)))))))
 ;; Active construction is separate from slot computation: no partial method table
 ;; or instance is published when an inherited hook tries to read its own receiver.
 (def active-object-constructions (make-parameter []))
@@ -225,8 +243,6 @@
   ;; Default warm queries need neither traversal state nor a second admission.
   ;; Explicit diagnostic heads retain their original preparation and error order.
   (or (and (null? heads) (object-%precedence-list self)) (let ()
-      ;; Preserve the ordered heads for diagnostics while keeping the cycle guard
-      ;; as private implementation state at this abstraction boundary.
       (def active (make-hash-table-eq))
       (for-each (lambda (head) (hash-put! active head #t)) heads)
       (let compute ((object self) (heads heads))
@@ -274,7 +290,10 @@
 ;; Incremental scratch visibility remains local to each catalog; nothing pending
 ;; escapes or survives a failed build. Direct specifications still override declarations.
 (def (compute-slot-funs! self)
-  (def h (make-hash-table-symbolic))
+  ;; support/base.ss binds seed 0 for private graph tables so preparation does
+  ;; not consume the application's random sequence. The default #f lets Gerbil
+  ;; draw its usual seed. Component callbacks run with that default.
+  (def h (make-hash-table test: eq? hash: symbolic-hash seed: (%graph-table-seed)))
   (def prepared (map-in-order (lambda (super) (cons super (prepare-declaration-specifications super)))
                              (reverse (object-%precedence-list self))))
   (def sources (map-in-order (lambda (entry)
@@ -298,20 +317,26 @@
   ;; change the payload capture time of another field's SlotSpec.
   (for (([slot . specs] (hash->list h)))
     (hash-put! h slot (compile-slot-specs self slot specs)))
-  (for (([slot . standard] (hash->list h)))
+  ;; A standard symbolic-table write cannot install a protocol between slots.
+  ;; In that case one check for an inherited protocol suffices. A custom writer
+  ;; or an installed protocol requires a fresh hook lookup on each iteration.
+  (def entries (hash->list h))
+  (def skip-hook-lookup? (and (pair? entries) (pair? (cdr entries)) (standard-symbol-table-writes? h)
+                    (not (object-protocol self))))
+  (for (([slot . standard] entries))
     ;; Pinned hook definitions are the terminating base of self-description.
-    (def compiled (if (bootstrap-anchor self slot) standard
+    (def compiled (if (or skip-hook-lookup? (bootstrap-anchor self slot)) standard
       (invoke-object-hook self 'compute-slot (lambda () standard) slot)))
     (unless (procedure? compiled) (error "compute-slot must return a thunk" slot))
     (hash-put! h slot compiled))
   (set! (object-%slot-funs self) h))
 
-;; Given a list of list of keys, in precedence order,
-;; return a list of keys from containing from left to right
-;; all the keys from tail to head of the precedence list, skipping repetitions.
+;; SUPER-SLOTS contains one ordered list of names per prototype, most specific
+;; first. Visit the lists least specific first and keep each name at its last
+;; occurrence. The deduplication table uses the graph hash seed described above.
 (def (merge-super-slots super-slots)
   (delete-duplicates/hash (apply append (reverse super-slots))
-    table: (make-hash-table-symbolic) from-end?: #t))
+    table: (make-hash-table test: eq? hash: symbolic-hash seed: (%graph-table-seed)) from-end?: #t))
 
 (defstruct $slot-spec () transparent: #t) ;; = (SlotSpec A k)
 (defstruct ($constant-slot-spec $slot-spec) (value) transparent: #t) ;; constant value
@@ -361,7 +386,7 @@
         (cons (cons (car entry) (cdr entry)) path)))))
   (parameterize ((active-slot-computations (cons key active))) (thunk)))
 ;; Receiver-bound observations share this module's object/Slot authority.
-(include "object/observation.scm")
+(include "object/observation.ss")
 
 ;; Admit runtime names before recording reads, bootstrap lookup or preparation.
 ;; Read a cached slot or compute it through the original cycle-aware protocol.
@@ -418,6 +443,18 @@
                   (unless (slot-cache-hit? cache self revision layout)
                     (slot-cache-bind! cache self revision layout
                       (if same-shape? index (slot-layout-index layout slot)))) value)))))))))
+;; Read an already stored vector cell through the stock HashTable route.
+;; A cold cell or an unsupported table returns absent-value. A stored #f
+;; remains a value. This probe does not instantiate, demand, or issue a read.
+(def (%prepared-vector-slot-ref self slot)
+  (let (instance (and (object? self) (object-%instance self)))
+    (if (and instance (not (object-protocol self)) (slot-values-layout instance))
+      (with-catch (lambda (_) absent-value)
+        (lambda ()
+          (require-read-route! slot #f instance)
+          (hash-ref instance slot absent-value)))
+      absent-value)))
+
 ;; Get an existing cached slot value from an object
 (def (.ref/cached self (slot :~ symbol?) (default false))
   (%slot-read-demand! self slot)
@@ -431,9 +468,9 @@
         (if (%slot-read-active?) (object-deliver-value self slot value) value)))))
 
 (defclass (NoApplicableMethod Exception) (self slot) transparent: #t)
-;; Prototype to put at the end of the list, to handle
-;; undefined-prototype-behavior a bit better.
-;; Should it send a special message in that case?
+;; .get reaches this through .ref when there is no slot definition.
+;; A refinement's sup reaches it when there is no inherited definition.
+;; Both call the receiver's no-applicable-method slot with self and slot.
 (def (no-applicable-method self slot)
   (def nam (and (not (eq? slot 'no-applicable-method))
     (try (.@ self no-applicable-method)
@@ -445,13 +482,47 @@
           #f (raise cause))))))
   (if nam (nam self slot) (raise (NoApplicableMethod self: self slot: slot))))
 
-;; Lazy delegation is ordinary prototype behavior, using the existing missing
-;; method hook. Each receiver computes/caches its own fallback only on first miss;
-;; direct slots never force it. Delegate failures and cycles propagate unchanged.
-(def (fallback-to thunk)
+;; Structural queries follow the same receiver-local delegate as value reads.
+;; A structural cycle must fail before a recursive query can publish a record.
+(def active-fallback-queries (make-parameter '()))
+(def (call-with-fallback-query self action)
+  (def active (active-fallback-queries))
+  (when (memq self active) (error "cyclic fallback reflection"))
+  (parameterize ((active-fallback-queries (cons self active)))
+    (with-slot-dependencies self action)))
+
+;; Construct a prototype whose no-applicable-method hook delegates missing
+;; slots to a lazily obtained object. Presence and name queries use that same delegate.
+(def (fallback-to thunk reserved: (reserved '()))
   (unless (procedure? thunk) (error "fallback must be a thunk"))
-  (.o (.fallback-handler (thunk))
-    (no-applicable-method (lambda (self slot) (.ref (.@ self .fallback-handler) slot)))))
+  (unless (and (list? reserved) (andmap symbol? reserved))
+    (error "fallback reserved slots must be symbols"))
+  (def hidden '(no-applicable-method .fallback-handler))
+  (def (reserved? slot) (memq slot reserved))
+  (make-object
+    protocol:
+    (.o fallback-slot-present?:
+        (lambda (self slot)
+          (and (not (reserved? slot))
+               (call-with-fallback-query self
+                 (lambda () (.slot? (.ref self '.fallback-handler) slot)))))
+        fallback-slot-names:
+        (lambda (self names)
+          (call-with-fallback-query self
+            (lambda ()
+              (append names
+                      (filter (lambda (slot)
+                                (not (or (memq slot hidden) (reserved? slot) (memq slot names))))
+                              (.all-slots (.ref self '.fallback-handler))))))))
+    slots:
+    (list (cons '.fallback-handler ($thunk-slot-spec thunk))
+          (cons 'no-applicable-method
+            ($constant-slot-spec
+              (lambda (self slot)
+                (if (reserved? slot)
+                  (raise (NoApplicableMethod self: self slot: slot))
+                  (with-slot-dependencies self
+                    (lambda () (.ref (.ref self '.fallback-handler) slot))))))))))
 
 ;; : (Object A) <- (IndexedList ? ((Pair s (A s)) <- s:Symbol)) \
 ;;     supers: ? (ConsTreeOf (Object ?)) defaults: ? (Table ? Symbol)
@@ -462,8 +533,16 @@
 (def (object<-hash h supers: (supers '()) defaults: (defaults '()))
   (object<-alist (hash->list/sort h symbol<?) supers: supers defaults: defaults))
 
+(extern namespace: clan/poo/prototype-map %stock-struct-construction? %bulk-generated-prototype-map)
 (def (object<-fun f keys: (keys '()) supers: (supers '()) defaults: (defaults '()))
-  (make-object slots: (map (lambda (k) (cons k ($thunk-slot-spec (cut f k)))) keys)
+  (def rows (map (lambda (key) (cons key ($thunk-slot-spec (cut f key)))) keys))
+  ;; Custom constructors still receive the original generated list.
+  (def slots
+    (or (and (pair? rows) (null? supers) (null? defaults)
+             (%stock-struct-construction? object::t 15 object:::init!)
+             (%bulk-generated-prototype-map rows))
+        rows))
+  (make-object slots: slots
                supers: supers defaults: defaults))
 
 (def (.mix slots: (slots '()) defaults: (defaults '()) . supers)
@@ -485,12 +564,30 @@
   (if (bootstrap-anchor self slot)
     (begin (object-read-bootstrap self slot (bootstrap-anchor self slot)) #t)
     (object-read-query self (list 'presence slot)
-      (cut object-slot-present? self slot))))
+      (cut object-slot-present? self slot) presence: slot)))
+
+(extern namespace: clan/poo/read-route %standard-symbol-table-lookup?)
+
+;; A positive prepared lookup calls neither a getter nor a reflection hook.
+;; The caller owns key admission, observation and any fallback on a miss.
+(def (%prepared-slot-present? self slot)
+  (and (object? self)
+       (object-%instance self)
+       (not (object-%bootstrap self))
+       (let (table (object-%slot-funs self))
+         (and table (%standard-symbol-table-lookup? table) (hash-key? table slot)))))
 ;; Private query continuation: its public owner already admitted the name.
 ;; Recheck bootstrap after observer prechecks, which may edit the protocol.
+;; Reflection hooks are direct declarations on the selected protocol. A
+;; reflective probe on that protocol could enter its own metalevel hooks.
 (def (object-slot-present? self slot)
   (if (bootstrap-anchor self slot) #t
-    (begin (instantiate-object! self) (hash-key? (object-%slot-funs self) slot))))
+    (begin
+      (instantiate-object! self)
+      (or (hash-key? (object-%slot-funs self) slot)
+          (let (protocol (object-protocol self))
+            (and protocol (prototype-map-ref (object-%slots protocol) 'fallback-slot-present?)
+                 (.call protocol fallback-slot-present? self slot)))))))
 
 (defrules .has? ()
   ((_ x) #t)
@@ -506,14 +603,19 @@
 (def (object-slot-names self)
   (object-read-query self '(names) (lambda ()
     (instantiate-object! self)
-    (or (object-%all-slots self)
-      (let (esl (merge-super-slots
+    (def names
+      (or (object-%all-slots self)
+        (let (esl (merge-super-slots
                  (map (lambda (super) (append (prototype-map-keys (object-%slots super))
                    (prototype-map-keys (object-%defaults super)) (prototype-map-keys (object-%declarations super))))
                       (object-%precedence-list self))))
         (def defined (filter (lambda (slot) (hash-key? (object-%slot-funs self) slot)) esl))
         (set! (object-%all-slots self) defined)
-        defined)))))
+          defined)))
+    (def protocol (object-protocol self))
+    (if (and protocol (prototype-map-ref (object-%slots protocol) 'fallback-slot-names))
+      (.call protocol fallback-slot-names self names)
+      names))))
 
 ;; : Unit <- (Object A) (Fun _ <- s:Symbol (A s))
 (def (.for-each! self fun)
@@ -782,16 +884,51 @@
   (using (slot :~ symbol?)
     (before-object-edit! self)
     (unless (object-%overrides self)
-      (set! (object-%overrides self) (make-hash-table-symbolic)))
+      (set! (object-%overrides self) (make-hash-table test: eq? hash: symbolic-hash seed: (%graph-table-seed))))
     (hash-put! (object-%overrides self) slot value)
     (hash-put! (object-instance self) slot value)))
+
+;; Protect the selected receivers while checking an edit that may run hooks.
+(def (%with-slot-edit-protection owners action)
+  (def protected (make-hash-table-eq))
+  (for-each (lambda (owner) (hash-put! protected owner #t)) owners)
+  (parameterize ((active-read-replays (cons protected (active-read-replays))))
+    (action)))
+
+;; Each row is (receiver . ((slot . value) ...)), with distinct receivers.
+;; Prepare replacement overrides and check the entire invalidation closure
+;; before advancing any revision. Reconstruct value stores on demand.
+(def (%publish-slot-edits! edits)
+  (def replacements
+    (%with-slot-edit-protection (map car edits)
+      (lambda ()
+        (map-in-order
+          (lambda (edit)
+            (def owner (car edit))
+            (def old (object-%overrides owner))
+            (def overrides (if old (hash-copy old) (make-hash-table-symbolic)))
+            (for-each (lambda (entry) (hash-put! overrides (car entry) (cdr entry)))
+                      (cdr edit))
+            (cons owner overrides))
+          edits))))
+  (def roots
+    (map (lambda (edit)
+           (def owner (car edit))
+           (def state (object-%state owner))
+           (when (object-state-sealed? state) (error "sealed prototype"))
+           (cons owner state))
+         replacements))
+  (def invalidate! (prepare-invalidation roots check-object-edit clear-object-cache!))
+  (invalidate!)
+  (for-each (lambda (entry) (set! (object-%overrides (car entry)) (cdr entry)))
+            replacements))
 
 (defrules .set! () ((_ object. slot value) (.put! object. 'slot value)))
 
 ;; carbon copy / clone c...
 ;; : (Object A') <- (Object A) <<TODO: type for overrides from A to A' ...>>
 (def (.cc self . overrides)
-  (def added-hash (make-hash-table-symbolic))
+  (def added-hash (make-hash-table test: eq? hash: symbolic-hash seed: (%graph-table-seed)))
   (def added
     (with-list-builder (c)
       (def (add-slot! slot value)

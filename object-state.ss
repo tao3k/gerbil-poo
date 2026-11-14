@@ -1,6 +1,7 @@
 ;;; Mutation ownership and transitive invalidation, independent of slot evaluation.
 (export make-object-state object-state-revision object-state-sealed?
-        object-state-sealed?-set! depend-on-state! invalidate-state!)
+        object-state-sealed?-set! depend-on-state! invalidate-state!
+        prepare-invalidation)
 (import :std/iter (only-in :gerbil/runtime/hash HashTable))
 ;; Weak child keys prevent a retained prototype from keeping abandoned instances alive.
 (defstruct object-state (revision sealed? dependents) constructor: :init!)
@@ -28,10 +29,14 @@
 (def (invalidate-state! root state check clear)
   (check root state)
   (if (not (object-state-dependents state)) (clear-state! root state clear)
-    (let ((seen (make-hash-table-eq)) (affected (list (cons root state))))
-      (hash-put! seen root state)
-      ;; Root is already checked and marked. Follow the CURRENT dependencies,
-      ;; preserving reverse-discovery commit order and the original false errors.
+    ((prepare-invalidation (list (cons root state))
+       (lambda (owner child-state) (unless (eq? owner root) (check owner child-state)))
+       clear))))
+
+;; Collect every affected owner before any revision or cache changes.
+(def (prepare-invalidation roots check clear)
+  (let ((seen (make-hash-table-eq)) (affected '()))
+      ;; Follow live dependents and keep the existing reverse-discovery order.
       (def (visit owner state)
         (unless (hash-key? seen owner)
           (hash-put! seen owner state)
@@ -40,8 +45,7 @@
           (when (object-state-dependents state)
             (for (([child . child-state] (object-state-dependents state)))
               (visit child child-state)))))
-      (for (([child . child-state] (object-state-dependents state)))
-        (visit child child-state))
+      (for-each (lambda (root) (visit (car root) (cdr root))) roots)
       ;; A later preflight may register an edge on an already visited owner.
       ;; Reuse the existing identity table to certify the CURRENT closure and
       ;; exact child states before any revision advances. Refusal retains source
@@ -56,4 +60,5 @@
       (for-each (lambda (entry)
         (let (dependents (object-state-dependents (cdr entry)))
           (when dependents (hash-for-each check-edge! dependents)))) affected)
-      (for-each (lambda (entry) (clear-state! (car entry) (cdr entry) clear)) affected))))
+      (lambda ()
+        (for-each (lambda (entry) (clear-state! (car entry) (cdr entry) clear)) affected))))

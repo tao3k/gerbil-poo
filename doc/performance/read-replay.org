@@ -1,0 +1,41 @@
+#+title: Slot read and replay measurements
+
+* Fixed read-key access
+
+On macOS arm64, four interleaved samples of 400,000 field reads over the
+same four issued records took 12.69–12.98 ms user CPU with named lookup and
+2.97–2.99 ms with fixed-field access. All samples recorded zero collections.
+This measures one field lookup and its loop overhead.
+
+* Callback-free replay
+
+Each sample runs twelve sweeps over the same records with the same topology,
+issuer and stored-state checks. Four samples per arm run in two ABBA blocks.
+The per-record arm checks the table implementation on every read. The shared
+arm checks it once per receiver per sweep. Medians are CPU milliseconds.
+
+| Receivers × slots | Records | Phase | Per record | Shared |
+|-------------------+---------+-------+------------+--------|
+| 128 × 1           |     258 | Warm  |     4.2635 | 2.9180 |
+| 128 × 1           |     258 | Cold  |     4.9790 | 3.5925 |
+| 64 × 128          |    8258 | Warm  |   183.1710 | 70.0050 |
+| 64 × 128          |    8258 | Cold  |   215.2635 | 108.7685 |
+
+Cold replay includes rebuilding the read topology. First demand is measured
+separately. For the dense input it took 51.572 ms CPU and 92.893 ms wall,
+including one collection. These workloads use POO objects with prepared slots.
+
+* Reproduce
+
+#+begin_src sh
+just build-development
+just test-file .build/package/lib/clan/poo/benchmarks/read-field-test.ssi
+just test-file .build/package/lib/clan/poo/benchmarks/read-replay-test.ssi
+#+end_src
+
+Use the equivalent paths under =GERBIL_PATH= when it is set. The
+[[file:../slot-observation.md][Slot observation contract]] links the LeanPoo
+proofs and the producer tests. The archived [[https://github.com/tao3k/gerbil-poo/blob/f9d56443b3b56be6dfbac73441fe0996e5447565/doc/read-route-sharing.org][sweep study]],
+[[https://github.com/tao3k/gerbil-poo/blob/f9d56443b3b56be6dfbac73441fe0996e5447565/doc/read-field-costs.md][field study]]
+and [[https://github.com/tao3k/gerbil-poo/blob/f9d56443b3b56be6dfbac73441fe0996e5447565/doc/issued-read-fields.org][signed-field study]]
+retain the diagnostics, including mixed results on real Interface records.

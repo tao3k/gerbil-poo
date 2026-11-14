@@ -1,0 +1,459 @@
+#+title: Scheme Graph benchmark
+#+language: en
+
+* Reproduction
+
+Run =just benchmark-scc= from the gerbil-poo package root. The existing
+Gerbil TestSuite uses the 2 GiB heap and production =-O2= policy. This run
+used Apple M2 Pro, macOS 26.6.1, Gerbil =1cfb032=, Gambit =ea114fc= and
+GCC 16.2.0. The reference checkout was =37f6dfc=.
+
+Gambit's measurement vectors contain CPU time, wall time, GC CPU time,
+collection count and allocated bytes. CPU includes GC.
+Fixture construction, public source acquisition, prepared kernels and
+output materialization have separate windows. A separate getter pass
+does not contribute time to the public partition window.
+
+* Local compiler memory
+
+The Scheme heap limit applies to the test VM. For local native preparation,
+wrap the existing Just entry point with the Gerbil Bazel process-tree guard
+so the same budget also covers GCC and its =cc1= children. For example, with
+=guard= pointing to =gerbil/resource_guard_v19.ss= in the Gerbil Bazel checkout
+and =receipt= pointing outside the build prefix:
+
+#+begin_src sh
+GERBIL_BUILD_CORES=1 GERBIL_BAZEL_GUARD_MAX_RSS_BYTES=4294967296 \
+  GERBIL_BAZEL_GUARD_SAMPLE_SECONDS=0.1 \
+  gerbil -:max-heap=256M,debug=q "$guard" "$receipt" graph-build 0 \
+  just build-graph-study
+#+end_src
+
+The sampled memory threshold can be crossed between samples. An
+=rss-limit-exceeded= receipt is a failed build. Use a fresh isolated prefix
+for the next verification if the interrupted build left partial products.
+
+* Algorithm selection
+
+A verified source order gives singleton SCC labels directly. Other packed
+graphs use Algorithm T with two private word vectors. After a nonleader
+postvisit, complete entry, a low word reaching the first root and zero
+prior retirement establish that the entire roster belongs to one SCC.
+The kernel fills its existing label vector once. Other graphs finish the
+ordinary traversal. Public partitioning still checks spanning paths and
+quotient ranks against the original captured rows.
+
+The same-index cyclic-band pair runs full, stop, stop, full with identical
+representatives and groups. It checks edge visits, postvisits and
+individual member retirement. Symbolic projection and canonical grouping
+run outside the paired discovery window.
+The public partition receipt distinguishes individual retirement from
+=bulk-retired= and retains certificate counters.
+
+[[https://arxiv.org/html/2201.07197v3][Tarjan and Zwick, Finding Strong Components Using Depth-First Search]]
+[[https://github.com/tao3k/lean-poo/commit/d1023ac931e57c212e980629c788b9d4970e61ea][Lean frontier and complete-retirement lemmas]]
+
+* Scheme paths under test
+
+- [[file:../strong-components.ss][Strong components]] owns ordered reachability, packed capture,
+  source-rank selection, Algorithm T, canonical normalization and
+  independent partition certification.
+- [[file:../generalized-graph.ss][Graph scheduling]] owns local rank repair and the resumable inverse
+  closure. The rank receipt includes whole-roster source checks,
+  snapshot copies and order materialization.
+- [[file:../feedback-graph.ss][Feedback Graph]] consumes the certified partition for condensation.
+  [[file:../component-revision.ss][Component revision]] binds old inverse work to the current staged
+  ticket and retires it on successful publication.
+
+* Prepared SCC discovery
+
+CPU milliseconds from interleaved windows over the same captured index.
+Full Algorithm T uses the ordinary retreat and retirement path. The
+selected path uses source rank for the chain and DAG band, and complete
+frontier retirement for the ring and cyclic band.
+
+| Shape | Owners | Edges | Full CPU ms | Selected CPU ms |
+|-------+--------+-------+-------------+-----------------|
+| Chain | 100,000 | 99,999 | 8.166–8.226 | 0.627–0.642 |
+| Ring | 100,000 | 100,000 | 10.239–10.358 | 4.104–4.141 |
+| Degree-16 DAG band | 100,000 | 1,599,864 | 22.546–22.736 | 0.598–0.651 |
+| Chain | 1,000,000 | 999,999 | 79.929–80.276 | 6.466–6.509 |
+| Ring | 1,000,000 | 1,000,000 | 100.659–100.806 | 39.705–40.516 |
+| Degree-16 DAG band | 1,000,000 | 15,999,864 | 260.323 / 739.859 | 6.251–6.371 |
+| Degree-16 cyclic band | 1,000,000 | 15,999,865 | 282.970–286.469 | 41.884–43.148 |
+
+The 739.859 ms full DAG band sample includes 475.123 ms GC CPU. All
+four cyclic band samples have zero GC and allocate 8,000,496 bytes each.
+They use the same fixture, prepared in 669.559 ms wall. Full discovery
+examines 15,999,865 edges, finishes 1,000,000 vertices and retires them
+individually. Early discovery examines 1,000,000 edges, finishes one
+vertex and fills 1,000,000 labels. Both produce the same representative
+and ordered group. The new path takes 41.993–43.414 ms wall.
+
+* Capture, ordered reachability and inverse work
+
+These are independent windows on the degree-16 DAG band. Cold capture
+calls the public POO reader exactly once per owner. The prepared query
+returns the same full ordered result without calling the reader again.
+
+| Owners | Edges | Cold CPU / wall ms | Cold GC CPU ms | Prepared query CPU / wall ms |
+|--------+-------+--------------------+----------------+------------------------------|
+| 100,000 | 1,599,864 | 83.178 / 83.398 | 0 | 3.548 / 3.564 |
+| 1,000,000 | 15,999,864 | 1,689.434 / 2,923.503 | 464.120 | 45.654 / 63.309 |
+
+The reference cold walls were 86.063 ms and 1,376.530 ms. These independent
+runs describe variation in the capture and query path, which does not use
+SCC discovery. They do not establish a stable subsecond cold target.
+
+The separate million-owner capture probes take 363.302 ms CPU for getter
+calls, 320.266 ms for the historical roster scan, 668.931 ms for checking
+row shape, and 940.010 ms for encoding stored rows. The probes repeat
+different portions of the input and cannot be added.
+
+On the same million-owner rows, stamped capture takes 1,504.615–1,672.913
+ms CPU and bounded ordered capture with roster identity takes
+1,057.527–1,132.983 ms CPU. On the 100K late-duplicate control those
+ranges are 135.947–140.862 and 130.456–131.514 ms, respectively, with the
+same normalized order and counts. Prepared complete traversal on the
+million-owner index takes 149.254–149.648 ms CPU, or 36.733–38.356 ms with
+the existing return after visiting all admitted owners. These are paired
+observations independent of the public cold query.
+
+The resumed inverse walk takes 0.026 and 0.029 ms CPU at 100K and 1M
+support, respectively. Both expand exactly 66 buckets and 920 edges.
+Inverse index preparation takes 16.715 and 352.482 ms CPU. The full
+million-owner inverse walk takes 1,007.204 ms CPU and visits 15,999,864
+edges.
+
+* Public typed-source partition
+
+Seconds from the public =partition= workload. Every declaration getter
+returns a POO Computation with an inert business body. The separate getter
+pass and the complete partition each read the full source. The complete
+partition includes capture, discovery, normalization and certification.
+The two process runs describe observed variation rather than an isolated
+kernel comparison.
+
+| Shape | Owners | Fixture wall | Getter wall | Partition CPU / wall | Partition GC CPU | Reference partition wall |
+|-------+--------+--------------+-------------+----------------------+------------------+--------------------------|
+| isolated | 100,000 | 0.052 | 1.791 | 1.769 / 1.774 | 0.710 | 1.871 |
+| self | 100,000 | 0.038 | 1.374 | 1.655 / 1.661 | 0.679 | 2.106 |
+| chain | 100,000 | 0.034 | 1.236 | 1.730 / 1.932 | 0.707 | 1.954 |
+| pairs | 100,000 | 0.035 | 1.521 | 1.882 / 1.889 | 0.792 | 2.216 |
+| ring | 100,000 | 0.040 | 1.473 | 1.835 / 1.858 | 0.799 | 2.362 |
+| hub | 100,000 | 0.034 | 1.112 | 1.532 / 1.543 | 0.533 | 1.710 |
+| band | 100,000 | 0.035 | 1.278 | 2.060 / 2.077 | 0.747 | 2.853 |
+| chain | 1,000,000 | 0.405 | 19.653 | 24.518 / 24.626 | 11.044 | 27.164 |
+| pairs | 1,000,000 | 0.558 | 27.942 | 28.923 / 29.407 | 14.349 | 33.665 |
+| ring | 1,000,000 | 0.730 | 22.368 | 28.064 / 28.327 | 14.699 | 30.506 |
+| band | 1,000,000 | 0.401 | 11.985 | 28.147 / 28.487 | 11.898 | 26.951 |
+
+The million-owner ring has one DFS postvisit and 1,000,000 bulk
+retirements. Its independent forward and reverse spans still inspect
+2,000,000 edges in total and the quotient pass checks 1,000,000 edges.
+The source-ranked million-owner DAG band performs zero DFS visits and
+certifies all 15,999,864 quotient edges. The dense cyclic band comparison
+above covers prepared discovery. The public cyclic-source coverage in
+this matrix is the ring and disjoint pairs.
+
+* Topological repair and component membership
+
+CPU milliseconds for one out-of-order edge insertion over the same
+prepared DAG. Both results pass an independent permutation and
+edge-order oracle.
+
+| Owners | Regime | Initial schedule CPU ms | Full CPU ms | Local CPU ms |
+|--------+--------+-------------------------+-------------+--------------|
+| 100,000 | natural | 138.852 | 158.682–164.115 | 57.422–58.360 |
+| 100,000 | collected | 138.852 | 152.034–207.954 | 59.439–60.548 |
+| 1,000,000 | natural | 2727.800 | 2651.728–2998.566 | 681.864–950.223 |
+| 1,000,000 | collected | 2727.800 | 2672.636–2780.668 | 680.209–711.102 |
+
+In this reference run, every local update reads one changed footprint,
+opens two search buckets, visits zero prior edges and writes two ranks.
+The complete operation compares every owner, copies 4V entries and
+materializes V ordered names. The 10K construction test independently checks
+invalidation of a consumer outside the relabelled rank interval.
+
+Component membership comparisons borrow the partition's existing
+indices. Preparation and comparison remain separate, including cases
+whose changed-owner result contains the entire roster.
+
+| Change | Owners | Preparation CPU ms | Compare CPU ms | Compare wall ms | Compare GC CPU ms |
+|--------+--------+--------------------+----------------+-----------------+-------------------|
+| giant-unchanged | 100,000 | 194.931 | 47.935 | 47.992 | 0.000 |
+| isolated-unchanged | 100,000 | 211.723 | 77.070 | 77.122 | 0.000 |
+| merge | 100,000 | 27.448 | 133.101 | 133.222 | 53.796 |
+| split | 100,000 | 26.347 | 52.439 | 52.494 | 0.000 |
+| pairs-unchanged | 100,000 | 309.151 | 64.199 | 64.260 | 0.000 |
+| giant-unchanged | 1,000,000 | 4594.714 | 1295.157 | 1308.889 | 472.187 |
+| merge | 1,000,000 | 280.013 | 1935.342 | 1948.892 | 448.500 |
+| split | 1,000,000 | 281.371 | 1320.050 | 1329.840 | 434.196 |
+
+* Owned revisions
+
+The =d43578f= checkout passed a fresh =just benchmark-scc= run. The
+existing =GRAPH-OWNED-DELTA= pair revises the same out-of-order edge on
+the same prepared DAG. Each arm makes four observations per size and
+checks the changed read and measured work. The final order agrees with
+unrestricted repair and passes an independent order validator. Preparation
+and explicit order enumeration sit outside the revision window.
+
+| Owners | Ordinary CPU ms | Owned CPU ms | Ordinary owner checks | Owned owner checks |
+|--------+-----------------+--------------+-----------------------+--------------------|
+| 100,000 | 54.205–54.815 | 0.069–0.126 | 100,000 | 1 |
+| 1,000,000 | 552.426–604.882 | 0.061–0.096 | 1,000,000 | 1 |
+
+Both arms perform zero whole-index copies and materialize zero order
+entries. Each opens two search buckets and writes two ranks. At one
+million owners, the owned arm takes 0.060–0.096 ms wall, allocates
+115,792–116,384 bytes and records no timed GC. The ordinary arm checks
+all owner sources before applying the same sparse order repair.
+
+The same suite measures ConstructionCache support replacement separately.
+At one million owners the revision checks two owner rows and one retired
+provider's reader, with zero whole-index copies and zero order entries.
+The complete-suite sample takes 31.778 ms CPU and 32.034 ms wall. It
+allocates 393,232 bytes with no timed GC. The later explicit reuse
+projection takes 25.551 ms CPU. Both windows appear separately in
+=GRAPH-OWNED-CACHE-SUPPORT=.
+
+The million-owner pressure cases separate cold SCC preparation from the
+edit. The ring cut takes 0.075 ms CPU and represents one million singleton
+components without enumerating them. The hub edit takes 0.196 ms CPU and
+removes one reverse edge. Cold preparation takes 18.780 and 16.645 s CPU,
+respectively, including 7.872 and 6.770 s of GC. Full approval is another
+window. The 10,000-group hub publication checks all groups and takes
+11.409–16.650 ms CPU per deletion.
+
+The fresh build takes 361.85 s wall and the complete benchmark suite
+takes 646.44 s wall. The suite includes cold setup, explicit projections,
+SCC and reachability workloads, and semantic differential checks. These
+totals describe the full suite. The table describes one edge revision on
+a prepared Graph.
+
+* Owned feedback publication
+
+Prepare the existing Graph study with =just build-graph-study=, then run the
+two publication suites with
+=just _test-run --run '^(owned-quotient-benchmark-test|published-hub-benchmark-test)$' benchmarks/scc-test.ss=.
+The paired run used =d43578f= and the owned-guard change on that same
+base, in baseline, indexed, indexed, baseline order. Each process built
+its own cold 1,000- and 10,000-group fixtures and shared one predecessor
+among timed revisions. The table gives the 10,000-group observations.
+
+| Operation | Baseline CPU ms | Indexed CPU ms | Indexed guard nodes written |
+|-----------+-----------------+----------------+-----------------------------|
+| No edit | 8.994–10.874 | 0.095–0.232 | 0 |
+| Base edit and affected reader | 10.775–13.505 | 0.505–0.636 | 15 |
+| Delete a reader's hub edge | 7.631–27.046 | 0.437–0.737 | 14 |
+| Cold quotient publication | 2533.740–2643.214 | 2602.245–2651.171 | full fixture |
+| Cold hub publication | 3502.693–3616.381 | 3414.896–3545.340 | full fixture |
+
+The baseline checked all 10,000 groups on every revision. Indexed node
+writes count new nodes by comparing snapshot identities outside the timed
+window. The base edit writes two values and opens two inverse buckets in
+both arms. The hub edit writes one value and opens one affected bucket.
+The base edit allocates 13.94–15.38 MB on the baseline and 0.87–0.97 MB on
+the indexed path. Its wall time falls from 10.794–13.573 ms to
+0.506–0.636 ms. Both arms record zero GC in the timed local revisions.
+
+Cold quotient GC CPU is 759–787 ms on the baseline and 780–801 ms on
+the indexed path. Whole-process peaks are 1,229,584–1,230,448 KiB for
+the baseline and 1,226,624–1,228,576 KiB for the indexed arm. One indexed
+process takes 25.09 s wall overall. The other three complete in
+10.51–10.79 s. These are whole-process measurements, including fixture
+setup and harness overhead. The timed local windows are listed above.
+
+The component suite separately exercises retained sources changed
+during and after approval, precise retirement on SCC merge, and
+pointer-identical historical snapshots after refusal.
+
+** Preparing external reads for an SCC
+
+In =benchmarks/quotient-routes-test.ss= both implementations use the same
+prepared partition. Each sample creates 512 group computations for a
+32-member SCC. The cross-SCC case reads 32 nodes of a second SCC.
+Partition setup and checks are outside timing. CPU medians in milliseconds
+from four paired observations per arm:
+
+| Complete =group-code= batch | Two passes | One pass |
+|-----------------------------+------------+----------|
+| Internal reads only         |      8.247 |    4.611 |
+| Cross-SCC reads              |    130.984 |   98.180 |
+
+The [[file:quotient-routes.org][group read contract]] defines the two outputs.
+The [[https://github.com/tao3k/gerbil-poo/blob/5d7715f18e707c885e16e1d99dc7b93fbac248df/doc/quotient-routes.org][original experiment]] records GC, wall times, the same-side controls and the
+negative test that substitutes a representative for the actual read target.
+
+** Cold publication by phase
+
+=benchmarks/publication-phases-test.ss= times the stages of publication at
+=6cf940b=. The 10,000-group fixture runs the existing group builder once
+per group and checks the final reader and approval. Source declaration is
+prepared outside timing. Two staged CPU observations in milliseconds:
+
+| Phase                              |    First |   Second |
+|------------------------------------+----------+----------|
+| Source admission                   |   13.686 |    5.160 |
+| SCC capture, discovery and checks  |   15.862 |   15.396 |
+| Group enumeration and computation  |   20.859 |   20.999 |
+| Group scheduling                   |  293.153 |  254.582 |
+| Building group values              | 1591.700 | 1776.356 |
+| Guard construction                 |   30.513 |   35.431 |
+| Final approval                     |    0.020 |    0.022 |
+| Entire staged publication          | 1965.991 | 2108.128 |
+
+Run the compiled optional study with
+=just _test "$GERBIL_PATH/lib/clan/poo/benchmarks/publication-phases-test.ssi"=
+under the original 180-second watchdog and 2 GiB heap fence. The
+[[https://github.com/tao3k/gerbil-poo/blob/5d7715f18e707c885e16e1d99dc7b93fbac248df/doc/publication-phases.org][original diagnostic]] retains separate samples that time each builder callback.
+
+** Program evidence retirement
+
+A second baseline, precise, precise, baseline comparison kept the same
+fixed-field read route and indexed feedback guard on both arms. The
+10,000-group hub deletion then wrote 14 program witness nodes alongside
+14 feedback guard nodes. A base-only revision reused the entire code
+witness. Both arms kept the same value and work oracles.
+
+| Operation | Predecessor CPU ms | Precise evidence CPU ms |
+|-----------+--------------------+-------------------------|
+| Base edit and affected reader | 0.476–1.462 | 0.468–0.674 |
+| Delete a reader's hub edge | 0.407–0.743 | 0.500–1.061 |
+| Cold quotient publication | 2649.952–2780.903 | 2661.454–3019.933 |
+| Cold hub publication | 3516.521–3808.503 | 3653.822–3678.311 |
+
+Local updates record zero timed GC. Whole-process peak RSS is
+1,172,768–1,227,264 KiB for the predecessor and 1,186,848 KiB for both
+precise runs. Whole-process wall time ranges from 11.40 to 62.05 s
+across the four runs. The measured guard update is separate from this
+load and fixture variance.
+
+** First owner replacement after collection
+
+The controlled Scheme probe keeps the same schedule and ConstructionCache
+snapshot on each arm. It populates Gambit object serials for the fixture
+owners, collects outside the measurement, and alternates whether one serial
+lookup or the complete owner replacement runs first. The replacement adds
+one owner, retires one and updates its sole reader. It retains the exact
+provider value and checks both generations after each measurement.
+
+| Owners | Original replacement first, CPU ms | Stable comparison replacement first, CPU ms |
+|--------+------------------------------------+---------------------------------------------|
+| 100,000 | 2.287–2.477 | 0.303–0.346 |
+| 1,000,000 | 18.839–20.432 | 0.312–0.427 |
+
+Both revisions report zero collections within the timed interval. In the
+original million-owner arm, one cold serial lookup takes 18.930–19.622 ms
+CPU when it runs first. The following replacement takes 0.341–0.556 ms.
+With shared symbolic comparison, the serial lookup still takes
+15.817–15.974 ms after the replacement. Graph-only comparison leaves the
+tail in place. Changing the prototype-map name index reduces the isolated
+schedule application to 0.107–0.118 ms, while the complete revision still
+pays for the first slot shape construction. Sharing the order across
+the three paths removes this serial-table access for distinct hashes. The
+final comparator uses the serial tie for all hash collisions, since an
+uninterned symbol can retain the mutable source string. The ordinary
+native suite rejects a spelling-based comparator after the caller mutates
+that string and independently rejects omission of the identity tie.
+
+This probe deliberately populates the runtime serial table and forces a
+collection. The ordinary =owned-cache-benchmark-test= retains its natural
+collection behavior and separately measures explicit reuse output.
+
+The natural standalone suite was run baseline, stable, stable, baseline.
+For 1M owners the support replacement took 0.345–0.619 ms CPU and
+0.341–0.656 ms wall on the baseline, versus 0.310–0.337 ms CPU and
+0.309–0.336 ms wall with stable comparison. Both arms evaluated two
+owners, checked one retired reader, copied zero index entries, and
+enumerated zero order entries. The timed interval had zero GC and
+allocated 394,704 baseline or 395,152 stable bytes. Maximum resident
+set size across the complete invocations was 1,402,732,544–1,464,270,848
+baseline bytes or 1,440,169,984–1,462,861,824 stable bytes.
+The original complete baseline suite observed a 35.983 ms CPU sample
+after its earlier workloads. The natural standalone sample and forced-GC
+experiment describe different runtime serial-table states.
+
+* Owned inverse continuation: isolated update pairs
+
+The additional =benchmarks/owned-invalidation-test.ss= uses the existing
+official Just/Gerbil test lifecycle and the Graph root's production =-O2=
+kernel. It is included by =just benchmark-scc=; a focused run uses
+=just build-graph-study= followed by
+=just test-file benchmarks/owned-invalidation-test.ss=. No new runner or
+resource limit is introduced.
+
+The 2026-11-10 local cohort used Apple M2 Pro, Gerbil =2591dcd= and Gambit
+=dcd677c= with the candidate overlay of POO =6446abe='s Graph path. This is
+separate from the older cohorts above. A 100K/1M old schedule contains one
+1,000-owner dependency chain and unrelated nodes. Four private revision
+tickets edit the same first owner. Each ticket is applied through both the
+ordinary successor-inverse and old-continuation paths, alternating AB/BA in
+one process. Both arms must return the same ordered 1,000-owner closure.
+The reference is the no-continuation path in the same candidate runtime,
+not the complete older public runtime.
+
+| Work after the first edit | No continuation | Old continuation |
+|---------------------------+-----------------+------------------|
+| Expanded inverse buckets | 1,000 | 0 |
+| Visited inverse edges | 999 | 0 |
+| Returned owners | 1,000 | 1,000 |
+| Enumerated complete schedule order | 0 | 0 |
+| Qualified allocated bytes in the reported warm windows | 236,048 | 152,880 |
+
+Across all three local invocations, warm 100K updates took about
+0.903–1.011 ms reference CPU versus 0.792–0.876 ms continued CPU; the 1M
+windows were 0.902–0.940 versus 0.790–0.832 ms. This includes native timing
+from the invocation whose outer resource wrapper failed, as disclosed below.
+The resource-qualified invocation's warm windows were:
+
+| Nodes | Path | CPU ms | Wall ms |
+|-------+------+--------+---------|
+| 100K | Reference | 0.913–0.932 | 0.914–0.934 |
+| 100K | Continued | 0.792–0.808 | 0.793–0.808 |
+| 1M | Reference | 0.915–0.940 | 0.918–0.944 |
+| 1M | Continued | 0.798–0.814 | 0.798–0.817 |
+
+Ticket issuance is a separate window (about 0.058–0.206 ms CPU in that
+invocation). All reported update windows had zero GC. The continued path still copies and
+orders the reached result; removing bucket expansion does not remove that
+output work. The first continued update allocates 268,384 bytes, more than
+the reference, so this is not a cold-allocation improvement.
+
+Whole-schedule capture remains expensive: the resource-qualified run used
+about 1.497 s CPU / 1.541 s wall for 1M nodes, including 0.151 s GC CPU
+and two collections. Its negative raw allocation delta is retained as
+unqualified, not reported as saved memory. That complete invocation exited
+normally in 7.37 s wall with =time -l= maximum resident size 1,107,951,616
+bytes. This is the command's resource high-water report, not a per-arm
+memory measurement. Another sandboxed invocation passed its native tests
+but the outer =time -l= exited 1 because =kern.clockrate= was denied; its
+resource report is incomplete and is not a complete invocation pass.
+
+The focused local suites passed 18 order-repair Cases, 49 component Cases,
+10 feedback Cases and 19 Graph-property Cases. The two isolated faults above
+failed with exit 42; restoration passed the component suite again. These
+results qualify the continuation handoff locally. They establish no improved
+Yuanxu first business request, full 10K Module admission, downstream build
+acceptance or consumer pin promotion.
+
+* Acceptance
+
+The complete =just benchmark-scc= TestSuite exited normally after
+468.31 s wall, with build time measured separately. The reference suite took
+498.01 s wall. The suite includes the original 320 paired SCC
+observations, 48 capture/discovery observations, 96 small reachability
+observations, 32 membership observations, 32 rank updates and the new
+four-window completion pair. Total suite time covers all these workloads.
+
+Five focused Gerbil suites passed for Graph properties, feedback,
+local order repair, component membership/publication and recursive
+validation. They retain the 512 exhaustive three-owner graphs, seeded
+POO generators, structural oracles and existing rejection controls.
+Removing only the zero-prior-retirement guard in an isolated compiled
+copy makes the exhaustive and seeded cases fail with an invalid SCC
+spanning certificate. The ordinary test entrypoint exits with code 1.
+
+The separate Yuanxu 10,000-Module EVAL acceptance has its own workload
+and budget.

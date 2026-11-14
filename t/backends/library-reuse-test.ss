@@ -50,9 +50,8 @@
       (for (shapes '(1 2))
         (check (representation.slot-revision-workflow '(7 11 7 #f) shapes) => #t)))
     (test-case "cold inline binding refreshes offsets after a dynamic dependency grows the shape"
-      (def early (string->uninterned-symbol "early"))
-      (def target (string->uninterned-symbol "target"))
-      (object->serial-number early) (object->serial-number target)
+      (def early (string->uninterned-symbol "early" 0))
+      (def target (string->uninterned-symbol "target" 1))
       (def calls 0)
       (def owner (make-object slots:
         (list (cons target ($self-slot-spec (lambda (self)
@@ -66,9 +65,8 @@
       (check-equal? (.ref owner early) 17)
       (check (hash-key? (object-instance owner) target) => #t))
     (test-case "evicted warm inline demand rebinds the final dynamic shape"
-      (def early (string->uninterned-symbol "evicted-dependency"))
-      (def target (string->uninterned-symbol "evicted-target"))
-      (object->serial-number early) (object->serial-number target)
+      (def early (string->uninterned-symbol "evicted-dependency" 0))
+      (def target (string->uninterned-symbol "evicted-target" 1))
       (def grow? #f)
       (def calls 0)
       (def owner (make-object slots:
@@ -95,10 +93,9 @@
       (for ((storage '(hash vector)))
         (check-equal? (representation.value-store-redemand-workflow storage) '#(6 #t #t))))
     (test-case "canonical growth preserves sparse cells at every insertion boundary"
-      ;; Allocate serial identities first, then insert in reverse order and in
-      ;; alternating halves. This exercises front, middle, end and empty copies.
-      (def keys (for/collect ((_ (in-range 7))) (string->uninterned-symbol "growth")))
-      (for-each object->serial-number keys)
+      ;; Assign increasing hashes, then insert in reverse and alternating order.
+      ;; This exercises front, middle, end and empty copies.
+      (def keys (for/collect ((hash (in-range 7))) (string->uninterned-symbol "growth" hash)))
       (for ((order (list (reverse keys) (list (list-ref keys 3) (car keys) (list-ref keys 6)
                          (list-ref keys 1) (list-ref keys 5) (list-ref keys 2) (list-ref keys 4)))))
         (def missing (list 'uncomputed))
@@ -419,11 +416,9 @@
           (slot-layout-put! left 'value 7)
           (check-equal? (slot-cache-read site) 7))))
     (test-case "a retained offset refuses shape growth until the site is rebound"
-      (let* ((earlier (string->uninterned-symbol "earlier"))
-             (target (string->uninterned-symbol "target"))
+      (let* ((earlier (string->uninterned-symbol "earlier" 0))
+             (target (string->uninterned-symbol "target" 1))
              (owner (list 'owner)) (site (make-slot-cache target)))
-        (object->serial-number earlier)
-        (object->serial-number target)
         (let (layout (make-slot-layout (list target) #f 'missing))
           (slot-layout-put! layout target #f)
           (slot-cache-bind! site owner 1 layout (slot-layout-index layout target))

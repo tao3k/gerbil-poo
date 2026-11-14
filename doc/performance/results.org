@@ -1,5 +1,7 @@
 #+TITLE: Native benchmark output policy
 
+See [[file:protocol-selection.org][Slot hook selection]] for the matched construction measurements.
+
 Run ~just benchmark-metadata~ (or another native ~just benchmark-*~ recipe)
 from this package. No Lean checkout is required.
 

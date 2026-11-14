@@ -1,6 +1,6 @@
 ;;; On-demand SCC receipts over the actual declared recursive validation catalog.
 (export partition changed-members)
-(import (only-in :std/list/list find filter delete-duplicates/hash)
+(import (only-in :std/list/list filter append-map delete-duplicates/hash)
         ./object (prefix-in ./recursive-validation validation.)
         (prefix-in ./strong-components scc.) (prefix-in ./generalized-graph graph.)
         (prefix-in ./dependency-analysis computation.))
@@ -26,10 +26,22 @@
   (unless (and (scc.partition? before) (scc.partition? after)) (error "checked SCC partitions required"))
   (def old-groups (scc.partition-groups before))
   (def new-groups (scc.partition-groups after))
-  ;; A missing key differs from every real singleton component.
-  (def (group groups name) (find (lambda (members) (memq name members)) groups))
-  ;; The SCC module guarantees distinct keys within each admitted partition.
-  (def (same? left right)
-    (and left right (= (length left) (length right)) (andmap (cut memq <> right) left)))
-  (filter (lambda (name) (not (same? (group old-groups name) (group new-groups name))))
-    (delete-duplicates/hash (apply append (append old-groups new-groups)))))
+  (def changed (make-hash-table-eq))
+  ;; Lean ComponentWitness.indexed_group_check_exact: unique member sets agree
+  ;; iff cardinalities agree and every old member resolves to that same new group.
+  ;; One verdict per old group; do not scan a fresh giant group per singleton.
+  (for-each (lambda (members)
+    (let* ((root (car members)) (fresh (scc.partition-group-of after root))
+           (same (and fresh (= (length members) (scc.partition-group-size after root))
+             (andmap (lambda (node) (eq? fresh (scc.partition-group-of after node))) members))))
+      (unless same
+        (for-each (lambda (node) (hash-put! changed node #t)) members)))) old-groups)
+  (for-each (lambda (members)
+    (for-each (lambda (node)
+      (unless (scc.partition-group-of before node) (hash-put! changed node #t))) members))
+    new-groups)
+  ;; Preserve the existing old/new union and Gerbil duplicate-removal order,
+  ;; without applying append to an unbounded number of components. Gerbil
+  ;; append-map reverses each mapped row; reverse restores the original members.
+  (filter (cut hash-key? changed <>)
+    (delete-duplicates/hash (append-map reverse (append old-groups new-groups)))))

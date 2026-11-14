@@ -31,4 +31,4 @@
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (feedback-closure-test)
-  (let () (include "feedback-closure/cases.scm")))
+  (let () (include "feedback-closure/cases.ss")))

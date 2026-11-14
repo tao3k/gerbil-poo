@@ -3,6 +3,11 @@
 This advances the author's implementation future work; it does not claim the
 Racket paper already implements this construction strategy or all of the MOP.
 
+The later [ordered catalog assembly study](slot-assembly.org) proves the
+conditions for sharing a native snapshot, including overwrite-triggered rehash
+and hook capture order. Its universal fusion prototype is rejected on measured
+small-owner CPU regression; it is not part of the production assembler.
+
 
 The Data representation TODO explicitly requests efficient treatment of methods
 that ignore super (lossy/K-style composition). Existing constant, thunk and self

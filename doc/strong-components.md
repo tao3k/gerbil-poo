@@ -1,20 +1,19 @@
-# Automatic strongly connected component closure
+# Strongly connected component closure
 
-This advances the generalized prototype future work in Appendix B, rather than
-claiming SCC APIs already appear in its Racket implementation. The reference
-`$lens-gen` compiles a complete component with a getter, setter, wrapper, cooked
-self and raw parent. Here SCC discovery chooses which such equations must close
-atomically; the existing lens compiler and feedback search perform construction.
+An edge `invoice → tax` means that `invoice` declares a read of `tax`.
+If both nodes can reach each other, they are in one strongly connected
+component (SCC) and their equations run as a group. A read of `rate` in
+another SCC uses that provider's completed value. SCC discovery chooses the
+groups. The lens compiler and feedback search build the values.
 
 ## Composition
 
-`strong-components.partition` consumes the existing immutable
-`GeneralizedGraph.Declaration`: its explicit finite support and each Computation's
-`reads`. It validates every reference, computes reflexive graph reachability and
-partitions by mutual reachability. Members and representatives follow source
-order. Isolated nodes, self loops, shared hubs and multi-node cycles are handled;
-empty graphs still pass through joint approval. This is graph metadata analysis,
-not inference of dependencies hidden inside Scheme closures.
+`partition` in [strong-components.ss](../strong-components.ss) reads the keys
+and each Computation's declared `reads` from a `GeneralizedGraph.Declaration`.
+It validates every reference and checks the resulting partition independently.
+Members follow source order, and each group's first member is its representative.
+Empty graphs still pass through joint approval. The graph contains declared
+reads, so a dependency hidden in a Scheme closure must be declared explicitly.
 
 `feedback-graph-action` is an ordinary FUN Reader from an old graph cache (or
 `#f`) to an accepted graph cache. It freezes code/base identities, discovers SCCs,
@@ -23,8 +22,8 @@ DAG scheduler, ConstructionCache and feedback-cache publication chain. A group
 builder receives its full member list, frozen source, and a restricted provider
 for declared external nodes. It must return an actual `close-feedback-group`
 receipt, with whole-raw fixedness and EVERY component residual checked. Internal
-reads use the preceding whole cooked self, external reads use closed predecessor
-groups; cycles never see partially constructed cache slots.
+reads use the preceding whole cooked self. External reads use the declared
+target node and its closed provider group. [External read preparation](quotient-routes.org)
 
 One group's recipe is retained only if its builder identity, ordered members,
 member code/base identities, external footprint and dependency ownership match.
@@ -91,34 +90,35 @@ publication now compose through [service-revisions.md](service-revisions.md).
 
 ## Group discovery and paired costs
 
-Discovery prepares forward and reverse adjacency once, then intersects one
-forward/reverse visited pair per unassigned representative. It no longer retains
-one reachable set for every vertex. Both traversals use a tail-recursive worklist
-and standard Gerbil hash tables; all footprints are validated before traversal.
-Source-order groups, representatives, normalized reads and refusal behavior are
-unchanged. The corresponding Lean path-reversal and intersection lemmas establish
-the mathematical grouping rule, not extraction or hash-table/runtime correctness.
+Discovery captures forward adjacency once. If every edge between distinct
+nodes points in the same direction in source order, every SCC is a singleton.
+Otherwise the compact path uses iterative Algorithm T; the wider representation
+uses the existing iterative traversal. Both normalize results in source order.
+The independent certificate checks every quotient edge. It retains reverse rows
+only within nontrivial groups and uses reflexive singleton paths. Its spanning
+walks and strict quotient ranks still reject invalid groups, in the original
+per-owner refusal order. Transient discovery/normalization state is retired
+before certification; public partition fields and identities stay unchanged.
+The partition retains its existing owner/member hash indices; membership-change
+comparison reads stored cardinalities and checks each old group once. See
+[the measurement contract](construction-cache.org) for the proof boundary.
 
-`just benchmark-scc` reuses the compiled feedback regression module and its
-existing 1 GiB / 90-second focused-test bounds. One process runs small rings,
-larger rings, shared branching, chain and isolated controls, each with ABBA/BAAB
-ordering, natural/pre-collected GC and prepared/cold source construction. The
-measurement-only reference retains per-vertex reachability. Both sides include
-validation, construction, hashes and result closures; ordered groups, all owners
-and reads are checked against independent family oracles outside each timer.
-Gambit reports CPU, wall, GC CPU, collections and allocation separately. Output
-is ephemeral Scheme data; redirect it outside Git. The original closure benchmark
-matrix and its 20-second child limits remain unchanged.
+Run `just benchmark-scc` for the Graph study. The [benchmark report](graph-benchmark.org)
+lists the 100,000- and 1,000,000-node workloads and separates source preparation,
+SCC discovery, certification and graph updates.
+All capacity observations check complete groups/counters outside the timers.
+The existing 2-GiB heap and native TestSuite failure boundary remain.
 
-A singleton shortcut additionally skips both visited sets when every non-self
-incoming predecessor already belongs to a completed, distinct SCC. The Lean
-`singleton_of_assigned_predecessors` lemma makes that separation invariant
-explicit. It covers isolated nodes, self loops and source-ordered chains without
-mistaking a one-way dependency for a shared component. Hash-state maintenance of
-that invariant is exercised by regression tests, not claimed as verified extraction.
+`ComponentWitness` proves within-group paths and decreasing quotient ranks
+suffice for exact SCC membership; equal finite cardinality plus indexed inclusion
+suffices for unchanged groups. These are semantic contracts, not extraction or
+a proof of Scheme compiler/hash-table/runtime complexity.
 
 Signed allocation observations from the shared process-statistics helper are
 retained as diagnostics. Negative values and collection-spanning samples do not
 establish an allocation reduction; CPU/wall and GC controls remain separate.
 A successful result marker alone is insufficient: the bounded process must exit
 successfully, and the complete regression suite must also pass.
+
+See [Graph algorithms](graph-algorithm-selection.org) for incremental repair
+and publication.

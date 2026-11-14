@@ -1,8 +1,9 @@
 ;;; Declaration elaboration for arbitrary raw/cooked carriers using Appendix B lenses.
 (export Fragment Fragment. lens-fragment GeneralizedDeclaration. prepare-fragments .prototype
         prepared-fragments? fragment-names observe-fragments bind-fragments
-        with-fragment-sources step-fragments fragment-descriptors)
+        with-fragment-sources step-fragments fragment-descriptors %watch-fragment-sources)
 (import :std/iter (only-in :std/list/list delete-duplicates/hash)
+        (only-in ./support/base %graph-table-seed %with-application-table-seeds)
         ./object ./mop ./declaration (prefix-in ./generalized-prototype gp.))
 ;; The public descriptor is ordinary extensible POO metadata. Lens laws and local
 ;; pure callback termination are premises; admission checks only executable shape.
@@ -30,6 +31,13 @@
     (if (eq? (.@ form kind) 'fragment)
       [(cons (.@ form name) (validate Fragment (.@ form descriptor)))]
       ((inherited) context form)))))
+;; A private construction region requires the actual native descriptors.
+;; Their captured revisions do not authorize any supplied lens method.
+(def fragment-preparation-descriptors
+  [Type. Declaration. GeneralizedDeclaration. Fragment Fragment. gp.Protocol.])
+(def fragment-preparation-revisions (map object-revision fragment-preparation-descriptors))
+(def (%fragment-preparation-current?)
+  (%object-revisions-current? fragment-preparation-descriptors fragment-preparation-revisions))
 ;; Only constructors in this module create prepared receipts; sources/versions are
 ;; private snapshots. This provenance is not a proof seal or raw mutation sandbox.
 (defstruct prepared-fragments (snapshot sources versions names) final: #t)
@@ -42,10 +50,15 @@
     (map identity (gp.prepared-fragments (prepared-fragments-snapshot prepared))))))
 ;; Stable source admission applies to zero-depth observation and cooking too.
 ;; Supported writes during callbacks refuse; external effects are never rolled back.
+(def (fragment-sources-current? prepared)
+  (%object-revisions-current? (prepared-fragments-sources prepared)
+                              (prepared-fragments-versions prepared)))
+(def (%watch-fragment-sources prepared witness)
+  (for-each (cut depend-on-object! witness <>) (prepared-fragments-sources prepared))
+  (fragment-sources-current? prepared))
 (def (with-fragment-sources prepared action)
   (unless (prepared-fragments? prepared) (error "prepared fragment source required"))
-  (unless (equal? (prepared-fragments-versions prepared)
-                 (map object-revision (prepared-fragments-sources prepared)))
+  (unless (fragment-sources-current? prepared)
     (error "stale generalized declaration sources"))
   (parameterize ((active-object-constructions
       (append (prepared-fragments-sources prepared) (active-object-constructions))))
@@ -63,7 +76,8 @@
     (def entries (expand-declarations expander context forms))
     (unless (and (list? entries) (andmap (lambda (entry)
       (and (pair? entry) (symbol? (car entry)) (element? Fragment (cdr entry)))) entries)
-      (= (length entries) (length (delete-duplicates/hash (map car entries)))))
+      (= (length entries) (length (delete-duplicates/hash (map car entries)
+                                    table: (make-hash-table seed: (%graph-table-seed))))))
       (error "distinct named generalized fragments required"))
     (def descriptors (map cdr entries))
     (def sources (delete-duplicates/hash
@@ -71,7 +85,11 @@
         (apply append (map (lambda (part) (.@ part sources)) descriptors))) table: (make-hash-table-eq)))
     (for-each instantiate-object! sources)
     (parameterize ((active-object-constructions (append sources (active-object-constructions))))
-      (def protocol (.cc gp.Protocol. cook: cook compile: (lambda (part)
+      (def guarded-cook
+        (if (%graph-table-seed)
+          (lambda (raw) (%with-application-table-seeds (lambda () (cook raw))))
+          cook))
+      (def protocol (.cc gp.Protocol. cook: guarded-cook compile: (lambda (part)
         (def compiled (.@ part .compile))
         (unless (procedure? compiled) (error "fragment compiler must return a delayed prototype")) compiled)))
       (def snapshot (gp.prepare protocol descriptors))

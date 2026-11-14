@@ -149,9 +149,11 @@ and `.cc` use these snapshots. `.cc` shares unaffected tree paths and rebinds
 formulas to the new receiver; it does not retain an evaluated parent instance.
 `.removeslot!` and `.removedefault!` expose inherited contributions again.
 
-`slot-layout.ss` weakly interns a sorted unique symbolic shape. Symbol identities,
-including uninterned names, determine its process-local order. No serial number
-is a disk format or cross-process identity. Each live shape shares its name/index
+`slot-layout.ss` weakly interns a sorted unique symbolic shape. Full construction
+and incremental growth use the same identity order as the private name indices.
+Identity is checked first, then the stored symbol hash. Distinct symbols that
+share a hash use their process-local serial order. Offsets and serials are
+local to the running process. Each live shape shares its name/index
 mapping; each receiver owns its vector cells. The standard HashTable interface
 exposes the primary vector to ordinary lookup, IO and reflection. Instance
 preparation allocates uncomputed cells without demanding slot bodies; successful
@@ -2164,7 +2166,7 @@ ordered/unique parent recording. Host identity interpretation, faithful finite
 weak registration, standard collectors and sequential publication are premises;
 callback termination, allocator/GC and compiler behavior are not theorems.
 
-Receiver-bound issuance/replay now lives in `object/observation.scm`, included
+Receiver-bound issuance/replay now lives in `object/observation.ss`, included
 under the EXISTING Object namespace. Standard make tracks it with `extra-inputs`;
 benchmark source identities include it and the existing Slot observation module.
 This adds no runtime image or namespace. Object and paired-runner sources remain

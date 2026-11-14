@@ -1,0 +1,140 @@
+#+title: Closed native constructor calls: preserve the body, erase keyword packing
+#+language: en
+
+* Mechanism
+
+Gerbil 1cfb032 =runtime/hash.ss= defines the symbolic and identity convenience
+functions with a rest argument and =apply make-hash-table=. With zero dynamic
+arguments, the test/hash keywords are already completely known. The caller can
+instead spell the public =make-hash-table= call with those literal keywords.
+No hash algorithm, table adapter, evaluator, loader or cache is replaced.
+
+=runtime/control.ss:keyword-dispatch= constructs a temporary raw symbolic
+keyword table with seed zero, validates the closed names, and binds values.
+The native constructor body does not inspect the original keyword table.
+Gerbil already lowers the literal spelling to that same body with the bound
+argument packet; application code must not call the private lowered procedure.
+
+#+begin_src scheme
+;; Before: the native convenience functions dynamically pack these keywords.
+(make-hash-table-symbolic)
+(make-hash-table-eq)
+
+;; After: ordinary public Gerbil calls; default seed remains ABSENT.
+(make-hash-table test: eq? hash: symbolic-hash)
+(make-hash-table test: eq?)
+#+end_src
+
+This applies only to the five closed calls in =object.ss=: C4's active set,
+the SlotSpec assembly table, superclass-name merge, explicit overrides and
+added-name membership. Dynamic calls and calls with additional options stay
+outside this proof. No new wrapper, macro, flag or compatibility name is added.
+
+* Contract before Scheme
+
+[[https://github.com/tao3k/lean-poo/blob/bbba642946c7ef98c98eee52387013e9da2fd171/LeanPoo/Proof/Gerbil/ConstructorCall.lean][Lean]] proves symbolic/identity packet equality for arbitrary procedure
+identities. Default/absent size, seed, lock, check and weak options are retained.
+The constructor action is arbitrary: RNG, adapters, author callbacks, refusals,
+fresh result identity and semantic state remain owned by that same native body.
+The erased keyword materialization must be a closed pure temporary operation;
+this is not permission to erase arbitrary keyword-rest reflection or callbacks.
+Physical allocation/time and compiler correctness are separate obligations.
+[[file:constructor-call.sysml][SysML]] records the same boundary. Check with:
+
+#+begin_src sh
+lake env lean LeanPoo/Proof/Gerbil/ConstructorCall.lean
+#+end_src
+
+All four theorems use only propext/Quot.sound, with no sorry axiom.
+
+* Native evidence and granularity
+
+The optional [[file:../benchmarks/cold-preparation-test.ss][constructor-call study]] is absent from default builds and CI.
+It executes the original helpers and public literal calls in one process on
+the same kind of native tables, checks fresh identity, backend/method identity,
+false versus missing, and compares their default RNG states from identical
+saved states. Symbolic seeds match too. No business scope is warmed.
+
+Generated Scheme retains =make-hash-table-symbolic=/=make-hash-table-eq= calls
+for the helper arm. The literal arm invokes the existing =make-hash-table__%=
+with the exact test/hash values and native absent markers for other options.
+This is compiler output evidence, not a handwritten private API dependency.
+
+The 16K pilot was too short relative to a roughly 20 ms native collection:
+symbolic paired CPU medians were 10.6435 ms helper and 15.1185 ms literal,
+with 1/4 versus 2/4 GC windows. Its GC-free literal work is only about 5 ms.
+That unfavorable pilot is retained. The new study window was set to 65,536
+operations to span collection quanta; existing frozen acceptance workloads,
+budgets, heap limits and control inventory are unchanged. No sample is removed.
+
+At 65,536 operations/window, four paired observations per arm, natural GC:
+
+| Kind | Helper CPU median ms | Literal CPU median ms | Helper/literal collections in paired windows |
+|------+----------------------+-----------------------+---------------------------------------------|
+| Symbolic | 83.4295 | 46.8645 | 9 / 6 |
+| Identity | 58.7695 | 6.5320 | 7 / 1 |
+
+Symbolic A/A CPU is 79.290/101.865 ms; B/B is 38.749/58.588 ms.
+Identity A/A is 60.393/40.196 ms; B/B is 25.832/6.579 ms. Every GC window
+remains in the reported CPU. The pilot's valid zero-GC allocation is roughly
+4432 to 2192 bytes/table for symbolic and 2768 to 912 for identity; raw values
+across collections are not admitted byte counts. Do not add/subtract phase
+medians or transfer a constructor speedup directly to complete EVAL.
+
+The study exits naturally, with Module/Harness/final OK (5.94 s wall).
+Actual POO first demand, read/callback mutation controls, independent consumers,
+linked programs and exact new-head CI remain required before claiming a
+production or complete cold Graph improvement.
+
+* Loaded-artifact provenance
+
+The local Darwin compiler writes the runtime unit to =object~0.o1=. Gerbil's
+existing loader selects the highest contiguous =.oN=, rather than the newest
+mtime. A reused output directory contained older =object~0.o2/o3=; rebuilding
+=.o1= did not replace the runtime unit actually selected by the loader.
+Consequently the earlier whole-object A/B measurements in that directory are
+not evidence for these five changed calls. They remain retained as unqualified
+records; successful test markers do not establish candidate provenance.
+
+The paired qualification therefore uses two initially absent output directories,
+each built with the ordinary =just build-core= entry: the reference sources are
+the exact =e6a4f14071d66082092c0d0d08c70c6389e7272d= Git archive, and the
+candidate is this checkout. Both use the same compiler policy and heap bound.
+The optional study reports the actual =object~0= and study runtime units from
+Gerbil's =list-modules=. No custom resolver, ordinal selection or loader repair
+is introduced. A new directory is an experiment control, not a product API.
+
+The clean reference/candidate core preparations completed in 136.94/148.45 s
+wall. These are compiler times, not EVAL. The same compiled study and measurement
+artifacts were copied into the initially empty benchmark directories of both
+prefixes; all four A/B/B/A runs report their respective =object~0.o1= and that
+identical study runtime. Every run has eight Case-OK markers, Module-OK,
+Harness-OK and final OK, with no error or overflow marker.
+
+For 4096 fresh constant leaves/window, eight windows per arm, natural GC:
+
+| Metric | Reference | Literal closed calls |
+|--------+-----------+----------------------|
+| First .get CPU median ms | 46.4320 | 23.9235 |
+| First .get wall median ms | 54.0695 | 30.9800 |
+| Total collections in cold windows | 4 | 2 |
+| Zero-GC cold CPU median ms (diagnostic subset) | 24.7855 | 19.8540 |
+| Warm .get CPU median ms | 1.3325 | 1.5050 |
+
+The primary CPU medians include every collection; the zero-GC subset only
+helps distinguish constructor work from collection quanta. Warm queries have
+no demonstrated benefit and their observed median is higher; these calls run
+during preparation, not the cached value read. Do not claim a hot lookup
+improvement, extrapolate this small leaf fixture to full module admission, or
+claim the Core 10K/180-second/4-GiB gate is closed. Signed allocation endpoints
+remain unqualified, as in the earlier measurement study.
+
+The first object-group preparation refused its declared example import because
+only core libraries had been prepared. That failed record is retained. The
+retry uses the ordinary =just build-development= prerequisites followed by the
+same =just build-group objects= and =just test-group objects= entries.
+That retry completed naturally: 171 Case-OK markers, all five Module-OK markers,
+Harness-OK and final OK, with no error/overflow marker. It retains the ordinary
+Gerbil import visibility checks, forged-read controls, author callback mutation,
+read replay, inheritance, missing/false values and failed invalidation cases.
+The exact new-head remote workflow remains a separate acceptance gate.

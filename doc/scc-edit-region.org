@@ -1,0 +1,334 @@
+#+title: Exact SCC repair over a batch of changed rows
+
+A complete quotient replacement already enumerates the successor keys to
+certify its schedule. Use that domain to copy surviving bases into its private
+index. This avoids scanning the predecessor roster and writing tombstones for
+each retired group. Lean checks pointwise equivalence with the retirement mask
+and proves that a later re-add cannot expose a retired base. The Scheme control
+also checks that the predecessor still returns its original value.
+
+The general fixed-support branch of =revise-partition= uses the old forward
+and reverse indices plus added edges. The resulting union =U= is the old
+and new graph's edge union, even when the batch also removes edges. It
+intersects nodes reachable from an edited root in =U= with nodes that can
+reach an edited root in =U=. The roots for the two paths can differ.
+
+[[https://github.com/tao3k/lean-poo/blob/bbba642946c7ef98c98eee52387013e9da2fd171/LeanPoo/Proof/Gerbil/SccEditRegion.lean][Lean]] checks six main obligations:
+
+- =old_with_additions_exact=: the overlay has precisely the union's edges.
+- =outside_membership_exact=: old and new SCC membership agree for a node
+  outside the region. Otherwise a mutual path through a changed row would
+  witness both directions of reachability between that node and a root.
+- =induced_membership_exact=: paths between region vertices can stay inside
+  the region. Restricting to successor edges there preserves mutual reachability.
+- =no_crossing_component=: an old or new SCC touching the region is wholly inside it.
+- =patch_exact=: keeping the old relation outside and using the new induced
+  relation inside yields exactly the cold successor SCC relation for all pairs.
+- =first_representative_exact=: exact membership on the same source roster
+  yields the same first member, independent of discovery order.
+
+The checked two-node counterexample cuts one edge of a cycle. The new-only
+walk misses a vertex whose SCC changes. The proof allows multiple edited
+roots and arbitrary simultaneous additions and deletions; it does not require
+that every admitted root actually changes its edge set.
+
+[[file:scc-edit-region.sysml][SysML]] records the refinement boundary. This is a relational proof for the
+existing general repair branch. It assumes the Scheme walks yield exact
+reachability and the unedited rows agree. It does not prove the native bucket
+iterator, source-order representative construction, or publication. The
+ranked singleton and retained-components laws are recorded in
+[[file:performance/retained-scc-direction.org][Retained SCC direction]].
+Those gates remain separate; a vertex outside the SCC repair region can still
+be a downstream consumer. No Scheme path or QNT transition changes here.
+
+* One changed row and a certified ring cut
+
+| Existing Scheme branch | Lean result | Admission premise |
+|------------------------+-------------+-------------------|
+| =single-removal?= | =single_removal_exact= | One changed row; no added edges. The union is the old graph, so both walks intersect in the cut owner's old SCC. |
+| =functional-cut?= | =functional_replacement_exact= | One old successor per row, one removed edge at the cut row, no added edges, all other rows unchanged. The cut row becomes a sink. |
+| Singleton owner/member projection | =functional_repair_exact= | The old whole component can reach the cut from every owner. A surviving path follows the unique successor and reduces the distance to the sink whenever it reaches another owner. |
+| ='all-representatives= | =every_group_changed= | A whole old component had at least two members. Even the group named by the old representative changes membership. |
+
+The original =own-partition= shape check establishes one whole component
+with at least two owners and one outgoing edge per row. The edit path uses
+that certificate only after exact row differences are admitted. An internal
+chord can retain the old component while invalidating its one-successor
+shape: Lean checks a three-node chord whose cut leaves a nontrivial SCC.
+The native chord cases check that retaining membership retires the shape
+before later deletion. The same suite passed 128 deterministic compound
+edits against cold groups, representatives and rows.
+
+The existing ring and Hub pressure suites were run through Just with the
+prepared Graph study, the =cc319ed= scheduling candidate and the unchanged
+2 GiB heap fence. Both sizes pass the original assertions, including exact
+ordered singleton output and quotient sentinel. CPU milliseconds:
+
+| Shape | Owners | Cold capture | Structural edit | Explicit singleton output | Quotient cut |
+|-------+--------+--------------+-----------------+---------------------------+--------------|
+| Ring | 100K | 1231.275 | 0.086 | 0.671 | 0.077 |
+| Ring | 1M | 16307.569 | 0.077 | 6.581 | 0.091 |
+| Hub | 100K | 902.415 | 0.057 | — | — |
+| Hub | 1M | 12403.762 | 0.068 | — | — |
+
+There are zero old forward/reverse bucket scans or induced-region edge
+visits in these edit windows. Each performs one inverse deletion and no
+reverse bucket rewrite. Ring edits allocate 76,736 bytes without GC;
+explicit 1M singleton output allocates 96,000,288 bytes without GC.
+Cold capture collects, so allocation there is unqualified. The invocation
+exits naturally in 44.61 s wall with Module/Harness/final OK. No peak RSS
+was captured. These are correspondence observations on the current path,
+not a before/after performance claim or a real Module EVAL result.
+
+* Handoff to the quotient and value invalidation
+
+Two different reverse walks serve different purposes:
+
+1. With fixed quotient support, seed every edited reader row (and any value
+   edits). =old_inverse_exact= proves that the old and successor reverse
+   closures agree. A path into the dirty set only needs its prefix to the
+   first dirty vertex; every edge in that prefix has an unedited source.
+   This justifies old-index continuation in
+   =%apply-schedule-revision-with-invalidation= under the authenticated
+   schedule ticket. It does not justify using an old ticket after commit.
+2. When a provider changes representative, look up its readers in the
+   successor's vertex inverse. For a group with unchanged representative,
+   ordered members and ordered rows, =routes_unchanged= proves that unchanged
+   provider representatives preserve the entire ordered route projection.
+   Conversely, =changed_route_requires_remapped_provider= gives an actual
+   provider in the row whose representative changed. The successor inverse
+   must therefore lead back to that reader, even if the reader's SCC was
+   outside the repair region. =changed_group_is_seeded= proves that an exact
+   transpose maps the witness to the reader's successor group. This is the =remapped= walk in
+   =revise-partition=. Membership and direct source edits have their own seeds.
+
+Support edits keep their existing successor-inverse fallback. The existing
+owned split/merge case in
+[[file:../t/components/component-membership/component-requests.ss][component-requests.ss]]
+checks two quotient reader edges, the outside =settlement= recomputation,
+retention of unrelated values, and equality with a cold split. The separate
+10,000-owner rank-repair case checks an outside consumer without requiring an
+SCC change. These tests exercise distinct paths; neither is a real Module
+EVAL fixture. This proof change introduces no new Scheme workload.
+
+Reproduce with =lake env lean LeanPoo/Proof/Gerbil/SccEditRegion.lean=.
+
+* Isolated owner retirement
+
+The existing POO source, SCC and ConstructionCache indexes now remove an
+isolated owner using its admitted stable ordinal. The successor shares
+the remaining forward and inverse indexes and ordered roster. The full
+order is still enumerated explicitly. The source and value witness trees
+retire the same owner. An old snapshot still checks its original source
+support and can become stale through a retired role. The successor no
+longer depends on that role.
+
+=membership_delta_support_exact=, =padded_scc_exact= and
+=retired_ordinal_is_isolated= give the graph and roster conditions.
+A surviving value is reusable only when the exact native member builder
+and default construction policy authorize that locality. The Scheme
+coordinator also checks the actual graph predecessor, empty incident
+buckets and unchanged surviving programs. An opaque builder can inspect
+the whole roster, so it retains full admission. The Lean counterexamples
+=retired_member_can_change_opaque_builder= and
+=local_value_with_changed_policy_cannot_be_reused= capture those independent
+boundaries. Replacing the construction policy or denying joint approval
+keeps the old snapshot.
+
+* Authored effects and native replay
+
+Use private table seeds inside authenticated native preparation. Exit that
+scope for author row reads, lens initialization and methods, member
+equations, cooking and joint approval. Inspect existing native lens cells
+without instantiating a cold lens or issuing a semantic read.
+=cold_lens_admission_runs_only_original_preparation= describes that gate.
+=private_closure_steps_preserve_application_result= preserves application
+effect order and the first refusal. =native_prefix_preserves_author_checkpoint=
+states the application-state equality required when full and local native
+preparation perform different work.
+
+An admitted program owns its exact existing read traversal directly. It
+authenticates the live route, issued records and receiver state before
+invocation and on return. The stock quotient uses the same guarded program
+action as the ordinary source wrapper. Open builders and observation routes
+keep that wrapper. =retained_program_rechecks_after_callback= and
+=open_owned_method_preserves_observer_refusal= describe these boundaries.
+Empty and singleton dependency rows retain shape checks and avoid an
+unneeded duplicate table, as proved by =component_row_dedup_at_most_one=.
+
+The matching faults removed the private-to-application handoff, replaced
+the lens readiness check with an eager lookup, and omitted the program
+checkpoint. Each was rejected by its corresponding native test. The
+prototype that retained synthetic projection receivers reduced random
+source draws but did not improve CPU reliably and changed the approval
+draw. The final implementation retains the traversal itself and uses the
+existing POO replay path.
+
+* Native acceptance
+
+On the same 10,000-owner fixture, four serial macOS rounds forced full
+reconstruction or used isolated retirement in full/local/local/full
+order. All returned normally under the 180-second watchdog. The six-word
+default random-source state at approval matched in all rounds. Across six
+retirements per path, median CPU was 2.528 seconds and 104 microseconds,
+and median wall was 2.540 seconds and 106 microseconds. Whole-process peak
+RSS including startup was 2.05–2.06 GiB and about 0.97 GiB, respectively.
+The local retirement had zero collections and 180,192 bytes median
+attributable allocation. Full allocation was unqualified.
+
+The existing =just benchmark-scc= suites completed with the 100,000 and
+1,000,000 node cases, including chain, hub, skew, cycle, ring deletion,
+reverse hub deletion and owned inverse continuation. Those are POO Graph
+workloads. Incident roster edits still use the existing full support-change
+path where an isolated retirement proof is unavailable. Real Yuanxu
+Module EVAL has its own runtime and source admission gates.
+
+* Local admission of appended owners
+
+For an admitted owner append with the stock Builder and a certified
+member-local group builder, the Scheme publisher starts from the exact admitted partition,
+reserves fresh positions after its high-water mark in request order and
+initializes the new vertices as isolated singletons. No old row gains an
+edge in that step. =appended_ordinal_starts_as_singleton= establishes
+the starting SCC for a fresh position, and
+=append_preserves_old_representative= preserves every old ordered member
+list, hence its first representative. New active owners and touched rows
+then enter the existing SCC repair on the enlarged domain.
+=append_ordinals_are_fresh= establishes ordinal disjointness and
+=append_patch_exact= applies the existing region theorem to this padded
+predecessor, yielding the cold successor SCC relation. Rows and member
+groups untouched by the edit keep their old indexes. Appending any vertex
+retires the whole-functional-cycle certificate even before the first edge
+edit. Retired ordinal tombstones do not become active through append.
+If a retired name is added again, it receives a new position and no
+old program, base, route or witness. Explicit roster output checks that
+the position being enumerated equals the active position for the name,
+so the old occurrence stays hidden.
+
+The source and quotient guard trees both address witnesses by source
+position. If the existing span is too small, double it until the last
+appended position fits, placing the existing root under the new left
+child at each step. This works for the existing arbitrary initial span:
+=grown_left_span= proves the split recovers that span exactly.
+=witness_growth_preserves_address= proves that old lookups retain the
+same address, and =witness_growth_leaves_new_address_empty= shows new
+positions have no inherited witness. New ancestors must register their
+native POO dependency on their shared child before testing currentness,
+with the same already-dirty check used by the existing splice. A pending
+revision still has to pass source and publication checks independently.
+
+The Scheme splice now builds the new ancestor paths directly, borrowing the
+old subtree at its original span and registering children before parents.
+The quotient guard requests growth from the positions in its changed rows.
+The native witness test grows a span of three to twelve, checks subtree
+identity, and invalidates old and new inputs separately. It also expands
+an already-stale root to verify the new ancestor refuses it.
+In the isolated fault build, dropping the dependency edge to the reused
+root leaves the expanded sibling current after the old input changes.
+The same native assertion refuses that build with test exit 42.
+
+The source and padded partition share one position index. The roster
+enumerates the borrowed cold order followed by live appended ordinals in
+the persistent red-black tree. Retiring an appended name removes its
+ordinal entry. The name lookup also drops its override when the cold
+table has no such name. A cold name still needs an explicit absence
+override to prevent fallback. The witness span keeps its high-water mark.
+=retired_position_absent= and =live_suffix_removal_preserves_order= check
+the lookup and enumeration conditions independently. The quotient compares
+the repaired groups with the real predecessor: a new singleton that merges
+immediately is never retired from the predecessor, and a surviving new
+representative must be installed. Every appended owner seeds invalidation
+through its final group. Opaque builders use full support admission.
+For a mixed append and retirement batch, the old inverse identifies
+surviving readers that must supply replacement rows before author capture.
+Replacement rows are validated against the successor roster. Retiring
+vertices take empty rows during SCC repair and are removed once both
+incident indexes confirm isolation. =retirement_preflight_exact= derives
+isolation from the inverse and row admission conditions. Quotient
+retirements refer to actual predecessor representatives, and guard
+retirement uses the old ordinal after the owner leaves the active roster.
+The structural proofs cover
+the padded partition and witness addressing; native registration,
+ticket retirement and value reuse have separate checks.
+
+The component source and SCC indexes use the same retirement rule.
+The source program and base indexes remove overrides for names absent
+from their cold bases. The partition applies this rule to owners, members
+and both directions of adjacency after confirming isolation. Cold rows
+retain an empty override only when required to mask the borrowed row.
+=retired_index_uses_absence_value= covers both false values and empty rows.
+The existing partition can share an unchanged adjacency index when no
+override needs editing.
+
+The condensed schedule applies the same rule to captured programs, bases,
+rank and adjacency entries. A retired owner has no readable schedule row,
+whether the row is masked or absent from the index. The construction value
+patch removes a retired post-cold entry and masks values still present in
+the shared cold table. Re-adding a representative therefore starts with
+its new declaration. Historical schedules and results retain their old
+roots. The native test checks both cases and the sparse index sizes.
+
+The quotient schedule delays explicit key enumeration. When demanded,
+it enumerates representatives from the admitted successor partition in
+source order. It does not force intermediate revision rosters.
+=quotient_roster_exact= shows the output agrees with a cold enumeration
+when the active roster and representative mapping agree.
+
+** Native checks
+
+The component publication test appends an isolated owner, retires it and
+adds the same name again at a fresh ordinal. A second test joins two old
+groups through a new owner, compares the groups and outside reader with
+cold publication, and verifies an approval refusal preserves the old
+head. Passing the new owner's temporary representative through as a
+predecessor retirement makes the matched fault fail with =unsupported c=.
+
+The existing =local-components-benchmark-test= reports the append window
+after the old partition has been prepared. Four samples at each size:
+
+| Old vertices | Append CPU range, ms | Append wall range, ms | Repair owners | Quotient reader edges |
+|--------------+----------------------+-----------------------+---------------+-----------------------|
+|          100K |        0.060–0.068   |         0.059–0.068   |             4 |                     4 |
+|            1M |        0.070–0.143   |         0.070–0.150   |             4 |                     4 |
+
+Each append window reported zero collections and 172,160 allocated bytes.
+The 1M predecessor preparation took 4.138 s CPU, including 0.451 s GC.
+A separate run of the isolated append workload reported 1,240,121,344
+bytes peak RSS for the complete process including preparation. These
+measurements cover ordinal reservation and structural SCC/quotient
+repair. Component evaluation and joint approval are exercised by the
+publication tests.
+
+** Multiple deletions in a certified cycle
+
+=functional_deletion_batch_exact= extends the existing singleton
+projection to a deletion-only batch with at least one removed edge.
+The successor is a subgraph of the one-cut graph at any deleted edge.
+Further deletions preserve its singleton SCCs. All representatives
+still enter the quotient support handoff. No edge is added under this
+certificate.
+
+In the isolated Darwin benchmark the two-cut partition revision took
+0.081 ms CPU at 100,000 vertices and 0.071 ms at 1,000,000, with 98,560
+allocated bytes and no GC in either revision window. Including cold
+capture, the diagnostic took 37.40 seconds and peaked at 1.41 GiB under
+the 4 GiB process-tree guard. Quotient publication and explicit group
+enumeration have separate work and timing. The matched predecessor
+retains exact groups but returns an enumerated change table where the
+new path requires the complete-support handoff.
+
+The existing pressure suite compiled with =-O2= in 98.05 seconds and
+peaked at 1.91 GiB. Both ring and reverse-hub cases emitted success,
+but the whole process reached the 180-second deadline before natural
+exit. The run remains a timeout. The million-ring cold capture alone
+took 76.74 seconds wall and 20.95 seconds CPU. Its two-cut revision
+took 0.194 ms CPU and allocated 97,376 bytes without GC. Explicit group
+enumeration took 12.34 ms CPU and allocated 96,000,240 bytes. The
+complete-support handoff took 0.086 ms CPU before publication.
+
+An unchanged rerun of the pressure suite returned naturally in 61.55
+seconds and peaked at 1.96 GiB. Both shape cases and the existing
+qualified allocation and output-order oracles passed. The previous
+timeout remains part of the evidence. The publication regression also
+runs the batch through refusal, a successful fresh stage, and cold
+equivalence while retaining the predecessor graph and metadata.

@@ -1,12 +1,115 @@
 (export inheritance-hooks-test)
-(import (only-in :clan/poo/slot-observation %call-with-recorded-slot-reads)
+(import (only-in :clan/poo/slot-observation %call-with-recorded-slot-reads
+                 slot-read-key slot-read-receiver)
+        (only-in :clan/poo/class-validation required-slots?)
+        (only-in :clan/poo/read-route standard-symbol-table-writes?)
+        (only-in :gerbil/runtime/hash HashTable::interface)
+        (prefix-in (only-in :gerbil/runtime/mop slot-ref slot-set! object-class
+                            find-method bind-method! class-slot-offset &class-type-slot-table) runtime.)
+        (only-in :gerbil/runtime/table symbolic-table-set!)
         (only-in :clan/poo/slot-layout make-slot-cache)
         (only-in :clan/poo/examples/representation-service topology-workflow)
-        :std/test :clan/poo/object :clan/poo/mop :clan/poo/brace :clan/poo/number (only-in :clan/poo/type String) :clan/poo/reflection
+        :std/test :std/iter :clan/poo/object :clan/poo/mop :clan/poo/brace :clan/poo/number (only-in :clan/poo/type String) :clan/poo/reflection
         (prefix-in :clan/poo/examples/inherited-services services.))
 ;; Exercise inheritance protocol composition through actual objects and hooks.
 (def inheritance-hooks-test
   (test-suite "inherited hooks mutation and declared reflection"
+    (test-case "fixed field checks retain observed reads and recheck after predicates"
+      (def object (.o first: 1 second: #f))
+      (.ref object 'first)
+      (check-equal? (required-slots? object (first number?) (second not)) #t)
+      (defvalues (accepted reads)
+        (%call-with-recorded-slot-reads
+          (lambda () (required-slots? object (first number?) (second not)))))
+      (check-equal? accepted #t)
+      (check-equal?
+       (map slot-read-key (filter (lambda (read) (eq? (slot-read-receiver read) object)) reads))
+       '((presence first) first (presence second) second))
+      (replay-slot-reads! reads (lambda (_owner _key) (void)))
+      (def table (object-%slot-funs object))
+      (def original (runtime.slot-ref table 'ref))
+      (def callbacks 0)
+      (def (redirect-after-first _)
+        (runtime.slot-set! table 'ref
+          (lambda (receiver key default)
+            (if (eq? key 'second)
+              (begin (set! callbacks (1+ callbacks)) default)
+              (original receiver key default))))
+        #t)
+      (def result
+        (try
+          (required-slots? object (first redirect-after-first) (second not))
+          (finally (runtime.slot-set! table 'ref original))))
+      (check-equal? result #f)
+      (check-equal? callbacks 1))
+    (test-case "shared protocol selection requires the standard HashTable writer"
+      (def table (make-hash-table-symbolic))
+      (def backend (runtime.slot-ref table 'object))
+      (def calls 0)
+      (check-equal? (standard-symbol-table-writes? table) #t)
+      (for (entry (list (cons table 'set!) (cons backend 'hash) (cons backend 'test)
+                       (cons backend 'lock) (cons table 'object)))
+        (def owner (car entry))
+        (def field (cdr entry))
+        (def original (runtime.slot-ref owner field))
+        (try
+          (runtime.slot-set! owner field (lambda args (set! calls (1+ calls)) #f))
+          (check-equal? (standard-symbol-table-writes? table) #f)
+          (check-equal? calls 0)
+          (finally (runtime.slot-set! owner field original))))
+      (check-equal? (standard-symbol-table-writes? table) #t)
+      (def klass (runtime.object-class table))
+      (def offsets (runtime.&class-type-slot-table klass))
+      (for (field '(object set!))
+        (def original (runtime.class-slot-offset klass field))
+        (def moved (runtime.class-slot-offset klass 'for-each))
+        (def accepted? #f)
+        (try
+          (symbolic-table-set! offsets field moved)
+          (set! accepted? (standard-symbol-table-writes? table))
+          (finally (symbolic-table-set! offsets field original)))
+        ;; Assert only after restoring the shared runtime class mapping.
+        (check-equal? accepted? #f))
+      (def descriptor-class (runtime.slot-ref HashTable::interface 'type))
+      (def accepted? #f)
+      (dynamic-wind
+        (lambda ()
+          (runtime.slot-set! HashTable::interface 'type (runtime.object-class backend)))
+        (lambda () (set! accepted? (standard-symbol-table-writes? table)))
+        (lambda () (runtime.slot-set! HashTable::interface 'type descriptor-class)))
+      (check-equal? accepted? #f)
+      (check-equal? (standard-symbol-table-writes? table) #t))
+    (test-case "effectful method installation retains per-slot protocol selection"
+      (def hooks 0)
+      (def protocol
+        (.o compute-slot: (lambda (_self next _slot) (set! hooks (1+ hooks)) (next))))
+      ;; Complete this ordinary protocol before changing the HashTable method.
+      (def hook (.ref protocol 'compute-slot))
+      (def source (.o left: 1 right: 2))
+      (def sample (make-hash-table-symbolic))
+      (def klass (runtime.object-class (runtime.slot-ref sample 'object)))
+      (def original (runtime.find-method klass #f 'HashTable::set!))
+      (def writes (make-table test: eq?))
+      (def installed 0)
+      (dynamic-wind
+        (lambda ()
+          (runtime.bind-method! klass 'HashTable::set!
+            (lambda (table key value)
+              ;; Two compiled methods precede the final installation sweep.
+              ;; Its first write installs a protocol visible to the next slot.
+              (when (and (memq key '(left right)) (procedure? value))
+                (let (count (1+ (table-ref writes table 0)))
+                  (table-set! writes table count)
+                  (when (= count 3)
+                    (set! installed (1+ installed))
+                    (object-%protocol-set! source protocol))))
+              (original table key value)) #t))
+        (lambda ()
+          (check-equal? (.ref source 'left) 1)
+          (check-equal? installed 1)
+          (check-equal? hooks 1)
+          (check-equal? (eq? (.ref protocol 'compute-slot) hook) #t))
+        (lambda () (runtime.bind-method! klass 'HashTable::set! original #t))))
     (test-case "public parent snapshots cannot edit a warmed source graph"
       (def parent (.o value: 7))
       (def foreign (.o value: 99))
@@ -278,6 +381,32 @@
       (check-exception (.putslot! root 'value ($constant-slot-spec 99)) true)
       (check-exception (.put! root 'value 99) true)
       (check-equal? (.@ root value) 9))
+    (test-case "method identity is stable while only value demand memoizes the body"
+      (def calls 0)
+      (def target (make-object supers: (list (.o value: 1))
+        slots: (list (cons 'value ($computed-slot-spec (lambda (_ inherited)
+          (set! calls (1+ calls)) (1+ (inherited))))))))
+      (instantiate-object! target)
+      (def method (hash-ref (object-%slot-funs target) 'value))
+      (check-equal? calls 0)
+      (check-equal? (method) 2)
+      (check (eq? method (hash-ref (object-%slot-funs target) 'value)) => #t)
+      (check-equal? (method) 2)
+      (check-equal? calls 2)
+      (check-equal? (.ref target 'value) 2)
+      (check-equal? (.ref target 'value) 2)
+      (check-equal? calls 3))
+    (test-case "compute hooks may repair a captured non-callable thunk"
+      (def calls [])
+      (def target (with-inheritance-hooks
+        (.o (compute-slot (lambda (_ next slot)
+          (set! calls (cons slot calls))
+          (check-equal? (next) 42)
+          (lambda () 7))))
+        (make-object slots: (list (cons 'value ($thunk-slot-spec 42))))))
+      (check-equal? (.ref target 'value) 7)
+      (check-equal? (.ref target 'value) 7)
+      (check-equal? calls '(value)))
     (test-case "protocol edits invalidate owners and failed construction retries"
       (def hook (.o (compute-slot (lambda (_ next slot) (next)))))
       (def object (with-inheritance-hooks hook (.o (value 1))))

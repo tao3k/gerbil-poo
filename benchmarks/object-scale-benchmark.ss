@@ -1,4 +1,4 @@
-(export main)
+(export main point-index-study functional-construction-study)
 
 (import
   :gerbil/runtime/gambit
@@ -11,6 +11,72 @@
 (def cold-repetitions 500)
 ;; Complete persistent-clone operations per observed sample.
 (def clone-repetitions 5000)
+
+;; Keep key generation and structural reflection outside the timed interval.
+;; Both producers install the same thunks and neither invokes the provider.
+(def (functional-construction-study)
+  (for (width '(10000 100000))
+    (def keys (for/collect (i (in-range width)) (make-symbol "functional-source-" i)))
+    (def (provider key) (error "unexpected demand during source construction" key))
+    (def (ordinary)
+      (make-object slots: (map (lambda (key) (cons key ($thunk-slot-spec (cut provider key)))) keys)))
+    (def (generated) (object<-fun provider keys: keys))
+    (def observations
+      (for/collect (side '(ordinary generated generated ordinary))
+        (defvalues (owner timing) (sample.measure (if (eq? side 'ordinary) ordinary generated) 1))
+        (unless (equal? (prototype-map-keys (object-%slots owner)) keys)
+          (error "functional source construction lost row order" side width))
+        [side: side metrics: (sample.qualified-metrics timing)]))
+    (displayln "POO_FUNCTIONAL_CONSTRUCTION_PAIR="
+      [slots: width order: '(ordinary generated generated ordinary)
+       regime: 'natural observations: observations]))
+  #t)
+
+;; Isolate the source index primitive before receiver binding. Setup is charged
+;; once; neither arm constructs/evaluates a receiver. Both consume the SAME
+;; immutable source, preserve duplicate order and allocate the same result.
+;; These measurements cannot establish first Module EVAL or source certification.
+(def (point-index-study)
+  (for (size '(10000 100000))
+    (defvalues (source setup)
+      (sample.measure (lambda ()
+        (prototype-map
+          (append (list (cons 'selected 1))
+            (for/collect (i (in-range size)) (cons (make-symbol "point-spare-" i) i))
+            (list (cons 'selected 2) (cons 'selected 3))) policy: 'tree)) 1))
+    (def (reference)
+      (def result [])
+      (prototype-map-for-each source (lambda (key payload)
+        (when (eq? key 'selected) (set! result (cons payload result)))))
+      result)
+    (def (indexed) (prototype-map-fold-key source 'selected cons []))
+    (def (checked action)
+      (unless (equal? (action) '(3 2 1)) (error "point index duplicate order" size)) #t)
+    (displayln "POO_POINT_INDEX_SETUP="
+      [unrelated: size contributions: (+ size 3) setup: (sample.qualified-metrics setup)])
+    ;; The first sample is one request, then a fixed batch of 64. Preserve all
+    ;; AB/BA observations, natural GC and exact denominator in the receipt.
+    (for (repetitions '(1 64))
+      (def observations [])
+      (for (side '(reference indexed indexed reference))
+        (def action (if (eq? side 'reference) reference indexed))
+        (defvalues (_result timing) (sample.measure (cut checked action) repetitions))
+        (set! observations (cons [side: side metrics: (sample.qualified-metrics timing)
+          raw-allocation-delta: (vector-ref timing 4)] observations)))
+      (displayln "POO_POINT_INDEX_PAIR="
+        [unrelated: size repetitions: repetitions order: '(reference indexed indexed reference)
+         regime: 'natural observations: (reverse observations)]))
+    ;; Work diagnostics follow ALL timing: they must not prewarm either arm's
+    ;; first selected query. Every indexed ordinal still pays an RBTree lookup.
+    (def enumerated 0) (def selected 0)
+    (prototype-map-for-each source (lambda (_key _payload) (set! enumerated (1+ enumerated))))
+    (prototype-map-fold-key source 'selected
+      (lambda (_payload state) (set! selected (1+ selected)) state) #f)
+    (unless (and (= enumerated (+ size 3)) (= selected 3))
+      (error "point index work accounting" size enumerated selected))
+    (displayln "POO_POINT_INDEX_WORK="
+      [unrelated: size enumerated: enumerated selected-contributions: selected]))
+  #t)
 
 ;; Predeclare constant SlotSpecs once, matching the public prototype recipe API.
 ;; Both policies time factory construction from these identical existing recipes.
@@ -85,16 +151,28 @@
               policy: policy
               regime: (if collected? 'collected 'natural)
               metric-order: '(cpu wall gc-cpu collections allocated-bytes)
-              cold-construct-and-read: cold-seconds
-              cold-construct-clone-and-read: cold-clone-seconds
-              clone-only: clone-seconds
-              clone-and-read: clone-read-seconds]))
+              cold-construct-and-read: (sample.qualified-metrics cold-seconds)
+              cold-construct-clone-and-read: (sample.qualified-metrics cold-clone-seconds)
+              clone-only: (sample.qualified-metrics clone-seconds)
+              clone-and-read: (sample.qualified-metrics clone-read-seconds)
+              raw-allocation-deltas: (map (cut vector-ref <> 4)
+                [cold-seconds cold-clone-seconds clone-seconds clone-read-seconds])]))
 
 ;; Compare both current policies in one standard executable, using ABBA process order.
 ;; Existing widths/depths remain; boundary widths exercise compact/tree transitions.
-(def (main (regime "natural") (policy-name "tree"))
+(def (main (regime "natural") (policy-name "tree")
+           (width-name "all") (depth-name "all"))
   (unless (member regime '("natural" "collected")) (error "unknown GC regime" regime))
   (unless (member policy-name '("tree" "compact")) (error "unknown storage policy" policy-name))
-  (for (width [1 4 8 9 16 64 256])
-    (for (depth [1 8 32])
+  ;; Select a maintained shape for matched producer comparisons. The default
+  ;; retains every original shape and all complete construction/clone phases.
+  (def (dimensions name allowed)
+    (if (equal? name "all") allowed
+      (let (value (string->number name))
+        (unless (member value allowed) (error "unknown object shape" name allowed))
+        [value])))
+  (def widths (dimensions width-name [1 4 8 9 16 64 256]))
+  (def depths (dimensions depth-name [1 8 32]))
+  (for (width widths)
+    (for (depth depths)
       (run-case width depth (equal? regime "collected") (string->symbol policy-name)))))
