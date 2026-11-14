@@ -709,16 +709,18 @@
            (poo-clos-add-method current-value admitted-method))
     admitted-method))
 
-;;; Effective-method construction validates the finished POO value so malformed
-;;; qualifier lists cannot enter execution.
-(def (checked-call-carrier type value code)
+;; Both callers build their carrier from lexical constants. The private Slot
+;; map is persistent, so its original identity witnesses that no computed
+;; specifications were introduced during validation.
+(def (checked-constant-call-carrier type value code)
   (def revision (object-revision value))
+  (def slots (object-%slots value))
   (checked type value code)
   ;; No mutation or source/MOP wrapper may hide inside the certified carrier.
   ;; Runtime observers still receive every actual read; any edit during that
   ;; observation/validation keeps this call's complete dependency trace.
   (unless (and (= revision (object-revision value))
-               (andmap (lambda (entry) ($constant-slot-spec? (cdr entry))) (object-slots value)))
+               (eq? slots (object-%slots value)))
     (owned-read-open!))
   (owned-read-value! value))
 
@@ -727,7 +729,7 @@
 ;;        ClosEffectiveMethod)
 (def (make-effective-method generic arguments around before primary after
                           groups: (groups '()) executor: (executor #f))
-  (checked-call-carrier ClosEffectiveMethod
+  (checked-constant-call-carrier ClosEffectiveMethod
     (.o (:: @ ClosEffectiveMethod.)
         generic arguments around before primary after groups executor)
     'invalid-effective-method))
@@ -747,7 +749,7 @@
 ;; : (-> ClosEffectiveMethod [SchemeValue] (Maybe Procedure)
 ;;        MethodQualifier ClosMethod ClosInvocationFrame)
 (def (make-invocation-frame effective-method arguments next qualifier method)
-  (checked-call-carrier ClosInvocationFrame
+  (checked-constant-call-carrier ClosInvocationFrame
            ;; Keep runtime inheritance and extensibility; these are value slots,
            ;; not receiver-dependent formulas or deferred argument computations.
            (.o (:: @ ClosInvocationFrame.)

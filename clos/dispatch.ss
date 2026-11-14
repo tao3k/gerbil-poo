@@ -29,6 +29,13 @@
   (let (tail (memq target values))
     (and tail (- (length values) (length tail)))))
 
+;; The canonical C4 list is borrowed only for an immediate scalar query.
+;; Cold arguments still go through the public preparation and hook boundary.
+(def (prototype-precedence-position target argument)
+  (identity-index target
+    (or (object-%precedence-list argument)
+        (compute-precedence-list! argument))))
+
 ;; : (-> SchemeValue Boolean)
 (def (clos-instance-state-bearing? value)
   (and (object? value)
@@ -58,7 +65,8 @@
          (let (argument-class (argument-clos-class argument))
            (length (if argument-class
                      (poo-clos-class-precedence-list argument-class)
-                     (compute-precedence-list! argument))))
+                     (or (object-%precedence-list argument)
+                         (compute-precedence-list! argument)))))
          0)))
 
 ;;; Eql ranks before every class; a class rank is its runtime C4 distance; the
@@ -72,8 +80,7 @@
     ((prototype)
      (and (object? argument)
           (let (index
-                (identity-index (.ref specializer 'target)
-                                (compute-precedence-list! argument)))
+                (prototype-precedence-position (.ref specializer 'target) argument))
             (and index (+ index 1)))))
     ((any) (universal-specializer-distance argument))
     (else #f)))
@@ -577,12 +584,17 @@
           (lambda () (invoke method effective-method args #f qualifier))))
        methods))
     (def (run-core args)
-      (run-auxiliary before args 'before)
-      (call-with-values
-       (lambda () (run-primary primary args))
-       (lambda results
-         (run-auxiliary after args 'after)
-         (apply values results))))
+      (if (and (null? before) (null? after))
+        ;; The same invocation and frame guards run. With no auxiliary
+        ;; methods, the caller can receive all Scheme values directly.
+        (run-primary primary args)
+        (begin
+          (run-auxiliary before args 'before)
+          (call-with-values
+           (lambda () (run-primary primary args))
+           (lambda results
+             (run-auxiliary after args 'after)
+             (apply values results))))))
     (def (run-around methods args)
       (if (null? methods)
         (run-core args)

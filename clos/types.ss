@@ -27,7 +27,11 @@
 
 (def (clos-instance? prototype candidate)
   (and (object? candidate)
-       (if (memq prototype (compute-precedence-list! candidate)) #t #f)))
+       ;; No user code receives this spine. Cold queries still prepare through
+       ;; the runtime, including any installed inheritance hook.
+       (if (memq prototype (or (object-%precedence-list candidate)
+                               (compute-precedence-list! candidate)))
+         #t #f)))
 
 (def (natural? value)
   (and (exact-integer? value) (>= value 0)))
