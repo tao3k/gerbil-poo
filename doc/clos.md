@@ -115,10 +115,16 @@ carriers. An observer that can receive those reads or a callback that can
 change the carrier policy takes the ordinary path. Public carrier calls and
 calls with replacement arguments also retain their independent admission.
 
-The [LeanPoo indexed rank model](https://github.com/tao3k/lean-poo/blob/4fb891761b655abab1987bf655453510ba47b2ee/LeanPoo/Object/ClosAdmission.lean#L409) preserves the ordered scan when an index replaces only a pure rank lookup.
-Candidate buckets additionally need a proof that an excluded method cannot
-deliver a read or cause a failure. Matching a generic generation alone does
-not certify the argument's live C4 order.
+The [LeanPoo indexed rank model](https://github.com/tao3k/lean-poo/blob/3ea0ed9/LeanPoo/Object/ClosAdmission.lean#L495)
+proves which misses an applicability scan can omit while preserving its first
+refusal and ordered reads. CLOS publishes an identity-to-position index with
+the method roster. When an applicability hook returns a dense list, its method
+identities are checked against positions filled from the live ranked rows.
+Edits during the hook can retire positions while the earlier rank remains the
+authority for that hook's return. CLOS falls back to that rank when a position
+is missing. The applicability scan still demands live specializers. A Scheme
+pair write can change a reflected roster or specializer list within the same
+generation, outside POO's reverse dependency mechanism.
 
 It forwards the original signed reads to the enclosing observation frame and
 checks the boundary before dispatching an open hook. Issuance and replay stay

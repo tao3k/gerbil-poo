@@ -396,6 +396,36 @@
        (poo-clos-class-specializer animal-class)
        (failure-code? 'invalid-specializer)))
 
+    (test-case "published positions do not override live ranks after a protocol callback"
+      (def roots (map (lambda (_) (.o)) '(a b c d)))
+      (def argument (.o inherit: roots))
+      (def replacement
+        (primary-method 'new-root (list (poo-clos-prototype-specializer (car roots))) 'new-root))
+      (def edit? #f)
+      (def protocol
+        (poo-clos-generic-protocol 'reordering
+          compute-applicable-methods:
+          (lambda (generic _arguments ranked)
+            (when edit? (poo-clos-add-method generic replacement))
+            (reverse ranked))))
+      (def generic (poo-clos-generic-function 'position-test 1 protocol: protocol))
+      (for-each
+        (lambda (root name)
+          (poo-clos-add-method generic
+            (primary-method name (list (poo-clos-prototype-specializer root)) name)))
+        roots '(a b c d))
+      (def (applicable)
+        (map (cut .ref <> 'identity) (poo-clos-compute-applicable-methods generic argument)))
+      (check-equal? (applicable) '(d c b a))
+      (set! edit? #t)
+      (check-equal? (applicable) '(d c b a))
+      (set! edit? #f)
+      (check-equal? (applicable) '(d c b new-root))
+      (def roster (.ref generic 'methods))
+      (set-car! roster
+        (primary-method 'pair-write (list (poo-clos-prototype-specializer (car roots))) 'pair-write))
+      (check-equal? (applicable) '(d c b pair-write)))
+
     (test-case "eql specializers are more specific than class specializers"
       (let* ((generic (poo-clos-generic-function 'feed 1))
              (generic

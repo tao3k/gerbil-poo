@@ -2,7 +2,7 @@
 ;;; SPDX-License-Identifier: Apache-2.0 AND LGPL-2.1-or-later
 
 (import :std/test :std/iter :clan/poo/clos
-        (only-in :clan/poo/object .ref replay-slot-reads!)
+        (only-in :clan/poo/object .o .ref replay-slot-reads!)
         (only-in :clan/poo/slot-observation %call-with-recorded-slot-reads
                  call-with-slot-read-observer)
         (only-in :clan/poo/clos/objects require-clos-generic make-invocation-frame)
@@ -15,6 +15,7 @@
 (extern namespace: clan/poo/clos/dispatch
         arguments-valid! protocol-ranked-methods keyword-arguments-valid!
         prepare-default-effective-method execute-standard-effective-method)
+(extern namespace: clan/poo/clos/objects %published-method-positions)
 
 (.defgeneric render (item &key ((color: color))))
 (.defmethod (render item &key ((color: color) item color?))
@@ -115,8 +116,44 @@
     (displayln (list 'OBSERVED phase side (median (hash-ref samples (list phase side))))))
   (displayln (list 'OBSERVED-ROOTS (length reads))))
 
+(def (compare-protocol-lookup)
+  (def roots (for/collect (_ (in-range 32)) (.o)))
+  (def argument (.o inherit: roots))
+  (def protocol
+    (poo-clos-generic-protocol 'reorder
+      compute-applicable-methods: (lambda (_generic _args methods) (reverse methods))))
+  (def generic (poo-clos-generic-function 'compare-protocol-lookup 1 protocol: protocol))
+  (for-each
+    (lambda (root)
+      (poo-clos-add-method generic
+        (poo-clos-method 'method (list (poo-clos-prototype-specializer root)) void)))
+    roots)
+  (def arguments (list argument))
+  (def (call) (protocol-ranked-methods generic arguments))
+  (def expected (call))
+  (def published %published-method-positions)
+  (unless (published generic) (error "expected published method positions"))
+  (def samples (make-hash-table-eq))
+  (for (side '(reference candidate candidate reference candidate reference reference candidate))
+    (defvalues (result metrics)
+      (dynamic-wind
+        (lambda ()
+          (set! %published-method-positions
+            (if (eq? side 'reference) (lambda (_) #f) published)))
+        (lambda () (measure call 512 #t))
+        (lambda () (set! %published-method-positions published))))
+    (check-equal? result expected)
+    (hash-update! samples side (cut cons metrics <>) '()))
+  (for (side '(reference candidate))
+    (def rows (hash-ref samples side))
+    (displayln (list 'PROTOCOL side
+      (median (map (lambda (row) (* 1000 (vector-ref row 0))) rows))
+      (median (map (lambda (row) (vector-ref row 4)) rows))))))
+
 (def clos-dispatch-test
   (test-suite "CLOS dispatch phases"
     (test-case "matched batches isolate phases" (report-phases))
     (test-case "interleaved full calls use the same methods and arguments" (compare-dispatch))
-    (test-case "interleaved observed captures and replay of the same roots" (compare-observed))))
+    (test-case "interleaved observed captures and replay of the same roots" (compare-observed))
+    (test-case "interleaved protocol lookup uses the published method positions"
+      (compare-protocol-lookup))))

@@ -22,6 +22,9 @@
         poo-clos-call-next-method poo-clos-next-method?
         poo-clos-funcall poo-clos-setf)
 
+(extern namespace: clan/poo/clos/objects
+        %published-method-positions %method-position method-positions-size)
+
 ;;; Runtime memq preserves identity comparison; length difference yields its
 ;;; position in the finite C4 precedence list without a project-local walker.
 ;; : (forall (a) (-> a [a] (Maybe Natural)))
@@ -218,6 +221,39 @@
             (clos-fail 'invalid-keyword-argument
                        generic: (.ref generic 'identity))))))))
 
+(def (ranked-method-lookup generic ranked)
+  (def (find-ranked method)
+    (find (lambda (entry) (eq? (car entry) method)) ranked))
+  (def count (length ranked))
+  (def positions (and (>= count 4) (%published-method-positions generic)))
+  (def (hash-lookup)
+    (let (index (poo-clos-leftmost-index-by car ranked))
+      (lambda (method) (hash-get index method))))
+  (cond
+   ((< count 4) find-ranked)
+   ((not positions) (hash-lookup))
+   (else
+    (def size (method-positions-size positions))
+    ;; A dense projection uses positions from publication, without rebuilding
+    ;; the method hash. Keep ranks private to this call and in specificity order.
+    (if (> size (* 2 count)) (hash-lookup)
+      (let (rows (make-vector size #f))
+        (if (andmap
+              (lambda (entry)
+                (let (position (%method-position positions (car entry)))
+                  (and position
+                       (begin
+                         (unless (vector-ref rows position)
+                           (vector-set! rows position entry))
+                         #t))))
+              ranked)
+          (lambda (method)
+            (let* ((position (%method-position positions method))
+                   (entry (and position (vector-ref rows position))))
+              (and entry
+                   (if (eq? (car entry) method) entry (find-ranked method)))))
+          (hash-lookup)))))))
+
 ;;; Protocol customization may filter or reorder the default applicable set,
 ;;; but cannot inject a method outside the generic generation or one that is
 ;;; inapplicable to the current required arguments.
@@ -230,17 +266,17 @@
     (owned-read-hook-owner! protocol)
     (if (not hook)
       ranked
-      (let ((methods (begin (owned-read-open!) (hook generic arguments (map car ranked))))
-            (ranked-index (poo-clos-leftmost-index-by car ranked)))
+      (let* ((methods (begin (owned-read-open!) (hook generic arguments (map car ranked))))
+             (lookup-ranked (ranked-method-lookup generic ranked)))
         (unless (and (list? methods)
                      (andmap
                       (lambda (method)
                         (and (element? ClosMethod method)
-                             (hash-get ranked-index method)))
+                             (lookup-ranked method)))
                       methods))
           (clos-fail 'invalid-compute-applicable-methods-result
                      generic: (.ref generic 'identity)))
-        (map (lambda (method) (hash-get ranked-index method)) methods)))))
+        (map lookup-ranked methods)))))
 
 ;;; Prepare one private admission continuation for standard/short/long carriers.
 ;;; A short combination uses the primary field for methods bearing its name.

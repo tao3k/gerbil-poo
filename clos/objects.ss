@@ -40,7 +40,33 @@
         make-effective-method make-invocation-frame clos-call-carrier-policy-guard
         %prepare-effective-method)
 
-(extern namespace: clan/poo/object %with-slot-edit-protection %publish-slot-edits!)
+(extern namespace: clan/poo/object %with-slot-edit-protection %publish-slot-edits!
+        %prepared-vector-slot-ref)
+
+;; A position only addresses an already applicable row. Index membership
+;; never authorizes a method or replaces its original reads.
+(defstruct method-positions (lookup size) final: #t)
+
+(def (%published-method-positions generic)
+  (let (index (%prepared-vector-slot-ref generic '%method-positions))
+    (and (method-positions? index) index)))
+
+(def (%method-position index method)
+  ((method-positions-lookup index) method))
+
+(def (method-generation-fields methods generation)
+  (def size (length methods))
+  (def index
+    (and (>= size 4)
+         (let (positions (make-table test: eq?))
+           (let loop ((remaining methods) (position 0))
+             (unless (null? remaining)
+               (table-set! positions (car remaining) position)
+               (loop (cdr remaining) (1+ position))))
+           (make-method-positions
+             (lambda (method) (table-ref positions method #f)) size))))
+  (list (cons 'methods methods) (cons 'generation generation)
+        (cons '%method-positions index)))
 
 ;;; Cached owner-local prototype avoids repeated descriptor demand in constructors.
 ;; : POOObject
@@ -638,8 +664,9 @@
                original methods))
       (def retained (make-hash-table-eq))
       (for-each (lambda (method) (hash-put! retained method #t)) installed)
-      (cons (list generic (cons 'methods installed)
-                  (cons 'generation (+ (.ref generic 'generation) (length methods))))
+      (cons (cons generic
+              (method-generation-fields installed
+                (+ (.ref generic 'generation) (length methods))))
         (map (lambda (method)
                (list method (cons 'generic-function
                                   (and (hash-key? retained method) generic))))
@@ -676,10 +703,10 @@
       (lambda ()
         (let (installed (.ref generic-value 'methods))
           (and (memq method-value installed)
-               (list (list generic-value
-                       (cons 'methods (filter (lambda (method) (not (eq? method method-value)))
-                                              installed))
-                       (cons 'generation (+ 1 (.ref generic-value 'generation))))
+               (list (cons generic-value
+                       (method-generation-fields
+                         (filter (lambda (method) (not (eq? method method-value))) installed)
+                         (+ 1 (.ref generic-value 'generation))))
                      (list method-value (cons 'generic-function #f))))))))
   (when edits (%publish-slot-edits! edits))
   generic-value)
