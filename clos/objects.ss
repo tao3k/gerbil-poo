@@ -631,12 +631,10 @@
       (def installed
         (foldl (lambda (method current)
                  (admit-method! generic (require-clos-method method))
-                 (cons method
-                   (filter (lambda (old)
-                             (if (method-agrees? method old)
-                               (begin (set! replaced (cons old replaced)) #f)
-                               #t))
-                           current)))
+                 (defvalues (matching remaining)
+                   (partition (cut method-agrees? method <>) current))
+                 (set! replaced (append matching replaced))
+                 (cons method remaining))
                original methods))
       (def retained (make-hash-table-eq))
       (for-each (lambda (method) (hash-put! retained method #t)) installed)
@@ -660,25 +658,12 @@
 ;;   | ```
 ;;   | result: the same POO generic-function with generation + 1.
 (def (poo-clos-add-method generic-value method-value)
-  (set! generic-value (require-clos-generic generic-value))
-  (set! method-value (require-clos-method method-value))
-  (admit-method! generic-value method-value)
-  (let (replaced
-         (filter (lambda (existing)
-                   (method-agrees? method-value existing))
-                 (.ref generic-value 'methods)))
-    (for-each (lambda (existing)
-                (unless (eq? existing method-value)
-                  (.put! existing 'generic-function #f)))
-              replaced)
-    (.put! method-value 'generic-function generic-value)
-    (.put! generic-value 'methods
-           (cons method-value
-                 (filter (lambda (existing)
-                           (not (method-agrees? method-value existing)))
-                         (.ref generic-value 'methods))))
-    (.put! generic-value 'generation (+ 1 (.ref generic-value 'generation)))
-    generic-value))
+  (def generic (require-clos-generic generic-value))
+  (def edits
+    (%with-slot-edit-protection (list generic)
+      (lambda () (plan-bundle-edits generic (list method-value)))))
+  (%publish-slot-edits! edits)
+  generic)
 
 ;;; Removing an absent method is identity preserving; a real removal alone
 ;;; advances the generation.
@@ -686,16 +671,18 @@
 (def (poo-clos-remove-method generic-value method-value)
   (set! generic-value (require-clos-generic generic-value))
   (set! method-value (require-clos-method method-value))
-  (let (remaining
-        (filter (lambda (existing) (not (eq? existing method-value)))
-                (.ref generic-value 'methods)))
-    (if (= (length remaining) (length (.ref generic-value 'methods)))
-      generic-value
-      (begin
-        (.put! method-value 'generic-function #f)
-        (.put! generic-value 'methods remaining)
-        (.put! generic-value 'generation (+ 1 (.ref generic-value 'generation)))
-        generic-value))))
+  (def edits
+    (%with-slot-edit-protection (list generic-value method-value)
+      (lambda ()
+        (let (installed (.ref generic-value 'methods))
+          (and (memq method-value installed)
+               (list (list generic-value
+                       (cons 'methods (filter (lambda (method) (not (eq? method method-value)))
+                                              installed))
+                       (cons 'generation (+ 1 (.ref generic-value 'generation))))
+                     (list method-value (cons 'generic-function #f))))))))
+  (when edits (%publish-slot-edits! edits))
+  generic-value)
 
 ;; : (-> Symbol ClosGenericFunction ClosGenericBinding)
 (def (poo-clos-generic-binding identity-value generic-value)

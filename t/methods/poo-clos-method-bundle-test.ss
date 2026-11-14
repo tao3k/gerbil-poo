@@ -246,6 +246,10 @@
          (poo-clos-compose-method-bundle generic first)
          (lambda (failure)
            (and (Error? failure) (equal? (Error-message failure) "sealed prototype"))))
+        (check-unchanged)
+        (check-exception (poo-clos-add-method generic replacement)
+          (lambda (failure)
+            (and (Error? failure) (equal? (Error-message failure) "sealed prototype"))))
         (check-unchanged)))
     (test-case "protocol identity mismatch fails before method ownership changes"
       (let* ((generic (poo-clos-generic-function 'render 1 protocol: bundle-protocol))

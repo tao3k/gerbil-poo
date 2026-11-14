@@ -134,6 +134,15 @@
              (instance
               (poo-clos-make-instance class-a common: 4 only-a: 5))
              (identity instance))
+        (def generic (poo-clos-generic-function 'class-sensitive 1))
+        (poo-clos-add-method generic
+          (poo-clos-method 'before-change (list (poo-clos-class-specializer class-a))
+            (lambda (_frame _instance) 'a)))
+        (poo-clos-add-method generic
+          (poo-clos-method 'after-change (list (poo-clos-class-specializer class-b))
+            (lambda (_frame _instance) 'b)))
+        (def generation (poo-clos-generic-generation generic))
+        (check-equal? (poo-clos-call generic instance) 'a)
         (check (eq? (poo-clos-change-class instance class-b
                                            common: 10 only-b: 9)
                     identity)
@@ -142,6 +151,8 @@
                       'change-b)
         (check-equal? (poo-clos-slot-value instance 'common) 10)
         (check-equal? (poo-clos-slot-value instance 'only-b) 9)
+        (check-equal? (poo-clos-generic-generation generic) generation)
+        (check-equal? (poo-clos-call generic instance) 'b)
         (check-equal? receipt
                       '(change-a 5 4 change-b 10 (common: 10 only-b: 9)))))
 

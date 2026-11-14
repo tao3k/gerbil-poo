@@ -373,17 +373,22 @@
                generic
                (primary-method
                 'dog (list (poo-clos-prototype-specializer dog-class)) 'dog)))
+             (eql-dog (poo-clos-eql-specializer dog))
              (generic
               (poo-clos-add-method
                generic
-               (primary-method
-                'this-dog (list (poo-clos-eql-specializer dog)) 'this-dog))))
+               (primary-method 'this-dog (list eql-dog) 'this-dog))))
         (check-equal?
          (map (lambda (method) (.ref method 'identity))
               (poo-clos-compute-applicable-methods generic dog))
          '(this-dog dog))
         (check-equal? (poo-clos-call generic dog) 'this-dog)
-        (check-equal? (poo-clos-call generic (.o (:: @ dog-class))) 'dog)))
+        (check-equal? (poo-clos-call generic (.o (:: @ dog-class))) 'dog)
+        (def generation (.ref generic 'generation))
+        (.put! eql-dog 'target cat)
+        (check-equal? (.ref generic 'generation) generation)
+        (check-equal? (poo-clos-call generic dog) 'dog)
+        (check-equal? (poo-clos-call generic cat) 'this-dog)))
 
     (test-case "standard qualifier order and lexical next are preserved"
       (let ((trace '())
