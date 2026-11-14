@@ -8,8 +8,8 @@
 (import (only-in :std/test
                  test-suite test-case check-equal? check-exception check)
         :std/error
-        (only-in :clan/poo/object .o .ref .put! .all-slots object-slots $constant-slot-spec?
-                 object-protocol-set! replay-slot-reads! object-read-issued?)
+        (only-in :clan/poo/object .o .ref .put! .all-slots object-slots $constant-slot-spec $constant-slot-spec?
+                 .putslot! object-slots-set! object-protocol-set! replay-slot-reads! object-read-issued?)
         (only-in :clan/poo/mop Type. element?)
         (only-in :std/list/list foldl)
         (only-in :clan/poo/slot-observation call-with-slot-read-observer
@@ -651,4 +651,24 @@
                  (poo-clos-call-next-method frame)))))
         (check-exception
          (poo-clos-call (poo-clos-add-method generic method) 1)
-         (failure-code? 'no-next-method))))))
+         (failure-code? 'no-next-method))))
+
+    (test-case "single primary still observes carrier policy refusals"
+      (def ran? #f)
+      (.defgeneric checked-primary (argument))
+      (.defmethod (checked-primary argument)
+        (set! ran? #t)
+        argument)
+      (check-equal? (checked-primary dog) dog)
+      (set! ran? #f)
+      (def (with-refusing-policy type action)
+        (def policy (object-slots type))
+        (dynamic-wind
+          (lambda () (.putslot! type '.element?
+                       ($constant-slot-spec (lambda (_carrier) #f))))
+          action
+          (lambda () (object-slots-set! type policy))))
+      (with-refusing-policy ClosEffectiveMethod
+        (lambda ()
+          (check-exception (checked-primary dog) (failure-code? 'invalid-effective-method))
+          (check-equal? ran? #f))))))

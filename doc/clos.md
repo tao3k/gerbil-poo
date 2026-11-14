@@ -107,6 +107,14 @@ and otherwise signals a typed CLOS failure. See the
 and [the distinction from prototype slot fallback](inheritance-hooks.md#slot-lookup-and-generic-dispatch).
 
 CLOS calls and consumer code share the same [read projection](../read-projection.ss).
+The [direct primary model](clos-direct-primary.lean) states the conditions
+for removing the two invocation carriers. External admission still runs in
+the same order. The removed operations must be total under that admission,
+have no effects on the live state, and deliver only reads of unexposed
+carriers. An observer that can receive those reads or a callback that can
+change the carrier policy takes the ordinary path. Public carrier calls and
+calls with replacement arguments also retain their independent admission.
+
 It forwards the original signed reads to the enclosing observation frame and
 checks the boundary before dispatching an open hook. Issuance and replay stay
 with the existing Slot implementation. Replay with the exact runtime `void`
