@@ -57,7 +57,7 @@
 
 ;;; The G functions make the eval work, which ensures the traces have usable function names.
 (def (G x) (hash-get (object-instance T) x))
-(def (G-set! x y) (hash-put! (object-instance T) x y))
+(def (G-set! x y) (.put! T x y))
 (def (traceT)
   (for-each (lambda (k) (def v (.ref T k)) (when (procedure? v) (eval `(trace! (G ',k)))))
             (.all-slots T)))

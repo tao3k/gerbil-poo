@@ -2,7 +2,7 @@
 ;;; Values are still computed by object.ss; this module only records/replays.
 (export make-slot-read (rename-out copy-slot-read-key (copy-slot-read-key slot-read-key))
         slot-read-receiver
-        slot-read-revision slot-read-instance
+        slot-read-revision (rename-out copy-slot-read-instance (copy-slot-read-instance slot-read-instance))
         (rename-out copy-slot-read-value (copy-slot-read-value slot-read-value))
         (rename-out copy-slot-read-dependencies (copy-slot-read-dependencies slot-read-dependencies))
         call-with-slot-read-observer without-observation
@@ -22,6 +22,13 @@
   (if (owned-list? value) ((owned-list-access value) #f) value))
 (def (%borrow-owned-list value)
   (if (owned-list? value) ((owned-list-access value) owned-list-access-key) value))
+(def (%slot-store-snapshot store)
+  (and store
+       (let (snapshot (make-hash-table-symbolic))
+         (hash-for-each
+          (lambda (slot value) (hash-put! snapshot slot (%owned-list-value value)))
+          store)
+         snapshot)))
 (defstruct slot-read (receiver key revision instance value dependencies current? birth)
   final: #t constructor: :init!)
 ;; Keep the public seven-argument raw constructor. It never mints provenance.
@@ -34,12 +41,16 @@
 (def (copy-slot-read-key read)
   (let (key (slot-read-key read))
     (if (pair? key) (list-copy key) key)))
+(def (copy-slot-read-instance read)
+  (%slot-store-snapshot (slot-read-instance read)))
 ;; Names and explicitly owned lists have detached spines. Ordinary
 ;; application values remain opaque, including lists in a Slot called names.
 (def (copy-slot-read-value read)
   (let (value (slot-read-value read))
-    (if (equal? (slot-read-key read) '(names)) (list-copy value)
-      (%owned-list-value value))))
+    (case (and (pair? (slot-read-key read)) (car (slot-read-key read)))
+      ((names) (list-copy value))
+      ((preparation) (%slot-store-snapshot value))
+      (else (%owned-list-value value)))))
 ;; Consumers may edit the dependency list, while each parent keeps its signed
 ;; record identity and its original position and multiplicity.
 (def (copy-slot-read-dependencies read)

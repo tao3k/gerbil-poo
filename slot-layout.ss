@@ -307,7 +307,18 @@
 ;; The fixed slot name belongs to the access site, not to the last receiver.
 (defalias slot-cache-name access-cache-name)
 ;; An old receiver layout is a shape hint only; its cells never seed a new owner.
-(defalias slot-cache-layout access-cache-layout)
+(extern namespace: clan/poo/slot-observation %owned-list-value)
+;; A diagnostic layout owns its cells and directory. Even reflective edits
+;; to its HashTable adapter or indices cannot affect the receiver's layout.
+(def (%layout-snapshot live)
+  (and live
+       (let* ((directory (layout-shape live))
+              (shape (make-shape (hash-copy (shape-indices directory))
+                                 (list-copy (shape-names directory)))))
+         (make-layout shape (vector-map %owned-list-value (layout-cells live))
+                      (layout-missing live) (layout-count live) #f #f))))
+(def (slot-cache-layout site)
+  (%layout-snapshot (access-cache-layout site)))
 ;; Sites retain only access guards and one or two descriptor offsets. Successful
 ;; values always belong to the receiver, so sites have no value-seeding policy.
 (def (make-slot-cache name shapes: (count 1))

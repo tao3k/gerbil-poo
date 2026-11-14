@@ -12,6 +12,7 @@
 ;; Every call reads live fields; public structural inspectors still copy spines.
 (extern
   (record-key-field clan/poo/slot-observation#slot-read-key)
+  (record-instance-field clan/poo/slot-observation#slot-read-instance)
   (record-dependencies-field clan/poo/slot-observation#slot-read-dependencies)
   (record-value-field clan/poo/slot-observation#slot-read-value))
 (def object-read-key record-key-field)
@@ -30,7 +31,7 @@
          ((and (pair? key) (eq? (car key) 'bootstrap))
           (let (anchor (bootstrap-anchor self (cadr key)))
             (and anchor (eq? (cdr anchor) (object-read-value read)))))
-         ((not (eq? (slot-read-instance read) (object-%instance self))) #f)
+         ((not (eq? (record-instance-field read) (object-%instance self))) #f)
          ((and (pair? key) (eq? (car key) 'cache-miss))
           (not (hash-key? (object-%instance self) (cadr key))))
          (else

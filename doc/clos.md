@@ -131,10 +131,11 @@ published method family, use method installation or removal. Updating the
 specializer slot on a constructed Method copies the new spine at the POO
 write boundary. The [LeanPoo ownership model](https://github.com/tao3k/lean-poo/blob/1d8e7bbae90301e467b69c2ebb4a5326e422942e/LeanPoo/Object/ClosAdmission.lean#L586)
 specifies reflection and the conditions for locally revoking applicability rows.
-Public value-store reflection still exposes mutable cells and their Gerbil
-HashTable adapter. Editing a cell or replacing the adapter's read method can
-change dispatch without advancing a POO revision. A row that depends on those
-stores needs a route and value check before it can omit a live read. The
+The `object-instance` and `hash<-object` projections have detached cells
+and their own HashTable adapters. Editing either snapshot leaves dispatch
+unchanged. Public layout and issued-read inspection also return snapshots.
+Raw runtime field access and changes to the shared Gerbil HashTable interface
+are separate effect boundaries. The
 [published-route proof](https://github.com/tao3k/lean-poo/blob/20459a2514ab702bb629c6d5e135a4c8b0eaf0c6/LeanPoo/Object/ClosAdmission.lean#L737)
 states the write-ownership condition required for revision-only selection.
 

@@ -1,6 +1,7 @@
 ;;; Replay runtime-issued Slot reads and reject fabricated or stale records.
 (export issued-read-test test-cleanup!)
-(import (only-in :clan/poo/slot-layout make-slot-cache) :std/iter :std/test (only-in :clan/poo/io module-action) :clan/poo/object :clan/poo/slot-observation
+(import (only-in :clan/poo/slot-layout make-slot-cache slot-cache-layout slot-layout-put!)
+        :std/iter :std/test (only-in :clan/poo/io module-action) :clan/poo/object :clan/poo/slot-observation
         (only-in :clan/poo/read-route make-read-issuer %issued-read?)
         (only-in :gerbil/runtime/gambit unbound-global-exception?)
         (prefix-in (only-in :gerbil/runtime/mop slot-ref slot-set! find-method bind-method! object-class
@@ -84,7 +85,7 @@
     (for (index? '(#f #t))
       (def owner (.o value: #f))
       (def roots (recorded (cut .ref owner 'value)))
-      (def instance (object-instance owner))
+      (def instance (%live-object-instance owner))
       (def table (if index?
         (runtime.slot-ref (runtime.slot-ref (runtime.slot-ref instance 'object) 'shape) 'indices)
         instance))
@@ -98,7 +99,7 @@
         (finally (runtime.slot-set! table 'ref original))))
     (def owner (.o value: 1))
     (def roots (recorded (cut .ref owner 'value)))
-    (def instance (object-instance owner))
+    (def instance (%live-object-instance owner))
     (def backend (runtime.slot-ref instance 'object))
     (def shape (runtime.slot-ref backend 'shape))
     (def foreign-shape (make-hash-table-symbolic))
@@ -133,11 +134,27 @@
     (call-with-slot-read-observer
       (lambda (read) (when (eq? (slot-read-key read) 'value) (set! record read)))
       (cut .ref owner 'value))
-    (def instance (object-instance owner))
-    (def layout (object-layout owner))
+    (def instance (%live-object-instance owner))
+    (def layout (%live-object-layout owner))
     (check (object-read-current? record) => #t)
-    (check-eq? (slot-read-instance record) instance)
+    (def reflected (slot-read-instance record))
+    (check (eq? reflected instance) => #f)
+    (hash-put! reflected 'value identity)
+    (check-equal? (.ref owner 'value) #f)
+    (check (object-read-current? record) => #t)
+    (def preparation (car (slot-read-dependencies record)))
+    (hash-put! (slot-read-value preparation) 'value identity)
+    (defvalues (_presented _original _signed fields _shape)
+      (object-read-issuance preparation))
+    (hash-put! (vector-ref fields 3) 'value identity)
+    (hash-put! (vector-ref fields 4) 'value identity)
+    (check-equal? (.ref owner 'value) #f)
+    (check (object-read-current? record) => #t)
     (check (.ref/inline owner site) => #f)
+    (slot-layout-put! (object-layout owner) 'value identity)
+    (slot-layout-put! (slot-cache-layout site) 'value identity)
+    (check (.ref/inline owner site) => #f)
+    (check (object-read-current? record) => #t)
     (hash-put! instance 'new-key identity)
     (check (object-read-current? record) => #t)
     (check (.ref/inline owner site) => #f)
@@ -951,3 +968,7 @@
       '(key value current? dependencies birth))
     (set! completed (1+ completed)))
 ))
+
+(extern namespace: clan/poo/object %live-object-instance)
+
+(extern namespace: clan/poo/object %live-object-layout)

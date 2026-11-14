@@ -10,7 +10,8 @@
         :std/error
         (only-in :clan/poo/object .o .ref .put! .all-slots object-slots $constant-slot-spec $constant-slot-spec?
                  .putslot! object-slots-set! object-supers-set! object-protocol-set!
-                 replay-slot-reads! object-read-issued? object-instance object-revision)
+                 replay-slot-reads! object-read-issued? object-instance object-revision hash<-object
+                 depend-on-object!)
         (prefix-in (only-in :gerbil/runtime/mop slot-ref slot-set!) runtime.)
         (only-in :clan/poo/mop Type. element?)
         (only-in :std/list/list foldl)
@@ -459,29 +460,33 @@
          '(this-dog dog))
         (check-equal? (poo-clos-call generic dog) 'this-dog)
         (check-equal? (poo-clos-call generic (.o (:: @ dog-class))) 'dog)
+        (def affected (.o))
+        (def unrelated (.o))
+        (depend-on-object! affected eql-dog)
+        (depend-on-object! unrelated dog-class)
+        (def affected-before (object-revision affected))
+        (def unrelated-before (object-revision unrelated))
         (def generation (.ref generic 'generation))
         (.put! eql-dog 'target cat)
         (check-equal? (.ref generic 'generation) generation)
         (check-equal? (poo-clos-call generic dog) 'dog)
-      (check-equal? (poo-clos-call generic cat) 'this-dog)
-      ;; Reflected value stores still allow writes outside POO invalidation.
-      ;; Neither a cell edit nor a wrapper replacement changes the owner stamp.
-      (def store (object-instance eql-dog))
-      (def revision (object-revision eql-dog))
-      (hash-put! store 'target dog)
-      (check-equal? (object-revision eql-dog) revision)
-      (check-equal? (poo-clos-call generic dog) 'this-dog)
-      (def ref (runtime.slot-ref store 'ref))
-      (dynamic-wind
-        (lambda ()
-          (runtime.slot-set! store 'ref
-            (lambda (table key default)
-              (if (eq? key 'target) cat (ref table key default)))))
-        (lambda ()
-          (check-equal? (object-revision eql-dog) revision)
-          (check-equal? (poo-clos-call generic dog) 'dog)
-          (check-equal? (poo-clos-call generic cat) 'this-dog))
-        (lambda () (runtime.slot-set! store 'ref ref)))))
+        (check-equal? (poo-clos-call generic cat) 'this-dog)
+        ;; Cell and adapter writes on either reflected snapshot stay local.
+        (def revision (object-revision eql-dog))
+        (for-each
+          (lambda (store)
+            (hash-put! store 'target dog)
+            (check-equal? (hash-ref store 'target) dog)
+            (check-equal? (poo-clos-call generic dog) 'dog)
+            (runtime.slot-set! store 'ref
+              (lambda (_table _key . _default) 'snapshot-only))
+            (check-equal? (hash-ref store 'target) 'snapshot-only)
+            (check-equal? (object-revision eql-dog) revision)
+            (check-equal? (poo-clos-call generic dog) 'dog)
+            (check-equal? (poo-clos-call generic cat) 'this-dog))
+          (list (object-instance eql-dog) (hash<-object eql-dog)))
+        (check-equal? (object-revision affected) (1+ affected-before))
+        (check-equal? (object-revision unrelated) unrelated-before)))
 
     (test-case "standard qualifier order and lexical next are preserved"
       (let ((trace '())

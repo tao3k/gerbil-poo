@@ -393,7 +393,7 @@
              ;; Evict only the value; unchanged shape/owner guards stay valid.
              ;; Both sides charge deletion, ordinary demand and the same oracle.
              (read owner)
-             (hash-remove! (object-instance owner) 'value)
+             (hash-remove! (%live-object-instance owner) 'value)
              (unless (not (read owner)) (error "guard redemand oracle")))
             ((slot-values-grow)
              ;; Each action owns fresh preparation and one absent-key insertion.
@@ -555,7 +555,7 @@
                      (site (make-slot-cache 'total)) (delivered 0)
                      (consume (checked-action service.ValidService
                        (lambda (owner)
-                         (unless reuse? (object-layout owner))
+                         (unless reuse? (%live-object-layout owner))
                          (let (total (.ref/inline owner site))
                            (set! delivered (1+ delivered)) total)))))
                 ;; Exactly one checked boundary owns refinement. Only its admitted
@@ -608,3 +608,7 @@
                        (eq? (slot-layout-ref fresh (slot-layout-index fresh (cadr target))) identity))
             (error "batch preparation oracle")) #t))
       (values (action #f) (action #t)))))
+
+(extern namespace: clan/poo/object %live-object-instance)
+
+(extern namespace: clan/poo/object %live-object-layout)

@@ -157,8 +157,8 @@ local to the running process. Each live shape shares its name/index
 mapping; each receiver owns its vector cells. The standard HashTable interface
 exposes the primary vector to ordinary lookup, IO and reflection. Instance
 preparation allocates uncomputed cells without demanding slot bodies; successful
-ordinary and inline reads publish to that same store. `object-layout` exposes
-that store by identity, and a site keeps only guards/offsets. There is no seeding
+ordinary and inline reads publish to that same store. Public layout inspection
+returns detached cells and a detached slot directory. A site keeps guards/offsets. There is no seeding
 preference or per-site value-policy field.
 
 A caller creates `make-slot-cache 'total`, then uses `.ref/inline receiver site`.
@@ -1107,8 +1107,7 @@ This selective repair does not rewrite cached dependency graphs containing the
 old record. Those graphs still refuse before consumer work. The existing explicit
 `uninstantiate-object!` flush permits fresh computation and retry. Ordinary
 observer exceptions preserve their exact cause. Supported source revisions still
-invalidate old evidence; raw record setters and mutation of the deliberately
-borrowed `hash<-object` table remain outside this protocol.
+invalidate old evidence. Raw record setters are outside this protocol.
 
 This implements a concrete ownership discipline within the author's cached,
 purity-by-default choice (`poof.scrbl`, cache discussion at lines 1533–1553).
@@ -1415,11 +1414,13 @@ only to their recorded source/ABI, not to a later module ownership revision.
 
 ## Authoritative vector values
 
-The default `slot-value-storage` is `vector`: `object-instance` returns the
-standard Gerbil `HashTable` interface over one receiver-local layout. Ordinary
-`.ref`, `.ref/cached`, printing, copy/iteration and inline sites share its cells.
-`object-layout` exposes that existing layout by identity; it never copies a hash
-value table. Creation hints do not erase computed cells. The explicit `hash`
+The default `slot-value-storage` is `vector`. Ordinary `.ref`, `.ref/cached`,
+printing and inline sites share the receiver-local cells. `object-instance`
+copies the prepared cells into a separate symbolic HashTable. `hash<-object`
+first demands the object's slots and then returns the same kind of snapshot.
+Use POO slot writes to change the receiver.
+`object-layout` and `slot-cache-layout` return independent layout snapshots.
+Internal preparation retains the authoritative layout. The explicit `hash`
 qualification remains a single symbolic value table; inline requests fall back
 to ordinary lookup and never create an auxiliary value vector.
 

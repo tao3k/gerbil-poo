@@ -23,11 +23,13 @@
 ;; fields, and reflective name lookup can be redirected by a class edit.
 (extern
   (record-key-field clan/poo/slot-observation#slot-read-key)
+  (record-instance-field clan/poo/slot-observation#slot-read-instance)
   (record-value-field clan/poo/slot-observation#slot-read-value)
   (record-current-field clan/poo/slot-observation#slot-read-current?)
   (record-dependencies-field clan/poo/slot-observation#slot-read-dependencies)
   (record-birth-field clan/poo/slot-observation#slot-read-birth)
   (record-birth-set! clan/poo/slot-observation#slot-read-birth-set!))
+(extern namespace: clan/poo/slot-observation %slot-store-snapshot %owned-list-value)
 
 ;; Can hash-put! reach Gerbil's symbolic writer without an adapter or callback?
 ;; Rehashing also uses the backend's hash/test, so check those and its lock.
@@ -252,8 +254,11 @@
             ;; Copy primitive metadata; do not dispatch a mutable class constructor.
             (if (not candidate)
                 (values read
-                  (vector self (if (pair? signed-key) (list-copy signed-key) signed-key) revision instance
-                    (if names (list-copy names) value)
+                  (vector self (if (pair? signed-key) (list-copy signed-key) signed-key) revision
+                    (%slot-store-snapshot instance)
+                    (cond (names (list-copy names))
+                          ((equal? signed-key '(preparation)) (%slot-store-snapshot value))
+                          (else (%owned-list-value value)))
                     (if (vector? parent-copy) (vector->list parent-copy) (list parent-copy)) checker)
                   (and (pair? signed-key) (list-copy signed-key)))
             (and (eq? candidate read)
@@ -261,7 +266,7 @@
                  (eq? (read-key read) record-key)
                  (or (not (pair? signed-key)) (same-list? record-key signed-key))
                  (= (slot-read-revision read) revision)
-                 (eq? (slot-read-instance read) instance)
+                 (eq? (record-instance-field read) instance)
                  (eq? (read-value read) value)
                  (eq? (read-current? read) checker)
                  (same-dependencies? (read-dependencies read) parent-copy))))))

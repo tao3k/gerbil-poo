@@ -285,7 +285,7 @@
         (error "slot access oracle" scenario total)) #t)
     (case scenario
       ((slot-prepare) (lambda ()
-        (for (owner (cdr (family))) ((if inline? object-layout object-instance) owner)) #t))
+        (for (owner (cdr (family))) ((if inline? %live-object-layout object-instance) owner)) #t))
       ((slot-cold) (lambda ()
         (def fresh (family)) (def cold-site (and inline? (make-slot-cache 'value)))
         (def total (for/fold (sum 0) (owner (cdr fresh))
@@ -310,3 +310,5 @@
           (unless (= total (+ (* 3 size) (* 3 (/ (* size (1- size)) 2))))
             (error "cached module service oracle")) #t)))))
   (values (action #f) (action #t)))
+
+(extern namespace: clan/poo/object %live-object-layout)

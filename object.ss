@@ -14,7 +14,8 @@
                     slot-spec-discards-super? compile-slot-specs prepare-declaration-specifications compute-object-precedence!
                     %prepared-vector-slot-ref %bind-current-slot-reads %prepared-slot-present?
                     %with-slot-edit-protection %publish-slot-edits!
-                    %owned-list-slot-spec %ref-owned-list define-slot-ref) @object? @make-object)
+                    %owned-list-slot-spec %ref-owned-list define-slot-ref
+                    %live-object-instance %live-object-layout) @object? @make-object)
 
 (import
   (prefix-in (only-in Runtime object? make-object) @) ;; Rename them before we shadow them
@@ -341,7 +342,8 @@
 
 (defstruct $slot-spec () transparent: #t) ;; = (SlotSpec A k)
 (defstruct ($constant-slot-spec $slot-spec) (value) transparent: #t) ;; constant value
-(extern namespace: clan/poo/slot-observation %make-owned-list %owned-list-value %borrow-owned-list)
+(extern namespace: clan/poo/slot-observation %make-owned-list %owned-list-value %borrow-owned-list
+        %slot-store-snapshot)
 (def (%owned-list-slot-spec values)
   ($constant-slot-spec (%make-owned-list values)))
 (extern namespace: clan/poo/slot-observation owned-list?)
@@ -375,9 +377,14 @@
     (($self-slot-spec fun) (cut fun self))
     (($computed-slot-spec fun) (cut fun self superfun))))
 
-(def (object-instance self)
+(def (%live-object-instance self)
   (instantiate-object! self)
   (object-%instance self))
+
+;; Reflection copies the prepared values into a separate standard table.
+;; The receiver still owns its cells and its HashTable adapter.
+(def (object-instance self)
+  (%slot-store-snapshot (%live-object-instance self)))
 
 ;; Active computations are dynamically scoped per thread and unwind on failure.
 ;; Only cache misses enter this path; successful #f and other values stay cached.
@@ -407,7 +414,7 @@
     (%slot-read-demand! self slot)
     (def anchor (bootstrap-anchor self slot))
     (if anchor (object-read-bootstrap self slot anchor)
-      (let* ((instance (object-instance self))
+      (let* ((instance (%live-object-instance self))
              (value (hash-ref instance slot absent-value)))
         (if (eq? value absent-value)
           (let (revision (object-revision self))
@@ -431,11 +438,14 @@
 
 ;; Expose the existing primary vector by identity, without seeding another store.
 ;; The explicit hash qualification stays symbolic and never allocates a second cache.
-(def (object-layout self previous: (previous #f))
+(extern namespace: clan/poo/slot-layout %layout-snapshot access-cache-layout)
+(def (%live-object-layout self previous: (previous #f))
   (instantiate-object! self previous: previous)
   (or (object-%layout self)
     (let (layout (slot-values-layout (object-%instance self)))
       (when layout (set! (object-%layout self) layout)) layout)))
+(def (object-layout self)
+  (%layout-snapshot (%live-object-layout self)))
 ;; Sites retain offsets, never values. Observed/bootstrap reads use ordinary .ref;
 ;; live layouts certify preparation and are discarded by supported edits.
 ;; Failures bind no guard; absent names never become certified indices.
@@ -444,7 +454,7 @@
   (if (%slot-read-active?) (.ref self slot)
     (let (prepared (object-%layout self))
       (if (and (not prepared) (bootstrap-anchor self slot)) (.ref self slot)
-        (let (layout (or prepared (object-layout self previous: (slot-cache-layout cache))))
+        (let (layout (or prepared (%live-object-layout self previous: (access-cache-layout cache))))
           (if (not layout) (.ref self slot)
             (let* ((revision (object-revision self))
                    (hit (slot-cache-hit? cache self revision layout))
@@ -478,7 +488,7 @@
   (%slot-read-demand! self slot)
   (def anchor (bootstrap-anchor self slot))
   (if anchor (object-read-bootstrap self slot anchor)
-    (let* ((instance (object-instance self)) (value (hash-ref instance slot absent-value)))
+    (let* ((instance (%live-object-instance self)) (value (hash-ref instance slot absent-value)))
       (if (eq? value absent-value)
         ;; A miss is not field absence. Later cache population makes it stale
         ;; without any mutation revision; each default invocation has its own dependencies.
@@ -657,7 +667,7 @@
 
 ;; : (Table (A s) <- s:Symbol) <- (Object A)
 (def (hash<-object self)
-  (object-%instance (force-object self)))
+  (object-instance (force-object self)))
 
 ;; For (? test :: proc => pattern),
 ;;   test = (o?/slots ks)
@@ -906,7 +916,7 @@
     (unless (object-%overrides self)
       (set! (object-%overrides self) (make-hash-table test: eq? hash: symbolic-hash seed: (%graph-table-seed))))
     (hash-put! (object-%overrides self) slot value)
-    (hash-put! (object-instance self) slot value)))
+    (hash-put! (%live-object-instance self) slot value)))
 
 ;; Protect the selected receivers while checking an edit that may run hooks.
 (def (%with-slot-edit-protection owners action)
