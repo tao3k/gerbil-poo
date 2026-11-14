@@ -331,9 +331,9 @@
     (hash-put! h slot compiled))
   (set! (object-%slot-funs self) h))
 
-;; Visit each prototype's names from least to most specific. Keep the last
-;; occurrence of each name, in order. The scratch table uses the same scoped
-;; hash seed as the method table above.
+;; SUPER-SLOTS contains one ordered list of names per prototype, most specific
+;; first. Visit the lists least specific first and keep each name at its last
+;; occurrence. The deduplication table uses the graph hash seed described above.
 (def (merge-super-slots super-slots)
   (delete-duplicates/hash (apply append (reverse super-slots))
     table: (make-hash-table test: eq? hash: symbolic-hash seed: (%graph-table-seed)) from-end?: #t))
