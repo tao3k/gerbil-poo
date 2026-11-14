@@ -515,6 +515,22 @@
         (check-exception (poo-clos-call generic 'value unknown: 9)
                          (failure-code? 'invalid-keyword-argument))))
 
+    (test-case "malformed keyword arguments refuse before the method body"
+      (def called? #f)
+      (def method
+        (poo-clos-method 'checked (list any-specializer)
+                         (lambda (_frame . _arguments) (set! called? #t))))
+      (def generic
+        (poo-clos-add-method
+          (poo-clos-generic-function 'keyword-order 1 key?: #t keys: '(known)) method))
+      (check-exception (poo-clos-call generic 'item 'unknown)
+                       (failure-code? 'malformed-keyword-arguments))
+      (check-exception (poo-clos-call generic 'item 'unknown 1)
+                       (failure-code? 'invalid-keyword-argument))
+      (check-equal? called? #f)
+      (poo-clos-call generic 'item 'known 1)
+      (check-equal? called? #t))
+
     (test-case "no-applicable-method precedes keyword validation"
       (let* ((filtered '())
              (policy (.o allowed: #t))
