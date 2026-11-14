@@ -56,7 +56,7 @@ not prove that all scratch work is removable, or transfer to Core 10K EVAL.
 
 * Admission contract
 
-[[file:shape-admission.lean][Lean]] proves =scalar_selection_exact=: empty and singleton key preparation
+[[https://github.com/tao3k/lean-poo/blob/bbba642946c7ef98c98eee52387013e9da2fd171/LeanPoo/Proof/Gerbil/ShapeAdmission.lean][Lean]] proves =scalar_selection_exact=: empty and singleton key preparation
 preserve symbol identity and invalid-key position. The reference follows the
 actual Gerbil =delete-duplicates/hash= default: reverse traversal, last copies
 retained, and RIGHTMOST invalid original position refused first. Multi-key
@@ -71,7 +71,7 @@ omitting a scratch adapter. These are guarded model laws, not proof that
 Gerbil's current adapters meet the premise. Lean 4.35.0 checks them using
 standard axioms (propext, Quot.sound and Classical.choice for HashMap reasoning);
 no sorry axiom is admitted. Reproduce with
-=lean +leanprover/lean4:v4.35.0 doc/shape-admission.lean=.
+=lake env lean LeanPoo/Proof/Gerbil/ShapeAdmission.lean=.
 
 Native constructor audit adds a necessary effect: =make-hash-table-symbolic=
 calls =random-integer (macro-max-fixnum32)= for its default seed. Removing the

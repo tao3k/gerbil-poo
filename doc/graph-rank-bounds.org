@@ -7,7 +7,7 @@ before insertion; previous additions have already been checked and relabelled.
 The current DAG therefore certifies provider rank < consumer rank at search
 entry. Forward search starts at =high=, reverse search at =low=. Every accepted
 pending owner remains in that interval; the same inductive premise applies to
-its next row. [[file:graph-rank-bounds.lean][Lean]] proves the per-row sequence equalities:
+its next row. [[https://github.com/tao3k/lean-poo/blob/bbba642946c7ef98c98eee52387013e9da2fd171/LeanPoo/Proof/Gerbil/GraphRankBounds.lean][Lean]] proves the per-row sequence equalities:
 
 - Forward: rank(provider) < rank(owner) <= high, so only low needs checking.
 - Reverse: low <= rank(owner) < rank(reader), so only high needs checking.

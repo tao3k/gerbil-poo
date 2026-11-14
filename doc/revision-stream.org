@@ -9,7 +9,7 @@ proper lists of valid objects and captured revisions. The fixed
 =object-revision= implementation reads =object-%state= and its revision field;
 it performs no Slot getter, author callback or source-observer operation.
 
-[[file:revision-stream.lean][Four Lean theorems]] prove direct structural comparison equals streamed
+[[https://github.com/tao3k/lean-poo/blob/bbba642946c7ef98c98eee52387013e9da2fd171/LeanPoo/Proof/Gerbil/RevisionStream.lean][Four Lean theorems]] prove direct structural comparison equals streamed
 comparison, different lengths refuse, changes to unrelated owners are irrelevant,
 and arbitrary accept/refuse continuations remain identical. Lean 4.35.0 accepts
 all four with only propext/Quot.sound and no sorry. The initial unrelated-owner

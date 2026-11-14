@@ -32,7 +32,7 @@ outside this proof. No new wrapper, macro, flag or compatibility name is added.
 
 * Contract before Scheme
 
-[[file:constructor-call.lean][Lean]] proves symbolic/identity packet equality for arbitrary procedure
+[[https://github.com/tao3k/lean-poo/blob/bbba642946c7ef98c98eee52387013e9da2fd171/LeanPoo/Proof/Gerbil/ConstructorCall.lean][Lean]] proves symbolic/identity packet equality for arbitrary procedure
 identities. Default/absent size, seed, lock, check and weak options are retained.
 The constructor action is arbitrary: RNG, adapters, author callbacks, refusals,
 fresh result identity and semantic state remain owned by that same native body.
@@ -42,7 +42,7 @@ Physical allocation/time and compiler correctness are separate obligations.
 [[file:constructor-call.sysml][SysML]] records the same boundary. Check with:
 
 #+begin_src sh
-lean +leanprover/lean4:v4.35.0 doc/constructor-call.lean
+lake env lean LeanPoo/Proof/Gerbil/ConstructorCall.lean
 #+end_src
 
 All four theorems use only propext/Quot.sound, with no sorry axiom.

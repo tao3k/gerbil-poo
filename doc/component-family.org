@@ -29,7 +29,7 @@ one million members from 4.6830 to 180.0730 ms CPU and was withdrawn.
 focus callback order, wrong keys and the admission checks for prepared lenses.
 [[file:../t/feedback/feedback-graph-test.ss][Feedback tests]] exercise changes to the table adapter.
 [[file:component-family.sysml][SysML]] describes the ownership and effect boundaries.
-The [[file:component-family.lean][family-index model]] checks the captured domain,
+The [[https://github.com/tao3k/lean-poo/blob/bbba642946c7ef98c98eee52387013e9da2fd171/LeanPoo/Proof/Gerbil/ComponentFamily.lean][family-index model]] checks the captured domain,
 first refusal and retirement of the shortcut.
 
 The prepared lookup study compares the family scan with the existing index.

@@ -13,7 +13,7 @@ and new graph's edge union, even when the batch also removes edges. It
 intersects nodes reachable from an edited root in =U= with nodes that can
 reach an edited root in =U=. The roots for the two paths can differ.
 
-[[file:scc-edit-region.lean][Lean]] checks six main obligations:
+[[https://github.com/tao3k/lean-poo/blob/bbba642946c7ef98c98eee52387013e9da2fd171/LeanPoo/Proof/Gerbil/SccEditRegion.lean][Lean]] checks six main obligations:
 
 - =old_with_additions_exact=: the overlay has precisely the union's edges.
 - =outside_membership_exact=: old and new SCC membership agree for a node
@@ -111,7 +111,7 @@ retention of unrelated values, and equality with a cold split. The separate
 SCC change. These tests exercise distinct paths; neither is a real Module
 EVAL fixture. This proof change introduces no new Scheme workload.
 
-Reproduce with =lean +leanprover/lean4:v4.35.0 doc/scc-edit-region.lean=.
+Reproduce with =lake env lean LeanPoo/Proof/Gerbil/SccEditRegion.lean=.
 
 * Isolated owner retirement
 
