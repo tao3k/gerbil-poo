@@ -25,16 +25,6 @@
                  (equal? (.ref (car entry) 'qualifier) qualifier))
                ranked)))
 
-;;; Long-form qualifier lists adapt the kernel's =primary= marker to ANSI's
-;;; unqualified empty list while preserving explicit symbol/list qualifiers.
-;; : (-> ClosMethod [SchemeValue])
-(def (method-qualifiers method)
-  (let (qualifier (.ref method 'qualifier))
-    (cond
-     ((eq? qualifier 'primary) '())
-     ((symbol? qualifier) (list qualifier))
-     (else qualifier))))
-
 ;;; A proper pattern matches length exactly.  A dotted tail =*= accepts any
 ;;; number of remaining qualifiers, while an element =*= matches one position.
 ;; : (-> SchemeValue [SchemeValue] Boolean)
@@ -53,7 +43,7 @@
 ;;; remain declarative and cannot execute user code.
 ;; : (-> ClosMethodGroup ClosMethod Boolean)
 (def (method-group-matches? group method)
-  (let (qualifiers (method-qualifiers method))
+  (let (qualifiers (method-qualifier-list (.ref method 'qualifier)))
     (ormap (lambda (matcher)
              (if (procedure? matcher)
                (matcher qualifiers)

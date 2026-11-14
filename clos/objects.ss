@@ -34,6 +34,7 @@
         poo-clos-register-generic-function! poo-clos-find-generic-function
         clos-fail clos-unbound-slot-fail checked
         require-clos-generic require-clos-method
+        method-qualifier-list same-specializers?
         poo-clos-class-precedence-list poo-clos-class-precedence-position
         make-synthetic-effective-method
         make-effective-method make-invocation-frame clos-call-carrier-policy-guard
@@ -577,10 +578,18 @@
   (and (= (length left) (length right))
        (andmap same-specializer? left right)))
 
-;;; CLOS replacement agreement includes the qualifier as well as specializers.
+;; Map the kernel's primary marker and shorthand to the CLOS qualifier list.
+(def (method-qualifier-list qualifier)
+  (cond
+    ((eq? qualifier 'primary) '())
+    ((symbol? qualifier) (list qualifier))
+    (else qualifier)))
+
+;; CLOS §7.6.3 compares ordered qualifier lists by value.
 ;; : (-> ClosMethod ClosMethod Boolean)
 (def (method-agrees? left right)
-  (and (eq? (.ref left 'qualifier) (.ref right 'qualifier))
+  (and (equal? (method-qualifier-list (.ref left 'qualifier))
+               (method-qualifier-list (.ref right 'qualifier)))
        (same-specializers? (.ref left 'specializers)
                            (.ref right 'specializers))))
 

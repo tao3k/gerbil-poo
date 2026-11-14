@@ -166,13 +166,8 @@
 
 ;; : (-> ClosMethod [MethodQualifier])
 (def (poo-clos-method-qualifiers method-value)
-  (let (qualifier (.ref (require-metaobject ClosMethod method-value
-                                             'invalid-method)
-                         'qualifier))
-    (cond
-     ((eq? qualifier 'primary) '())
-     ((list? qualifier) (list-copy qualifier))
-     (else (list qualifier)))))
+  (list-copy (method-qualifier-list
+              (.ref (require-metaobject ClosMethod method-value 'invalid-method) 'qualifier))))
 
 ;; : (-> ClosMethod [ClosSpecializer])
 (def (poo-clos-method-specializers method-value)
@@ -199,33 +194,14 @@
               (.ref lambda-list-value 'allow-other-keys?))
       (values '() #f))))
 
-;; : (-> [ClosSpecializer] [ClosSpecializer] Boolean)
-(def (same-reflected-specializers? left right)
-  (and (= (length left) (length right))
-       (andmap
-        (lambda (left-value right-value)
-          (and (eq? (.ref left-value 'kind) (.ref right-value 'kind))
-               (case (.ref left-value 'kind)
-                 ((eql) (eqv? (.ref left-value 'target)
-                              (.ref right-value 'target)))
-                 (else (eq? (.ref left-value 'target)
-                            (.ref right-value 'target))))))
-        left right)))
-
 ;; : (-> GenericSource List [ClosSpecializer] Boolean (Maybe ClosMethod))
 (def (poo-clos-find-method generic-source qualifiers specializers
                            error?: (error-value #t))
   (let* ((generic-value (require-clos-generic generic-source))
-         (internal-qualifier
-          (cond
-           ((null? qualifiers) 'primary)
-           ((null? (cdr qualifiers)) (car qualifiers))
-           (else qualifiers)))
          (method
           (find (lambda (candidate)
-                  (and (equal? (.ref candidate 'qualifier)
-                               internal-qualifier)
-                       (same-reflected-specializers?
+                  (and (equal? (method-qualifier-list (.ref candidate 'qualifier)) qualifiers)
+                       (same-specializers?
                         (.ref candidate 'specializers) specializers)))
                 (.ref generic-value 'methods))))
     (when (and (not method) error-value)
