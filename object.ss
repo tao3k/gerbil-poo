@@ -13,7 +13,8 @@
                     record-key-field record-dependencies-field record-value-field
                     slot-spec-discards-super? compile-slot-specs prepare-declaration-specifications compute-object-precedence!
                     %prepared-vector-slot-ref %bind-current-slot-reads %prepared-slot-present?
-                    %with-slot-edit-protection %publish-slot-edits!) @object? @make-object)
+                    %with-slot-edit-protection %publish-slot-edits!
+                    %owned-list-slot-spec %ref-owned-list define-slot-ref) @object? @make-object)
 
 (import
   (prefix-in (only-in Runtime object? make-object) @) ;; Rename them before we shadow them
@@ -340,6 +341,17 @@
 
 (defstruct $slot-spec () transparent: #t) ;; = (SlotSpec A k)
 (defstruct ($constant-slot-spec $slot-spec) (value) transparent: #t) ;; constant value
+(extern namespace: clan/poo/slot-observation %make-owned-list %owned-list-value %borrow-owned-list)
+(def (%owned-list-slot-spec values)
+  ($constant-slot-spec (%make-owned-list values)))
+(extern namespace: clan/poo/slot-observation owned-list?)
+(def (own-assigned-slot-value self slot value)
+  (let (spec (prototype-map-ref (object-%slots self) slot))
+    (if (and ($constant-slot-spec? spec)
+             (owned-list? ($constant-slot-spec-value spec))
+             (list? value))
+      (%make-owned-list value)
+      value)))
 (defstruct ($thunk-slot-spec $slot-spec) (thunk) transparent: #t) ;; thunk
 (defstruct ($self-slot-spec $slot-spec) (fun) transparent: #t) ;; fun to be passed self as argument, not super
 (defstruct ($computed-slot-spec $slot-spec) (fun) transparent: #t) ;; fun to be passed self and superfun as arguments
@@ -390,27 +402,32 @@
 
 ;; Admit runtime names before recording reads, bootstrap lookup or preparation.
 ;; Read a cached slot or compute it through the original cycle-aware protocol.
-(def (.ref self (slot :~ symbol?))
-  (%slot-read-demand! self slot)
-  (def anchor (bootstrap-anchor self slot))
-  (if anchor (object-read-bootstrap self slot anchor)
-    (let* ((instance (object-instance self))
-           (value (hash-ref instance slot absent-value)))
-      (if (eq? value absent-value)
-        (let (revision (object-revision self))
-          (defvalues (value dependencies)
-            (%call-with-recorded-slot-reads
-              (lambda ()
-                (compute-slot-value self slot
-                  (hash-ref/default (object-%slot-funs self) slot
-                    (cut cut no-applicable-method self slot))))))
-          (unless (and (= revision (object-revision self)) (eq? instance (object-%instance self)))
-            (error "object changed during slot computation" slot))
-          (def read (object-record-read self slot value dependencies))
-          (hash-put! instance slot value)
-          (hash-put! (object-read-table self) slot read)
-          (%deliver-slot-read read value))
-        (if (%slot-read-active?) (object-deliver-value self slot value) value)))))
+(defrule (define-slot-ref name project)
+  (def (name self (slot :~ symbol?))
+    (%slot-read-demand! self slot)
+    (def anchor (bootstrap-anchor self slot))
+    (if anchor (object-read-bootstrap self slot anchor)
+      (let* ((instance (object-instance self))
+             (value (hash-ref instance slot absent-value)))
+        (if (eq? value absent-value)
+          (let (revision (object-revision self))
+            (defvalues (value dependencies)
+              (%call-with-recorded-slot-reads
+                (lambda ()
+                  (compute-slot-value self slot
+                    (hash-ref/default (object-%slot-funs self) slot
+                      (cut cut no-applicable-method self slot))))))
+            (unless (and (= revision (object-revision self)) (eq? instance (object-%instance self)))
+              (error "object changed during slot computation" slot))
+            (def read (object-record-read self slot value dependencies))
+            (hash-put! instance slot value)
+            (hash-put! (object-read-table self) slot read)
+            (project (%deliver-slot-read read value)))
+          (project (if (%slot-read-active?) (object-deliver-value self slot value) value)))))))
+
+(define-slot-ref .ref %owned-list-value)
+;; Internal traversals borrow only while doing their own immediate traversal.
+(define-slot-ref %ref-owned-list %borrow-owned-list)
 
 ;; Expose the existing primary vector by identity, without seeding another store.
 ;; The explicit hash qualification stays symbolic and never allocates a second cache.
@@ -433,11 +450,11 @@
                    (hit (slot-cache-hit? cache self revision layout))
                    (index (or hit (slot-cache-index cache layout)))
                    (stored (if index (slot-layout-ref layout index) absent-value)))
-              (if (and hit (not (eq? stored absent-value))) stored
+              (if (and hit (not (eq? stored absent-value))) (%owned-list-value stored)
                 ;; Cold sites and evicted cells share ordinary cycle-aware demand.
                 ;; Only successful demand publishes the final-shape access guard.
                 (let* ((shape (slot-layout-shape layout))
-                       (value (if (eq? stored absent-value) (.ref self slot) stored))
+                       (value (if (eq? stored absent-value) (.ref self slot) (%owned-list-value stored)))
                        (same-shape? (eq? shape (slot-layout-shape layout))))
                   ;; Recheck after callbacks: a shared site may have rebound to another owner.
                   (unless (slot-cache-hit? cache self revision layout)
@@ -448,7 +465,8 @@
 ;; remains a value. This probe does not instantiate, demand, or issue a read.
 (def (%prepared-vector-slot-ref self slot)
   (let (instance (and (object? self) (object-%instance self)))
-    (if (and instance (not (object-protocol self)) (slot-values-layout instance))
+    (if (and instance (not (object-protocol self))
+             (not (bootstrap-anchor self slot)) (slot-values-layout instance))
       (with-catch (lambda (_) absent-value)
         (lambda ()
           (require-read-route! slot #f instance)
@@ -465,7 +483,8 @@
         ;; A miss is not field absence. Later cache population makes it stale
         ;; without any mutation revision; each default invocation has its own dependencies.
         (object-read-query self (list 'cache-miss slot) default cache?: #f)
-        (if (%slot-read-active?) (object-deliver-value self slot value) value)))))
+        (%owned-list-value
+         (if (%slot-read-active?) (object-deliver-value self slot value) value))))))
 
 (defclass (NoApplicableMethod Exception) (self slot) transparent: #t)
 ;; .get reaches this through .ref when there is no slot definition.
@@ -882,6 +901,7 @@
 ;; : Unit <- (Object A) s:Symbol (A s)
 (def (.put! self slot value)
   (using (slot :~ symbol?)
+    (set! value (own-assigned-slot-value self slot value))
     (before-object-edit! self)
     (unless (object-%overrides self)
       (set! (object-%overrides self) (make-hash-table test: eq? hash: symbolic-hash seed: (%graph-table-seed))))

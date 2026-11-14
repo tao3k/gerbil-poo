@@ -122,9 +122,15 @@ the method roster. When an applicability hook returns a dense list, its method
 identities are checked against positions filled from the live ranked rows.
 Edits during the hook can retire positions while the earlier rank remains the
 authority for that hook's return. CLOS falls back to that rank when a position
-is missing. The applicability scan still demands live specializers. A Scheme
-pair write can change a reflected roster or specializer list within the same
-generation, outside POO's reverse dependency mechanism.
+is missing. The applicability scan still demands live specializers.
+
+Generic publication owns the method-list spine. A constructed Method owns
+its specializer-list spine. Slot reads and read-record inspection give
+callers detached lists with the original descriptor identities. To change a
+published method family, use method installation or removal. Updating the
+specializer slot on a constructed Method copies the new spine at the POO
+write boundary. The [LeanPoo ownership model](https://github.com/tao3k/lean-poo/blob/1d8e7bbae90301e467b69c2ebb4a5326e422942e/LeanPoo/Object/ClosAdmission.lean#L586)
+specifies reflection and the conditions for locally revoking applicability rows.
 
 It forwards the original signed reads to the enclosing observation frame and
 checks the boundary before dispatching an open hook. Issuance and replay stay

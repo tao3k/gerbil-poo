@@ -14,7 +14,7 @@
         (only-in :clan/poo/mop Type. element?)
         (only-in :std/list/list foldl)
         (only-in :clan/poo/slot-observation call-with-slot-read-observer
-                 slot-read-key slot-read-receiver slot-read-dependencies)
+                 slot-read-key slot-read-receiver slot-read-dependencies slot-read-value)
         (only-in :clan/poo/clos/objects make-effective-method make-invocation-frame
                  clos-call-carrier-policy-guard)
         (only-in :clan/poo/read-projection call-with-owned-read-projection owned-read-value!)
@@ -424,7 +424,21 @@
       (def roster (.ref generic 'methods))
       (set-car! roster
         (primary-method 'pair-write (list (poo-clos-prototype-specializer (car roots))) 'pair-write))
-      (check-equal? (applicable) '(d c b pair-write)))
+      (check-equal? (applicable) '(d c b new-root))
+      (def original (list any-specializer))
+      (def detached (primary-method 'detached original 'detached))
+      (set-car! original (poo-clos-eql-specializer 'unrelated))
+      (set-car! (.ref detached 'specializers) (car original))
+      (call-with-slot-read-observer
+        (lambda (read)
+          (when (and (eq? (slot-read-receiver read) detached)
+                     (eq? (slot-read-key read) 'specializers))
+            (set-car! (slot-read-value read) (car original))))
+        (lambda () (.ref detached 'specializers)))
+      (check-equal? (.ref detached 'specializers) (list any-specializer))
+      (.put! detached 'specializers original)
+      (set-car! original any-specializer)
+      (check-equal? (.ref (car (.ref detached 'specializers)) 'target) 'unrelated))
 
     (test-case "eql specializers are more specific than class specializers"
       (let* ((generic (poo-clos-generic-function 'feed 1))

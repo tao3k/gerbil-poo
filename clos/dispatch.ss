@@ -24,6 +24,7 @@
 
 (extern namespace: clan/poo/clos/objects
         %published-method-positions %method-position method-positions-size)
+(extern namespace: clan/poo/object %ref-owned-list)
 
 ;;; Runtime memq preserves identity comparison; length difference yields its
 ;;; position in the finite C4 precedence list without a project-local walker.
@@ -92,7 +93,7 @@
 (def (method-distances method arguments)
   (let (distances
         (map specializer-distance
-             (.ref method 'specializers)
+             (%ref-owned-list method 'specializers)
              arguments))
     (and (andmap (lambda (distance) (if distance #t #f)) distances)
          (list->vector distances))))
@@ -136,7 +137,7 @@
     (lambda (method)
       (let (distances (method-distances method arguments))
         (and distances (cons method distances))))
-    (.ref generic 'methods))
+    (%ref-owned-list generic 'methods))
    (.ref generic 'argument-precedence-order)))
 
 

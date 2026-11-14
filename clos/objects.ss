@@ -41,7 +41,8 @@
         %prepare-effective-method)
 
 (extern namespace: clan/poo/object %with-slot-edit-protection %publish-slot-edits!
-        %prepared-vector-slot-ref)
+        %prepared-vector-slot-ref %owned-list-slot-spec)
+(extern namespace: clan/poo/slot-observation %make-owned-list)
 
 ;; A position only addresses an already applicable row. Index membership
 ;; never authorizes a method or replaces its original reads.
@@ -65,7 +66,7 @@
                (loop (cdr remaining) (1+ position))))
            (make-method-positions
              (lambda (method) (table-ref positions method #f)) size))))
-  (list (cons 'methods methods) (cons 'generation generation)
+  (list (cons 'methods (%make-owned-list methods)) (cons 'generation generation)
         (cons '%method-positions index)))
 
 ;;; Cached owner-local prototype avoids repeated descriptor demand in constructors.
@@ -254,11 +255,14 @@
                       qualifier: (qualifier-value 'primary)
                       lambda-list: (lambda-list-value #f))
   (checked ClosMethod
-           (.o (:: @ ClosMethod.)
-               identity: identity-value specializers: specializer-values
-               qualifier: qualifier-value body: body-value
-               lambda-list: lambda-list-value generic-function: #f
-               synthetic-effective-method?: #f)
+           (let (method (.o (:: @ ClosMethod.)
+                          identity: identity-value specializers: specializer-values
+                          qualifier: qualifier-value body: body-value
+                          lambda-list: lambda-list-value generic-function: #f
+                          synthetic-effective-method?: #f))
+             (when (list? specializer-values)
+               (.putslot! method 'specializers (%owned-list-slot-spec specializer-values)))
+             method)
            'invalid-method))
 
 ;;; Synthetic methods are created only by the declarative combination
@@ -587,6 +591,7 @@
               generic-function-class: generic-class-value
               method-class: method-class-value
               declarations: declaration-values)))
+      (.putslot! candidate 'methods (%owned-list-slot-spec '()))
       (checked ClosGenericFunction candidate 'invalid-generic-function))))
 
 ;;; Scheme =eqv?= is the explicit kernel adaptation for CLOS =eql= values;

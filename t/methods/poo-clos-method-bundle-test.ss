@@ -226,7 +226,7 @@
         (def original-revision (object-revision generic))
         (def old-revision (object-revision old))
         (def (check-unchanged)
-          (check (eq? (.ref generic 'methods) original-methods) => #t)
+          (check-equal? (.ref generic 'methods) original-methods)
           (check-equal? (poo-clos-generic-generation generic) 1)
           (check-equal? (object-revision generic) original-revision)
           (check-equal? (object-revision old) old-revision)

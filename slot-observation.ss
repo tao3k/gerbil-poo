@@ -9,6 +9,19 @@
         %slot-read-active? %slot-read-demand! %deliver-slot-read %record-slot-reads!
         %call-with-recorded-slot-reads slot-read-observers-compatible? slot-read-precheck-active?)
 (import :std/error)
+
+;; The value store and signed reads retain one token. Public projections
+;; receive copies. Only the private traversal key can borrow its spine.
+(defstruct owned-list (access) final: #t)
+(def owned-list-access-key (cons 'owned-list 'access))
+(def (%make-owned-list values)
+  (let (spine (list-copy values))
+    (make-owned-list (lambda (key)
+      (if (eq? key owned-list-access-key) spine (list-copy spine))))))
+(def (%owned-list-value value)
+  (if (owned-list? value) ((owned-list-access value) #f) value))
+(def (%borrow-owned-list value)
+  (if (owned-list? value) ((owned-list-access value) owned-list-access-key) value))
 (defstruct slot-read (receiver key revision instance value dependencies current? birth)
   final: #t constructor: :init!)
 ;; Keep the public seven-argument raw constructor. It never mints provenance.
@@ -21,11 +34,12 @@
 (def (copy-slot-read-key read)
   (let (key (slot-read-key read))
     (if (pair? key) (list-copy key) key)))
-;; Names are structural metadata. All other values remain opaque, even an
-;; application list stored in a regular Slot called names.
+;; Names and explicitly owned lists have detached spines. Ordinary
+;; application values remain opaque, including lists in a Slot called names.
 (def (copy-slot-read-value read)
   (let (value (slot-read-value read))
-    (if (equal? (slot-read-key read) '(names)) (list-copy value) value)))
+    (if (equal? (slot-read-key read) '(names)) (list-copy value)
+      (%owned-list-value value))))
 ;; Consumers may edit the dependency list, while each parent keeps its signed
 ;; record identity and its original position and multiplicity.
 (def (copy-slot-read-dependencies read)

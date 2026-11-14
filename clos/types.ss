@@ -22,6 +22,18 @@
 
 (def ClosType. Type.)
 
+(extern namespace: clan/poo/object %ref-owned-list)
+(extern namespace: clan/poo/class-validation %prepared-local-slot?)
+
+;; These fixed validators consume a list while keeping the normal Slot
+;; presence check and read delivery. No borrowed list reaches a caller.
+(defrule (clos-required-slots? candidate borrowed (name predicate) ...)
+  (let (receiver candidate)
+    (and (and (or (%prepared-local-slot? receiver 'name) (.slot? receiver 'name))
+              (predicate (if (eq? 'name 'borrowed)
+                           (%ref-owned-list receiver 'name)
+                           (.ref receiver 'name)))) ... #t)))
+
 (def (clos-prototype type-value kind-value)
   (.o .type: type-value kind: kind-value schema: 'v1))
 
@@ -127,7 +139,7 @@
 
 (def (clos-method-element? candidate)
   (and (clos-instance? (.ref ClosMethod 'proto) candidate)
-       (required-slots? candidate
+       (clos-required-slots? candidate specializers
          (identity function-name?)
          (specializers specializers?)
          (qualifier qualifier?)
@@ -227,7 +239,7 @@
 
 (def (clos-generic-function-element? candidate)
   (and (clos-instance? (.ref ClosGenericFunction 'proto) candidate)
-       (required-slots? candidate
+       (clos-required-slots? candidate methods
          (identity function-name?)
          (required natural?)
          (rest? boolean?)
