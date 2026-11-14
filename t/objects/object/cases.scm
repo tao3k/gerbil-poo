@@ -162,6 +162,11 @@
       ;; Deliberate private corruption: keep the core cycle guard's negative control.
       (set! (object-%supers left) [right])
       (check-exception (compute-precedence-list! left) true))
+    (test-case "slot names keep their first position in least-specific-first order"
+      (def base (.o shared: 'base base-only: #t))
+      (def refined (.o (:: @ base) refined-only: #t shared: 'refined))
+      (check-equal? (.all-slots refined) '(shared base-only refined-only))
+      (check-equal? (.get refined shared) 'refined))
     (test-case "simple tests from poo.md"
       (check-equal? (object? (.o (x 1) (y 2))) #t)
       (check-equal? (object? 42) #f)

@@ -332,8 +332,8 @@
   (set! (object-%slot-funs self) h))
 
 ;; SUPER-SLOTS contains one ordered list of names per prototype, most specific
-;; first. Visit the lists least specific first and keep each name at its last
-;; occurrence. The deduplication table uses the graph hash seed described above.
+;; first. Visit the lists least specific first and keep the first occurrence
+;; of each name. Effective slot values still follow prototype precedence.
 (def (merge-super-slots super-slots)
   (delete-duplicates/hash (apply append (reverse super-slots))
     table: (make-hash-table test: eq? hash: symbolic-hash seed: (%graph-table-seed)) from-end?: #t))
