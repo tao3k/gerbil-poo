@@ -10,7 +10,8 @@
         :std/error
         (only-in :clan/poo/object .o .ref .put! .all-slots object-slots $constant-slot-spec $constant-slot-spec?
                  .putslot! object-slots-set! object-supers-set! object-protocol-set!
-                 replay-slot-reads! object-read-issued?)
+                 replay-slot-reads! object-read-issued? object-instance object-revision)
+        (prefix-in (only-in :gerbil/runtime/mop slot-ref slot-set!) runtime.)
         (only-in :clan/poo/mop Type. element?)
         (only-in :std/list/list foldl)
         (only-in :clan/poo/slot-observation call-with-slot-read-observer
@@ -462,7 +463,25 @@
         (.put! eql-dog 'target cat)
         (check-equal? (.ref generic 'generation) generation)
         (check-equal? (poo-clos-call generic dog) 'dog)
-        (check-equal? (poo-clos-call generic cat) 'this-dog)))
+      (check-equal? (poo-clos-call generic cat) 'this-dog)
+      ;; Reflected value stores still allow writes outside POO invalidation.
+      ;; Neither a cell edit nor a wrapper replacement changes the owner stamp.
+      (def store (object-instance eql-dog))
+      (def revision (object-revision eql-dog))
+      (hash-put! store 'target dog)
+      (check-equal? (object-revision eql-dog) revision)
+      (check-equal? (poo-clos-call generic dog) 'this-dog)
+      (def ref (runtime.slot-ref store 'ref))
+      (dynamic-wind
+        (lambda ()
+          (runtime.slot-set! store 'ref
+            (lambda (table key default)
+              (if (eq? key 'target) cat (ref table key default)))))
+        (lambda ()
+          (check-equal? (object-revision eql-dog) revision)
+          (check-equal? (poo-clos-call generic dog) 'dog)
+          (check-equal? (poo-clos-call generic cat) 'this-dog))
+        (lambda () (runtime.slot-set! store 'ref ref)))))
 
     (test-case "standard qualifier order and lexical next are preserved"
       (let ((trace '())
