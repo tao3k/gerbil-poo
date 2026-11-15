@@ -17,6 +17,7 @@
                     %register-slot-dependencies!
                     %with-slot-edit-protection %publish-slot-edits!
                     %owned-list-slot-spec %ref-owned-list define-slot-ref
+                    instance-storage-info instance-native-table
                     %live-object-instance %live-object-layout) @object? @make-object)
 
 (import
@@ -44,6 +45,8 @@
   (only-in :std/values first-value)
   (only-in :gerbil/runtime/c3 c4-linearize*)
   (only-in :gerbil/runtime/table symbolic-hash raw-table-ref symbolic-table-ref)
+  (only-in :gerbil/runtime/interface interface-instance? interface-instance-object)
+  (only-in :gerbil/runtime/table raw-table? raw-table-for-each &raw-table-count &raw-table-table)
   (only-in ./support/base λ let-id-rule defonce awhen %graph-table-seed))
 
 ;; TODO: formalize (Object A S D) and the type conditions under which an object is instantiatable?
@@ -382,6 +385,45 @@
 (def (%live-object-instance self)
   (instantiate-object! self)
   (object-%instance self))
+
+;; A caller can check readiness without forcing evaluation or borrowing cells.
+(def (object-instantiated? self)
+  (and (object? self) (object-%instance self) #t))
+
+;; Authenticate the receiver's prepared route without handing out its table.
+(def (require-object-instance-route! self key)
+  (require-read-route! key #f (object-%instance self)))
+
+;; Inspect a prepared value without instantiating the receiver, delivering an
+;; observation, or invoking a default procedure. A cached #f remains a value.
+;; Callers that need a SlotRead use .ref/cached at the actual demand boundary.
+(def (object-cached-value self (name :~ symbol?) (default #f))
+  (let (instance (and (object? self) (object-%instance self)))
+    (if instance
+      (begin
+        (require-read-route! name #f instance)
+        (let (value (hash-ref instance name absent-value))
+          (if (eq? value absent-value) default (%owned-list-value value))))
+      default)))
+
+;; Diagnostic storage identity and native hash dimensions. Neither the
+;; instance wrapper nor its mutable backing table is part of this result.
+(def (instance-native-table instance)
+  (let (table (and (interface-instance? instance) (interface-instance-object instance)))
+    (and (raw-table? table) table)))
+
+(def (instance-storage-info instance)
+  (let (table (instance-native-table instance))
+    (values (and instance (object->serial-number instance))
+            (and table (&raw-table-count table))
+            (and table (vector-length (&raw-table-table table))))))
+
+(def (object-native-instance-keys self)
+  (let (table (instance-native-table (and (object? self) (object-%instance self))))
+    (and table
+         (let (keys '())
+           (raw-table-for-each (lambda (key _) (set! keys (cons key keys))) table)
+           keys))))
 
 ;; Reflection copies the prepared values into a separate standard table.
 ;; The receiver still owns its cells and its HashTable adapter.

@@ -33,6 +33,16 @@ table and the table captured by a preparation read. Editing those tables
 leaves the receiver and the issued record intact. Use `object-read-issued?`
 to check issuance and replay to check whether a read is still current.
 
+`object-instantiated?` checks whether a receiver has a prepared store without
+preparing it. `object-cached-value` checks the prepared lookup route and reads an
+existing cell without recording a read or calling a getter. It returns the
+supplied default value for a missing cell. `require-object-instance-route!`
+authenticates the lookup route without exposing the store.
+
+Retention diagnostics use `slot-read-instance-info` for store identity and
+dimensions. `slot-read-native-instance-values` and
+`object-native-instance-keys` return detached lists for native hash stores.
+
 A `.ref/cached` miss invokes the default thunk and records that the cell has no
 cached value. Populating the cell can make that record stale without advancing
 the receiver revision. A cached `#f` is a value.

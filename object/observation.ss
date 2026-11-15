@@ -46,6 +46,20 @@
 (def issue-object-read %issue-read)
 (def object-read-issued? %issued-read?)
 (def object-read-issuance %read-issuance)
+
+(def (slot-read-instance-info read)
+  (def instance (record-instance-field read))
+  (defvalues (identity entries cells) (instance-storage-info instance))
+  (values identity entries cells
+          (and instance (eq? instance (object-%instance (slot-read-receiver read))))))
+
+(def (slot-read-native-instance-values read)
+  (let (table (instance-native-table (record-instance-field read)))
+    (and table
+         (let (values '())
+           (raw-table-for-each
+             (lambda (_ value) (set! values (cons (%owned-list-value value) values))) table)
+           values))))
 ;; Record the current receiver revision and instance. Include the read that
 ;; captured slot preparation among the new record's dependencies.
 (def (object-record-read self key value dependencies)
