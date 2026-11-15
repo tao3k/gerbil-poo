@@ -9,6 +9,7 @@
 ;;; remain in their dedicated factors.
 
 (import :clan/poo/object
+        :clan/poo/read-projection
         (only-in :clan/poo/class-validation required-slots?)
         (only-in :clan/poo/mop/prototype define-type Type. element?)
         (only-in "funcs.ss"
