@@ -23,6 +23,7 @@
 (def ClosType. Type.)
 
 (extern namespace: clan/poo/object %ref-owned-list %registered-field-reader)
+(extern namespace: clan/poo/slot-observation %borrow-owned-list)
 (extern namespace: clan/poo/read-projection %owned-closed-registration?)
 
 (def (%closed-registered-field-reader candidate)
@@ -30,17 +31,28 @@
 
 ;; Closed groups contain only stock predicates over already registered reads.
 ;; A probe miss resumes the original sequence with its ordinary effect boundary.
-(defrules check-closed-slots ()
+(defrules check-closed-slots (owned-list)
   ((_ read ordinary) #t)
+  ((_ read ordinary (name predicate owned-list) remaining ...)
+   (let (value (read 'name))
+     (if (eq? value absent-value) (ordinary)
+       (and (predicate (%borrow-owned-list value))
+            (check-closed-slots read ordinary remaining ...)))))
   ((_ read ordinary (name predicate) remaining ...)
    (let (value (read 'name))
      (if (eq? value absent-value) (ordinary)
        (and (predicate value) (check-closed-slots read ordinary remaining ...))))))
 
-(defrule (closed-required-slots? candidate (name predicate) ...)
+(defrules ordinary-closed-slot (owned-list)
+  ((_ receiver (name predicate owned-list))
+   (required-slots? receiver (name predicate read: %ref-owned-list)))
+  ((_ receiver (name predicate))
+   (required-slots? receiver (name predicate))))
+
+(defrule (closed-required-slots? candidate field ...)
   (let* ((receiver candidate) (read (%closed-registered-field-reader receiver)))
-    (def (ordinary) (required-slots? receiver (name predicate) ...))
-    (if read (check-closed-slots read ordinary (name predicate) ...) (ordinary))))
+    (def (ordinary) (and (ordinary-closed-slot receiver field) ... #t))
+    (if read (check-closed-slots read ordinary field ...) (ordinary))))
 
 (def (clos-prototype type-value kind-value)
   (.o .type: type-value kind: kind-value schema: 'v1))
@@ -110,7 +122,7 @@
          (optional natural?)
          (rest? boolean?)
          (key? boolean?)
-         (keys name-list?)
+         (keys name-list? owned-list)
          (allow-other-keys? boolean?))))
 
 ;;; Lambda-list descriptors retain only the congruence and call-admission
@@ -165,7 +177,7 @@
          (identity function-name?)
          (specializers specializers? read: %ref-owned-list))
        (closed-required-slots? candidate
-         (qualifier qualifier?) (body procedure?))
+         (qualifier qualifier? owned-list) (body procedure?))
        (required-slots? candidate (lambda-list lambda-list-or-false?))
        (closed-required-slots? candidate
          (generic-function any-value?) (synthetic-effective-method? boolean?))))
@@ -263,7 +275,7 @@
   (and (clos-instance? (.ref ClosGenericFunction 'proto) candidate)
        (closed-required-slots? candidate
          (identity function-name?) (required natural?) (rest? boolean?)
-         (argument-precedence-order argument-precedence-order?))
+         (argument-precedence-order argument-precedence-order? owned-list))
        (required-slots? candidate
          (method-combination method-combination?)
          (methods methods? read: %ref-owned-list)
@@ -274,7 +286,7 @@
          (documentation string-or-false?)
          (generic-function-class any-value?)
          (method-class any-value?)
-         (declarations list?))))
+         (declarations list? owned-list))))
 
 ;;; Boundary: a generic value is the stable ANSI generic-function identity;
 ;;; method-set generation is a mutation counter, not a replacement object.

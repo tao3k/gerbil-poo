@@ -248,10 +248,12 @@
 (def (poo-clos-method identity-value specializer-values body-value
                       qualifier: (qualifier-value 'primary)
                       lambda-list: (lambda-list-value #f))
+  (def qualifier
+    (if (list? qualifier-value) (%make-owned-list qualifier-value) qualifier-value))
   (checked ClosMethod
            (let (method (.o (:: @ ClosMethod.)
                           identity: identity-value specializers: specializer-values
-                          qualifier: qualifier-value body: body-value
+                          qualifier body: body-value
                           lambda-list: lambda-list-value generic-function: #f
                           synthetic-effective-method?: #f))
              (when (list? specializer-values)
@@ -288,10 +290,11 @@
                (or key-value (null? key-values))
                (or key-value (not allow-other-keys-value)))
     (clos-fail 'invalid-lambda-list))
+  (def keys (%make-owned-list key-values))
   (checked ClosLambdaList
            (.o (:: @ ClosLambdaList.)
                required: required-value optional: optional-value
-               rest?: rest-value key?: key-value keys: key-values
+               rest?: rest-value key?: key-value keys
                allow-other-keys?: allow-other-keys-value)
            'invalid-lambda-list))
 
@@ -564,7 +567,12 @@
             (iota required-value)))
     (unless (poo-clos-natural-permutation? precedence-order required-value)
       (clos-fail 'invalid-argument-precedence-order generic: identity-value))
-    (let* ((combination-object
+    (let* ((argument-precedence-order (%make-owned-list precedence-order))
+           (declarations
+            (if (list? declaration-values)
+              (%make-owned-list declaration-values)
+              declaration-values))
+           (combination-object
             (poo-clos-resolve-method-combination combination-value))
            (protocol-object
             (checked ClosGenericProtocol
@@ -577,14 +585,14 @@
           (candidate
           (.o (:: @ ClosGenericFunction.)
               identity: identity-value required: required-value rest?: rest-value
-              argument-precedence-order: precedence-order
+              argument-precedence-order
               method-combination: combination-object
               methods: '() generation: 0
               lambda-list: lambda-list-value protocol: protocol-object
               documentation: documentation-value
               generic-function-class: generic-class-value
               method-class: method-class-value
-              declarations: declaration-values)))
+              declarations)))
       (.putslot! candidate 'methods (%owned-list-slot-spec '()))
       (checked ClosGenericFunction candidate 'invalid-generic-function))))
 

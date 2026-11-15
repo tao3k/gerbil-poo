@@ -142,7 +142,7 @@
       (let (distances (method-distances method arguments))
         (and distances (cons method distances))))
     (%ref-owned-list generic 'methods))
-   (.ref generic 'argument-precedence-order)))
+   (%ref-owned-list generic 'argument-precedence-order)))
 
 
 ;;; Arity admission precedes applicability and every method body, including an
@@ -178,9 +178,9 @@
                      generic: (.ref generic 'identity)))
         (let* ((valid-keys
                 (append
-                 (.ref lambda-list 'keys)
+                 (%ref-owned-list lambda-list 'keys)
                  (flatten1
-                  (map (lambda (method-list) (.ref method-list 'keys))
+                  (map (lambda (method-list) (%ref-owned-list method-list 'keys))
                        method-lists))))
                (allow-other?
                 (or (.ref lambda-list 'allow-other-keys?)

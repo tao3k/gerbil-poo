@@ -11,7 +11,7 @@
         (only-in :clan/poo/object .o .ref .put! .all-slots object-slots $constant-slot-spec $constant-slot-spec?
                  .putslot! object-slots-set! object-supers-set! object-protocol-set!
                  replay-slot-reads! object-read-issued? object-instance object-revision hash<-object
-                 depend-on-object!)
+                 depend-on-object! object-%precedence-list with-slot-dependencies)
         (prefix-in (only-in :gerbil/runtime/mop slot-ref slot-set!) runtime.)
         (only-in :clan/poo/mop Type. element?)
         (only-in :std/list/list foldl)
@@ -231,6 +231,91 @@
           (check-exception
             (replay-slot-reads! (list root) (lambda (_receiver _key) (void))) error?))
         '(policy contract generic open-frame known-frame)))
+    (test-case "CLOS owns the spines used by its list contracts"
+      (def precedence (list 0))
+      (def keys (list 'example))
+      (def qualifiers (list 'custom))
+      (def generic
+        (poo-clos-generic-function 'owned-order 1 argument-precedence-order: precedence))
+      (def arguments (poo-clos-lambda-list 1 0 #f #t keys #f))
+      (def method
+        (poo-clos-method 'owned-qualifiers (list any-specializer) void qualifier: qualifiers))
+      (def witness (.o))
+      (check (with-slot-dependencies witness
+               (lambda () (element? ClosGenericFunction generic))) => #t)
+      (def revision (object-revision witness))
+      (for-each
+        (lambda (source receiver field expected)
+          (set-car! source 'changed)
+          (set-car! (.ref receiver field) 'changed)
+          (check-equal? (.ref receiver field) expected))
+        (list precedence keys qualifiers)
+        (list generic arguments method)
+        '(argument-precedence-order keys qualifier)
+        '((0) (example) (custom)))
+      (check-equal? (object-revision witness) revision)
+      (def replacement (list 0))
+      (.put! generic 'argument-precedence-order replacement)
+      (check-equal? (object-revision witness) (+ revision 1))
+      (set-car! replacement 'changed)
+      (check-equal? (.ref generic 'argument-precedence-order) '(0))
+      (def external (list 0))
+      (.putslot! generic 'declarations ($constant-slot-spec external))
+      (check-equal? (object-revision witness) (+ revision 2))
+      (check (element? ClosGenericFunction generic) => #t)
+      (set-cdr! external 'invalid)
+      (check (element? ClosGenericFunction generic) => #f))
+    (test-case "an enclosing native capture receives both single-primary carrier identities"
+      (.defgeneric captured-primary (argument))
+      (def method (.defmethod (captured-primary argument) argument))
+      (def body (.ref method 'body))
+      (def effective-proto (.ref ClosEffectiveMethod 'proto))
+      (def frame-proto (.ref ClosInvocationFrame 'proto))
+      (defvalues (result reads)
+        (%call-with-recorded-slot-reads
+          (lambda ()
+            (call-with-owned-read-projection (list body) void
+              (lambda () (captured-primary dog))))
+          unique-roots?: #t))
+      (check-equal? result dog)
+      (def (first-carrier prototype)
+        (let loop ((remaining reads))
+          (and (pair? remaining)
+               (let* ((read (car remaining))
+                      (receiver (slot-read-receiver read)))
+                 (if (and (object-%precedence-list receiver)
+                          (memq prototype (object-%precedence-list receiver)))
+                   read
+                   (loop (cdr remaining)))))))
+      (def effective-read (first-carrier effective-proto))
+      (def frame-read (first-carrier frame-proto))
+      (check (and effective-read (object-read-issued? effective-read)) => #t)
+      (check (and frame-read (object-read-issued? frame-read)) => #t)
+      (check (eq? (.ref (slot-read-receiver frame-read) 'effective-method)
+                  (slot-read-receiver effective-read)) => #t))
+    (test-case "ranking callback invalidates a previously checked child descriptor"
+      (def ran? #f)
+      (def ranked? #f)
+      (def arguments (poo-clos-lambda-list 1 0 #f #f '() #f))
+      (def (body _frame argument) (set! ran? #t) argument)
+      (def protocol
+        (poo-clos-generic-protocol 'child-change
+          compute-applicable-methods:
+          (lambda (_generic _arguments methods)
+            (set! ranked? #t)
+            (.put! arguments 'optional 'invalid)
+            methods)))
+      (def generic
+        (poo-clos-add-method
+          (poo-clos-generic-function 'child-change 1 protocol: protocol)
+          (poo-clos-method 'primary (list any-specializer) body
+            lambda-list: arguments)))
+      (check-exception
+        (call-with-owned-read-projection (list body) void
+          (lambda () (poo-clos-call generic dog)))
+        (failure-code? 'invalid-compute-applicable-methods-result))
+      (check-equal? ranked? #t)
+      (check-equal? ran? #f))
     (test-case "prototype policy changes invalidate collected-carrier evidence"
       ;; Mutate the shared declaration LAST: restoring a value intentionally
       ;; does not restore its runtime revision or re-certify the old policy.
@@ -831,15 +916,29 @@
         (set! ran? #t)
         argument)
       (check-equal? (checked-primary dog) dog)
+      (def (snapshot) (random-source-state-ref default-random-source))
+      (def generic (.generic-object checked-primary))
+      (def arguments (list dog))
+      (def methods (poo-clos-compute-applicable-methods generic dog))
+      (def before-effective (snapshot))
+      (def effective (make-effective-method generic arguments '() '() methods '()))
+      (def before-frame (snapshot))
+      (make-invocation-frame effective arguments #f 'primary (car methods))
+      (def after-frame (snapshot))
+      (check (equal? before-effective before-frame) => #f)
+      (check (equal? before-frame after-frame) => #f)
       (set! ran? #f)
-      (def (with-refusing-policy type action)
-        (def policy (object-slots type))
+      (def (recording-policy type predicate action)
+        (def slots (object-slots type))
         (dynamic-wind
-          (lambda () (.putslot! type '.element?
-                       ($constant-slot-spec (lambda (_carrier) #f))))
+          (lambda () (.putslot! type '.element? ($constant-slot-spec predicate)))
           action
-          (lambda () (object-slots-set! type policy))))
-      (with-refusing-policy ClosEffectiveMethod
+          (lambda () (object-slots-set! type slots))))
+      (recording-policy ClosInvocationFrame
+        (lambda (_frame) (error "frame checked after effective method refusal"))
         (lambda ()
-          (check-exception (checked-primary dog) (failure-code? 'invalid-effective-method))
-          (check-equal? ran? #f))))))
+          (recording-policy ClosEffectiveMethod (lambda (_carrier) #f)
+            (lambda ()
+              (check-exception (checked-primary dog)
+                               (failure-code? 'invalid-effective-method))
+              (check-equal? ran? #f))))))))
