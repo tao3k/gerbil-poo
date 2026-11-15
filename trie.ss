@@ -2,10 +2,10 @@
 ;;; See article "Fast Mergable Integer Maps" by Chris Okasaki & Andrew Gill, 1998
 ;;; http://www.eecs.usma.edu/webs/people/okasaki/ml98maps.ps
 
-(export #t)
+(export (except-out #t uint-trie-shape-height stock-uint-trie-shape?))
 
 (import
-  (only-in ./slot-observation slot-read-observers-compatible?)
+  (only-in ./slot-observation slot-read-observers-compatible? %slot-read-active?)
   :std/format :std/iter :std/number/misc :std/values
   ./support/base ./support/option
   ./object ./mop/prototype ./brace ./number ./type ./fun ./io ./table)
@@ -25,6 +25,33 @@
 (defstruct (Leaf $Trie) (value) transparent: #t)
 (defstruct (Branch $Trie) (height left right) transparent: #t) ;; height of the top bit, not integer-length
 (defstruct (Skip $Trie) (height bits-height bits child) transparent: #t) ;; bits-height is similarly top bit of bits, the number of valid bits in bits is (1+ bits-height)
+
+;; Return each validated subtree height to its parent. The canonical UInt
+;; carrier needs one visit per node and no repeated method lookup. Failures
+;; return to the public validator for the original typed cause and ordering.
+(def (uint-trie-shape-height tree)
+  (match tree
+    ((Empty) 'empty)
+    ((Leaf _) -1)
+    ((Branch height left right)
+     (and (exact-integer? height) (<= 0 height)
+          (let (left-height (uint-trie-shape-height left))
+            (and (exact-integer? left-height) (= left-height (- height 1))
+                 (let (right-height (uint-trie-shape-height right))
+                   (and (exact-integer? right-height)
+                        (= right-height (- height 1)) height))))))
+    ((Skip height bits-height bits child)
+     (and (exact-integer? height) (exact-integer? bits-height)
+          (<= 0 bits-height height) (exact-integer? bits) (<= 0 bits)
+          (<= (integer-length bits) (+ bits-height 1))
+          (let (child-height (uint-trie-shape-height child))
+            (and (exact-integer? child-height)
+                 (= child-height (- height bits-height 1)) height))))
+    (_ #f)))
+
+;; Initialization uses the ordinary protocol until the canonical receiver and
+;; its method families have been constructed.
+(def stock-uint-trie-shape? (lambda (_descriptor _tree) #f))
 
 (defstruct $Step () transparent: #t)
 (defstruct (BranchStep $Step) (branch) transparent: #t)
@@ -302,27 +329,28 @@
   .validate-shape:
   (lambda (t)
     (def (err reason) (raise-type-error @ reason t))
-    (match (.unwrap t)
-      ((Empty) t) ;; NB: In a normalized trie, Empty only happens at the toplevel:
-      ;; Otherwise, a Branch with an Empty child is normalized to a Skip
-      ((Leaf _) t)
-      ((Branch height left right)
-       (validate Height height)
-       (.validate-shape left)
-       (unless (= (1- height) (.trie-height left)) (err wrong-left-height:))
-       (.validate-shape right)
-       (unless (= (1- height) (.trie-height right)) (err wrong-right-height:))
-       t)
-      ((Skip height bits-height bits child)
-       (validate Height height)
-       (validate Height bits-height)
-       (unless (<= bits-height height) (err bad-bits-height:))
-       (unless (<= 0 bits) (err negative-bits:))
-       (unless (<= (integer-length bits) (1+ bits-height)) (err bits-too-big:))
-       (.validate-shape child)
-       (unless (= (- height bits-height 1) (.trie-height child)) (err child-height-mismatch:))
-       t)
-      (_ (err invalid-node:))))
+    (if (stock-uint-trie-shape? @ t) t
+      (match (.unwrap t)
+        ((Empty) t) ;; NB: In a normalized trie, Empty only happens at the toplevel:
+        ;; Otherwise, a Branch with an Empty child is normalized to a Skip
+        ((Leaf _) t)
+        ((Branch height left right)
+         (validate Height height)
+         (.validate-shape left)
+         (unless (= (1- height) (.trie-height left)) (err wrong-left-height:))
+         (.validate-shape right)
+         (unless (= (1- height) (.trie-height right)) (err wrong-right-height:))
+         t)
+        ((Skip height bits-height bits child)
+         (validate Height height)
+         (validate Height bits-height)
+         (unless (<= bits-height height) (err bad-bits-height:))
+         (unless (<= 0 bits) (err negative-bits:))
+         (unless (<= (integer-length bits) (1+ bits-height)) (err bits-too-big:))
+         (.validate-shape child)
+         (unless (= (- height bits-height 1) (.trie-height child)) (err child-height-mismatch:))
+         t)
+        (_ (err invalid-node:)))))
 
   ;; : (Fun Value <- @ Key (Fun Value <-))
   .ref:
@@ -930,3 +958,20 @@
               (slot-read-observers-compatible? [])
               (andmap (lambda (source) (zero? (object-revision source)))
                       (list @ (.@ @ Table) Type Type. UInt Unit Identity))))))})
+
+;; This captures protocol identities, never admitted tree identities. Each call
+;; checks the live shape again. Active read capture and observer scopes keep
+;; the original method observations and callbacks.
+(set! stock-uint-trie-shape?
+  (let* ((table (.ref UIntTrieSet 'Table))
+         (height (.ref table 'Height))
+         (wrapper (.ref table 'Wrapper))
+         (sources (apply append
+                    (map compute-precedence-list!
+                         (list UIntTrieSet table height wrapper Type Type.))))
+         (revisions (map object-revision sources)))
+    (lambda (descriptor tree)
+      (and (eq? descriptor table)
+           (not (%slot-read-active?))
+           (%object-revisions-current? sources revisions)
+           (uint-trie-shape-height tree)))))
