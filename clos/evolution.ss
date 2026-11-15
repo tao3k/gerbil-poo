@@ -7,9 +7,13 @@
 
 (import :clan/poo/object
         (only-in :clan/poo/mop element?)
+        (only-in :std/list/list filter-map)
         "types.ss" "objects.ss" "classes.ss")
 
 (export poo-clos-redefine-class poo-clos-make-instances-obsolete)
+
+(extern namespace: clan/poo/object %with-slot-edit-protection %publish-slot-edits!)
+(extern namespace: clan/poo/slot-observation %make-owned-list)
 
 (def +poo-clos-unspecified+ (cons 'poo-clos 'unspecified))
 
@@ -51,35 +55,53 @@
   (if (and root? (not (eq? supplied +poo-clos-unspecified+)))
     supplied fallback))
 
-;;; Stage all dependent runtime C4 projections before the first live mutation.
-;;; The tables only connect candidate prototypes and declarations; the
-;;; POO linearizer still owns the order and rejection decision.
-;; : (-> [ClosClass] ClosClass SchemeValue SchemeValue [Pair])
-(def (preflight-dependent-projections classes root supers slots)
+;; Stage descendants against the new prototypes in superclass order.
+(def (prepare-class-edits classes root parents slots defaults
+                         slot-missing slot-unbound redefinition-handler different-handler)
   (let ((prototypes (make-hash-table-eq))
         (direct-slots (make-hash-table-eq)))
     (map
      (lambda (current)
-       (let* ((root? (eq? current root))
-              (selected-supers
-               (map poo-clos-resolve-class
-                    (redefinition-option
-                     root? supers (.ref current 'direct-superclasses))))
-              (selected-slots
-               (redefinition-option root? slots (.ref current 'direct-slots))))
-         (hash-put! direct-slots current selected-slots)
-         (let (projection
-               (%poo-clos-project-class-redefinition
-                current selected-supers
-                (lambda (owner)
-                  (or (hash-get prototypes owner)
-                      (.ref owner 'instance-prototype)))
-                (lambda (owner)
-                  (or (hash-get direct-slots owner)
-                      (.ref owner 'direct-slots)))))
-           (hash-put! prototypes current (.ref projection 'prototype))
-           (cons current projection))))
+       (def root? (eq? current root))
+       (def supers (if root? parents (.ref current 'direct-superclasses)))
+       (def selected-slots (redefinition-option root? slots (.ref current 'direct-slots)))
+       (hash-put! direct-slots current selected-slots)
+       (def projection
+         (%poo-clos-project-class-redefinition
+          current supers
+          (lambda (owner)
+            (or (hash-get prototypes owner) (.ref owner 'instance-prototype)))
+          (lambda (owner)
+            (or (hash-get direct-slots owner) (.ref owner 'direct-slots)))))
+       (hash-put! prototypes current (.ref projection 'prototype))
+       (%poo-clos-class-redefinition-edits
+        current supers selected-slots
+        (redefinition-option root? defaults (.ref current 'default-initargs))
+        (redefinition-option root? slot-missing (.ref current 'slot-missing-handler))
+        (redefinition-option root? slot-unbound (.ref current 'slot-unbound-handler))
+        (redefinition-option root? redefinition-handler (.ref current 'redefinition-update-handler))
+        (redefinition-option root? different-handler (.ref current 'different-class-update-handler))
+        projection))
      classes)))
+
+(def (subclass-link-edits child previous parents)
+  (append
+   (filter-map
+    (lambda (owner)
+      (and (not (memq owner parents))
+           (list owner
+                 (cons 'direct-subclasses
+                       (%make-owned-list
+                        (filter (lambda (class) (not (eq? class child)))
+                                (live-direct-subclasses owner)))))))
+    previous)
+   (filter-map
+    (lambda (owner)
+      (and (not (memq owner previous))
+           (list owner
+                 (cons 'direct-subclasses
+                       (%make-owned-list (cons child (live-direct-subclasses owner)))))))
+    parents)))
 
 ;; | ClosClass = POOObject
 ;; poo-clos-redefine-class
@@ -114,32 +136,22 @@
       different-class-update-handler: (different-handler
                                        +poo-clos-unspecified+))
   (unless (element? ClosClass class-value) (clos-fail 'invalid-class))
-  (let* ((classes (sort-by-depth (dependent-closure class-value)))
-         (projections
-          (preflight-dependent-projections
-           classes class-value supers slots)))
-    (for-each
-     (lambda (current+projection)
-       (let* ((current (car current+projection))
-              (root? (eq? current class-value)))
-         (%poo-clos-reinitialize-class!
-          current
-          (map poo-clos-resolve-class
-               (redefinition-option
-                root? supers (.ref current 'direct-superclasses)))
-          (redefinition-option root? slots (.ref current 'direct-slots))
-          (redefinition-option
-           root? defaults (.ref current 'default-initargs))
-          (redefinition-option
-           root? slot-missing (.ref current 'slot-missing-handler))
-          (redefinition-option
-           root? slot-unbound (.ref current 'slot-unbound-handler))
-          (redefinition-option
-           root? redefinition-handler (.ref current 'redefinition-update-handler))
-          (redefinition-option
-           root? different-handler (.ref current 'different-class-update-handler))
-          projection: (cdr current+projection))))
-     projections))
+  (def classes (sort-by-depth (dependent-closure class-value)))
+  (def previous (.ref class-value 'direct-superclasses))
+  (def parents (map poo-clos-resolve-class (redefinition-option #t supers previous)))
+  (when (ormap (lambda (parent) (memq parent classes)) parents)
+    (clos-fail 'inconsistent-class-precedence
+               class: (.ref class-value 'identity)
+               operation: 'compute-class-precedence-list))
+  (def edits
+    (%with-slot-edit-protection (append classes previous parents)
+      (lambda ()
+        (append (prepare-class-edits classes class-value parents slots defaults
+                                    slot-missing slot-unbound redefinition-handler different-handler)
+                (subclass-link-edits class-value previous parents)))))
+  (%publish-slot-edits! edits)
+  ;; Initializers may run user code. All class layouts are visible by then.
+  (for-each initialize-direct-class-slots! classes)
   class-value)
 
 ;; : (-> ClosClass ClosClass)

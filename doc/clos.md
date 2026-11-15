@@ -129,8 +129,11 @@ Generic publication owns the method-list spine. A constructed Method owns
 its specializer-list spine. Slot reads and read-record inspection give
 callers detached lists with the original descriptor identities. Class
 precedence inspection also returns a detached list, and class position
-lookups share the read-only method index implementation. To change a
-published method family, use method installation or removal. Updating the
+lookups share the read-only method index implementation. A class redefinition
+publishes effective slots, their lookup, history and generation together with
+the affected subclass updates. Effective slot descriptors are sealed and their
+list fields are detached on read. Class slot initializers run after publication.
+To change a published method family, use method installation or removal. Updating the
 specializer slot on a constructed Method copies the new spine at the POO
 write boundary. The [LeanPoo ownership model](https://github.com/tao3k/lean-poo/blob/1d8e7bbae90301e467b69c2ebb4a5326e422942e/LeanPoo/Object/ClosAdmission.lean#L586)
 specifies reflection and the conditions for locally revoking applicability rows.

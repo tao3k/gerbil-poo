@@ -95,15 +95,10 @@
 (def (class-effective-slots-at-generation class-value generation-value)
   (if (= generation-value (.ref class-value 'generation))
     (poo-clos-class-effective-slots class-value)
-    (let (layout
-          (find (lambda (candidate)
-                  (= (.ref candidate 'generation) generation-value))
-                (.ref class-value 'layout-history)))
-      (unless layout
+    (or ((.ref class-value 'layout-history) generation-value)
         (clos-fail 'missing-class-layout
                    class: (.ref class-value 'identity)
-                   operation: 'update-instance-for-redefined-class))
-      (.ref layout 'effective-slots))))
+                   operation: 'update-instance-for-redefined-class))))
 
 ;; : (-> ClosInstanceState [Symbol] [SchemeValue])
 (def (discarded-slot-property-list state discarded)

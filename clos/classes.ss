@@ -12,7 +12,7 @@
         (only-in :std/list/list find filter filter-map flatten1)
         "types.ss" "objects.ss" "funcs.ss")
 
-(extern namespace: clan/poo/object %ref-owned-list)
+(extern namespace: clan/poo/object %ref-owned-list %publish-slot-edits!)
 (extern namespace: clan/poo/slot-observation %make-owned-list)
 
 (export ClosDirectSlotDefinition ClosEffectiveSlotDefinition ClosClass
@@ -23,8 +23,9 @@
         poo-clos-class-subclass? poo-clos-class-specializer
         poo-clos-class-slot-cell
         make-slot-cell
-        %poo-clos-make-class-generation %poo-clos-reinitialize-class!
+        %poo-clos-make-class-generation %poo-clos-class-redefinition-edits
         %poo-clos-project-class-redefinition
+        initialize-direct-class-slots!
         %poo-clos-set-class-name!)
 
 ;; : POOObject
@@ -265,19 +266,20 @@
          (type-predicate-values
           (filter-map (lambda (entry) (.ref (cdr entry) 'type-predicate))
                       descriptions)))
-    (checked
-     ClosEffectiveSlotDefinition
-     (.o (:: @ ClosEffectiveSlotDefinition.)
-         identity: slot-name allocation: allocation-value
-         initargs: (merged-slot-list descriptions 'initargs)
-         initfunction: initfunction-value
-         readers: (merged-slot-list descriptions 'readers)
-         writers: (merged-slot-list descriptions 'writers)
-         type-predicates: type-predicate-values
-         documentation: documentation-value
-         defining-classes: (map car descriptions)
-         storage-class: (car most-specific))
-     'invalid-effective-slot-definition)))
+    (seal-object!
+     (checked
+      ClosEffectiveSlotDefinition
+      (.o (:: @ ClosEffectiveSlotDefinition.)
+          identity: slot-name allocation: allocation-value
+          initargs: (%make-owned-list (merged-slot-list descriptions 'initargs))
+          initfunction: initfunction-value
+          readers: (%make-owned-list (merged-slot-list descriptions 'readers))
+          writers: (%make-owned-list (merged-slot-list descriptions 'writers))
+          type-predicates: (%make-owned-list type-predicate-values)
+          documentation: documentation-value
+          defining-classes: (%make-owned-list (map car descriptions))
+          storage-class: (car most-specific))
+      'invalid-effective-slot-definition))))
 
 ;; : (-> [ClosClass] Procedure
 ;;        [ClosEffectiveSlotDefinition])
@@ -295,18 +297,20 @@
            (compute-effective-slot owner-indexes slot-name))
          slot-names)))
 
-;;; Effective slots and their lookup projection change atomically at the two
-;;; existing class-mutation boundaries: construction and redefinition.
+(def (effective-slot-lookup slots)
+  (let (index (poo-clos-leftmost-index-by (lambda (slot) (.ref slot 'identity)) slots))
+    (lambda (name) (hash-get index name))))
+
+;;; Initial construction and redefinition derive lookup from the same sequence.
 ;; : (-> ClosClass ClosClass)
 (def (refresh-effective-slots! class-value)
   (let (slots (compute-effective-slots
               (.ref class-value 'class-precedence-list)
               (lambda (owner) (.ref owner 'direct-slots))))
-    (.put! class-value 'effective-slots slots)
-    (.put! class-value 'effective-slot-index
-           (poo-clos-leftmost-index-by
-            (lambda (slot) (.ref slot 'identity))
-            slots))
+    (%publish-slot-edits!
+     (list (list class-value
+                 (cons 'effective-slots (%make-owned-list slots))
+                 (cons 'effective-slot-index (effective-slot-lookup slots)))))
     class-value))
 
 ;; : (-> ClosSlotCell)
@@ -391,14 +395,14 @@
          (candidate
         (.o (:: self ClosClass.)
             identity: identity-value
-            direct-superclasses: superclass-values
+            direct-superclasses: (%make-owned-list superclass-values)
             direct-slots: direct-slot-values
             default-initargs: default-initarg-values
             generation: generation-value
             slot-missing-handler: slot-missing-handler-value
             slot-unbound-handler: slot-unbound-handler-value
-            direct-subclasses: '()
-            layout-history: '()
+            direct-subclasses: (%make-owned-list '())
+            layout-history: (lambda (_) #f)
             redefinition-update-handler: redefinition-handler-value
             different-class-update-handler: different-handler-value
             documentation: #f metaclass: 'standard-class
@@ -412,7 +416,7 @@
             (poo-clos-position-lookup
              (%ref-owned-list self 'class-precedence-list))
             effective-slots: '()
-            effective-slot-index: (make-hash-table-eq))))
+            effective-slot-index: (lambda (_) #f))))
     (let (class-value
           (initialize-direct-class-slots!
            (refresh-effective-slots!
@@ -420,7 +424,8 @@
       (for-each
        (lambda (superclass)
          (.put! superclass 'direct-subclasses
-                (cons class-value (.ref superclass 'direct-subclasses))))
+                (%make-owned-list
+                 (cons class-value (.ref superclass 'direct-subclasses)))))
        superclass-values)
       class-value))))
 
@@ -445,65 +450,39 @@
         precedence: precedence-value
         precedence-index: (poo-clos-position-lookup precedence-value)
         effective-slots: effective-slots-value
-        effective-slot-index:
-        (poo-clos-leftmost-index-by
-         (lambda (slot) (.ref slot 'identity)) effective-slots-value))))
+        effective-slot-index: (effective-slot-lookup effective-slots-value))))
 
-;; : (-> ClosClass [ClosClass] [ClosDirectSlotDefinition] [Pair]
-;;        (Maybe Procedure) (Maybe Procedure) (Maybe Procedure)
-;;        (Maybe Procedure) ClosClass)
-(def (%poo-clos-reinitialize-class!
+;; Retain the old immutable spine privately. A new history entry shares its
+;; predecessors, and a query copies only the selected generation's list.
+(def (%poo-clos-class-redefinition-edits
       class-value superclass-values direct-slot-values default-initarg-values
       slot-missing-handler-value slot-unbound-handler-value
-      redefinition-handler-value different-handler-value
-      projection: (prepared-projection #f))
+      redefinition-handler-value different-handler-value projection)
   (unless (element? ClosClass class-value) (clos-fail 'invalid-class))
-  (let ((superclass-values (require-direct-superclasses superclass-values))
-        (direct-slot-values (require-direct-slots direct-slot-values))
-        (default-initarg-values
-         (require-default-initargs default-initarg-values)))
-    (let (projection
-          (or prepared-projection
-              (%poo-clos-project-class-redefinition
-               class-value superclass-values class-instance-prototype
-               (lambda (owner)
-                 (if (eq? owner class-value)
-                   direct-slot-values
-                   (.ref owner 'direct-slots))))))
-      (for-each
-       (lambda (superclass)
-         (.put! superclass 'direct-subclasses
-                (filter (lambda (candidate) (not (eq? candidate class-value)))
-                        (.ref superclass 'direct-subclasses))))
-       (.ref class-value 'direct-superclasses))
-      (let ((old-generation (.ref class-value 'generation))
-            (old-effective-slots (.ref class-value 'effective-slots)))
-        (.put! class-value 'layout-history
-               (cons (.o generation: old-generation
-                         effective-slots: old-effective-slots)
-                     (.ref class-value 'layout-history))))
-      (.put! class-value 'direct-superclasses superclass-values)
-      (.put! class-value 'direct-slots direct-slot-values)
-      (.put! class-value 'default-initargs default-initarg-values)
-      (.put! class-value 'slot-missing-handler slot-missing-handler-value)
-      (.put! class-value 'slot-unbound-handler slot-unbound-handler-value)
-      (.put! class-value 'redefinition-update-handler redefinition-handler-value)
-      (.put! class-value 'different-class-update-handler different-handler-value)
-      (.put! class-value 'generation (+ 1 (.ref class-value 'generation)))
-      (.put! class-value 'instance-prototype (.ref projection 'prototype))
-      (.put! class-value 'class-precedence-list
-             (%make-owned-list (.ref projection 'precedence)))
-      (.put! class-value 'class-precedence-index
-             (.ref projection 'precedence-index))
-      (.put! class-value 'effective-slots (.ref projection 'effective-slots))
-      (.put! class-value 'effective-slot-index
-             (.ref projection 'effective-slot-index))
-      (for-each
-       (lambda (superclass)
-         (.put! superclass 'direct-subclasses
-                (cons class-value (.ref superclass 'direct-subclasses))))
-       superclass-values)
-      (initialize-direct-class-slots! class-value))))
+  (def parents (require-direct-superclasses superclass-values))
+  (def slots (require-direct-slots direct-slot-values))
+  (def defaults (require-default-initargs default-initarg-values))
+  (def generation (.ref class-value 'generation))
+  (def previous-slots (%ref-owned-list class-value 'effective-slots))
+  (def history (.ref class-value 'layout-history))
+  (list class-value
+        (cons 'layout-history
+              (lambda (requested)
+                (if (= requested generation) (list-copy previous-slots)
+                    (history requested))))
+        (cons 'direct-superclasses (%make-owned-list parents))
+        (cons 'direct-slots slots)
+        (cons 'default-initargs defaults)
+        (cons 'slot-missing-handler slot-missing-handler-value)
+        (cons 'slot-unbound-handler slot-unbound-handler-value)
+        (cons 'redefinition-update-handler redefinition-handler-value)
+        (cons 'different-class-update-handler different-handler-value)
+        (cons 'generation (+ 1 generation))
+        (cons 'instance-prototype (.ref projection 'prototype))
+        (cons 'class-precedence-list (%make-owned-list (.ref projection 'precedence)))
+        (cons 'class-precedence-index (.ref projection 'precedence-index))
+        (cons 'effective-slots (%make-owned-list (.ref projection 'effective-slots)))
+        (cons 'effective-slot-index (.ref projection 'effective-slot-index))))
 
 ;;; The root class contributes no slots; all ordinary classes with an omitted
 ;;; superclass list inherit from this exact class and POO prototype.
@@ -557,7 +536,7 @@
 ;; : (-> ClosClass Symbol (Maybe ClosEffectiveSlotDefinition))
 (def (poo-clos-find-effective-slot class-value slot-name)
   (unless (element? ClosClass class-value) (clos-fail 'invalid-class))
-  (hash-get (.ref class-value 'effective-slot-index) slot-name))
+  ((.ref class-value 'effective-slot-index) slot-name))
 
 ;; : (-> ClosClass ClosClass Boolean)
 (def (poo-clos-class-subclass? class-value superclass-value)

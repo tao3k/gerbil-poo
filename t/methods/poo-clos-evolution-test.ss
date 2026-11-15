@@ -7,7 +7,8 @@
 
 (import (only-in :std/test
                  test-suite test-case check-equal? check-exception check)
-        (only-in :clan/poo/object .ref)
+        (only-in :clan/poo/object .ref .put!)
+        (only-in :clan/poo/slot-observation call-with-slot-read-observer)
         :clan/poo/clos)
 
 (export poo-clos-evolution-test)
@@ -95,9 +96,54 @@
                (lambda (_instance added discarded plist)
                  (set! receipt (list added discarded plist)))))
              (instance (poo-clos-make-instance class-value old: 7)))
+        (def effective (poo-clos-find-effective-slot class-value 'old))
+        (set-car! (poo-clos-class-effective-slots class-value) #f)
+        (set-car! (.ref effective 'initargs) new:)
+        (check-equal? (poo-clos-slot-initargs effective) (list old:))
+        (check-exception (.put! effective 'allocation 'class) true)
+        (check-exception (hash-put! (.ref class-value 'effective-slot-index) 'old #f) true)
+        (check (poo-clos-find-effective-slot class-value 'old) => effective)
         (poo-clos-redefine-class class-value direct-slots: (list new-slot))
+        (def history (.ref class-value 'layout-history))
+        (set-car! (history 0) #f)
+        (check (car (history 0)) => effective)
         (check-equal? (poo-clos-slot-value instance 'new) 8)
         (check-equal? receipt '((new) (old) (old 7)))))
+
+    (test-case "read prechecks see a complete class family generation"
+      (def left
+        (poo-clos-class 'publication-left
+          direct-slots: (list (poo-clos-direct-slot-definition 'old))))
+      (def right
+        (poo-clos-class 'publication-right
+          direct-slots: (list (poo-clos-direct-slot-definition 'new))))
+      (def base
+        (poo-clos-class 'publication-base direct-superclasses: (list left)))
+      (def leaf
+        (poo-clos-class 'publication-leaf direct-superclasses: (list base)))
+      (def (snapshot)
+        (list (poo-clos-class-generation base) (poo-clos-class-generation leaf)
+              (eq? (car (poo-clos-class-direct-superclasses base)) right)
+              (and (memq base (poo-clos-class-direct-subclasses left)) #t)
+              (and (memq base (poo-clos-class-direct-subclasses right)) #t)
+              (and (poo-clos-find-effective-slot base 'new) #t)
+              (and (poo-clos-find-effective-slot leaf 'new) #t)))
+      (def before '(0 0 #f #t #f #f #f))
+      (def after '(1 1 #t #f #t #t #t))
+      (def seen '())
+      (check-equal? (snapshot) before)
+      (call-with-slot-read-observer
+        void
+        (lambda () (poo-clos-redefine-class base direct-superclasses: (list right)))
+        before:
+        (lambda (_receiver key)
+          (when (memq key '(generation prototype precedence effective-slots))
+            (set! seen (cons (snapshot) seen)))))
+      (check-equal? (snapshot) after)
+      (check-equal? (and (member before seen) #t) #t)
+      (check-equal? (and (member after seen) #t) #t)
+      (check-equal? (andmap (lambda (state) (or (equal? state before) (equal? state after))) seen)
+                    #t))
 
     (test-case "change-class preserves identity, common slots, and hook views"
       (let* ((receipt #f)
