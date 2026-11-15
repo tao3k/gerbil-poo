@@ -5,6 +5,7 @@
         (only-in "build.ss" +gerbil-poo-build-spec+ production-spec)
         (only-in "t/build.ss" call-with-build-jobs test-build-spec prefix-test-spec)
         (only-in :std/list/list filter)
+        (only-in :std/misc/process invoke)
         (prefix-in "examples/build.ss" entry-build.))
 (include "testing/property/build.scm")
 
@@ -149,11 +150,16 @@
     "benchmarks/representation-startup"
 ))
 
-(def build
+(def development-libraries
+  (let ()
+    (defbuild-script (map production-spec +gerbil-poo-development-spec+))
+    main))
+
+(def development-spec
   (let ()
     (def modules
       (map production-spec (append +gerbil-poo-build-spec+ +gerbil-poo-development-spec+)))
-    ;; On Darwin the program shares the static objects of the library graph.
+    ;; Report the complete inventory through the standard build script.
     (defbuild-script
       (cond-expand
         (darwin (append modules
@@ -207,9 +213,32 @@
         (tests "contracts" '("recursive-validation-test" "recursive-approvals-test"))))
     main))
 
+(def (build-development options clean?)
+  (def root (path-directory (this-source-file)))
+  (def (run phase directory script args)
+    (displayln "BUILD-DEVELOPMENT " phase " " (car options))
+    (force-output)
+    (invoke "gxi" ["-:max-heap=2G,debug=q" script args ...]
+            directory: directory))
+  (def (production) (run "production" root "./build.ss" options))
+  (def (libraries)
+    (run "libraries" root "./build-development.ss" ["libraries" options ...]))
+  (def (executable)
+    (cond-expand
+      (darwin (run "representation" (path-expand "examples" root) "./build.ss" options))
+      (else (void))))
+  ;; Each make invocation owns its compiler context and drains its jobs before
+  ;; the next process starts. Only the executable invokes static linking.
+  (if clean?
+    (begin (executable) (libraries) (production))
+    (begin (production) (libraries) (executable))))
+
 (def (main . options)
-  (call-with-build-jobs
-    (lambda ()
-      (match options
-        (["graph" . rest] (apply graph-build rest))
-        (else (apply build options))))))
+  (match options
+    (["graph" . rest] (call-with-build-jobs (cut apply graph-build rest)))
+    (["libraries" . rest] (call-with-build-jobs (cut apply development-libraries rest)))
+    (["meta"] (development-spec "meta"))
+    (["spec"] (development-spec "spec"))
+    (["clean"] (build-development options #t))
+    ([] (build-development '("compile") #f))
+    (else (build-development options #f))))

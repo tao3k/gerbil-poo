@@ -3,6 +3,7 @@
 
 (import :clan/poo/mop
         (only-in :clan/poo/object .o .mix compute-precedence-list!)
+        (only-in :clan/poo/clos/objects require-clos-generic make-invocation-frame)
         (only-in :clan/poo/benchmarks/closure-measure measure qualified-metrics write-datum)
         (only-in :gerbil/runtime/c3 c4-linearize)
         :std/iter
@@ -10,14 +11,26 @@
         (only-in :std/test test-suite test-case check-equal?))
 (export mop-lifecycle-test)
 
+(extern namespace: clan/poo/clos/dispatch
+        protocol-ranked-methods keyword-arguments-valid!
+        prepare-default-effective-method execute-standard-effective-method)
+(extern namespace: clan/poo/clos/lifecycle
+        require-initialization-arguments %poo-clos-reinitialize-instance %poo-clos-shared-initialize)
+
 (.defgeneric (prototype-width instance) slot: width)
 (.defclass BenchmarkPane ()
   ((width (initarg width:) (initform 80))))
 
-(def (write-benchmark name data)
+(def (write-benchmark name rows . details)
   (def directory (path-expand "benchs" (getenv "GERBIL_PATH")))
   (create-directory* directory)
-  (write-datum (path-expand name directory) data))
+  (write-datum
+   (path-expand (string-append (symbol->string name) ".scm") directory)
+   [(list 'benchmark name)
+    '(metrics cpu-seconds wall-seconds gc-cpu-seconds collections admitted-allocated-bytes)
+    '(row-tail raw-allocation-delta)
+    details ...
+    (cons 'rows rows)]))
 
 (def (precedence-parents shape size)
   (def root (.o width: 80))
@@ -57,18 +70,54 @@
                            rows)))))
     (reverse rows)))
 
+(def (reconfiguration-samples)
+  (def pane (poo-clos-make-instance BenchmarkPane))
+  (def initargs [width: 80])
+  (def args (cons* pane '() initargs))
+  (def generic poo-clos-shared-initialize-generic)
+  (def ranked (protocol-ranked-methods generic args))
+  (def effective ((prepare-default-effective-method generic args ranked)))
+  (def (lifecycle-keywords)
+    (require-initialization-arguments
+     (poo-clos-class-of pane) 'reinitialize-instance initargs
+     (lambda () (error "unexpected method-level keyword admission"))))
+  ;; Each sample times one phase in isolation. The rows overlap and do not
+  ;; form a sum for the whole call.
+  (def phases
+    (list
+     (cons 'reinitialize (lambda () (apply poo-clos-reinitialize-instance pane initargs)))
+     (cons 'reinitialize-primary (lambda () (apply %poo-clos-reinitialize-instance pane initargs)))
+     (cons 'lifecycle-keywords lifecycle-keywords)
+     (cons 'shared-initialize (lambda () (apply poo-clos-shared-initialize args)))
+     (cons 'shared-generic (lambda () (require-clos-generic generic)))
+     (cons 'shared-applicability (lambda () (protocol-ranked-methods generic args)))
+     (cons 'shared-keywords (lambda () (keyword-arguments-valid! generic ranked args)))
+     (cons 'shared-effective-method
+           (lambda () ((prepare-default-effective-method generic args ranked))))
+     (cons 'shared-frame
+           (lambda () (make-invocation-frame effective args #f 'primary (caar ranked))))
+     (cons 'shared-combination-and-write (lambda () (execute-standard-effective-method effective)))
+     (cons 'shared-slot-write (lambda () (apply %poo-clos-shared-initialize args)))))
+  (let ((rows []) (repetitions 128))
+    (for (pass (in-range 8))
+      (for (phase (if (even? pass) phases (reverse phases)))
+        (let-values (((result clocks) (measure (cdr phase) repetitions)))
+          (when (eq? (car phase) 'reinitialize) (check-equal? (eq? result pane) #t))
+          (set! rows (cons (list pass (car phase) repetitions
+                                 (qualified-metrics clocks) (vector-ref clocks 4))
+                           rows)))))
+    (check-equal? (poo-clos-slot-value pane 'width) 80)
+    (reverse rows)))
+
 (def mop-lifecycle-test
   (test-suite "MOP lifecycle cost"
     (test-case "measure C4 merges and POO precedence on deep chains and wide diamonds"
-      (write-benchmark "mop-precedence.scm"
-        (list '(benchmark mop-precedence-v2)
-              (list 'gerbil (gerbil-version-string))
-              '(metrics cpu-seconds wall-seconds gc-cpu-seconds collections admitted-allocated-bytes)
-              '(row-tail raw-allocation-delta)
-              (cons 'rows
-                    (append-map
-                     (lambda (fixture) (apply precedence-samples fixture))
-                     '((deep 32) (deep 128) (diamond 8) (diamond 32) (diamond 128)))))))
+      (write-benchmark 'mop-precedence
+        (append-map
+         (lambda (fixture) (apply precedence-samples fixture))
+         '((deep 32) (deep 128) (diamond 8) (diamond 32) (diamond 128)))))
+    (test-case "measure reconfiguration admission, dispatch, and method combination"
+      (write-benchmark 'mop-reconfiguration-phases (reconfiguration-samples)))
     (test-case "record prototype and CLOS workloads with natural GC"
       (def prototype (.o width: 80))
       (def pane (poo-clos-make-instance BenchmarkPane))
@@ -113,10 +162,4 @@
           (begin (sample 'standard iteration calls) (sample-extended iteration))
           (begin (sample-extended iteration) (sample 'standard iteration calls))))
       (check-equal? count (* 8 2 128))
-      (write-benchmark "mop-lifecycle.scm"
-        (list '(benchmark mop-lifecycle-v2)
-              (list 'gerbil (gerbil-version-string))
-              '(metrics cpu-seconds wall-seconds gc-cpu-seconds collections admitted-allocated-bytes)
-              '(row-tail raw-allocation-delta)
-              (list 'extension-calls count)
-              (cons 'rows (reverse rows)))))))
+      (write-benchmark 'mop-lifecycle (reverse rows) (list 'extension-calls count)))))

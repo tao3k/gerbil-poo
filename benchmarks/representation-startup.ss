@@ -353,7 +353,7 @@
     (display "MODULE-ENTRY ")
     (write (vector (and (assoc "clan/poo/examples/representation-service" before) #t)
       (andmap (lambda (id) (let (item (assoc id before)) (and item (eq? (cdr item) 'builtin))))
-        '("clan/poo/object" "clan/poo/mop" "clan/poo/fun"))
+        '("clan/poo/object" "clan/poo/mop/prototype" "clan/poo/fun"))
       (length before)))
     (newline) (force-output))
   (load-module "clan/poo/io")
