@@ -26,7 +26,8 @@
 (export poo-clos-dispatch-test)
 
 (extern namespace: clan/poo/slot-observation
-        %with-slot-read-registration-interval %first-registered-read?)
+        %with-slot-read-registration-interval %first-registered-read?
+        %call-with-private-slot-read-prefix)
 (extern namespace: clan/poo/clos/objects %frameless-method-body)
 
 (def any-specializer (poo-clos-any-specializer))
@@ -266,6 +267,25 @@
       (check (element? ClosGenericFunction generic) => #t)
       (set-cdr! external 'invalid)
       (check (element? ClosGenericFunction generic) => #f))
+    (test-case "private admission captures its exact prefix before and after prior reads"
+      (def owner (.o first: 1 second: 2))
+      (.ref owner 'first)
+      (.ref owner 'second)
+      (defvalues (result merged)
+        (%call-with-recorded-slot-reads
+          (lambda ()
+            (defvalues (first first-reads)
+              (%call-with-private-slot-read-prefix (lambda () (.ref owner 'first))))
+            (defvalues (second second-reads)
+              (%call-with-private-slot-read-prefix
+                (lambda () (begin (.ref owner 'second) (.ref owner 'first)))))
+            (check-equal? (map slot-read-key first-reads) '(first))
+            (check-equal? (map slot-read-key second-reads) '(second first))
+            (check (eq? (car first-reads) (cadr second-reads)) => #t)
+            (+ first second))
+          unique-roots?: #t))
+      (check-equal? result 2)
+      (check-equal? (map slot-read-key merged) '(first second)))
     (test-case "frame-free entry belongs to the actual declared method body"
       (.defgeneric direct-identity (value))
       (def method (.defmethod (direct-identity value) value))

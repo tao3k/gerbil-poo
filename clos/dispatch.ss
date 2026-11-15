@@ -7,8 +7,7 @@
 
 (import :clan/poo/object
         (only-in :clan/poo/mop element?)
-        (only-in :clan/poo/slot-observation
-                 %call-with-recorded-slot-reads %record-slot-reads! slot-read-receiver)
+        (only-in :clan/poo/slot-observation slot-read-receiver)
         (only-in :std/list/list filter-map find flatten1)
         "types.ss" "objects.ss" "method-combination.ss"
         "funcs.ss"
@@ -28,7 +27,8 @@
 (extern namespace: clan/poo/clos/objects
         %published-method-positions %method-position method-positions-size %frameless-method-body)
 (extern namespace: clan/poo/clos/types %carrier-declarations-current? %stock-call-validator?)
-(extern namespace: clan/poo/slot-observation slot-read-key slot-read-value)
+(extern namespace: clan/poo/slot-observation
+        slot-read-key slot-read-value %call-with-private-slot-read-prefix)
 (extern namespace: clan/poo/object %ref-owned-list %prepared-vector-slot-ref
         object-construction-current? %call-with-fresh-slot-read-group)
 (extern namespace: clan/poo/read-projection %owned-private-registration?)
@@ -348,16 +348,14 @@
   (with-catch (lambda (_) #f)
     (lambda ()
       (%call-with-fresh-slot-read-group roots
-        (lambda (reads)
-          (andmap (lambda (read)
-                    (let ((key (slot-read-key read)) (value (slot-read-value read)))
-                      (cond
-                       ((eq? key '.element?)
-                        (%stock-call-validator? (slot-read-receiver read) value))
-                       ((equal? key '(bootstrap .element?)) #f)
-                       ((symbol? key) (not (pair? value)))
-                       (else #t))))
-                  reads))))))
+        (lambda (read)
+          (let ((key (slot-read-key read)) (value (slot-read-value read)))
+            (cond
+             ((eq? key '.element?)
+              (%stock-call-validator? (slot-read-receiver read) value))
+             ((equal? key '(bootstrap .element?)) #f)
+             ((symbol? key) (not (pair? value)))
+             (else #t))))))))
 
 (def (prepare-direct-primary generic arguments ranked roots)
   (and (%owned-private-registration?) (null? (cdr ranked))
@@ -692,9 +690,8 @@
   (defvalues (generic-value roots)
     (if (%owned-private-registration?)
       (let-values (((generic-value reads)
-                    (%call-with-recorded-slot-reads
-                      (lambda () (require-clos-generic generic-source)) unique-roots?: #t)))
-        (%record-slot-reads! reads)
+                    (%call-with-private-slot-read-prefix
+                      (lambda () (require-clos-generic generic-source)))))
         (values generic-value (and (eq? generic-value generic-source) reads)))
       (values (require-clos-generic generic-source) #f)))
   (let ()

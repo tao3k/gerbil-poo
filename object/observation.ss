@@ -232,14 +232,32 @@
                 (lambda (reads current! receivers positions)
                   (require-current-read-sweep! reads receivers positions current! #t)
                   (action (length reads))) #f)))))
-      ;; Private callers only inspect the original signed fields here. The
-      ;; ephemeral projection shares native route checks by receiver.
-      (lambda (roots inspect)
-        (with-projection roots
-          (lambda (reads current! receivers positions)
-            (require-current-read-sweep! reads receivers positions current! #f)
-            (inspect reads))
-          #f #t))
+      ;; This private gate only returns eligibility. Visit each signed read
+      ;; once in preorder, checking the native route at its receiver's first
+      ;; ordinary read. Records and receivers are disjoint identity keys.
+      ;; Foreign routes leave qualification to the ordinary caller.
+      (lambda (roots allow-read?)
+        (without-observation
+          (lambda ()
+            (and (%pure-read-sweep?)
+                 (let (seen (make-table test: eq?))
+                   (def (admit read)
+                     (or (table-ref seen read #f)
+                         (begin
+                           (require-issued! read)
+                           (table-set! seen read #t)
+                           (let ((key (object-read-key read))
+                                 (receiver (slot-read-receiver read)))
+                             (require-read-route! key #f #f)
+                             (unless (or (and (pair? key) (eq? (car key) 'bootstrap))
+                                         (table-ref seen receiver #f))
+                               (require-object-read-route! read)
+                               (table-set! seen receiver #t))
+                             (unless (object-issued-read-current? read)
+                               (error "stale slot dependency" key))
+                             (and (allow-read? read)
+                                  (andmap admit (object-read-dependencies read)))))))
+                   (andmap admit roots))))))
       ;; The initial admission uses the projection's receiver positions once
       ;; across the whole graph. Edge registration remains inside the native
       ;; write guard and the independent return sweep, including foreign routes.

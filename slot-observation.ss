@@ -169,6 +169,19 @@
     ;; A batch keeps the same private identity table throughout.
     (let (seen (read-collection-seen frame))
       (for-each (lambda (read) (record-in-collection! frame seen read)) reads))))
+
+;; The owner has already proved this is its private capture. When it is
+;; empty, the Generic's admission is its first prefix, with precisely the
+;; same first-occurrence membership as a fresh child frame.
+(def (%call-with-private-slot-read-prefix action)
+  (let (frame (%current-slot-read-frame))
+    (if (and frame (read-collection-seen frame) (null? (read-collection-reversed frame)))
+      (let (value (action))
+        (values value (reverse (read-collection-reversed frame))))
+      (let-values (((value reads)
+                    (%call-with-recorded-slot-reads action unique-roots?: #t)))
+        (%record-slot-reads! reads)
+        (values value reads)))))
 ;; Record the original read, then deliver it in order without observing callbacks.
 (def (%deliver-slot-read read value)
   (def scope (current-read-scope))
