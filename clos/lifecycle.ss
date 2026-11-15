@@ -30,6 +30,7 @@
         poo-clos-update-instance-for-different-class-generic)
 
 (extern namespace: clan/poo/clos/dispatch %prospective-instance-methods)
+(extern namespace: clan/poo/object %publish-slot-edits!)
 
 ;; : (-> ClosInstance [Symbol] [Symbol] [SchemeValue] SchemeValue ... ClosInstance)
 (def (%poo-clos-update-instance-for-redefined-class
@@ -82,9 +83,11 @@
                  (poo-clos-class-effective-slots class-value))))
     (let ((property-list (discarded-slot-property-list state discarded))
           (new-storage (migrated-instance-storage state class-value)))
-      (.put! state 'class class-value)
-      (.put! state 'generation (.ref class-value 'generation))
-      (.put! state 'storage new-storage)
+      (%publish-slot-edits!
+       (list (list state
+                   (cons 'class class-value)
+                   (cons 'generation (.ref class-value 'generation))
+                   (cons 'storage new-storage))))
       (poo-clos-update-instance-for-redefined-class
        instance-value added discarded property-list)
       state)))
@@ -403,9 +406,11 @@
             (%prospective-instance-methods
              poo-clos-shared-initialize-generic
              (list instance-value added) 0 new-class))))
-        (.put! state 'class new-class)
-        (.put! state 'generation (.ref new-class 'generation))
-        (.put! state 'storage new-storage)
+        (%publish-slot-edits!
+         (list (list state
+                     (cons 'class new-class)
+                     (cons 'generation (.ref new-class 'generation))
+                     (cons 'storage new-storage))))
         (apply poo-clos-update-instance-for-different-class
                previous-value instance-value initargs)
         instance-value))))

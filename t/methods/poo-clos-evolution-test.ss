@@ -7,7 +7,7 @@
 
 (import (only-in :std/test
                  test-suite test-case check-equal? check-exception check)
-        (only-in :clan/poo/object .ref .put!)
+        (only-in :clan/poo/object .ref .put! seal-object! object-revision)
         (only-in :clan/poo/slot-observation call-with-slot-read-observer)
         :clan/poo/mop)
 
@@ -18,8 +18,80 @@
     (and (poo-clos-failure? error)
          (eq? (.ref error 'code) code))))
 
+(def (check-instance-publication operation)
+  (def old-class
+    (poo-clos-class 'instance-publication-old
+      direct-slots: (list (poo-clos-direct-slot-definition 'old))))
+  (def new-slots (list (poo-clos-direct-slot-definition 'new)))
+  (def instance (poo-clos-make-instance old-class))
+  (def state (.ref instance '%poo-clos-state))
+  (def next-class
+    (if (eq? operation 'redefine)
+      (poo-clos-redefine-class old-class direct-slots: new-slots)
+      (poo-clos-redefine-class
+       (poo-clos-class 'instance-publication-new) direct-slots: new-slots)))
+  (def (snapshot)
+    (let (storage (.ref state 'storage))
+      (list (eq? (.ref state 'class) next-class)
+            (.ref state 'generation)
+            (hash-key? storage 'old) (hash-key? storage 'new))))
+  (def before (snapshot))
+  (def after (list #t (poo-clos-class-generation next-class) #f #t))
+  (def seen '())
+  (call-with-slot-read-observer
+    void
+    (lambda ()
+      (if (eq? operation 'redefine)
+        (poo-clos-slot-bound? instance 'new)
+        (poo-clos-change-class instance next-class)))
+    before:
+    (lambda (_receiver key)
+      (when (memq key (quote (class generation storage)))
+        (set! seen (cons (snapshot) seen)))))
+  (check-equal? (snapshot) after)
+  (check-equal? (and (member before seen) #t) #t)
+  (check-equal? (and (member after seen) #t) #t)
+  (check-equal? (andmap (lambda (entry) (or (equal? entry before) (equal? entry after))) seen)
+                #t))
+
 (def poo-clos-evolution-test
   (test-suite "POO CLOS class evolution"
+    (test-case "lazy migration publishes one complete instance layout"
+      (check-instance-publication (quote redefine)))
+    (test-case "change-class publishes one complete instance layout"
+      (check-instance-publication (quote change)))
+    (test-case "refused layout publication preserves instance state and revision"
+      (def old (poo-clos-class 'instance-refusal-old
+                 direct-slots: (list (poo-clos-direct-slot-definition 'old))))
+      (def next (poo-clos-class 'instance-refusal-new
+                  direct-slots: (list (poo-clos-direct-slot-definition 'new))))
+      (def instance (poo-clos-make-instance old))
+      (def state (.ref instance '%poo-clos-state))
+      (def storage (.ref state 'storage))
+      (def revision (object-revision state))
+      (seal-object! state)
+      (check-exception (poo-clos-change-class instance next) (lambda (_) #t))
+      (check-equal? (eq? (.ref state 'class) old) #t)
+      (check-equal? (.ref state 'generation) 0)
+      (check-equal? (eq? (.ref state 'storage) storage) #t)
+      (check-equal? (object-revision state) revision))
+
+    (test-case "an update callback refuses after the complete instance layout is published"
+      (def old (poo-clos-class 'instance-update-old
+                 direct-slots: (list (poo-clos-direct-slot-definition 'old))))
+      (def cause (list 'instance-update-refused))
+      (def next
+        (poo-clos-class 'instance-update-new
+          direct-slots: (list (poo-clos-direct-slot-definition 'new))
+          different-class-update-handler: (lambda (_previous _current . _args) (raise cause))))
+      (def instance (poo-clos-make-instance old))
+      (def state (.ref instance '%poo-clos-state))
+      (check-exception (poo-clos-change-class instance next) (lambda (error) (eq? error cause)))
+      (check-equal? (eq? (.ref state 'class) next) #t)
+      (check-equal? (.ref state 'generation) (poo-clos-class-generation next))
+      (check-equal? (hash-key? (.ref state 'storage) 'old) #f)
+      (check-equal? (hash-key? (.ref state 'storage) 'new) #t))
+
     (test-case "redefinition preserves class identity and migrates lazily"
       (let* ((updates '())
              (x-slot

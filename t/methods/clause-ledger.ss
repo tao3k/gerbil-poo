@@ -148,7 +148,7 @@
                    "t/methods/poo-clos-method-combination-test.ss"
                    'poo-clos-method-combination-test 14)
    (evidence-suite 'evolution "t/methods/poo-clos-evolution-test.ss"
-                   'poo-clos-evolution-test 9)
+                   'poo-clos-evolution-test 13)
    (evidence-suite 'generic-evolution
                    "t/methods/poo-clos-generic-evolution-test.ss"
                    'poo-clos-generic-evolution-test 6)

@@ -33,6 +33,8 @@ Explicit initargs can fill their slots regardless of the mask. The
 [pane example](../t/methods/duim-pane.ss) and its
 [extension](../t/methods/duim-pane-test.ss) show a method bundle adding
 initialization behavior from a separate module.
+The [lifecycle model](https://github.com/tao3k/lean-poo/blob/994f314b2c02491ae6cdca17152e86c9ceeb2444/LeanPoo/Object/ClosLifecycle.lean)
+checks operation-specific keyword admission, slot masks and method order.
 [HyperSpec initialization](https://www.lispworks.com/documentation/HyperSpec/Body/07_.htm) ·
 [Gerbil #1372](https://github.com/mighty-gerbils/gerbil/issues/1372)
 
@@ -116,6 +118,11 @@ lookups share the read-only method index implementation. A class redefinition
 publishes effective slots, their lookup, history and generation together with
 the affected subclass updates. Effective slot descriptors are sealed and their
 list fields are detached on read. Class slot initializers run after publication.
+Instance migration publishes class, generation and storage in one POO Slot batch.
+In the supported serial callback model, read prechecks see a complete layout.
+A refused publication preserves the layout and revision. Update methods run
+after commit; an error from an update method retains the published layout.
+[LeanPoo instance publication](https://github.com/tao3k/lean-poo/blob/994f314b2c02491ae6cdca17152e86c9ceeb2444/LeanPoo/Object/ClosInstancePublication.lean)
 To change a published method family, use method installation or removal. Updating the
 specializer slot on a constructed Method copies the new spine at the POO
 write boundary. The [LeanPoo ownership model](https://github.com/tao3k/lean-poo/blob/1d8e7bbae90301e467b69c2ebb4a5326e422942e/LeanPoo/Object/ClosAdmission.lean#L586)
