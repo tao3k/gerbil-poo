@@ -29,11 +29,16 @@
 ;; retains admitted Function keys and does not reconstruct or normalize them.
 ;; The shared dynamic admission guard rejects direct or mutual receiver/root
 ;; reentry before repeating a recognizer, and restores its scope on every exit.
-(def (require-set descriptor root)
+(def completed-set-backing (make-parameter #f))
+
+(def (require-set descriptor root (share-backing? #f))
   (admit-table-observation descriptor root
     (lambda (descriptor root)
       (require-set-elements descriptor root)
-      (require-table descriptor root))))
+      (if share-backing?
+        (parameterize ((completed-set-backing (cons descriptor root)))
+          (require-table descriptor root))
+        (require-table descriptor root)))))
 
 ;; The backing carrier and every declared element are independent obligations.
 ;; Matching descriptor identities reuse backing recognition without another scan.
@@ -49,7 +54,9 @@
 ;; Default Type recognition includes independently overridden Elt contracts.
 ;; Typed refusal is false; callback/backend errors retain their original cause.
 (def (set-element? descriptor root)
-  (try (require-set-elements descriptor root) #t (catch (TypeError? _) #f)))
+  (def checked (completed-set-backing))
+  (or (and checked (eq? descriptor (car checked)) (eq? root (cdr checked)))
+      (try (require-set-elements descriptor root) #t (catch (TypeError? _) #f))))
 
 ;; Checked element requests must satisfy Elt AND the backing key domain before
 ;; backend work. Recognition preserves existing Function handles, never cooks them.
@@ -130,12 +137,18 @@
 ;; One admitted traversal serves folds and visits in either backend direction.
 ;; Check the caller callback even for empty roots; discard visit results exactly
 ;; as for-each requires. No element is normalized or wrapped during observation.
-(def (fold-set descriptor method f seed input (visit? #f))
+(def (fold-set descriptor method f seed input (visit? #f) (share-backing? #f))
   (using (f :~ procedure?)
-    (with-set-inputs descriptor (list input) (lambda ()
+    (with-set-sources descriptor (lambda (_sources)
+      (require-set descriptor input (and share-backing? (share-backing?)))
       ((.ref (.@ descriptor Table) method)
         (if visit? (lambda (elt _value _seed) (f elt) (void))
           (lambda (elt _value acc) (f elt acc))) seed input)))))
+
+;; Used by the built-in UIntTrieSet fold. The normal receiver recognizer still
+;; runs. Only its default implementation can consume the checked backing root.
+(def (fold-set/shared-backing descriptor f seed input share-backing?)
+  (fold-set descriptor '.foldl f seed input #f share-backing?))
 
 ;; Resolve and call one backing method inside the shared admission scope. Standard
 ;; apply carries its arguments; callers need no extra construction thunk. Backend

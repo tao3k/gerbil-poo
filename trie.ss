@@ -5,6 +5,7 @@
 (export #t)
 
 (import
+  (only-in ./slot-observation slot-read-observers-compatible?)
   :std/format :std/iter :std/number/misc :std/values
   ./support/base ./support/option
   ./object ./mop/prototype ./brace ./number ./type ./fun ./io ./table)
@@ -916,4 +917,16 @@
    sexp: `(SimpleTrieSet ,(.@ Elt sexp))
    Value: Unit})
 
-(def UIntTrieSet (SimpleTrieSet UInt))
+(def UIntTrieSet
+  {(:: @ [TrieSet.])
+   Elt: UInt
+   sexp: `(SimpleTrieSet ,(.@ UInt sexp))
+   Value: Unit
+   .foldl:
+   (lambda (f seed input)
+     (fold-set/shared-backing @ f seed input
+       (lambda ()
+         (and (eq? @ UIntTrieSet)
+              (slot-read-observers-compatible? [])
+              (andmap (lambda (source) (zero? (object-revision source)))
+                      (list @ (.@ @ Table) Type Type. UInt Unit Identity))))))})
