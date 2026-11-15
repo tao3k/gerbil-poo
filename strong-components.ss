@@ -15,9 +15,8 @@
         (only-in :std/list/list-builder with-list-builder)
         (only-in ./support/base %graph-table-seed)
         (only-in ./support/index %roster %roster-width %roster-position %roster-keys %roster-for-each %roster-project
-                 %index-retire! %index-overridden?)
-        (only-in ./generalized-graph %index %index-project %index-ref %index-fork %index-write!
-                 %reverse-bucket-remove %reverse-bucket-add %for-each-reverse-bucket)
+                 %index %index-ref %index-fork %index-write! %index-retire! %index-overridden?)
+        (only-in ./generalized-graph %reverse-bucket-remove %reverse-bucket-add %for-each-reverse-bucket)
         ./object)
 ;; Public groups/representatives retain source order, independently of DFS order.
 (defstruct %partition (groups owner reads members work owners owned) final: #t)

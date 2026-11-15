@@ -5,7 +5,6 @@
         %reschedule-owned-support %schedule-support-revision %schedule-revision-retirements %schedule-same-program?
         affected-owners schedule-invalidation schedule-invalidate! %apply-schedule-revision-with-invalidation
         %schedule-replacement-invalidate!
-        %index %index-project %index-ref %index-fork %index-write!
         %reverse-bucket-remove %reverse-bucket-add %for-each-reverse-bucket
         %capture-component-source %component-source-view %edit-component-source
         %component-source-current! %with-component-source
