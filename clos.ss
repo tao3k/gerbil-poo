@@ -5,7 +5,7 @@
 
 ;;; Public POO CLOS interface.
 
-(import "clos/types.ss" "clos/objects.ss" "clos/funcs.ss" "clos/generic-evolution.ss" "clos/classes.ss"
+(import "clos/types.ss" "clos/objects.ss" "clos/generic-evolution.ss" "clos/classes.ss"
         "clos/model.ss"
         "clos/evolution.ss" "clos/lifecycle.ss" "clos/reflection.ss" "clos/dispatch.ss"
         "clos/load-form.ss" "clos/mop.ss" "clos/syntax.ss")

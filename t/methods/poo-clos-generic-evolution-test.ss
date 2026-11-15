@@ -168,4 +168,19 @@
         (check-equal? (poo-clos-generic-generation binding) 1)
         (check-exception
          (poo-clos-ensure-generic-function 'other existing: binding)
-         (failure-code? 'generic-binding-identity-mismatch))))))
+         (failure-code? 'generic-binding-identity-mismatch))
+        (check-exception
+         (poo-clos-ensure-generic-function '(setf same extra) existing: binding required: -1)
+         (failure-code? 'invalid-generic-name))
+        (check-exception
+         (poo-clos-find-generic-function '(setf . same) error?: #f)
+         (failure-code? 'invalid-generic-function-name))
+        (check-exception
+         (poo-clos-generic-function '(setf same extra) -1)
+         (failure-code? 'invalid-required-argument-count))
+        (check-exception
+         (poo-clos-generic-function '(setf same extra) 1)
+         (failure-code? 'invalid-generic-function))
+        (check-exception
+         (poo-clos-method '(setf same extra) '() (lambda (_frame) #f))
+         (failure-code? 'invalid-method))))))

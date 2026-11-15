@@ -8,6 +8,7 @@
 (import :clan/poo/object
         (only-in :clan/poo/mop element?)
         (only-in :std/list/list map-in-order)
+        (only-in "funcs.ss" poo-clos-function-name?)
         "types.ss" "objects.ss")
 
 (export poo-clos-ensure-generic-function
@@ -180,10 +181,7 @@
       method-combination:
       (combination-value +poo-clos-unspecified-generic-option+)
       protocol: (protocol-value +poo-clos-unspecified-generic-option+))
-  (unless (or (symbol? identity-value)
-              (and (list? identity-value) (= (length identity-value) 2)
-                   (eq? (car identity-value) 'setf)
-                   (symbol? (cadr identity-value))))
+  (unless (poo-clos-function-name? identity-value)
     (clos-fail 'invalid-generic-name generic: identity-value))
   (if existing-value
     (let (binding-value

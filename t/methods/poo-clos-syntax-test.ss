@@ -343,14 +343,12 @@
         (check-equal? (standard-value entity) 1)
         (check-equal? (poo-clos-setf 'standard-value 2 entity) 2)
         (check-equal? (standard-value entity) 2)
-        (check
-         (if (poo-clos-find-generic-function
-              '(setf standard-value) error?: #f) #t #f)
-         => #t)
-        (check
-         (if (poo-clos-find-generic-function
-              (list 'setf 'standard-value) error?: #f) #t #f)
-         => #t)))
+        (let ((reader (poo-clos-find-generic-function 'standard-value))
+              (writer (poo-clos-find-generic-function '(setf standard-value))))
+          (check (eq? writer
+                      (poo-clos-find-generic-function (list 'setf 'standard-value) error?: #f))
+                 => #t)
+          (check (eq? reader writer) => #f))))
 
     (test-case "SETF function names are valid generic declarations"
       (let (entity (poo-clos-make-instance SyntaxEntity name: 'before))
@@ -436,6 +434,15 @@
          '(person ("Dr" Ada "." #t #f) "Dr" "!" #t #f #t))))
 
     (test-case "declaration IR rejects duplicates, unknown clauses, and bad order"
+      (check
+       (integer?
+        (string-contains
+         (syntax-error-message
+          (lambda ()
+            (let (name (datum->syntax #f '(setf access extra)))
+              (parse-poo-clos-generic-declaration-ir name (datum->syntax #f '(x x)) '() name))))
+         "poo-clos-invalid-function-name"))
+       => #t)
       (check
        (integer?
         (string-contains

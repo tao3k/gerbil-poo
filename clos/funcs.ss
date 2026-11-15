@@ -3,13 +3,14 @@
 ;;;
 ;;; SPDX-License-Identifier: Apache-2.0 AND LGPL-2.1-or-later
 
-;;; Reusable linear-time list and initarg algorithms for the POO CLOS module.
-;;; Domain files own policy; this factor owns traversal and indexing mechanics.
+;;; Reusable name checks, list traversal and indexing for CLOS.
 
 (import (only-in :std/list/plist plist?)
         (only-in :gerbil/runtime/hash list->hash-table-eq))
 
-(export poo-clos-initarg-list? poo-clos-initarg-names
+(export poo-clos-setf-name? poo-clos-function-name? poo-clos-function-name-list?
+        poo-clos-initarg-name? poo-clos-initarg-name-list? poo-clos-default-initargs?
+        poo-clos-initarg-list? poo-clos-initarg-names
         poo-clos-initarg-ref poo-clos-initarg-index
         poo-clos-initarg-index-first-of poo-clos-identity-index
         poo-clos-leftmost-index-by poo-clos-first-invalid-initarg
@@ -17,12 +18,34 @@
         poo-clos-position-lookup
         poo-clos-natural-permutation?)
 
+(def (poo-clos-setf-name? name)
+  (and (pair? name) (eq? (car name) 'setf)
+       (pair? (cdr name)) (symbol? (cadr name)) (null? (cddr name))))
+
+(def (poo-clos-function-name? name)
+  (or (symbol? name) (poo-clos-setf-name? name)))
+
+(def (poo-clos-function-name-list? names)
+  (and (list? names) (andmap poo-clos-function-name? names)))
+
+(def (poo-clos-initarg-name? name)
+  (or (symbol? name) (keyword? name)))
+
+(def (poo-clos-initarg-name-list? names)
+  (and (list? names) (andmap poo-clos-initarg-name? names)))
+
+(def (poo-clos-default-initargs? entries)
+  (and (list? entries)
+       (andmap (lambda (entry)
+                 (and (pair? entry) (poo-clos-initarg-name? (car entry))
+                      (procedure? (cdr entry))))
+               entries)))
+
 (def (poo-clos-initarg-list? values)
   (and (plist? values)
        (let loop ((rest values))
          (or (null? rest)
-             (and (let (name (car rest))
-                    (or (symbol? name) (keyword? name)))
+             (and (poo-clos-initarg-name? (car rest))
                   (loop (cddr rest)))))))
 
 (def (poo-clos-initarg-names values)

@@ -5,6 +5,7 @@
 
 (import :std/test
         (only-in :clan/poo/clos/funcs
+                 poo-clos-function-name? poo-clos-initarg-name?
                  poo-clos-initarg-list? poo-clos-initarg-ref
                  poo-clos-initarg-index poo-clos-initarg-index-first-of
                  poo-clos-identity-index poo-clos-leftmost-index-by
@@ -19,10 +20,20 @@
     (test-case "plist traversal preserves presence and leftmost values"
       (check (poo-clos-initarg-list? '(alpha 1 beta #f alpha 2)) => #t)
       (check (poo-clos-initarg-list? '(alpha 1 beta)) => #f)
+      (check (poo-clos-initarg-list? (list alpha: 1 'beta #f)) => #t)
+      (check (poo-clos-initarg-list? '((setf alpha) 1)) => #f)
       (check (call-with-values
               (lambda () (poo-clos-initarg-ref '(alpha #f alpha 2) 'alpha))
               cons)
              => '(#t . #f)))
+    (test-case "function names and initarg names have separate grammars"
+      (check (poo-clos-function-name? 'name) => #t)
+      (check (poo-clos-function-name? (list 'setf 'name)) => #t)
+      (for-each (lambda (name) (check (poo-clos-function-name? name) => #f))
+        (list name: '(setf) '(setf name extra) '(setf . name) (list 'setf name:)))
+      (check (poo-clos-initarg-name? 'name) => #t)
+      (check (poo-clos-initarg-name? name:) => #t)
+      (check (poo-clos-initarg-name? '(setf name)) => #f))
     (test-case "ordered indexes select call order across aliases"
       (let (index (poo-clos-initarg-index '(second 2 first 1 second 9)))
         (check (call-with-values

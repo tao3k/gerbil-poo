@@ -396,6 +396,21 @@
          (poo-clos-direct-slot-definition 'bad allocation: 'dynamic)
          (failure-code? 'invalid-slot-allocation))
         (check-exception
+         (poo-clos-direct-slot-definition 'bad initargs: '((setf only)) writers: '((setf . writer)))
+         (failure-code? 'invalid-slot-initargs))
+        (check-exception
+         (poo-clos-direct-slot-definition 'bad writers: '((setf . writer)))
+         (failure-code? 'invalid-slot-accessors))
+        (check-exception
+         (poo-clos-class 'bad-default
+           default-initargs: (list (cons '(setf only) (lambda () 1))))
+         (failure-code? 'invalid-default-initargs))
+        (check-equal? (.ref (poo-clos-lambda-list 0 0 #f #t (list 'one two:) #f) 'keys)
+                      (list 'one two:))
+        (check-exception
+         (poo-clos-lambda-list 0 0 #f #t '((setf name)) #f)
+         (failure-code? 'invalid-lambda-list))
+        (check-exception
          (poo-clos-class 'duplicates direct-slots: (list slot slot))
          (failure-code? 'duplicate-direct-slot))
         (let (class-value
@@ -411,6 +426,8 @@
             (check (poo-clos-slot-exists? instance-value 'missing) => #f))
           (check-exception (apply poo-clos-make-instance
                                   (list class-value only:))
+                           (failure-code? 'malformed-initialization-arguments))
+          (check-exception (apply poo-clos-make-instance class-value '((setf only) 1))
                            (failure-code? 'malformed-initialization-arguments))
           (check (poo-clos-instance?
                   (poo-clos-make-instance

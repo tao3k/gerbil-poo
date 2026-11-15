@@ -115,8 +115,7 @@
   (cond
    ((symbol? name)
     (values poo-clos-generic-function-registry name))
-   ((and (list? name) (= (length name) 2)
-         (eq? (car name) 'setf) (symbol? (cadr name)))
+   ((poo-clos-setf-name? name)
     (values poo-clos-setf-generic-function-registry (cadr name)))
    (else
     (clos-fail 'invalid-generic-function-name generic: name))))
@@ -303,10 +302,7 @@
   (unless (and (exact-integer? required-value) (>= required-value 0)
                (exact-integer? optional-value) (>= optional-value 0)
                (boolean? rest-value) (boolean? key-value)
-               (list? key-values)
-               (andmap (lambda (name)
-                         (or (symbol? name) (keyword? name)))
-                       key-values)
+               (poo-clos-initarg-name-list? key-values)
                (boolean? allow-other-keys-value)
                (or key-value (null? key-values))
                (or key-value (not allow-other-keys-value)))

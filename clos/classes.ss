@@ -83,15 +83,6 @@
    ((symbol? value) (poo-clos-find-class value))
    (else (clos-fail 'invalid-class class: value))))
 
-;; : (-> SchemeValue Boolean)
-(def (initarg-name? value)
-  (or (symbol? value) (keyword? value)))
-
-(def (function-name? value)
-  (or (symbol? value)
-      (and (list? value) (= (length value) 2)
-           (eq? (car value) 'setf) (symbol? (cadr value)))))
-
 ;; : (-> [SchemeValue] [SchemeValue])
 (def (unique/identity values)
   (delete-duplicates/hash
@@ -124,10 +115,10 @@
     (clos-fail 'invalid-slot-name slot: identity-value))
   (unless (memq allocation-value '(instance class))
     (clos-fail 'invalid-slot-allocation slot: identity-value))
-  (unless (and (list? initarg-values) (andmap initarg-name? initarg-values))
+  (unless (poo-clos-initarg-name-list? initarg-values)
     (clos-fail 'invalid-slot-initargs slot: identity-value))
-  (unless (and (list? reader-values) (andmap function-name? reader-values)
-               (list? writer-values) (andmap function-name? writer-values))
+  (unless (and (poo-clos-function-name-list? reader-values)
+               (poo-clos-function-name-list? writer-values))
     (clos-fail 'invalid-slot-accessors slot: identity-value))
   (unless (or (eq? initform-value +poo-clos-no-initform+)
               (procedure? initform-value))
@@ -149,13 +140,9 @@
        documentation: documentation-value)
    'invalid-direct-slot-definition))
 
-;; : (-> SchemeValue Boolean)
-(def (default-initarg-entry? value)
-  (and (pair? value) (initarg-name? (car value)) (procedure? (cdr value))))
-
 ;; : (-> [SchemeValue] [Pair])
 (def (require-default-initargs values)
-  (unless (and (list? values) (andmap default-initarg-entry? values))
+  (unless (poo-clos-default-initargs? values)
     (clos-fail 'invalid-default-initargs))
   (unless (unique-identities? (map car values))
     (clos-fail 'duplicate-default-initarg))

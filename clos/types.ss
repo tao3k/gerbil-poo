@@ -10,7 +10,10 @@
 
 (import :clan/poo/object
         (only-in :clan/poo/class-validation required-slots?)
-        (only-in :clan/poo/mop define-type Type. element?))
+        (only-in :clan/poo/mop define-type Type. element?)
+        (only-in "funcs.ss"
+                 poo-clos-function-name? poo-clos-function-name-list?
+                 poo-clos-initarg-name-list? poo-clos-default-initargs?))
 
 (export ClosSpecializer ClosLambdaList ClosMethod ClosMethodBundle
         ClosMethodGroup ClosMethodCombination
@@ -82,20 +85,6 @@
 (def (symbol-list? value)
   (and (list? value) (andmap symbol? value)))
 
-(def (function-name? value)
-  (or (symbol? value)
-      (and (list? value) (= (length value) 2)
-           (eq? (car value) 'setf) (symbol? (cadr value)))))
-
-(def (function-name-list? value)
-  (and (list? value) (andmap function-name? value)))
-
-(def (name? value)
-  (or (symbol? value) (keyword? value)))
-
-(def (name-list? value)
-  (and (list? value) (andmap name? value)))
-
 (def (specializer-kind? value)
   (if (memq value '(any class prototype eql)) #t #f))
 
@@ -122,7 +111,7 @@
          (optional natural?)
          (rest? boolean?)
          (key? boolean?)
-         (keys name-list? owned-list)
+         (keys poo-clos-initarg-name-list? owned-list)
          (allow-other-keys? boolean?))))
 
 ;;; Lambda-list descriptors retain only the congruence and call-admission
@@ -174,7 +163,7 @@
 (def (clos-method-element? candidate)
   (and (clos-instance? (.ref ClosMethod 'proto) candidate)
        (required-slots? candidate
-         (identity function-name?)
+         (identity poo-clos-function-name?)
          (specializers specializers? read: %ref-owned-list))
        (closed-required-slots? candidate
          (qualifier qualifier? owned-list) (body procedure?))
@@ -274,7 +263,7 @@
 (def (clos-generic-function-element? candidate)
   (and (clos-instance? (.ref ClosGenericFunction 'proto) candidate)
        (closed-required-slots? candidate
-         (identity function-name?) (required natural?) (rest? boolean?)
+         (identity poo-clos-function-name?) (required natural?) (rest? boolean?)
          (argument-precedence-order argument-precedence-order? owned-list))
        (required-slots? candidate
          (method-combination method-combination?)
@@ -297,7 +286,7 @@
 (def (clos-generic-binding-element? candidate)
   (and (clos-instance? (.ref ClosGenericBinding 'proto) candidate)
        (required-slots? candidate
-         (identity function-name?)
+         (identity poo-clos-function-name?)
          (current (cut element? ClosGenericFunction <>)))))
 
 ;;; A binding is the explicit effect owner for top-level defmethod evolution;
@@ -393,10 +382,10 @@
        (required-slots? candidate
          (identity symbol?)
          (allocation allocation?)
-         (initargs name-list?)
+         (initargs poo-clos-initarg-name-list?)
          (initfunction procedure-or-false?)
-         (readers function-name-list?)
-         (writers function-name-list?)
+         (readers poo-clos-function-name-list?)
+         (writers poo-clos-function-name-list?)
          (type-predicate procedure-or-false?)
          (documentation string-or-false?))))
 
@@ -419,10 +408,10 @@
        (required-slots? candidate
          (identity symbol?)
          (allocation allocation?)
-         (initargs name-list?)
+         (initargs poo-clos-initarg-name-list?)
          (initfunction procedure-or-false?)
-         (readers function-name-list?)
-         (writers function-name-list?)
+         (readers poo-clos-function-name-list?)
+         (writers poo-clos-function-name-list?)
          (type-predicates list?)
          (documentation string-or-false?)
          (defining-classes class-references?)
@@ -438,19 +427,13 @@
   (and (list? value)
        (andmap (cut element? ClosDirectSlotDefinition <>) value)))
 
-(def (default-initarg-entry? value)
-  (and (pair? value) (name? (car value)) (procedure? (cdr value))))
-
-(def (default-initargs? value)
-  (and (list? value) (andmap default-initarg-entry? value)))
-
 (def (clos-class-element? candidate)
   (and (clos-instance? (.ref ClosClass 'proto) candidate)
        (required-slots? candidate
          (identity symbol?)
          (direct-superclasses class-references?)
          (direct-slots direct-slot-definitions?)
-         (default-initargs default-initargs?)
+         (default-initargs poo-clos-default-initargs?)
          (generation natural?)
          (slot-missing-handler procedure-or-false?)
          (slot-unbound-handler procedure-or-false?)
