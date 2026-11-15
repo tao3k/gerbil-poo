@@ -28,6 +28,7 @@
     (gxc: "benchmarks/closure-benchmark-support" "-cc-options" "-O2")
     (gxc: "benchmarks/closure-cases" "-cc-options" "-O2")
     (gxc: "benchmarks/closure-measure" "-cc-options" "-O2")
+    (gxc: "benchmarks/owned-publication-test" "-cc-options" "-O2")
     (gxc: "benchmarks/closure-paired-benchmark" "-cc-options" "-O2")
     (gxc: "benchmarks/closure-paired-suite" "-cc-options" "-O2")
     (gxc: "benchmarks/closure-parity" "-cc-options" "-O2")
