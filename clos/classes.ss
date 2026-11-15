@@ -12,6 +12,9 @@
         (only-in :std/list/list find filter filter-map flatten1)
         "types.ss" "objects.ss" "funcs.ss")
 
+(extern namespace: clan/poo/object %ref-owned-list)
+(extern namespace: clan/poo/slot-observation %make-owned-list)
+
 (export ClosDirectSlotDefinition ClosEffectiveSlotDefinition ClosClass
         poo-clos-standard-object-class poo-clos-direct-slot-definition
         poo-clos-class
@@ -402,11 +405,12 @@
             class-storage: class-storage-value
             instance-prototype: (make-instance-prototype self)
             class-precedence-list:
-            (compute-class-precedence-list
-             (.ref self 'instance-prototype) identity-value)
+            (%make-owned-list
+             (compute-class-precedence-list
+              (.ref self 'instance-prototype) identity-value))
             class-precedence-index:
-            (poo-clos-position-index/identity
-             (.ref self 'class-precedence-list))
+            (poo-clos-position-lookup
+             (%ref-owned-list self 'class-precedence-list))
             effective-slots: '()
             effective-slot-index: (make-hash-table-eq))))
     (let (class-value
@@ -439,7 +443,7 @@
           (compute-effective-slots precedence-value direct-slots-for)))
     (.o prototype: prototype-value
         precedence: precedence-value
-        precedence-index: (poo-clos-position-index/identity precedence-value)
+        precedence-index: (poo-clos-position-lookup precedence-value)
         effective-slots: effective-slots-value
         effective-slot-index:
         (poo-clos-leftmost-index-by
@@ -487,7 +491,8 @@
       (.put! class-value 'different-class-update-handler different-handler-value)
       (.put! class-value 'generation (+ 1 (.ref class-value 'generation)))
       (.put! class-value 'instance-prototype (.ref projection 'prototype))
-      (.put! class-value 'class-precedence-list (.ref projection 'precedence))
+      (.put! class-value 'class-precedence-list
+             (%make-owned-list (.ref projection 'precedence)))
       (.put! class-value 'class-precedence-index
              (.ref projection 'precedence-index))
       (.put! class-value 'effective-slots (.ref projection 'effective-slots))
@@ -558,7 +563,6 @@
 (def (poo-clos-class-subclass? class-value superclass-value)
   (and (element? ClosClass class-value)
        (element? ClosClass superclass-value)
-       (if (hash-key? (.ref class-value 'class-precedence-index)
-                      superclass-value)
+       (if ((.ref class-value 'class-precedence-index) superclass-value)
          #t
          #f)))

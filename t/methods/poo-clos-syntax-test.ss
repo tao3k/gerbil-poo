@@ -7,7 +7,8 @@
 
 (import (only-in :std/test
                  test-suite test-case check-equal? check-exception check)
-        (only-in :clan/poo/object .def .o .ref)
+        (only-in :clan/poo/object .def .o .ref .get .call)
+        (only-in :clan/poo/fun Observation.)
         (only-in :gerbil/expander datum->syntax)
         (only-in :gerbil/runtime/gambit
                  call-with-output-string display-exception
@@ -188,6 +189,20 @@
       (check-equal? (empty-generic-key 'known known: #f) #f)
       (check-equal? (empty-method-key 'probe allow-other-keys: #t unknown: 1)
                     '(allow-other-keys: #t unknown: 1))
+      (for-each
+       (lambda (names)
+         (def first (car names))
+         (def second (cadr names))
+         (def accepted (list first #t second #f unknown: 1))
+         (check-equal?
+          (apply poo-clos-call (.generic-object empty-method-key) 'probe accepted)
+          accepted)
+         (check-exception
+          (apply poo-clos-call (.generic-object empty-method-key) 'probe
+            (list first #f second #t unknown: 1))
+          (failure-code? 'invalid-keyword-argument)))
+       (list (list 'allow-other-keys allow-other-keys:)
+             (list allow-other-keys: 'allow-other-keys)))
       (check-exception (empty-generic-key 'probe unknown: 1)
                        (failure-code? 'invalid-keyword-argument))
       (check-exception (empty-method-key 'probe unknown: 1)
@@ -196,6 +211,12 @@
                        (failure-code? 'malformed-keyword-arguments))
       (check-exception (empty-key-miss 'probe unknown: 1)
                        (failure-code? 'no-applicable-method)))
+    (test-case "FUN composes a POO slot read with public CLOS dispatch"
+      (def describe
+        (.call Observation. .map empty-generic-key
+          (lambda (config) (.get config status))))
+      (check-equal? (describe (.o status: 'probe)) '())
+      (check-equal? (describe (.o status: 'known)) #f))
     (test-case "generic protocol identity reaches inline method admission"
       (check (eq? (.ref (.generic-object protocol-inline) 'protocol)
                   syntax-protocol) => #t)

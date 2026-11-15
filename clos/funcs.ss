@@ -7,14 +7,14 @@
 ;;; Domain files own policy; this factor owns traversal and indexing mechanics.
 
 (import (only-in :std/list/plist plist?)
-        (only-in :gerbil/runtime/hash list->hash-table-eq)
-        (only-in :std/hash/misc invert-hash<-vector))
+        (only-in :gerbil/runtime/hash list->hash-table-eq))
 
 (export poo-clos-initarg-list? poo-clos-initarg-names
         poo-clos-initarg-ref poo-clos-initarg-index
         poo-clos-initarg-index-first-of poo-clos-identity-index
         poo-clos-leftmost-index-by poo-clos-first-invalid-initarg
-        poo-clos-position-index/identity
+        poo-clos-allow-other-keys-name? poo-clos-allow-other-keys?
+        poo-clos-position-lookup
         poo-clos-natural-permutation?)
 
 (def (poo-clos-initarg-list? values)
@@ -72,10 +72,14 @@
   (list->hash-table-eq
    (reverse (map (lambda (value) (cons (key-of value) value)) values))))
 
-(def (poo-clos-position-index/identity values)
-  ;; CLOS precedence inputs are uniqueness-admitted. Gerbil std performs the
-  ;; vector inversion; callers outside that contract receive the last position.
-  (invert-hash<-vector (list->vector values) to: (make-hash-table-eq)))
+;; Admitted class and method orders have distinct identities.
+(def (poo-clos-position-lookup values)
+  (def positions (make-table test: eq?))
+  (let loop ((remaining values) (position 0))
+    (unless (null? remaining)
+      (table-set! positions (car remaining) position)
+      (loop (cdr remaining) (1+ position))))
+  (lambda (value) (table-ref positions value #f)))
 
 ;; One bounded vector pass proves that values are exactly 0..size-1.
 (def (poo-clos-natural-permutation? values size)
@@ -98,3 +102,16 @@
           ((or (exempt? (car rest)) (hash-key? valid-index (car rest)))
            (loop (cddr rest)))
           (else (car rest)))))
+
+(def (poo-clos-allow-other-keys-name? name)
+  (or (eq? name 'allow-other-keys)
+      (and (keyword? name)
+           (string=? (keyword->string name) "allow-other-keys"))))
+
+;; Callers have already checked the plist. Both spellings name the same
+;; control, so an explicit #f at the first occurrence ends the search.
+(def (poo-clos-allow-other-keys? arguments)
+  (let loop ((rest arguments))
+    (cond ((null? rest) #f)
+          ((poo-clos-allow-other-keys-name? (car rest)) (cadr rest))
+          (else (loop (cddr rest))))))

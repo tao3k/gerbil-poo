@@ -9,7 +9,7 @@
                  poo-clos-initarg-index poo-clos-initarg-index-first-of
                  poo-clos-identity-index poo-clos-leftmost-index-by
                  poo-clos-first-invalid-initarg
-                 poo-clos-position-index/identity
+                 poo-clos-position-lookup
                  poo-clos-natural-permutation?))
 
 (export poo-clos-funcs-test)
@@ -44,9 +44,10 @@
         (check (hash-get index 'payload) => first)))
     (test-case "positions and natural permutations use bounded runtime indexes"
       (let* ((a (cons 'a '())) (b (cons 'b '()))
-             (positions (poo-clos-position-index/identity (list a b))))
-        (check (hash-get positions a) => 0)
-        (check (hash-get positions b) => 1)
+             (positions (poo-clos-position-lookup (list a b))))
+        (check (positions a) => 0)
+        (check (positions b) => 1)
+        (check (positions (cons 'a '())) => #f)
         (check (poo-clos-natural-permutation? '(2 0 1) 3) => #t)
         (check (poo-clos-natural-permutation? '(2 0 2) 3) => #f)
         (check (poo-clos-natural-permutation? '(3 0 1) 3) => #f)))))

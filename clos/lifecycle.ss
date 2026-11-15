@@ -255,19 +255,6 @@
 ;; : (-> [SchemeValue] [SchemeValue] (values Boolean SchemeValue))
 (def slot-initialization-argument poo-clos-initarg-index-first-of)
 
-;; : (-> SchemeValue Boolean)
-(def (allow-other-keys-name? value)
-  (or (eq? value 'allow-other-keys)
-      (and (keyword? value)
-           (string=? (keyword->string value) "allow-other-keys"))))
-
-;; : (-> [SchemeValue] Boolean)
-(def (allow-other-keys? values)
-  (let loop ((rest values))
-    (cond ((null? rest) #f)
-          ((allow-other-keys-name? (car rest)) (cadr rest))
-          (else (loop (cddr rest))))))
-
 ;; : (-> ClosClass ClosSpecializer Boolean)
 (def (specializer-admits-class? class-value specializer)
   (case (.ref specializer 'kind)
@@ -321,11 +308,11 @@
   (unless (initialization-argument-list? values)
     (clos-fail 'malformed-initialization-arguments
                class: (.ref class-value 'identity)))
-  (unless (allow-other-keys? values)
+  (unless (poo-clos-allow-other-keys? values)
     (let* ((valid-index (valid-slot-initarg-index class-value))
            (invalid-name
             (poo-clos-first-invalid-initarg
-             values valid-index allow-other-keys-name?)))
+             values valid-index poo-clos-allow-other-keys-name?)))
       (when invalid-name
         (clos-fail 'invalid-initialization-argument
                    class: (.ref class-value 'identity)

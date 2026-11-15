@@ -7,9 +7,10 @@
 
 (import :clan/poo/object
         (only-in :clan/poo/mop element?)
-        (only-in :std/list/list drop filter-map find flatten1)
+        (only-in :std/list/list filter-map find flatten1)
         "types.ss" "objects.ss" "method-combination.ss"
         "funcs.ss"
+        (only-in "lambda-list.ss" poo-clos-rest-arguments)
         (only-in :clan/poo/read-projection owned-read-open! owned-read-method! owned-read-hook-owner!))
 
 (export poo-clos-compute-applicable-methods poo-clos-call
@@ -156,36 +157,6 @@
       (clos-fail 'argument-count-mismatch
                  generic: (.ref generic 'identity)))))
 
-;; : (-> SchemeValue Boolean)
-(def (keyword-name? value)
-  (or (symbol? value) (keyword? value)))
-
-;; : (-> SchemeValue Boolean)
-(def (allow-other-keys-name? value)
-  (or (eq? value 'allow-other-keys)
-      (and (keyword? value)
-           (string=? (keyword->string value) "allow-other-keys"))))
-
-;; : (-> [SchemeValue] Natural [SchemeValue])
-(def (keyword-tail arguments start)
-  (drop arguments (min start (length arguments))))
-
-;; : (-> [SchemeValue] InitargName (Maybe SchemeValue))
-(def (keyword-value arguments name)
-  (call-with-values
-   (lambda () (poo-clos-initarg-ref arguments name))
-   (lambda (present? value) (and present? value))))
-
-;;; An explicit =allow-other-keys= argument admits unknown keys only when its
-;;; leftmost value is true.  Absence and an explicit false value are both
-;;; intentionally rejecting outcomes.
-;; : (-> [SchemeValue] Boolean)
-(def (call-allows-other-keys? arguments)
-  (let ((symbol-value (keyword-value arguments 'allow-other-keys))
-        (keyword-value* (keyword-value arguments allow-other-keys:)))
-    (or (if symbol-value #t #f)
-        (if keyword-value* #t #f))))
-
 ;; : (-> ClosGenericFunction [(Pair ClosMethod (Vector Natural))]
 ;;        [SchemeValue] Unit)
 (def (keyword-arguments-valid! generic ranked arguments)
@@ -198,7 +169,7 @@
                     method-lists))
       (let* ((start (+ (.ref lambda-list 'required)
                        (.ref lambda-list 'optional)))
-             (tail (keyword-tail arguments start)))
+             (tail (poo-clos-rest-arguments arguments start)))
         (unless (poo-clos-initarg-list? tail)
           (clos-fail 'malformed-keyword-arguments
                      generic: (.ref generic 'identity)))
@@ -210,14 +181,14 @@
                        method-lists))))
                (allow-other?
                 (or (.ref lambda-list 'allow-other-keys?)
-                    (call-allows-other-keys? tail)
+                    (poo-clos-allow-other-keys? tail)
                     (find (lambda (method-list)
                             (.ref method-list 'allow-other-keys?))
                           method-lists)))
                (valid-key-index (poo-clos-identity-index valid-keys))
                (invalid-key
                 (poo-clos-first-invalid-initarg
-                 tail valid-key-index allow-other-keys-name?)))
+                 tail valid-key-index poo-clos-allow-other-keys-name?)))
           (when (and invalid-key (not allow-other?))
             (clos-fail 'invalid-keyword-argument
                        generic: (.ref generic 'identity))))))))

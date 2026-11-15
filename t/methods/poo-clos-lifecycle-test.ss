@@ -402,6 +402,10 @@
               (poo-clos-class 'strict-initargs direct-slots: (list slot)))
           (check-exception (poo-clos-make-instance class-value unknown: 1)
                            (failure-code? 'invalid-initialization-argument))
+          (check-exception
+           (apply poo-clos-make-instance class-value
+             (list 'allow-other-keys #f allow-other-keys: #t unknown: 1))
+           (failure-code? 'invalid-initialization-argument))
           (let (instance-value (poo-clos-make-instance class-value only: 1))
             (check (poo-clos-slot-exists? instance-value 'only) => #t)
             (check (poo-clos-slot-exists? instance-value 'missing) => #f))
@@ -410,7 +414,8 @@
                            (failure-code? 'malformed-initialization-arguments))
           (check (poo-clos-instance?
                   (poo-clos-make-instance
-                   class-value unknown: 1 allow-other-keys: #t))
+                   class-value unknown: 1 allow-other-keys: #t
+                   'allow-other-keys #f))
                  => #t)))
       (let* ((slot (poo-clos-direct-slot-definition
                     'aliased initargs: (list primary: alias:)))

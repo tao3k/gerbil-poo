@@ -59,13 +59,7 @@
   (def size (length methods))
   (def index
     (and (>= size 4)
-         (let (positions (make-table test: eq?))
-           (let loop ((remaining methods) (position 0))
-             (unless (null? remaining)
-               (table-set! positions (car remaining) position)
-               (loop (cdr remaining) (1+ position))))
-           (make-method-positions
-             (lambda (method) (table-ref positions method #f)) size))))
+         (make-method-positions (poo-clos-position-lookup methods) size)))
   (list (cons 'methods (%make-owned-list methods)) (cons 'generation generation)
         (cons '%method-positions index)))
 
@@ -212,7 +206,7 @@
   (unless (and (element? ClosClass class-value)
                (element? ClosClass target-value))
     (clos-fail 'invalid-class))
-  (hash-get (.ref class-value 'class-precedence-index) target-value))
+  ((.ref class-value 'class-precedence-index) target-value))
 
 ;;; The universal specializer has no target and ranks after applicable classes.
 ;; : (-> ClosSpecializer)

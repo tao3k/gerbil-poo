@@ -488,6 +488,35 @@
         (check-equal? (object-revision affected) (1+ affected-before))
         (check-equal? (object-revision unrelated) unrelated-before)))
 
+    (test-case "class precedence inspection cannot edit dispatch"
+      (def left (poo-clos-class 'left))
+      (def right (poo-clos-class 'right))
+      (def child
+        (poo-clos-class 'child direct-superclasses: (list left)))
+      (def instance (poo-clos-make-instance child))
+      (def generic (poo-clos-generic-function 'inspect 1))
+      (poo-clos-add-method generic
+        (primary-method 'left (list (poo-clos-class-specializer left)) 'left))
+      (poo-clos-add-method generic
+        (primary-method 'right (list (poo-clos-class-specializer right)) 'right))
+      (check-equal? (poo-clos-call generic instance) 'left)
+      (def revision (object-revision child))
+      (def generation (poo-clos-class-generation child))
+      (def lookup (.ref child 'class-precedence-index))
+      (check-equal? (lookup child) 0)
+      (check-exception (hash-put! lookup right 0) true)
+      (set-car! (.ref child 'class-precedence-list) right)
+      (set-car! (poo-clos-class-precedence-list child) right)
+      (check-equal? (car (poo-clos-class-precedence-list child)) child)
+      (check-equal? (poo-clos-class-subclass? child right) #f)
+      (check-equal? (poo-clos-call generic instance) 'left)
+      (check-equal? (object-revision child) revision)
+      (check-equal? (poo-clos-class-generation child) generation)
+      (poo-clos-redefine-class child direct-superclasses: (list right))
+      (check-equal? (lookup right) #f)
+      (check-equal? (poo-clos-class-subclass? child right) #t)
+      (check-equal? (poo-clos-call generic instance) 'right))
+
     (test-case "standard qualifier order and lexical next are preserved"
       (let ((trace '())
             (base-generic (poo-clos-generic-function 'render 1)))

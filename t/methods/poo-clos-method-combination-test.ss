@@ -237,7 +237,16 @@
                     '(dog animal))
       (check-exception
        (poo-clos-configure-method-combination empty-key-options unknown: 1)
-       (failure-code? 'invalid-method-combination-options)))
+       (failure-code? 'invalid-method-combination-options))
+      (check-exception
+       (apply poo-clos-configure-method-combination empty-key-options
+         (list 'allow-other-keys #f allow-other-keys: #t unknown: 1))
+       (failure-code? 'invalid-method-combination-options))
+      (def options (list allow-other-keys: #t 'allow-other-keys #f unknown: 1))
+      (check-equal?
+       (.ref (apply poo-clos-configure-method-combination empty-key-options options)
+             'configuration)
+       options))
 
     (test-case "combination options configure short order without mutation"
       (check-equal? (declared-values combination-dog) '(animal dog))

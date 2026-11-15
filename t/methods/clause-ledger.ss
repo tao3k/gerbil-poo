@@ -139,11 +139,11 @@
 (def poo-clos-evidence-suites
   (list
    (evidence-suite 'dispatch "t/methods/poo-clos-dispatch-test.ss"
-                   'poo-clos-dispatch-test 25)
+                   'poo-clos-dispatch-test 26)
    (evidence-suite 'lifecycle "t/methods/poo-clos-lifecycle-test.ss"
                    'poo-clos-lifecycle-test 15)
    (evidence-suite 'syntax "t/methods/poo-clos-syntax-test.ss"
-                   'poo-clos-syntax-test 19)
+                   'poo-clos-syntax-test 20)
    (evidence-suite 'method-combination
                    "t/methods/poo-clos-method-combination-test.ss"
                    'poo-clos-method-combination-test 14)

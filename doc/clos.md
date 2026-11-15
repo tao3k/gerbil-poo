@@ -39,7 +39,8 @@ order and advances generation once per method. [LeanPoo admission model](https:/
 
 A bare `&key` enables keyword checks with an empty list of declared keys.
 Applicable methods may contribute keys, and `&allow-other-keys` permits
-additional ones. [HyperSpec keyword admission](https://www.lispworks.com/documentation/HyperSpec/Body/07_fe.htm)
+additional ones. A supplied `allow-other-keys` or `allow-other-keys:` uses
+the first occurrence across both spellings. [HyperSpec keyword admission](https://www.lispworks.com/documentation/HyperSpec/Body/07_fe.htm)
 
 A method parameter and its supplied-p flag share one keyword lookup. The
 [benchmark](../benchmarks/clos-admission-test.ss) interleaves the former
@@ -126,7 +127,9 @@ is missing. The applicability scan still demands live specializers.
 
 Generic publication owns the method-list spine. A constructed Method owns
 its specializer-list spine. Slot reads and read-record inspection give
-callers detached lists with the original descriptor identities. To change a
+callers detached lists with the original descriptor identities. Class
+precedence inspection also returns a detached list, and class position
+lookups share the read-only method index implementation. To change a
 published method family, use method installation or removal. Updating the
 specializer slot on a constructed Method copies the new spine at the POO
 write boundary. The [LeanPoo ownership model](https://github.com/tao3k/lean-poo/blob/1d8e7bbae90301e467b69c2ebb4a5326e422942e/LeanPoo/Object/ClosAdmission.lean#L586)

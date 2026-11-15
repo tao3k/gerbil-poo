@@ -53,14 +53,11 @@
                     (valid-index (poo-clos-identity-index keys)))
                (and (poo-clos-initarg-list? tail)
                     (or allow-other-keys?
+                        (poo-clos-allow-other-keys? tail)
                         (not
                          (poo-clos-first-invalid-initarg
                           tail valid-index
-                          (lambda (name)
-                            (or (eq? name 'allow-other-keys)
-                                (and (keyword? name)
-                                     (string=? (keyword->string name)
-                                               "allow-other-keys")))))))))))))
+                          poo-clos-allow-other-keys-name?)))))))))
 
 ;; : (-> ClosGenericFunction [SchemeValue] Natural SchemeValue)
 (def (poo-clos-combination-required-argument generic arguments index)
