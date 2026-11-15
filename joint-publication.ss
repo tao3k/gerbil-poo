@@ -1,7 +1,7 @@
 ;;; Atomic replacement of shared approval metadata and all endpoint heads.
 (export publication current head approval stage stage-at stage-with approve check-approved install! install-sequence! submit!)
 (import (only-in :gerbil/runtime/thread with-lock) (only-in :std/list/list delete-duplicates/hash foldl)
-        ./object ./mop ./lens-laws ./feedback-graph
+        ./object ./mop/prototype ./lens-laws ./feedback-graph
         (prefix-in ./component-revision revision.) (prefix-in ./construction-cache cache.))
 ;; A private immutable bundle is the ONLY authoritative read/installation unit.
 (defstruct %snapshot (heads approvals) final: #t)

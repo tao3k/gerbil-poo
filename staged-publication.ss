@@ -1,7 +1,7 @@
 ;;; StagedPublication.Model: bind one model to the existing cyclic lifecycle.
 ;;; Positive closure or selective DAG construction share one atomic lifecycle.
 (export Model. methods.construction<-cache methods.contracts<-projection prepare publish)
-(import ./closure ./object (only-in ./mop define-type .defgeneric)
+(import ./closure ./object (only-in ./mop/prototype define-type .defgeneric)
         (prefix-in ./contract-family contract-family.)
         (prefix-in ./generic-family generic-family.)
         (prefix-in ./construction-cache construction-cache.)

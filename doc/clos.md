@@ -1,7 +1,7 @@
-# CLOS
+# CLOS-like classes and methods
 
 ```scheme
-(import :clan/poo/clos)
+(import :clan/poo/mop)
 
 (.defgeneric render (value))
 (.defmethod (render value) 'default)
@@ -19,6 +19,26 @@ arguments may be specialized in the same method. Use
 `.generic-object` uses the lexical generic binding and also accepts
 `(setf name)`. To share a generic object across modules, bind and export
 the result alongside the callable procedure.
+
+The MOP also accepts receiver-slot declarations such as
+`(.defgeneric (label widget) slot: .label)`. A generic with a separate
+lambda list uses CLOS method selection and combination.
+
+Declare slot keywords with `initarg` in `.defclass`. The slots and methods
+applicable to the current lifecycle operation determine which keywords it
+accepts. The default initialization, reinitialization, and class-update
+methods call the same `shared-initialize` generic. It receives all slots,
+no slots, or only newly added slots as the mask for evaluating initforms.
+Explicit initargs can fill their slots regardless of the mask. The
+[pane example](../t/methods/duim-pane.ss) and its
+[extension](../t/methods/duim-pane-test.ss) show a method bundle adding
+initialization behavior from a separate module.
+[HyperSpec initialization](https://www.lispworks.com/documentation/HyperSpec/Body/07_.htm) ·
+[Gerbil #1372](https://github.com/mighty-gerbils/gerbil/issues/1372)
+
+After `just build-development`, run
+`gerbil test "$GERBIL_PATH/lib/clan/poo/benchmarks/mop-lifecycle-test.ssi"`.
+The benchmark saves the lifecycle and C4 measurements in `$GERBIL_PATH/benchs`.
 
 POOF Appendix A.2.2 explains effective methods as compositions of labeled
 fragments selected by applicability and ordered by specificity. Gerbil-POO

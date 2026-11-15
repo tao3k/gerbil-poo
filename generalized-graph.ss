@@ -25,7 +25,7 @@
                  %index? %index-base %index-changes
                  %roster %roster-width %roster-position %roster-keys %roster-append %roster-retire)
         (only-in ./slot-observation %call-with-recorded-slot-reads %record-slot-reads!)
-        ./object (only-in ./mop define-type) ./support/option)
+        ./object (only-in ./mop/prototype define-type) ./support/option)
 (defstruct %schedule (source order reads adjacency ranks reverse supported work positions position-changes
                      rank-frontier owned roster) final: #t)
 (def schedule? %schedule?)

@@ -6,7 +6,7 @@
         failure? failure-key failure-cause)
 (import (only-in :std/hash/misc hash-ref/default)
         (only-in :std/struct/rbtree RBTree rbtree-copy rbtree-ref rbtree-put! rbtree-remove!)
-        :std/iter ./object (only-in ./mop define-type) ./support/option
+        :std/iter ./object (only-in ./mop/prototype define-type) ./support/option
         (only-in ./support/base %compare-symbol-identity %graph-table-seed %with-application-table-seeds)
         (only-in ./lens-laws with-lens-checks)
         (only-in ./slot-observation %call-with-recorded-slot-reads

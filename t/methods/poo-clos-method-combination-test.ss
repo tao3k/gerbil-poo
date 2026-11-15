@@ -10,7 +10,7 @@
         (only-in :clan/poo/object .o .ref .cc)
         (only-in :clan/poo/mop element?)
         (only-in :std/list/list foldl)
-        :clan/poo/clos)
+        :clan/poo/mop)
 
 (export poo-clos-method-combination-test)
 

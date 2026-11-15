@@ -4,7 +4,7 @@
 (import :std/iter
         (only-in :std/list/list find append-map map-in-order)
         (only-in ./object .o .get .ref .slot? object? object<-alist)
-        (only-in ./mop validate element? raise-type-error)
+        (only-in ./mop/prototype validate element? raise-type-error)
         (only-in ./value-diagnostics diagnose-value diagnose-structure)
         (only-in ./types/validation validate-container))
 

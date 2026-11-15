@@ -2,7 +2,7 @@
 (export feedback-closure-action publish-feedback feedback-equation-failure? feedback-equation-failure-name
         feedback-revision-action publish-feedback-revision
         feedback-approval-failure? feedback-approval-failure-kind)
-(import (only-in ./support/base %with-application-table-seeds) ./object ./mop ./lens-laws ./generalized-declaration ./generalized-closure
+(import (only-in ./support/base %with-application-table-seeds) ./object ./mop/prototype ./lens-laws ./generalized-declaration ./generalized-closure
         (prefix-in (only-in ./fun Observation.) fun.))
 ;; A whole assembled fixed point may hide cancelling overlapping contributions.
 ;; Preserve the declared name of a component whose independent equation refuses.

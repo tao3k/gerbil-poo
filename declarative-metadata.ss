@@ -6,7 +6,7 @@
         predicate typed predicate? contract contract? with-meaning bind-evidence wrap invoke publish
         failure? failure-phase failure-name failure-cause)
 (import (only-in ./support/base require-value) :std/iter (only-in :std/func compose)
-        ./object (only-in ./mop define-type .defgeneric Type Type. validate element?)
+        ./object (only-in ./mop/prototype define-type .defgeneric Type Type. validate element?)
         (prefix-in ./dispatch-extension dispatch-extension.))
 
 ;; Open descriptors and derived methods follow fun.ss and io.ss. Private records

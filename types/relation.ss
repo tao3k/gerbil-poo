@@ -4,7 +4,7 @@
         (only-in :std/hash/misc hash-ensure-ref)
         (only-in :std/list/list append-map map-in-order) (prefix-in ../function-signature signature.) ./syntax
         (prefix-in ../recursive recursive.) ../object
-        (only-in ../mop Any Bool Function CaseFunction Type. Object Class.)
+        (only-in ../mop/prototype Any Bool Function CaseFunction Type. Object Class.)
         (only-in ../object-contract ObjectContract.)
         (only-in ../optional-validation type-value-catalog capture-type-values
                  catalog-type? catalog-current! catalog-descriptor catalog-contract link-catalog-sources! call-with-current-catalogs)

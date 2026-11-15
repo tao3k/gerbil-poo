@@ -6,7 +6,7 @@
 ;;; Transaction-shaped class generation and dependent-class evolution.
 
 (import :clan/poo/object
-        (only-in :clan/poo/mop element?)
+        (only-in :clan/poo/mop/prototype element?)
         (only-in :std/list/list filter-map)
         "types.ss" "objects.ss" "classes.ss")
 

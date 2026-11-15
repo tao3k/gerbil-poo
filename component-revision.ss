@@ -1,6 +1,6 @@
 ;;; Joint component membership edits before SCC discovery and whole publication.
 (export Fragment. fragment reconfigure revision-action)
-(import ./object ./mop
+(import ./object ./mop/prototype
         ./feedback-graph (prefix-in ./construction-cache cache.)
         (prefix-in (only-in ./fun Observation.) fun.))
 ;; Service contributions use ordinary POO descriptors; code/base remain separate

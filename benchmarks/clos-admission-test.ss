@@ -1,7 +1,7 @@
 ;;; SPDX-FileCopyrightText: 2026 tao3k team and Contributors
 ;;; SPDX-License-Identifier: Apache-2.0 AND LGPL-2.1-or-later
 
-(import :std/iter :std/test :clan/poo/clos
+(import :std/iter :std/test :clan/poo/mop
         (only-in :clan/poo/object .ref)
         (only-in :clan/poo/clos/lambda-list poo-clos-key-argument)
         (only-in :clan/poo/benchmarks/closure-measure measure median qualified-metrics))

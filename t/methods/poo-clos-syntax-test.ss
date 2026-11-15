@@ -19,7 +19,7 @@
                  clos-lambda-declaration-ir-required
                  clos-parameter-declaration-ir-kind)
         (only-in :clan/poo/clos/declaration-ir-core parse-clos-lambda-list)
-        :clan/poo/clos)
+        :clan/poo/mop)
 
 (export poo-clos-syntax-test)
 

@@ -1,7 +1,7 @@
 ;;; Coordinated installation of snapshot-bound component revisions.
 (export approval-domain publication publication? current snapshot snapshot-graph snapshot-metadata
         stage restage submit! submit-snapshot! call-with-snapshot revise-approval!)
-(import (only-in :gerbil/runtime/thread with-lock) ./object ./mop ./feedback-graph ./lens-laws
+(import (only-in :gerbil/runtime/thread with-lock) ./object ./mop/prototype ./feedback-graph ./lens-laws
         (prefix-in ./construction-cache cache.))
 ;; Only this coordinator may supply deferred guard registration.
 (extern namespace: clan/poo/feedback-graph %feedback-component-revision-action %fresh-component-builder)

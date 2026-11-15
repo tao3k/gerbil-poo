@@ -9,7 +9,7 @@
         (only-in :clan/poo/mop element?)
         (only-in :clan/poo/slot-observation %call-with-recorded-slot-reads)
         (only-in :std/error Error? Error-message)
-        :clan/poo/clos)
+        :clan/poo/mop)
 
 (export poo-clos-method-bundle-test)
 

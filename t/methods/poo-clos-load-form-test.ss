@@ -8,7 +8,7 @@
 (import (only-in :std/test
                  test-suite test-case check-equal? check-exception check)
         (only-in :clan/poo/object .ref)
-        :clan/poo/clos)
+        :clan/poo/mop)
 
 (export poo-clos-load-form-test)
 

@@ -1,7 +1,7 @@
 ;;; Functional.RecursiveHandling: current Type admission over source-bound memo.
 (export Signature. RequestAction. session session? session-memo call-slot call-action call-batch
         result? result-value result-failure result-next result-reused failure? failure-stage failure-cause)
-(import :std/iter ./object (only-in ./mop define-type Type validate element?)
+(import :std/iter ./object (only-in ./mop/prototype define-type Type validate element?)
         (prefix-in ./fun fun.) (prefix-in ./recursive recursive.) (prefix-in ./recursive-cache cached.))
 ;; Gerbil counterpart of a resolved callable signature; registries remain ordinary
 ;; immutable POO objects. The current descriptor is resolved anew on EVERY call.

@@ -3,7 +3,7 @@
         generation-refusal? generation-refusal-kind refuse-generation)
 (import (only-in ../support/base require-value) :std/iter :std/error ../object
         (only-in :clan/poo/testing/property/generator with-sources with-generation-check boolean-result)
-        (only-in ../mop Type validate)
+        (only-in ../mop/prototype Type validate)
         (only-in :std/list/list map-in-order delete-duplicates/hash)
         (only-in ../type List. Tuple. Pair. Union. Or. Maybe. OrFalse. Sum.))
 

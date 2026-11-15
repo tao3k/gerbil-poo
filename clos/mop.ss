@@ -6,7 +6,7 @@
 ;;; Separately admitted, read-only MOP-EXTENDED capability profile.
 
 (import :clan/poo/object
-        (only-in :clan/poo/mop element?)
+        (only-in ../mop/prototype element?)
         "types.ss" "objects.ss")
 
 (export ClosMopProfile poo-clos-mop-extended-profile

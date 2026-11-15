@@ -15,7 +15,7 @@
   (only-in :std/func compose)
   (only-in ./support/base λ number-comparer)
   (only-in ./support/io write-varuint read-varuint write-varint read-varint)
-  (only-in ./mop define-type Type.)
+  (only-in ./mop/prototype define-type Type.)
   (only-in ./brace @method)
   (only-in ./io methods.marshal<-fixed-length-bytes))
 

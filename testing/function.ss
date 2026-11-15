@@ -3,7 +3,7 @@
 (import (only-in :std/list/list map-in-order delete-duplicates/hash)
         :std/struct/lru
         (only-in ../support/base defonce)
-        ../object ../mop ../function-signature ./type
+        ../object ../mop/prototype ../function-signature ./type
         (prefix-in :clan/poo/testing/property/generator core.))
 
 ;; A call-row's types depend on supplied counts, never on optional default values.

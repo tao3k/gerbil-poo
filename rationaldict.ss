@@ -12,7 +12,7 @@
   (only-in ./type Rational Unit)
   (only-in ./object .@)
   (only-in ./brace @method)
-  (only-in ./mop define-type Any raise-type-error)
+  (only-in ./mop/prototype define-type Any raise-type-error)
   (only-in ./table Set<-Table. methods.table table-key-space table-comparer table-ordered-cursor))
 
 (define-type (RationalDict. @ [methods.table] Value)

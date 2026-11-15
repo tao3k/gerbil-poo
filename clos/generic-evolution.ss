@@ -6,7 +6,7 @@
 ;;; Generic-function creation and binding-owned configuration evolution.
 
 (import :clan/poo/object
-        (only-in :clan/poo/mop element?)
+        (only-in :clan/poo/mop/prototype element?)
         (only-in :std/list/list map-in-order)
         (only-in "funcs.ss" poo-clos-function-name?)
         "types.ss" "objects.ss")

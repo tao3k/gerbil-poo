@@ -8,7 +8,7 @@
         (prefix-in (only-in ./fun Observation.) fun.)
         (only-in ./object .o .cc .get .ref .slot? .all-slots .call object?
                  compute-precedence-list!)
-        (only-in ./mop Type Type. define-type .defgeneric element? validate raise-type-error))
+        (only-in ./mop/prototype Type Type. define-type .defgeneric element? validate raise-type-error))
 
 ;; Reject malformed callback results as programming errors, preserving exceptions.
 ;; A diagnostic records a symbolic kind and a path, without copying user values.

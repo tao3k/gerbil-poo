@@ -5,7 +5,7 @@
         dispatch-error? dispatch-error-kind dispatch-error-expected dispatch-error-actual
         inspect)
 (import (only-in :std/list/alist arem) (only-in ./support/base require-value) :std/iter (only-in :std/list/list-builder with-list-builder)
-        (only-in ./mop Type Any validate define-type raise-type-error)
+        (only-in ./mop/prototype Type Any validate define-type raise-type-error)
         (prefix-in ./function-signature signature.) ./object
         (only-in ./object compute-precedence-list!) (only-in ./type Unit)
         (prefix-in ./method-combination combination.))

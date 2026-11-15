@@ -1,7 +1,7 @@
 ;;; SPDX-FileCopyrightText: 2026 tao3k team and Contributors
 ;;; SPDX-License-Identifier: Apache-2.0 AND LGPL-2.1-or-later
 
-(import :std/test :std/iter :clan/poo/clos
+(import :std/test :std/iter :clan/poo/mop
         (only-in :clan/poo/object .o .ref replay-slot-reads!)
         (only-in :clan/poo/slot-observation %call-with-recorded-slot-reads
                  call-with-slot-read-observer)

@@ -6,9 +6,9 @@
 ;;; Multi-argument applicability, specificity and standard method combination.
 
 (import :clan/poo/object
-        (only-in :clan/poo/mop element?)
+        (only-in :clan/poo/mop/prototype element?)
         (only-in :clan/poo/slot-observation slot-read-receiver)
-        (only-in :std/list/list filter-map find flatten1 length=?)
+        (only-in :std/list/list filter filter-map find flatten1 length=?)
         (only-in :std/hash/misc hash-remove!)
         "types.ss" "objects.ss" "method-combination.ss"
         "funcs.ss"
@@ -397,6 +397,37 @@
   (let (generic-value (require-clos-generic generic-source))
     (arguments-valid! generic-value arguments)
     (map car (protocol-ranked-methods generic-value arguments))))
+
+;; Allocation and change-class validate before publishing an instance with
+;; the target class. A fresh instance cannot satisfy an eql specializer.
+;; A changing instance keeps both its eql identity and its POO prototype.
+(def (%prospective-instance-methods generic arguments position class-value)
+  (let ((prototype (.ref class-value 'instance-prototype))
+        (instance (list-ref arguments position)))
+    (def (distance index specializer argument)
+      (if (= index position)
+        (case (.ref specializer 'kind)
+          ((class)
+           (let (rank (poo-clos-class-precedence-position
+                       class-value (.ref specializer 'target)))
+             (and rank (+ rank 1))))
+          ((any) (+ 2 (length (poo-clos-class-precedence-list class-value))))
+          ((prototype)
+           (if instance
+             (specializer-distance specializer instance)
+             (let (rank (prototype-precedence-position
+                         (.ref specializer 'target) prototype))
+               (and rank (+ rank 2)))))
+          (else (and instance (specializer-distance specializer instance))))
+        (specializer-distance specializer argument)))
+    (filter
+     (lambda (method)
+       (let (index -1)
+         (andmap (lambda (specializer argument)
+                   (set! index (+ index 1))
+                   (distance index specializer argument))
+                 (%ref-owned-list method 'specializers) arguments)))
+     (%ref-owned-list generic 'methods))))
 
 ;; : (-> ClosGenericFunction SchemeValue... ClosEffectiveMethod)
 (def (poo-clos-compute-effective-method generic-source . arguments)

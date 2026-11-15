@@ -92,6 +92,8 @@
     (gxc: "descriptor-inference-test" (extra-inputs: ( "descriptor-inference/empty-inference.scm" "descriptor-inference/optional-inference.scm" "descriptor-inference/record-inference.scm"))))
     ("methods"
     "clause-ledger"
+    "duim-pane"
+    "duim-pane-test"
     "poo-clos-clause-ledger-test"
     "poo-clos-dispatch-test"
     "poo-clos-evolution-test"

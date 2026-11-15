@@ -97,6 +97,7 @@
     "benchmarks/closure-benchmark-support"
     "benchmarks/closure-cases"
     "benchmarks/closure-measure"
+    "benchmarks/mop-lifecycle-test"
     "benchmarks/read-field-test"
     "benchmarks/read-replay-test"
     "benchmarks/cold-handoff-test"

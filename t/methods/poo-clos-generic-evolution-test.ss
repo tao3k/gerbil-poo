@@ -11,7 +11,7 @@
         (only-in :clan/poo/object .o .ref depend-on-object! object-revision
                  object-read-current? seal-object!)
         (only-in :clan/poo/mop call-with-slot-read-observer slot-read-key slot-read-receiver)
-        :clan/poo/clos)
+        :clan/poo/mop)
 
 (export poo-clos-generic-evolution-test)
 

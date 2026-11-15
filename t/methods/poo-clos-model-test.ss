@@ -4,7 +4,7 @@
 ;;; SPDX-License-Identifier: Apache-2.0 AND LGPL-2.1-or-later
 
 (import (only-in :clan/poo/object .o .ref)
-        :clan/poo/clos
+        :clan/poo/mop
         :std/test :std/error)
 (export poo-clos-model-test)
 

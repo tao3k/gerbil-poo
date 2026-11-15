@@ -6,7 +6,7 @@
 ;;; Checked construction and identity-preserving generic-function evolution.
 
 (import :clan/poo/object
-        (only-in :clan/poo/mop element? .defgeneric)
+        (only-in :clan/poo/mop/prototype element? .defgeneric)
         (only-in :std/hash/misc hash-ref/default)
         (only-in :std/list/list iota map-in-order delete-duplicates/hash)
         (only-in :clan/poo/prototype-map prototype-map-ref)

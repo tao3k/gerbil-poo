@@ -7,7 +7,7 @@
 (import
   :std/format :std/iter :std/number/misc :std/values
   ./support/base ./support/option
-  ./object ./mop ./brace ./number ./type ./fun ./io ./table)
+  ./object ./mop/prototype ./brace ./number ./type ./fun ./io ./table)
 
 #;(defrule (aver cond msg expr ...)
   (unless cond

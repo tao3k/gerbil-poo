@@ -22,7 +22,7 @@
                  clos-call-carrier-policy-guard)
         (only-in :clan/poo/read-projection call-with-owned-read-projection
                  current-owned-read-open-guard owned-read-value! owned-read-open!)
-        :clan/poo/clos)
+        :clan/poo/mop)
 
 (export poo-clos-dispatch-test)
 
@@ -1070,4 +1070,6 @@
             (lambda ()
               (check-exception (checked-primary dog)
                                (failure-code? 'invalid-effective-method))
-              (check-equal? ran? #f))))))))
+              (check-equal? ran? #f)))))
+      (check-equal? (checked-primary dog) dog)
+      (check-equal? ran? #t))))

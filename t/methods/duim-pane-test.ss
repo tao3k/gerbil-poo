@@ -1,0 +1,125 @@
+;;; -*- Gerbil -*-
+;;; SPDX-License-Identifier: Apache-2.0 AND LGPL-2.1-or-later
+
+(import :clan/poo/mop
+        (only-in :clan/poo/object .ref .o)
+        (only-in :std/test test-suite test-case check check-equal? check-exception)
+        "duim-pane.ss")
+(export duim-pane-test)
+
+(.defclass (PrototypeGadget @ Class.) ())
+(.defgeneric (gadget-tag gadget) slot: tag)
+(.defgeneric pane-label (pane))
+(.defmethod (pane-label (pane Gadget)) (poo-clos-slot-value pane 'label))
+
+(def events [])
+(def (record! event) (set! events (cons event events)))
+
+(.defmethod-bundle pane-initializers (.ref poo-clos-shared-initialize-generic 'protocol)
+  (.defmethod (shared-initialize (pane Pane) slots &rest initargs)
+    (qualifier around)
+    (record! (list 'enter slots))
+    (let (result (call-next-method))
+      (record! (list 'leave slots))
+      result))
+  (.defmethod (shared-initialize (pane Pane) slots
+                               &key ((theme: theme) #f theme?))
+    (qualifier before)
+    (record! (list 'before slots)))
+  (.defmethod (shared-initialize (pane Pane) slots
+                               &key ((theme: theme) #f theme?))
+    (qualifier after)
+    (when theme? (poo-clos-set-slot-value! pane 'decoration theme))
+    (record! (list 'after slots (poo-clos-slot-value pane 'decoration))))
+  (.defmethod (shared-initialize (pane Pane) (slots (eql #t))
+                               &key ((open?: open?)))
+    (qualifier after)
+    (record! (list 'opened open?))))
+
+(.defmethod-bundle pane-reconfiguration (.ref poo-clos-reinitialize-instance-generic 'protocol)
+  (.defmethod (reinitialize-instance (pane Pane) &key ((redraw?: redraw?)))
+    (qualifier after)
+    (record! (list 'redraw redraw?))))
+
+(.defmethod-bundle pane-allocation (.ref poo-clos-allocate-instance-generic 'protocol)
+  (.defmethod (allocate-instance (class (eql Pane)) &key ((screen: screen)))
+    (qualifier before)
+    (record! (list 'allocate screen))))
+
+(def (initarg-rejected? error)
+  (and (poo-clos-failure? error)
+       (eq? (.ref error 'code) 'invalid-initialization-argument)))
+
+(def duim-pane-test
+  (test-suite "DUIM pane lifecycle across modules"
+    (test-case "the MOP import provides prototype and CLOS declarations"
+      (check-equal? (.ref PrototypeGadget 'sexp) 'PrototypeGadget)
+      (check-equal? (gadget-tag (.o tag: 'gadget)) 'gadget)
+      (check (element? Type ClosClass) => #t)
+      (check-equal? (pane-label (poo-clos-make-instance Pane)) 'pane))
+
+    (test-case "a separate module extends construction, reconfiguration and class update"
+      (let* ((shared poo-clos-shared-initialize-generic)
+             (reconfigure poo-clos-reinitialize-instance-generic)
+             (allocate poo-clos-allocate-instance-generic)
+             (original-slots (poo-clos-class-direct-slots Pane)))
+        (dynamic-wind
+          (lambda ()
+            (poo-clos-compose-method-bundle shared pane-initializers)
+            (poo-clos-compose-method-bundle reconfigure pane-reconfiguration)
+            (poo-clos-compose-method-bundle allocate pane-allocation))
+          (lambda ()
+            (set! events [])
+            (check-exception (poo-clos-make-instance Pane redraw?: #t) initarg-rejected?)
+            (check-exception (poo-clos-make-instance Gadget screen: 'display) initarg-rejected?)
+            (check-equal? events [])
+            (let (pane (poo-clos-make-instance Pane screen: 'display open?: #t
+                                               theme: 'dark width: 120))
+              (check-equal? (pane-label pane) 'pane)
+              (check-equal? (poo-clos-slot-value pane 'width) 120)
+              (check-equal? (reverse events)
+                            '((allocate display) (enter #t) (before #t)
+                              (after #t dark) (opened #t) (leave #t)))
+              (set! events [])
+              (check-exception (poo-clos-reinitialize-instance pane open?: #t) initarg-rejected?)
+              (check-equal? events [])
+              (poo-clos-reinitialize-instance pane label: 'inspector theme: 'light redraw?: #t)
+              (check-equal? (pane-label pane) 'inspector)
+              (check-equal? (reverse events)
+                            '((enter ()) (before ()) (after () light) (leave ()) (redraw #t)))
+              (set! events [])
+              (poo-clos-redefine-class
+               Pane direct-slots:
+               (append original-slots
+                       (list (poo-clos-direct-slot-definition 'visible
+                               initform: (lambda () #t)))))
+              (check-equal? events [])
+              (check (poo-clos-slot-value pane 'visible) => #t)
+              (check-equal? (poo-clos-slot-value pane 'width) 120)
+              (check-equal? (pane-label pane) 'inspector)
+              (check-equal? (reverse events)
+                            '((enter (visible)) (before (visible))
+                              (after (visible) light) (leave (visible))))
+              (set! events [])
+              (check-exception (poo-clos-change-class pane Pane redraw?: #t)
+                               initarg-rejected?)
+              (check-exception (poo-clos-change-class pane InspectorPane redraw?: #t)
+                               initarg-rejected?)
+              (check (eq? (poo-clos-class-of pane) Pane) => #t)
+              (check-equal? events [])
+              (check (eq? (poo-clos-change-class pane InspectorPane theme: 'high-contrast)
+                          pane)
+                     => #t)
+              (check-equal? (poo-clos-slot-value pane 'side) 'right)
+              (check-equal? (pane-label pane) 'inspector)
+              (check-equal? (reverse events)
+                            '((enter (side)) (before (side))
+                              (after (side) high-contrast) (leave (side))))))
+          (lambda ()
+            (for-each (lambda (method) (poo-clos-remove-method allocate method))
+                      (.ref pane-allocation 'methods))
+            (for-each (lambda (method) (poo-clos-remove-method reconfigure method))
+                      (.ref pane-reconfiguration 'methods))
+            (for-each (lambda (method) (poo-clos-remove-method shared method))
+                      (.ref pane-initializers 'methods))
+            (poo-clos-redefine-class Pane direct-slots: original-slots)))))))

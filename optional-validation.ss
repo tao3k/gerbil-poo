@@ -6,7 +6,7 @@
                  depend-on-object! replay-slot-reads! reobserve-slot-reads!)
         (only-in :std/list/list delete-duplicates/hash map-in-order)
         ./slot-observation ./value-diagnostics
-        (only-in ./mop Type Class element? validate raise-type-error)
+        (only-in ./mop/prototype Type Class element? validate raise-type-error)
         (only-in ./types/validation validate-container))
 
 ;; Absent values bypass even child descriptor lookup. Present values keep the

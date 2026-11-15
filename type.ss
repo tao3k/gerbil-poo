@@ -23,7 +23,7 @@
            write-uint-u8vector read-uint-u8vector unmarshal-n-u8)
   (only-in ./support/json json-normalize string<-json json<-string)
   (only-in ./object .@ .ref object<-alist .slot? .call .o)
-  (only-in ./mop define-type Type Type. Class. Any
+  (only-in ./mop/prototype define-type Type Type. Class. Any
            raise-type-error validate element? :sexp sexp<- json<- <-json)
   (only-in ./number UInt UIntN Real Integer)
   (only-in ./brace @method)

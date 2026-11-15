@@ -1,7 +1,7 @@
 ;;; Explicit recursive declaration fragments reuse Recursive.Interaction and FUN.
 (export RecursiveDeclaration. recursive-declaration-action object<-recursive-declarations)
 (import :std/iter (only-in :std/list/list foldr delete-duplicates/hash)
-        ./object ./mop ./declaration
+        ./object ./mop/prototype ./declaration
         (prefix-in ./recursive recursive.) (prefix-in ./recursive-cache cached.)
         (prefix-in (only-in ./fun Observation.) fun.))
 ;; Ordinary inherited expansion lifts into Interaction. Extensions can request a

@@ -2,7 +2,7 @@
 (export close-feedback-group feedback-group? group-closed feedback-cache-ref
         feedback-cache-action publish-feedback-cache %admit-feedback-cache %feedback-cache-current!
         %start-feedback-guard %revise-feedback-guard %feedback-guard-current! %admit-guarded-feedback-cache)
-(import (only-in :std/list/list foldr list-sort delete-duplicates/hash) ./object ./mop ./support/option
+(import (only-in :std/list/list foldr list-sort delete-duplicates/hash) ./object ./mop/prototype ./support/option
         ./generalized-declaration ./generalized-closure ./feedback-closure ./lens-laws
         (only-in ./generalized-graph %splice-witness-tree %witness-span %witness-tree-current? %witness-tree-stamp
                  %witness-tree-left %witness-tree-right %witness-tree-evidence)

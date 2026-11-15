@@ -10,7 +10,7 @@
 
 (import :clan/poo/object
         (only-in :clan/poo/class-validation required-slots?)
-        (only-in :clan/poo/mop define-type Type. element?)
+        (only-in :clan/poo/mop/prototype define-type Type. element?)
         (only-in "funcs.ss"
                  poo-clos-function-name? poo-clos-function-name-list?
                  poo-clos-initarg-name-list? poo-clos-default-initargs?))
@@ -310,8 +310,11 @@
 ;;; Invariant: effective methods retain qualifier-separated methods from exactly
 ;;; one generic generation and one argument set.
 (define-type (ClosEffectiveMethod @ ClosType.)
-  proto: (clos-prototype ClosEffectiveMethod 'poo-clos/effective-method)
+  proto: effective-method-prototype
   .element?: clos-effective-method-element?)
+
+(def effective-method-prototype
+  (clos-prototype ClosEffectiveMethod 'poo-clos/effective-method))
 
 (def (next-method? value)
   (or (not value) (procedure? value)))
@@ -328,8 +331,13 @@
 ;;; Boundary: the lexical frame owns next-method continuation access; it is not
 ;;; a serializable or cross-runtime capability.
 (define-type (ClosInvocationFrame @ ClosType.)
-  proto: (clos-prototype ClosInvocationFrame 'poo-clos/invocation-frame)
+  proto: invocation-frame-prototype
   .element?: clos-invocation-frame-element?)
+
+;; Replacing a Type validator revises its policy. The carrier's prototype
+;; identity still belongs to the same type and must survive recomputation.
+(def invocation-frame-prototype
+  (clos-prototype ClosInvocationFrame 'poo-clos/invocation-frame))
 
 ;; This certificate belongs to the private declarations above, not to whatever
 ;; public policy a caller installs later. A replaced/edited policy remains

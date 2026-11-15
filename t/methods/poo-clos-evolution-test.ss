@@ -9,7 +9,7 @@
                  test-suite test-case check-equal? check-exception check)
         (only-in :clan/poo/object .ref .put!)
         (only-in :clan/poo/slot-observation call-with-slot-read-observer)
-        :clan/poo/clos)
+        :clan/poo/mop)
 
 (export poo-clos-evolution-test)
 
