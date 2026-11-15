@@ -18,11 +18,14 @@
 
 ;; Default Slot membership and fixed field contracts share ordinary POO reads.
 ;; Prepared local presence can use the existing Slot index when unobserved.
-(defrule (with-present-slot (value candidate name) present absent)
-  (let ((receiver candidate) (key name))
-    (if (or (%prepared-local-slot? receiver key) (.slot? receiver key))
-      (let (value (.ref receiver key)) present)
-      absent)))
+(defrules with-present-slot ()
+  ((_ (value candidate name) present absent)
+   (with-present-slot (value candidate name read: .ref) present absent))
+  ((_ (value candidate name read: reader) present absent)
+   (let ((receiver candidate) (key name))
+     (if (or (%prepared-local-slot? receiver key) (.slot? receiver key))
+       (let (value (reader receiver key)) present)
+       absent))))
 
 ;; Probe only already stored metadata. Callers use the ordinary demand path
 ;; when this check declines, and carry their own semantic read evidence.
@@ -31,9 +34,9 @@
     (if (eq? value absent-value) absent present)))
 
 ;; Both checks keep field order, short-circuit and return a Boolean.
-(defrule (check-required-slots with-slot candidate (name predicate) ...)
+(defrule (check-required-slots with-slot candidate (name predicate option ...) ...)
   (let (receiver candidate)
-    (and (with-slot (value receiver 'name) (predicate value) #f) ... #t)))
+    (and (with-slot (value receiver 'name option ...) (predicate value) #f) ... #t)))
 
 (defrules required-slots? ()
   ((_ candidate stored: fields ...)

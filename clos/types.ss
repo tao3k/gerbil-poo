@@ -23,16 +23,6 @@
 (def ClosType. Type.)
 
 (extern namespace: clan/poo/object %ref-owned-list)
-(extern namespace: clan/poo/class-validation %prepared-local-slot?)
-
-;; These fixed validators consume a list while keeping the normal Slot
-;; presence check and read delivery. No borrowed list reaches a caller.
-(defrule (clos-required-slots? candidate borrowed (name predicate) ...)
-  (let (receiver candidate)
-    (and (and (or (%prepared-local-slot? receiver 'name) (.slot? receiver 'name))
-              (predicate (if (eq? 'name 'borrowed)
-                           (%ref-owned-list receiver 'name)
-                           (.ref receiver 'name)))) ... #t)))
 
 (def (clos-prototype type-value kind-value)
   (.o .type: type-value kind: kind-value schema: 'v1))
@@ -139,9 +129,9 @@
 
 (def (clos-method-element? candidate)
   (and (clos-instance? (.ref ClosMethod 'proto) candidate)
-       (clos-required-slots? candidate specializers
+       (required-slots? candidate
          (identity function-name?)
-         (specializers specializers?)
+         (specializers specializers? read: %ref-owned-list)
          (qualifier qualifier?)
          (body procedure?)
          (lambda-list lambda-list-or-false?)
@@ -239,13 +229,13 @@
 
 (def (clos-generic-function-element? candidate)
   (and (clos-instance? (.ref ClosGenericFunction 'proto) candidate)
-       (clos-required-slots? candidate methods
+       (required-slots? candidate
          (identity function-name?)
          (required natural?)
          (rest? boolean?)
          (argument-precedence-order argument-precedence-order?)
          (method-combination method-combination?)
-         (methods methods?)
+         (methods methods? read: %ref-owned-list)
          (generation natural?)
          (lambda-list (cut element? ClosLambdaList <>))
          (protocol generic-protocol?)

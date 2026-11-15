@@ -18,10 +18,16 @@
       (def object (.o first: 1 second: #f))
       (.ref object 'first)
       (check-equal? (required-slots? object (first number?) (second not)) #t)
+      (def custom-reads '())
+      (def (read-field receiver key)
+        (set! custom-reads (cons key custom-reads))
+        (.ref receiver key))
       (defvalues (accepted reads)
         (%call-with-recorded-slot-reads
-          (lambda () (required-slots? object (first number?) (second not)))))
+          (lambda ()
+            (required-slots? object (first number? read: read-field) (second not)))))
       (check-equal? accepted #t)
+      (check-equal? custom-reads '(first))
       (check-equal?
        (map slot-read-key (filter (lambda (read) (eq? (slot-read-receiver read) object)) reads))
        '((presence first) first (presence second) second))

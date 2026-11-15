@@ -27,6 +27,12 @@ and ordered dependency records. Cold computation captures its dependencies
 even without an observer. A failed computation installs neither a value nor a
 read record. Structural reads can enumerate names without demanding their values.
 
+`slot-read-instance` copies the cached cells into a separate table when
+the record has an instance table. `object-read-issuance` also copies that
+table and the table captured by a preparation read. Editing those tables
+leaves the receiver and the issued record intact. Use `object-read-issued?`
+to check issuance and replay to check whether a read is still current.
+
 A `.ref/cached` miss invokes the default thunk and records that the cell has no
 cached value. Populating the cell can make that record stale without advancing
 the receiver revision. A cached `#f` is a value.
