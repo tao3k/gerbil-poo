@@ -150,11 +150,12 @@
         (check (build-inputs (test-build-spec "recovery")) =>
           '((gxc: "coordinator-interleaving-test" (extra-inputs: ("../build.ss")))))
         (check (length parts) => 4)
-        (check (length all) => 87)
-        (check (length (filter (lambda (spec) (string-suffix? "-test" (cadr spec))) all)) => 81)
+        (check (length all) => 88)
+        (check (length (filter (lambda (spec) (string-suffix? "-test" (cadr spec))) all)) => 82)
         (for (name '("construction/graph-order-repair-test" "feedback/graph-algorithms-test"
                      "objects/class-diagnostics-test" "objects/shape-admission-test"
-                     "methods/duim-pane" "methods/duim-pane-test"))
+                     "methods/duim-pane" "methods/duim-pane-test"
+                     "collection-styles/uint-trie-set-admission-test"))
           (check (and (member name (map cadr all)) #t) => #t))
         ;; Grouping cannot leave any root unbounded or duplicate its policy.
         (for (spec all)
