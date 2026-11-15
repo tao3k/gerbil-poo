@@ -8,7 +8,8 @@
 (import :clan/poo/object
         (only-in :clan/poo/mop element?)
         (only-in :clan/poo/slot-observation slot-read-receiver)
-        (only-in :std/list/list filter-map find flatten1)
+        (only-in :std/list/list filter-map find flatten1 length=?)
+        (only-in :std/hash/misc hash-remove!)
         "types.ss" "objects.ss" "method-combination.ss"
         "funcs.ss"
         (only-in "lambda-list.ss" poo-clos-rest-arguments)
@@ -330,9 +331,15 @@
                   ;; All protocol lookup has completed. There is no public
                   ;; callback between this check and the identity assertion.
                   (else (admit-default)))))
+          (def effective-arguments
+            (and hook (element? ClosEffectiveMethod effective-method)
+                 (.ref effective-method 'arguments)))
           (unless (or direct
                       (and (or (not hook)
-                               (and (element? ClosEffectiveMethod effective-method)
+                               (and effective-arguments
+                                    (or (eq? effective-arguments arguments)
+                                        (and (length=? effective-arguments arguments)
+                                             (andmap eqv? effective-arguments arguments)))
                                     (not (effective-method-empty? effective-method))))
                            (eq? (.ref effective-method 'generic) generic)))
             (clos-fail 'invalid-effective-method-result
@@ -403,11 +410,8 @@
 ;; : (-> ClosGenericFunction ClosMethod [SchemeValue] SchemeValue)
 (def (poo-clos-no-next-method generic method arguments)
   (owned-read-open!)
-  (let (hook (.ref (.ref generic 'protocol) 'no-next-method))
-    (if hook
-      (hook generic method arguments)
-      (apply poo-clos-call poo-clos-no-next-method-generic
-             (cons generic (cons method arguments))))))
+  (apply poo-clos-call poo-clos-no-next-method-generic
+         (cons generic (cons method arguments))))
 
 ;; : ClosGenericFunction
 (def poo-clos-no-applicable-method-generic
@@ -431,38 +435,46 @@
    (poo-clos-method
     'no-next-method/default
     (list (poo-clos-any-specializer) (poo-clos-any-specializer))
-    (lambda (_frame generic method . _arguments)
-      (clos-fail 'no-next-method
-                 generic: (.ref generic 'identity)
-                 qualifier: (.ref method 'qualifier)
-                 method: (.ref method 'identity)))
+    (lambda (_frame generic method . arguments)
+      (let (hook (.ref (.ref generic 'protocol) 'no-next-method))
+        (if hook
+          (hook generic method arguments)
+          (clos-fail 'no-next-method
+                     generic: (.ref generic 'identity)
+                     qualifier: (.ref method 'qualifier)
+                     method: (.ref method 'identity)))))
     lambda-list: (poo-clos-lambda-list 2 0 #t #f '() #f))))
 
-;;; Method-list equivalence is identity based: equal-looking descriptors from
-;;; different generations are not interchangeable continuation targets.
-;; : (forall (a) (-> [a] [a] Boolean))
-(def (same-methods? left right)
-  (or (eq? left right)
-      (and (pair? left) (pair? right)
-           (eq? (car left) (car right))
-           (same-methods? (cdr left) (cdr right)))))
-
-;; : (-> [(Pair Symbol [ClosMethod])] [(Pair Symbol [ClosMethod])] Boolean)
-(def (same-method-groups? left right)
-  (or (eq? left right)
-      (and (pair? left) (pair? right)
-           (eq? (caar left) (caar right))
-           (same-methods? (cdar left) (cdar right))
-           (same-method-groups? (cdr left) (cdr right)))))
-
-;;; Replacement applicability compares every qualifier chain, not merely the
-;;; currently executing primary or around chain.
-;; : (-> ClosEffectiveMethod ClosEffectiveMethod Boolean)
-(def (same-effective-method? left right)
-  (and (andmap (lambda (qualifier)
-                 (same-methods? (.ref left qualifier) (.ref right qualifier)))
-               '(around before primary after))
-       (same-method-groups? (.ref left 'groups) (.ref right 'groups))))
+;; Methods with agreeing specializers can trade places within their run.
+;; Every method identity and every other ordering decision must agree.
+(def (same-applicable-methods? left right)
+  (let compare ((left left) (right right))
+    (cond
+     ((null? left) (null? right))
+     ((null? right) #f)
+     ((eq? (caar left) (caar right)) (compare (cdr left) (cdr right)))
+     (else
+      (def signature (%ref-owned-list (caar left) 'specializers))
+      (def (agrees? entry)
+        (same-specializers? signature (%ref-owned-list (car entry) 'specializers)))
+      (and (agrees? (car right))
+           (let (counts (make-hash-table-eq))
+             (def left-tail
+               (let collect ((remaining left))
+                 (if (and (pair? remaining) (agrees? (car remaining)))
+                   (begin
+                     (hash-update! counts (caar remaining) 1+ 0)
+                     (collect (cdr remaining)))
+                   remaining)))
+             (let consume ((remaining right))
+               (if (and (pair? remaining) (agrees? (car remaining)))
+                 (let* ((method (caar remaining)) (count (hash-get counts method)))
+                   (and count
+                        (begin
+                          (if (= count 1) (hash-remove! counts method)
+                              (hash-put! counts method (1- count)))
+                          (consume (cdr remaining)))))
+                 (and (zero? (hash-length counts)) (compare left-tail remaining))))))))))
 
 ;;; Frame admission prevents arbitrary lookalike POO objects from exercising a
 ;;; captured next-method continuation.
@@ -511,10 +523,14 @@
                       (.ref frame 'arguments)
                       replacement)))
     (arguments-valid! generic arguments)
-    (unless (or (null? replacement)
-                (same-effective-method?
-                 effective-method (compute-effective-method generic arguments)))
-      (frame-fail frame 'changed-applicable-methods))
+    (unless (null? replacement)
+      (let* ((revision (object-revision generic))
+             (original (protocol-ranked-methods generic (.ref effective-method 'arguments)))
+             (ranked (protocol-ranked-methods generic arguments)))
+        (when (pair? ranked) (keyword-arguments-valid! generic ranked arguments))
+        (unless (and (same-applicable-methods? original ranked)
+                     (= revision (object-revision generic)))
+          (frame-fail frame 'changed-applicable-methods))))
     (if (.ref frame 'next)
       ((.ref frame 'next) arguments)
       (poo-clos-no-next-method generic (.ref frame 'method) arguments))))

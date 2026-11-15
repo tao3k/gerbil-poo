@@ -471,6 +471,7 @@
                => #t)))
 
     (test-case "long combinations partition groups and drive explicit next chains"
+      (def combinations 0)
       (let* ((around-group
               (poo-clos-method-group 'around '((around))))
              (primary-group
@@ -479,6 +480,7 @@
               (poo-clos-long-method-combination
                'long-standard (list around-group primary-group)
                (lambda (_generic _arguments _groups)
+                 (set! combinations (1+ combinations))
                  (lambda (effective-method)
                    (let ((around
                           (poo-clos-effective-method-group
@@ -513,6 +515,7 @@
                (list around animal-primary dog-primary))))
         (check-equal? (poo-clos-call generic combination-dog)
                       '(around (dog animal)))
+        (check-equal? combinations 1)
         (let (effective-method
               (poo-clos-compute-effective-method generic combination-dog))
           (check-equal?
@@ -590,6 +593,17 @@
         (check-exception
          (poo-clos-call generic 'argument)
          (failure-code? 'invalid-effective-method-result)))
+      (let* ((protocol
+              (poo-clos-generic-protocol 'wrong-effective-arguments
+                compute-effective-method:
+                (lambda (_generic _arguments _methods default)
+                  (.cc default 'arguments '(different)))))
+             (generic
+              (poo-clos-add-method
+               (poo-clos-generic-function 'wrong-effective-arguments 1 protocol: protocol)
+               (constant-method 'method 'primary any-specializer 'value))))
+        (check-exception (poo-clos-call generic 'argument)
+                         (failure-code? 'invalid-effective-method-result)))
       (let* ((terminal-called? #f)
              (protocol
               (poo-clos-generic-protocol

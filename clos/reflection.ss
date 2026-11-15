@@ -197,17 +197,22 @@
 ;; : (-> GenericSource List [ClosSpecializer] Boolean (Maybe ClosMethod))
 (def (poo-clos-find-method generic-source qualifiers specializers
                            error?: (error-value #t))
-  (let* ((generic-value (require-clos-generic generic-source))
-         (method
-          (find (lambda (candidate)
-                  (and (equal? (method-qualifier-list (.ref candidate 'qualifier)) qualifiers)
-                       (same-specializers?
-                        (.ref candidate 'specializers) specializers)))
-                (.ref generic-value 'methods))))
-    (when (and (not method) error-value)
-      (clos-fail 'method-not-found generic: (.ref generic-value 'identity)
-                 qualifier: qualifiers))
-    method))
+  (def generic (require-clos-generic generic-source))
+  (unless (and (list? qualifiers) (andmap symbol? qualifiers))
+    (clos-fail 'invalid-method-qualifier generic: (.ref generic 'identity)
+               qualifier: qualifiers))
+  (unless (and (list? specializers) (= (length specializers) (.ref generic 'required)))
+    (clos-fail 'method-required-argument-mismatch generic: (.ref generic 'identity)))
+  (unless (andmap (cut element? ClosSpecializer <>) specializers)
+    (clos-fail 'invalid-specializer generic: (.ref generic 'identity)))
+  (def method
+    (find (lambda (candidate)
+            (and (equal? (method-qualifier-list (.ref candidate 'qualifier)) qualifiers)
+                 (same-specializers? (.ref candidate 'specializers) specializers)))
+          (.ref generic 'methods)))
+  (when (and (not method) error-value)
+    (clos-fail 'method-not-found generic: (.ref generic 'identity) qualifier: qualifiers))
+  method)
 
 ;; : (-> GenericSource ClosGenericFunction)
 (def (reflection-generic generic-source)

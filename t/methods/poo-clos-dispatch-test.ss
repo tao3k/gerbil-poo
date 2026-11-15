@@ -767,6 +767,67 @@
         (check-exception (poo-clos-call generic dog)
                          (failure-code? 'changed-applicable-methods))))
 
+    (test-case "replacement compares applicability before method combination"
+      (def first-effective #f)
+      (def combinations 0)
+      (def protocol
+        (poo-clos-generic-protocol 'reuse-effective
+          compute-effective-method:
+          (lambda (_generic _arguments _methods default)
+            (set! combinations (1+ combinations))
+            (unless first-effective (set! first-effective default))
+            first-effective)))
+      (def generic (poo-clos-generic-function 'replace-with-eql 1 protocol: protocol))
+      (poo-clos-add-method generic (primary-method 'base (list any-specializer) 'base))
+      (poo-clos-add-method generic
+        (primary-method 'new (list (poo-clos-eql-specializer 'changed)) 'new))
+      (poo-clos-add-method generic
+        (poo-clos-method 'around (list any-specializer)
+          (lambda (frame _value) (poo-clos-call-next-method frame 'changed))
+          qualifier: 'around))
+      (check-exception (poo-clos-call generic 'original)
+                       (failure-code? 'changed-applicable-methods))
+      (check-equal? combinations 1))
+
+    (test-case "replacement may reorder methods with agreeing specializers"
+      (def (run specializer)
+        (def protocol
+          (poo-clos-generic-protocol 'reverse-for-replacement
+            compute-applicable-methods:
+            (lambda (_generic arguments methods)
+              (if (eq? (car arguments) dog) methods (reverse methods)))))
+        (def generic (poo-clos-generic-function 'reorder 1 protocol: protocol))
+        (poo-clos-add-method generic (primary-method 'primary (list specializer) 'terminal))
+        (poo-clos-add-method generic
+          (poo-clos-method 'around (list any-specializer)
+            (lambda (frame _value) (poo-clos-call-next-method frame cat))
+            qualifier: 'around))
+        (poo-clos-call generic dog))
+      (check-equal? (run any-specializer) 'terminal)
+      (check-exception (run (poo-clos-prototype-specializer animal-class))
+                       (failure-code? 'changed-applicable-methods)))
+
+    (test-case "replacement rechecks applicable hooks before invoking the next method"
+      (def (run replace?)
+        (def foreign (primary-method 'foreign (list any-specializer) 'foreign))
+        (def protocol
+          (poo-clos-generic-protocol 'open-ranking
+            compute-applicable-methods:
+            (lambda (generic arguments methods)
+              (cond
+               ((not (eq? (car arguments) 'changed)) methods)
+               (replace? (poo-clos-add-method generic foreign) methods)
+               (else (list foreign))))))
+        (def generic (poo-clos-generic-function 'recheck 1 protocol: protocol))
+        (poo-clos-add-method generic (primary-method 'base (list any-specializer) 'base))
+        (poo-clos-add-method generic
+          (poo-clos-method 'around (list any-specializer)
+            (lambda (frame _value) (poo-clos-call-next-method frame 'changed))
+            qualifier: 'around))
+        (poo-clos-call generic 'original))
+      (check-exception (run #f) (failure-code? 'invalid-compute-applicable-methods-result))
+      (check-exception (run #t) (failure-code? 'changed-applicable-methods)))
+
     (test-case "rest arguments and multiple values survive effective invocation"
       (def (many _frame _required . rest)
         (apply values rest))
@@ -808,6 +869,14 @@
         (check (eq? (poo-clos-find-method first '() specializers) method) => #t)
         (check-equal?
          (poo-clos-find-method first '(before) specializers error?: #f) #f)
+        (check-exception (poo-clos-find-method first '() '() error?: #f)
+                         (failure-code? 'method-required-argument-mismatch))
+        (check-exception (poo-clos-find-method second '() '())
+                         (failure-code? 'method-required-argument-mismatch))
+        (check-exception (poo-clos-find-method first '() '(any) error?: #f)
+                         (failure-code? 'invalid-specializer))
+        (check-exception (poo-clos-find-method first 'before specializers error?: #f)
+                         (failure-code? 'invalid-method-qualifier))
         (check-exception
          (poo-clos-add-method second method)
          (failure-code? 'method-owned-by-another-generic))
@@ -902,7 +971,10 @@
             (poo-clos-remove-method poo-clos-no-applicable-method-generic method)))))
 
     (test-case "terminal protocol functions are ordinary mutable generics"
-      (let* ((target (poo-clos-generic-function 'terminal-target 1))
+      (let* ((protocol
+              (poo-clos-generic-protocol 'local-terminal
+                no-next-method: (lambda (_generic _method arguments) (cons 'local arguments))))
+             (target (poo-clos-generic-function 'terminal-target 1 protocol: protocol))
              (no-applicable
               (poo-clos-method
                'terminal-target/no-applicable
@@ -928,6 +1000,7 @@
         (check-equal? (poo-clos-call target 'absent)
                       '(terminal-target (absent)))
         (poo-clos-add-method target terminal)
+        (check-equal? (poo-clos-call target 'present) '(local present))
         (poo-clos-add-method poo-clos-no-next-method-generic no-next)
         (check-equal? (poo-clos-call target 'present)
                       '(terminal-target terminal-target/primary (present)))
