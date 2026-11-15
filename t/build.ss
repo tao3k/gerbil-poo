@@ -46,7 +46,8 @@
     "table-split-test")
     ("collection-styles"
     (gxc: "set-algebra-test" (extra-inputs: ("set-algebra/cases.scm" "set-algebra/set-observation.scm")))
-    (gxc: "table-style-test" (extra-inputs: ("table-style/set-style.scm" "table-style/table-receiver.scm" "table-style/cases.scm"))))
+    (gxc: "table-style-test" (extra-inputs: ("table-style/set-style.scm" "table-style/table-receiver.scm" "table-style/cases.scm")))
+    "uint-trie-set-admission-test")
     ("collection-updates"
     "table-fold-test"
     "table-index/revisions"
