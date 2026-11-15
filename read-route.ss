@@ -88,7 +88,7 @@
 ;; KEY is the slot name or a structural query such as '(presence port).
 ;; READS maps keys to SlotRead records. INSTANCE holds cached slot values.
 ;; Either table may be #f. A bootstrap read checks its constant directly.
-(defvalues (require-read-route! %standard-symbol-table-lookup?)
+(defvalues (require-read-route! %standard-symbol-table-lookup? %admitted-vector-read-fields)
   (let ()
     ;; Pin the standard wrapper, primitive lookup and hash/test identities once.
     (def (capture table)
@@ -188,7 +188,21 @@
                   (eq? (&raw-table-hash backend) (route-hash instance-route))
                   (eq? (&raw-table-test backend) (route-test instance-route))
                   (not (&raw-table-lock backend))))))
-    (values require-route! standard-lookup?)))
+    ;; The caller has just admitted both tables with require-route!. Borrow
+    ;; their native backends for this closed sweep only. Hash-backed receivers
+    ;; keep their ordinary lookup, and nothing is retained past the sweep.
+    (def (admitted-vector-read-fields reads instance)
+      (let (backend (and instance ((route-object-field instance-route) instance)))
+        (if (and reads backend
+                 (eq? (read-runtime.object-class backend) (value-route-backend vector-route)))
+          (let* ((shape ((value-route-shape-field vector-route) backend))
+                 (index ((value-route-indices-field vector-route) shape)))
+            (values ((route-object-field reads-route) reads)
+                    ((route-object-field instance-route) index)
+                    ((value-route-cells-field vector-route) backend)
+                    (value-route-missing vector-route)))
+          (values #f #f #f #f))))
+    (values require-route! standard-lookup? admitted-vector-read-fields)))
 
 
 ;; Each issuer keeps a weak table of the records it created and their original

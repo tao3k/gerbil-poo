@@ -691,7 +691,12 @@
     (if (%owned-private-registration?)
       (let-values (((generic-value reads)
                     (%call-with-private-slot-read-prefix
-                      (lambda () (require-clos-generic generic-source)))))
+                      (lambda ()
+                        ;; This is the first admission. Collect its original
+                        ;; signed reads for the group instead of probing the
+                        ;; repeated-field route before the group exists.
+                        (%without-slot-read-registration-interval
+                          (lambda () (require-clos-generic generic-source)))))))
         (values generic-value (and (eq? generic-value generic-source) reads)))
       (values (require-clos-generic generic-source) #f)))
   (let ()

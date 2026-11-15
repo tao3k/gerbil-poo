@@ -18,7 +18,10 @@
 ;; White-box ownership check only. This private entry is NOT a public export;
 ;; Ordinary consumers use the public replay and protected checkpoint entries.
 (extern namespace: clan/poo/object call-with-issued-reads object-read-key
-        object-read-dependencies object-read-value require-current-read-sweep!)
+        object-read-dependencies object-read-value require-current-read-sweep!
+        %call-with-fresh-slot-read-group)
+(def (admit-group roots)
+  (%call-with-fresh-slot-read-group roots (lambda (_) #t)))
 (def (captured-order roots)
   (call-with-issued-reads roots (lambda (reads _current! _receivers) reads) #t))
 (def (recorded action)
@@ -74,10 +77,12 @@
     ;; Every access sees the live field. No captured key may survive a
     ;; mutated record, even if a previous currentness check accepted it.
     (check-equal? (object-read-current? read) #t)
+    (check-equal? (admit-group reads) #t)
     (try
       (runtime.slot-set! read 'key '(names))
       (check-equal? (object-read-key read) '(names))
       (check-equal? (object-read-current? read) #f)
+      (refuses "unissued slot dependency" (cut admit-group reads))
       (finally (runtime.slot-set! read 'key 'value)))
     (check-equal? (object-read-current? read) #t)
     (set! completed (1+ completed)))
@@ -95,6 +100,7 @@
         (runtime.slot-set! table 'ref
           (lambda (_self _key _default) (set! calls (1+ calls)) #f))
         (refuses "changed metadata ref" (cut reobserve-slot-reads! roots))
+        (refuses "changed metadata ref" (cut admit-group roots))
         (check-equal? calls 0)
         (finally (runtime.slot-set! table 'ref original))))
     (def owner (.o value: 1))
@@ -923,10 +929,12 @@
     (def miss (selected before-fill '(cache-miss value)))
     (def revision (object-revision Lazy))
     (call-with-current-slot-reads (list miss) void)
+    (check-equal? (admit-group (list miss)) #t)
     (refuses "stale slot dependency"
       (lambda () (call-with-current-slot-reads (list miss)
         (lambda (_) (check-eq? (.get Lazy value) #f) 'returned))))
     (check-equal? (object-revision Lazy) revision)
+    (refuses "stale slot dependency" (cut admit-group (list miss)))
     (defvalues (present after-fill)
       (%call-with-recorded-slot-reads (lambda () (.get Lazy value))))
     (check-eq? present #f)

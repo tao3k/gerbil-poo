@@ -42,6 +42,7 @@
 ;; Trusted implementation access to the one existing writer; it remains absent
 ;; from the read-route public exports. Ordinary consumers receive only checks.
 (extern namespace: clan/poo/read-route %issue-read %pure-read-sweep?)
+(extern namespace: clan/poo/read-route %admitted-vector-read-fields)
 (def issue-object-read %issue-read)
 (def object-read-issued? %issued-read?)
 (def object-read-issuance %read-issuance)
@@ -59,6 +60,28 @@
   (def receiver (slot-read-receiver read))
   (require-read-route! (object-read-key read)
     (object-%reads receiver) (object-%instance receiver)))
+
+;; Enter only after native route admission, and use only until this closed
+;; traversal returns. Issuance is still checked for every original record.
+(def (admitted-vector-currentness receiver)
+  (def instance (object-%instance receiver))
+  (defvalues (reads indices cells missing)
+    (%admitted-vector-read-fields (object-%reads receiver) instance))
+  (and reads
+       (let (revision (object-revision receiver))
+         (def (value-at key)
+           (let (index (symbolic-table-ref indices key #f))
+             (if index (vector-ref cells index) missing)))
+         (lambda (read key)
+           (and (= (slot-read-revision read) revision)
+                (eq? (record-instance-field read) instance)
+                (if (and (pair? key) (eq? (car key) 'cache-miss))
+                  (eq? (value-at (cadr key)) missing)
+                  (and (eq? read (raw-table-ref reads key #f))
+                       (or (pair? key)
+                           (let (value (value-at key))
+                             (eq? (record-value-field read)
+                                  (if (eq? value missing) absent-value value)))))))))))
 
 ;; Only the fixed checker below runs in this sweep. The original key and live
 ;; checks stay in record order; no author work or observation is dispatched.
@@ -248,12 +271,17 @@
                            (table-set! seen read #t)
                            (let ((key (object-read-key read))
                                  (receiver (slot-read-receiver read)))
-                             (require-read-route! key #f #f)
-                             (unless (or (and (pair? key) (eq? (car key) 'bootstrap))
-                                         (table-ref seen receiver #f))
-                               (require-object-read-route! read)
-                               (table-set! seen receiver #t))
-                             (unless (object-issued-read-current? read)
+                             (unless (symbol? key) (require-read-route! key #f #f))
+                             (def route
+                               (and (not (and (pair? key) (eq? (car key) 'bootstrap)))
+                                    (or (table-ref seen receiver #f)
+                                        (begin
+                                          (require-object-read-route! read)
+                                          (let (route (or (admitted-vector-currentness receiver) #t))
+                                            (table-set! seen receiver route)
+                                            route)))))
+                             (unless (if (procedure? route) (route read key)
+                                       (object-issued-read-current? read))
                                (error "stale slot dependency" key))
                              (and (allow-read? read)
                                   (andmap admit (object-read-dependencies read)))))))

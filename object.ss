@@ -43,7 +43,7 @@
   :std/stxparam
   (only-in :std/values first-value)
   (only-in :gerbil/runtime/c3 c4-linearize*)
-  (only-in :gerbil/runtime/table symbolic-hash)
+  (only-in :gerbil/runtime/table symbolic-hash raw-table-ref symbolic-table-ref)
   (only-in ./support/base λ let-id-rule defonce awhen %graph-table-seed))
 
 ;; TODO: formalize (Object A S D) and the type conditions under which an object is instantiatable?
