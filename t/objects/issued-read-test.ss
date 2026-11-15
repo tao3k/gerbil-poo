@@ -20,8 +20,8 @@
 (extern namespace: clan/poo/object call-with-issued-reads object-read-key
         object-read-dependencies object-read-value require-current-read-sweep!
         %call-with-fresh-slot-read-group)
-(def (admit-group roots)
-  (%call-with-fresh-slot-read-group roots (lambda (_) #t)))
+(def (admit-group roots (visit-capacity 0))
+  (%call-with-fresh-slot-read-group roots (lambda (_) #t) visit-capacity))
 (def (captured-order roots)
   (call-with-issued-reads roots (lambda (reads _current! _receivers) reads) #t))
 (def (recorded action)
@@ -78,11 +78,14 @@
     ;; mutated record, even if a previous currentness check accepted it.
     (check-equal? (object-read-current? read) #t)
     (check-equal? (admit-group reads) #t)
+    (check-equal? (admit-group reads (* 2 (length reads))) #t)
     (try
       (runtime.slot-set! read 'key '(names))
       (check-equal? (object-read-key read) '(names))
       (check-equal? (object-read-current? read) #f)
       (refuses "unissued slot dependency" (cut admit-group reads))
+      (refuses "unissued slot dependency"
+        (cut admit-group reads (* 2 (length reads))))
       (finally (runtime.slot-set! read 'key 'value)))
     (check-equal? (object-read-current? read) #t)
     (set! completed (1+ completed)))

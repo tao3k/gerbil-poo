@@ -362,7 +362,10 @@
               (%stock-call-validator? (slot-read-receiver read) value))
              ((equal? key '(bootstrap .element?)) #f)
              ((symbol? key) (not (pair? value)))
-             (else #t))))))))
+             (else #t))))
+        ;; Captured roots are unique. Reserve space for them and leave room
+        ;; for receiver-route entries and dependencies discovered by the sweep.
+        (* 2 (length roots))))))
 
 (def (prepare-direct-primary generic arguments ranked roots)
   (and (%owned-private-registration?) (null? (cdr ranked))

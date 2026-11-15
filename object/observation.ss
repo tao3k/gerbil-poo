@@ -259,11 +259,11 @@
       ;; once in preorder, checking the native route at its receiver's first
       ;; ordinary read. Records and receivers are disjoint identity keys.
       ;; Foreign routes leave qualification to the ordinary caller.
-      (lambda (roots allow-read?)
+      (lambda (roots allow-read? (visit-capacity 0))
         (without-observation
           (lambda ()
             (and (%pure-read-sweep?)
-                 (let (seen (make-table test: eq?))
+                 (let (seen (make-table test: eq? size: visit-capacity))
                    (def (admit read)
                      (or (table-ref seen read #f)
                          (begin
