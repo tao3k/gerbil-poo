@@ -2,7 +2,7 @@
 (export failing-properties-test)
 (import :std/test
  (prefix-in :clan/poo/support/testing typed.)
- (only-in :clan/poo/mop Type. define-type)
+ (only-in :clan/poo/mop/prototype Type. define-type)
  (only-in :clan/poo/type Exactly)
  (only-in :clan/poo/object .cc)
  (prefix-in :clan/poo/testing/property/generator g.)
