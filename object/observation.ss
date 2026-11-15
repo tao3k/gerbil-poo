@@ -95,7 +95,8 @@
       (and (eq? object-init (read-runtime.find-method object::t #f ':init!))
            (eq? state-init (read-runtime.find-method state-class #f ':init!))))))
 ;; Share authenticated finite traversal structure; each call owns fresh source guards.
-(defvalues (call-with-issued-reads call-with-current-slot-reads %bind-current-slot-reads)
+(defvalues (call-with-issued-reads call-with-current-slot-reads %bind-current-slot-reads
+            %register-slot-dependencies!)
   (let ()
     ;; The index owns neither roots nor cache receivers. A live projection keeps
     ;; its ordinary receiver-local cache owner alive; GC eviction is always a cold miss.
@@ -229,20 +230,18 @@
               (apply-projection selected
                 (lambda (reads current! receivers positions)
                   (require-current-read-sweep! reads receivers positions current! #t)
-                  (action (length reads))) #f))))))))
-
-;; Opt in to invalidation from actual observed Slot reads, not hidden callback
-;; state. Run once, admit the complete captured graph before registering edges,
-;; then reuse ordinary weak source dependencies. Failed work retains its exact
-;; cause and publishes no value; old edges remain conservatively registered.
-(def (%register-slot-dependencies! self roots)
-  (unless (null? roots)
-    (call-with-issued-reads roots
-      (lambda (reads current! receivers)
-        ;; Whole-graph admission precedes every new source registration.
-        (for-each current! reads)
-        (for (([source . _] receivers))
-          (unless (eq? source self) (depend-on-object! self source)))) #f)))
+                  (action (length reads))) #f)))))
+      ;; The initial admission uses the projection's receiver positions once
+      ;; across the whole graph. Edge registration remains inside the native
+      ;; write guard and the independent return sweep, including foreign routes.
+      (lambda (self roots)
+        (unless (null? roots)
+          (with-projection roots
+            (lambda (reads current! receivers positions)
+              (require-current-read-sweep! reads receivers positions current! #t)
+              (for (([source . _] receivers))
+                (unless (eq? source self) (depend-on-object! self source))))
+            #f #f))))))
 (def (with-slot-dependencies self action)
   (using ((self :~ object?) (action :~ procedure?))
     (def revision (object-revision self))
