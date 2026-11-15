@@ -1,113 +1,15 @@
-# Standard compilation and complete CI acceptance
+# Standard compilation and CI
 
-The workflow uses a verified precompiled Gerbil release. It builds neither the
-compiler nor Bazel. Linux jobs run on `ubuntu-latest`; local macOS results are
-reported separately. The setup action uses `gerbil --version` and `pkg-config`
-for host dependency identity, without interpreting generated Scheme expressions.
+CI prepares the production libraries and linked representation workloads
+with `just build-shared`. Gerbil owns compilation, reuse and cleanup.
+The shared artifact contains the native libraries and executables.
 
-The 25 declared test packages have separate compilation and semantic jobs. Along
-with the shared build, representation-entry and full single-process jobs, this
-retains 53 checks. Job enumeration lists package declarations; the project does
-not parse Scheme imports or reconstruct a dependency graph.
+Each test group runs its sources through `gerbil test`. The shared build
+job also checks the build declarations and runs a source example. The
+representation and benchmark jobs retain their separate workloads and
+resource limits. The test matrix runs on cache hits as well.
 
-Collection-delta and coordinator-recovery suites share their existing functional
-owners through standard multiple TestSuite exports. There are 62 declared functional test
-modules; the Suite names, cases and observed execution order are retained. The
-three collection include bodies are explicit `extra-inputs`, so standard make
-tracks their freshness. Package and compiler-partition boundaries are unchanged.
-This reduces loadable products; it is not a claim of stable wall-clock speedup.
-
-The shared job runs `just build-shared`. The root package builds the shared
-libraries and `representation-main`; complete collection acceptance loads its
-ordinary module through that entry. The startup benchmark has its own small
-standard executable package. It does not relink the complete collection graph.
-On Darwin the root entry keeps its library declarations and the existing foundation
-executable in one standard make graph. The released Darwin compiler owns reuse
-of runtime machine objects for dynamic and static consumers. No project object
-cache or reconstructed dependency graph is installed.
-On other platforms the root graph contains libraries only. The existing startup
-program package declares both executable entries in one standard make graph,
-so their static preparation is restricted to their dependency closure. Both
-programs and all library declarations remain required by `build-shared`. Root
-and startup-program compilation run to completion. The 90-second
-program-study guard applies to execution.
-This platform candidate requires a fresh Linux CI pass; macOS timings do not admit it.
-GitHub's `hashFiles` and cache action
-own exact-source cross-run lookup; `std/make` owns local dependency freshness.
-Cache misses are not accepted as success and tests always execute. No project
-source-key files, cache admission executable or revision ledger are generated.
-The startup package retains `defbuild-script`'s backend parallelism through
-`GERBIL_BUILD_CORES`. Serializing an entire make with `parallelize: #f` would also
-disable concurrent backend object compilation. The 90-second startup-program
-execution gate remains separate from compilation.
-The default local entry shares the existing compiler partitions between two
-official test runners on Darwin and four elsewhere, capped by
-`GERBIL_BUILD_CORES`. CI retains all
-53 checks, including the complete single-process job. No upstream runner is
-modified and no test procedure is run concurrently inside a shared fixture.
-The complete local entry prints standard `/usr/bin/time -p` wall/user/system observations
-for shared preparation, startup preparation, test-package preparation, the whole
-test process and the collection study. Existing commands, progress and failure
-markers remain intact; phase CPU observations do not isolate GC or loader costs.
-The local test-package phase uses four compiler-only standard packages, whose
-specifications reuse the 25 public CI package declarations. At 12 physical cores,
-Just's existing parallel dependency queue admits four packages, each using two
-standard Gerbil backend jobs. This bounds retained compiler contexts without
-replacing make's dependency, freshness or backend scheduling. Each real package
-start and completion prints its name and wall/user/system times. The root build
-uses the machine's standard `GERBIL_BUILD_CORES`; no new concurrency variable is
-introduced. See [build-summary.org](performance/build-summary.org) for qualified
-local observations; historical cohorts are not interchangeable.
-Test C uses the standard GCC `-Og` level and the existing 4096 host threshold;
-library and benchmark implementation levels remain unchanged. All test roots
-share this tracked policy. The source freshness fixtures qualify their first
-build through `gerbil build`, then reuse `std/make` for unchanged/revised input
-checks with the same backend limits. Root build progress is limited to compile
-commands so `meta/spec` retain their standard single-datum output protocol.
-The standard upload/download actions transfer artifacts within the current
-workflow run, using commit-specific names and their built-in digest verification.
-The shared library/program artifact uses an uncompressed tar in runner temporary
-storage to retain executable permissions across ZIP transfer. No benchmark data
-or archive is committed. Consumers compare the producer's compiler/host identity
-and execute the prepared programs without rebuilding them.
-
-Each compilation job invokes `gerbil build` in its real test package. The
-namespace matches that directory. Its artifact contains that package's compiled
-interfaces and loadable bodies. Independent test jobs pass downloaded `*-test.ssi` interfaces to the official
-runner instead of re-expanding their source directories; the full job downloads all groups and passes all compiled interfaces
-to `gerbil test` in one process, then runs the complete collection paired study.
-The representation job runs the paired startup TestSuite, including both unknown
-request refusals and the runtime-loaded and linked entries.
-
-Static packaging checks run through `just check-layout` in the shared build and
-cached full acceptance. `t/tools` tests actual POO CLI/debug/metadata behavior;
-object lifecycle assertions belong to `t/objects`. There is no separate
-`tools/build` suite that launches Just or mirrors its recipe text. Gerbil owns
-CLI/make/runner validation; POO's compiler failure-drain support is imported as
-source during builds, not compiled into the runtime library.
-
-Library/test compilation, test imports and test execution run to completion
-without a fixed project wall deadline. Program studies retain their own limits.
-Runtime/test and package-frontend heaps use the explicitly requested 2 GiB
-ceiling, matching the existing root/backend bound. Existing isolated-consumer
-negative controls retain their own declared limits. Compiler tracing and module/case/harness
-markers remain visible. All POO behavior checks run on cache hits too.
-Failures retain their actual build/test status; a queued job or a local pass is
-never reported as current-commit remote acceptance.
-
-Cold macOS acceptance uses an initially empty standard `GERBIL_PATH`, followed
-by `just check 2 1 4`. It cannot borrow previously generated objects. In the
-installed release, `std/make` clean removes declared outputs but can retain
-numbered loadable objects; the loader selects the last contiguous numbered
-object. A changed interface beside an older higher-numbered body is therefore
-not a valid cache cohort. After an interrupted build or compiler/interface
-change, do not admit such a directory on the strength of a no-op build alone;
-use an empty output prefix for acceptance. Ordinary same-source warm builds
-remain owned by `std/make`, without project file scanners or a second loader.
-
-See [test execution](test-execution.md) for the public commands. These controls
-validate repository build and test behavior. They do not formally verify the
-Gerbil compiler, operating system, artifact service or lower-level scheduler.
+The following observations record earlier build and test configurations.
 
 ## Exact full-entry observations
 

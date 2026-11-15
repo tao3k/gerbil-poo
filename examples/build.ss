@@ -1,5 +1,5 @@
-#!/usr/bin/env -S gxi -:max-heap=1G,debug=q
-;;; Standard executable package for the existing shared entry.
+#!/usr/bin/env -S gxi -:max-heap=2G,debug=q
+;;; Fixtures for the tests that exercise Gerbil's compiled module loader.
 (export main representation-build-spec)
 (import :std/build-script (only-in :std/source this-source-file)
         (only-in :std/make pkg-config-libs)
@@ -11,7 +11,13 @@
      "-ld-options" ,links)))
 (def build
   (let ()
-    (defbuild-script (representation-build-spec))
+    (defbuild-script
+      (append '((gxc: "representation-service" "-cc-options" "-O2")
+                (gxc: "generalized-checkout" "-cc-options" "-O2")
+                (gxc: "inherited-services" "-cc-options" "-O2")
+                (gxc: "property-workflows" "-cc-options" "-O2")
+                (gxc: "property-refusals" "-cc-options" "-O2"))
+              (representation-build-spec)))
     main))
 ;; Preserve the existing backend bound and standard compiler cleanup.
 (def (main . options)

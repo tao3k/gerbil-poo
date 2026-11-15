@@ -26,7 +26,7 @@ and =receipt= pointing outside the build prefix:
 GERBIL_BUILD_CORES=1 GERBIL_BAZEL_GUARD_MAX_RSS_BYTES=4294967296 \
   GERBIL_BAZEL_GUARD_SAMPLE_SECONDS=0.1 \
   gerbil -:max-heap=256M,debug=q "$guard" "$receipt" graph-build 0 \
-  just build-graph-study
+  just build-core
 #+end_src
 
 The sampled memory threshold can be crossed between samples. An
@@ -234,9 +234,9 @@ a prepared Graph.
 
 * Owned feedback publication
 
-Prepare the existing Graph study with =just build-graph-study=, then run the
+Prepare the existing Graph study with =just build-core=, then run the
 two publication suites with
-=just _test-run --run '^(owned-quotient-benchmark-test|published-hub-benchmark-test)$' benchmarks/scc-test.ss=.
+=just _test --run '^(owned-quotient-benchmark-test|published-hub-benchmark-test)$' benchmarks/scc-test.ss=.
 The paired run used =d43578f= and the owned-guard change on that same
 base, in baseline, indexed, indexed, baseline order. Each process built
 its own cold 1,000- and 10,000-group fixtures and shared one predecessor
@@ -380,7 +380,7 @@ experiment describe different runtime serial-table states.
 The additional =benchmarks/owned-invalidation-test.ss= uses the existing
 official Just/Gerbil test lifecycle and the Graph root's production =-O2=
 kernel. It is included by =just benchmark-scc=; a focused run uses
-=just build-graph-study= followed by
+=just build-core= followed by
 =just test-file benchmarks/owned-invalidation-test.ss=. No new runner or
 resource limit is introduced.
 

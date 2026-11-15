@@ -1,12 +1,15 @@
 #!/usr/bin/env -S gxi -:max-heap=2G,debug=q
 ;;; Standard package declaration; Gerbil owns inputs, dependencies and freshness.
-(export main +gerbil-poo-build-spec+ production-spec)
+(export main project-build-source)
 (import :std/build-script (only-in :std/source this-source-file)
         (only-in :std/make include-gambit-sharp append-options)
         (only-in "t/build.ss" call-with-build-jobs))
 ;; Preserve the established compiler backend bound in the official entry.
 (let (options (getenv "GAMBOPT" #f))
   (setenv "GAMBOPT" (string-append (if options (string-append options ",") "") "max-heap=2G,debug=q")))
+;; Use the package root for benchmark build specs that include sibling modules.
+(def project-build-file (this-source-file))
+(defrules project-build-source () ((_ . _) project-build-file))
 ;; Declare one production C policy through standard make. Explicit inputs keep
 ;; compiler policy and each module's existing included sources in freshness checks.
 (def (production-module name (inputs []) (cc-options "") . options)

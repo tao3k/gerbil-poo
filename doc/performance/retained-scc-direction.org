@@ -83,7 +83,7 @@ microsecond results describe only admitted structural edits.
 Run the explicit study through the existing owner:
 
 #+begin_src sh
-just build-graph-study
+just build-core
 just -- _test --run '^component-stable-scc-benchmark-test$' benchmarks/scc-test.ss
 #+end_src
 
@@ -108,10 +108,10 @@ the optimization changes neither its state transition nor ticket rules.
 
 * Reproducible study
 
-Use the existing explicit development projection and official test runner:
+Use the existing core package and official test runner:
 
 #+begin_src sh
-just build-graph-study
+just build-core
 just -- _test --run '^ordered-scc-benchmark-test$' benchmarks/scc-test.ss
 #+end_src
 

@@ -28,12 +28,12 @@ including one collection. These workloads use POO objects with prepared slots.
 * Reproduce
 
 #+begin_src sh
-just build-development
-just test-file .build/package/lib/clan/poo/benchmarks/read-field-test.ssi
-just test-file .build/package/lib/clan/poo/benchmarks/read-replay-test.ssi
+just build-core
+just test-file benchmarks/read-field-test.ss
+just test-file benchmarks/read-replay-test.ss
 #+end_src
 
-Use the equivalent paths under =GERBIL_PATH= when it is set. The
+The
 [[file:../slot-observation.md][Slot observation contract]] links the LeanPoo
 proofs and the producer tests. The archived [[https://github.com/tao3k/gerbil-poo/blob/f9d56443b3b56be6dfbac73441fe0996e5447565/doc/read-route-sharing.org][sweep study]],
 [[https://github.com/tao3k/gerbil-poo/blob/f9d56443b3b56be6dfbac73441fe0996e5447565/doc/read-field-costs.md][field study]]

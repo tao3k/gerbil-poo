@@ -131,8 +131,7 @@ remain unqualified, as in the earlier measurement study.
 
 The first object-group preparation refused its declared example import because
 only core libraries had been prepared. That failed record is retained. The
-retry uses the ordinary =just build-development= prerequisites followed by the
-same =just build-group objects= and =just test-group objects= entries.
+retry uses =just build-shared= and =just test-group objects=.
 That retry completed naturally: 171 Case-OK markers, all five Module-OK markers,
 Harness-OK and final OK, with no error/overflow marker. It retains the ordinary
 Gerbil import visibility checks, forged-read controls, author callback mutation,

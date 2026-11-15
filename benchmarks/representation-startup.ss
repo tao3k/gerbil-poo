@@ -83,7 +83,7 @@
                 ((string-prefix? "HARNESS " line) (mark! 'harness-start))
                 ((string-prefix? "HARNESS-OK " line) (mark! 'harness-end))
                 ((and (assq 'harness-end marks) (equal? line "OK")) (mark! 'report))
-                ((and (assq 'report marks) (string-prefix? "real " line)) (mark! 'test-exit)))
+                ((and (assq 'report marks) (equal? line "TEST-PROCESS-EXIT")) (mark! 'test-exit)))
               (when (string-prefix? "CHECK-PROCESS " line)
                 (let (datum (call-with-input-string (substring line 14 (string-length line)) read))
                   (match datum
@@ -190,7 +190,7 @@
           line))))
     (let-values (((lines metrics)
       (measure (lambda () (run-process [timeout "--foreground" "--signal=TERM" "--kill-after=3s" "90s"
-        "/usr/bin/time" "-p" . arguments] stderr-redirection: #t coprocess: receive)) 1)))
+        arguments ...] stderr-redirection: #t coprocess: receive)) 1)))
       (let* ((lifetime (- (monotonic-seconds clock) started))
              (prefix (string-append "SERVICE-WORKFLOW-OK " width " " access " "))
              (receipts (filter (cut string-prefix? prefix <>) lines))

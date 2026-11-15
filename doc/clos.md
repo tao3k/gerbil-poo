@@ -36,8 +36,7 @@ initialization behavior from a separate module.
 [HyperSpec initialization](https://www.lispworks.com/documentation/HyperSpec/Body/07_.htm) ·
 [Gerbil #1372](https://github.com/mighty-gerbils/gerbil/issues/1372)
 
-After `just build-development`, run
-`gerbil test "$GERBIL_PATH/lib/clan/poo/benchmarks/mop-lifecycle-test.ssi"`.
+`just test-source-file benchmarks/mop-lifecycle-test.ss` runs the lifecycle study.
 The benchmark saves the lifecycle and C4 measurements in `$GERBIL_PATH/benchs`.
 
 POOF Appendix A.2.2 explains effective methods as compositions of labeled
@@ -81,8 +80,7 @@ On macOS arm64, four interleaved AOT samples per path gave these CPU medians.
 Full keyword call differences were comparable to the positional control.
 With the key present, method body allocation fell from 10.00 to 7.25 MiB.
 Bundle installation plus first calls fell from 62.12 to 31.54 MiB.
-After `just build-development`, run the source fixture with
-`just test-file benchmarks/clos-admission-test.ss`. For an AOT run,
+Run the source fixture with `just test-source-file benchmarks/clos-admission-test.ss`. For an AOT run,
 compile that fixture with `gxc -O -s` and give its installed `.ssi` to
 the same Just test entry point.
 

@@ -528,7 +528,7 @@
 ;; counters include bootstrap/loading GC, unlike the inner business time form.
 ;; Columns: CPU, runtime wall, GC CPU, GC wall, collections, raw allocation counter.
 ;; The Gambit allocation counter can be negative; it is diagnostic, not a byte cost.
-;; Parent process wall and portable time -p remain independent startup observations.
+;; The parent samples the complete startup with its monotonic clock.
 (def (finish-entry width access result)
   (displayln "SERVICE-WORKFLOW-OK " width " " access " " result)
   (let (stats (##process-statistics))

@@ -82,10 +82,9 @@ compilation and artifact reuse. There is no additional source scanner, hash
 ledger, manifest parser, copied source view or test runner.
 
 The default package build installs the POO libraries, including the public
-property-testing APIs. To compile the examples, benchmark modules and shared
-test fixtures, run `./build-development.ss compile`. Use
-`./build-development.ss clean` to clean that graph. `just build` prepares the
-development graph, the benchmark executable package and the test partitions.
+property-testing APIs. Run `just test-examples` to pass an example TestSuite to
+`gerbil test`, or `just test-group methods` to run a test directory. The
+benchmark packages declare their own linked programs and compiled inputs.
 
 See [test execution](doc/test-execution.md) and [CI checks](doc/ci-checks.md).
 

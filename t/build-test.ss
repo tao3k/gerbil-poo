@@ -7,7 +7,7 @@
         (only-in :std/io/tempfile call-with-temporary-directory)
         (only-in :std/misc/ports read-all-as-string)
         (prefix-in (only-in "../build.ss" main) root.)
-        (prefix-in (only-in "../build-development.ss" main) development.)
+        (prefix-in (only-in "../examples/build.ss" main) examples.)
         (only-in :std/encoding/json string->json JSONReadOptions) (only-in :std/list/list delete-duplicates/hash take drop) (only-in "build.ss" test-build-spec test-build-partitions call-with-build-jobs))
 
 ;; Preserve the declaration/input projection independently of backend flags;
@@ -92,38 +92,15 @@
           (and (pair? entry) (eq? (car entry) exe:))) spec)))
       (for-each (lambda (entry)
         (check-equal? (metadata entry "meta") '("spec" "compile" "clean")))
-        (list root.main development.main))
+        (list root.main examples.main))
       (def core (metadata root.main "spec"))
-      (def development (metadata development.main "spec"))
-      (def graph-study (metadata development.main "graph" "spec"))
-      ;; The focused study retains the entire core/compiler policy, and selects
-      ;; only these declared study inputs. It never builds a representation exe.
-      (check-equal? (take graph-study (length core)) core)
-      (check-equal? (executables graph-study) '())
-      (check-equal? (map cadr (drop graph-study (length core)))
-        '("examples/object-contracts" "examples/contract-publication"
-          "examples/recursive-validation" "examples/recursive-revision"
-          "examples/recursive-migration" "examples/recursive-topology"
-          "examples/recursive-staging" "examples/recursive-restaging"
-          "examples/recursive-publication" "examples/recursive-approvals"
-          "examples/recursive-competition" "examples/recursive-submissions"
-          "examples/recursive-recovery" "examples/recursive-coordination"
-          "examples/closed-declarations" "examples/component-services"
-          "examples/service-revisions" "examples/component-membership"
-          "examples/component-migration" "examples/component-rounds" "examples/component-requests"
-          "benchmarks/closure-measure" "benchmarks/dense-repair-test" "benchmarks/ordered-scc-study"
-          "t/feedback/graph-algorithms-test"
-          "t/feedback/feedback-graph-test" "t/components/component-membership-test"
-          "t/construction/graph-order-repair-test"
-          "t/contracts/recursive-approvals-test" "t/contracts/recursive-validation-test"))
-      (check (list? core) => #t)
-      (check (list? development) => #t)
+      (def examples (metadata examples.main "spec"))
       (check-equal? (executables core) '())
-      ;; Darwin shares the executable's static objects in the development graph.
-      (check (executables development)
-        => (cond-expand (darwin '("examples/representation-main")) (else '())))
+      (check-equal? (executables examples) '("representation-main"))
       (check (member "examples/generated-batches" (map cadr core)) => #f)
-      (check (and (member "examples/generated-batches" (map cadr development)) #t) => #t))
+      (check-equal? (map cadr (filter (lambda (entry) (eq? (car entry) gxc:)) examples))
+        '("representation-service" "generalized-checkout" "inherited-services"
+          "property-workflows" "property-refusals")))
     (test-case "shared graph preserves included-source dependencies and package order"
       (let (complete (build-inputs (test-build-spec)))
         (check (and (member '(gxc: "collection-order/table-cursor-test"
@@ -168,20 +145,12 @@
         (check (length groups) => 25)
         (check (length (delete-duplicates/hash groups)) => (length groups))
         (check (apply + (map (lambda (group) (length (test-build-spec group))) groups)) => (length all))))
-    (test-case "standard Just dependencies share four bounded graphs for build and cleanup"
+    (test-case "Just selects source test groups and keeps the core build independent"
       (def graph (string->json (run-process ["just" "--dump" "--dump-format" "json"])
         (JSONReadOptions key-as-symbol: #f array-as-vector: #f object-as-hash: #t)))
       (def recipes (hash-ref graph "recipes"))
-      (def entry (hash-ref recipes "_build-test-packages"))
-      (check (hash-ref entry "attributes") => '("parallel"))
-      (check (map (cut hash-ref <> "recipe") (hash-ref entry "dependencies")) =>
-        '("_build-test-package" "_build-test-package" "_build-test-package" "_build-test-package"))
-      ;; Build and failure cleanup share this one standard dependency graph.
-      (check (map (cut hash-ref <> "arguments") (hash-ref entry "dependencies")) =>
-        '(("contracts" ("variable" "action")) ("types" ("variable" "action"))
-          ("prototypes" ("variable" "action")) ("collections" ("variable" "action"))))
-      ;; The parallel runner uses the identical declared partitions, with every
-      ;; existing suite exactly once and no independently maintained inventory.
+      (def examples (hash-ref recipes "test-examples"))
+      (check (map (cut hash-ref <> "recipe") (hash-ref examples "dependencies")) => '("build-core"))
       (def tests (hash-ref recipes "_test-packages"))
       (check (hash-ref tests "attributes") => '("parallel"))
       (check (map (cut hash-ref <> "recipe") (hash-ref tests "dependencies")) =>
