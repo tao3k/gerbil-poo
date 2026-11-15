@@ -3,8 +3,9 @@
 (import :std/build-script
         (rename-in (only-in "../../build.ss" project-build-source)
           (project-build-source this-source-file))
+        (only-in :std/list/list filter)
         (only-in :std/make pkg-config-libs)
-        (only-in "../../t/build.ss" call-with-build-jobs))
+        (only-in "../../t/build.ss" call-with-build-jobs test-build-spec prefix-test-spec))
 ;; Preserve the compiler backend bound in this standard package entry.
 (let (options (getenv "GAMBOPT" #f))
   (setenv "GAMBOPT" (string-append (if options (string-append options ",") "") "max-heap=2G,debug=q")))
@@ -13,7 +14,17 @@
 ;; otherwise regenerate the same dependency C files before their jobs finish.
 ;; Library and test compilation retain the standard concurrent backend budget.
 (def build (let ((links (pkg-config-libs "openssl")))
+  ;; Keep the timed SCC references on their declared AOT compiler policies.
+  (def studies '("feedback/feedback-graph-test" "feedback/graph-algorithms-test"
+                 "construction/graph-order-repair-test"))
+  (def study-specs
+    (filter (lambda (spec) (member (cadr spec) studies)) (test-build-spec)))
+  (unless (= (length study-specs) (length studies))
+    (error "missing Graph benchmark build input" studies))
   (defbuild-script `(
+    ,@(map (cut prefix-test-spec "t" <>) study-specs)
+    (gxc: "examples/closed-declarations" "-cc-options" "-O2")
+    (gxc: "examples/component-services" "-cc-options" "-O2")
     (gxc: "benchmarks/closure-benchmark-support" "-cc-options" "-O2")
     (gxc: "benchmarks/closure-cases" "-cc-options" "-O2")
     (gxc: "benchmarks/closure-measure" "-cc-options" "-O2")

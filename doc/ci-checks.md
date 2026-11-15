@@ -8,6 +8,8 @@ Each test group runs its sources through `gerbil test`. The shared build
 job also checks the build declarations and runs a source example. The
 representation and benchmark jobs retain their separate workloads and
 resource limits. The test matrix runs on cache hits as well.
+The SCC benchmark compiles its timed test modules with their declared
+compiler options before Gerbil runs the suites.
 
 The following observations record earlier build and test configurations.
 
