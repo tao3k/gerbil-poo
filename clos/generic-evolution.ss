@@ -7,10 +7,14 @@
 
 (import :clan/poo/object
         (only-in :clan/poo/mop element?)
+        (only-in :std/list/list map-in-order)
         "types.ss" "objects.ss")
 
 (export poo-clos-ensure-generic-function
         poo-clos-reinitialize-generic-function!)
+
+(extern namespace: clan/poo/object %with-slot-edit-protection %publish-slot-edits!)
+(extern namespace: clan/poo/slot-observation %make-owned-list)
 
 (def +poo-clos-unspecified-generic-option+
   (cons 'poo-clos 'unspecified-generic-option))
@@ -44,26 +48,31 @@
      protocol: (option-or-current protocol-value
                                   (.ref current-value 'protocol)))))
 
-;; : (-> ClosGenericFunction ClosGenericFunction ClosGenericFunction)
-(def (admit-existing-methods current-value template-value)
-  (for-each (lambda (method-value)
-              ;; A detached projection exercises the complete method admission
-              ;; contract without violating the original method's sole owner.
-              (poo-clos-add-method
-               template-value
-               (poo-clos-method
-                (.ref method-value 'identity)
-                (.ref method-value 'specializers)
-                (.ref method-value 'body)
-                qualifier: (.ref method-value 'qualifier)
-                lambda-list: (.ref method-value 'lambda-list))))
-            (.ref current-value 'methods))
-  (for-each (lambda (field)
-              (.put! current-value field (.ref template-value field)))
-            '(required rest? argument-precedence-order method-combination
-              lambda-list protocol))
-  (.put! current-value 'generation (+ 1 (.ref current-value 'generation)))
-  current-value)
+(def (prepare-generic-edits current-value template-value)
+  (def methods (.ref current-value 'methods))
+  (%with-slot-edit-protection methods
+    (lambda ()
+      (for-each (lambda (method-value)
+                  ;; Admit a detached method while the original stays with its generic.
+                  (poo-clos-add-method
+                   template-value
+                   (poo-clos-method
+                    (.ref method-value 'identity)
+                    (.ref method-value 'specializers)
+                    (.ref method-value 'body)
+                    qualifier: (.ref method-value 'qualifier)
+                    lambda-list: (.ref method-value 'lambda-list))))
+                methods)
+      (%with-slot-edit-protection (list template-value)
+        (lambda ()
+          (def fields
+            (map-in-order (lambda (field)
+                            (def value (.ref template-value field))
+                            (cons field (if (eq? field 'argument-precedence-order)
+                                          (%make-owned-list value) value)))
+              '(required rest? argument-precedence-order method-combination lambda-list protocol)))
+          (cons current-value
+            (cons (cons 'generation (1+ (.ref current-value 'generation))) fields)))))))
 
 ;; poo-clos-reinitialize-generic-function!
 ;;   : (-> ClosGenericBinding required: (Maybe Natural)
@@ -101,17 +110,24 @@
       method-combination:
       (combination-value +poo-clos-unspecified-generic-option+)
       protocol: (protocol-value +poo-clos-unspecified-generic-option+))
-  (unless (element? ClosGenericBinding binding-value)
-    (clos-fail 'invalid-generic-binding))
-  (let* ((current-value (poo-clos-generic-binding-current binding-value))
-         (template-value
-          (generic-configuration-template
-           current-value required-value rest-value optional-value key-value
-           key-values allow-other-keys-value precedence-value combination-value
-           protocol-value))
-         (next-value (admit-existing-methods current-value template-value)))
-    (.put! binding-value 'current next-value)
-    next-value))
+  (defvalues (current-value edits)
+    (%with-slot-edit-protection (list binding-value)
+      (lambda ()
+        (unless (element? ClosGenericBinding binding-value)
+          (clos-fail 'invalid-generic-binding))
+        (def current-value (poo-clos-generic-binding-current binding-value))
+        (values current-value
+          (%with-slot-edit-protection (list current-value)
+            (lambda ()
+              (def template-value
+                (generic-configuration-template
+                 current-value required-value rest-value optional-value key-value
+                 key-values allow-other-keys-value precedence-value combination-value
+                 protocol-value))
+              (list (prepare-generic-edits current-value template-value)
+                    (list binding-value (cons 'current current-value)))))))))
+  (%publish-slot-edits! edits)
+  current-value)
 
 ;; : (-> Symbol GenericFunctionOptions ClosGenericFunction)
 (def (initial-generic identity-value required-value rest-value optional-value

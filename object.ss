@@ -14,6 +14,7 @@
                     record-key-field record-dependencies-field record-value-field
                     slot-spec-discards-super? compile-slot-specs prepare-declaration-specifications compute-object-precedence!
                     %prepared-vector-slot-ref %registered-field-reader %bind-current-slot-reads %prepared-slot-present?
+                    %register-slot-dependencies!
                     %with-slot-edit-protection %publish-slot-edits!
                     %owned-list-slot-spec %ref-owned-list define-slot-ref
                     %live-object-instance %live-object-layout) @object? @make-object)

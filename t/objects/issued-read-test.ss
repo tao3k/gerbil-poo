@@ -241,9 +241,20 @@
         call-with-issued-reads active-read-replays object-read-key
         object-read-dependencies object-read-value record-key-field
         record-dependencies-field record-value-field
-        require-current-read-sweep! %pure-read-sweep?))
-    (check-equal? (and (memq 'object-read-issued? names) #t) #t)
+        require-current-read-sweep! %pure-read-sweep? %register-slot-dependencies!))
+    (for-each (lambda (name) (check (memq name names) ? values))
+      '(object-read-issued? with-slot-dependencies depend-on-object!))
     (check-equal? (and (memq '%issue-read names) #t) #f)
+    (def mop-names
+      (parameterize ((current-expander-context (make-top-context)))
+        (map module-export-name
+          (module-context-export (core-import-module ':clan/poo/mop)))))
+    (for-each (lambda (name) (check-equal? (memq name mop-names) #f))
+      '(%slot-read-active? %slot-read-demand! %record-slot-reads!
+        %call-with-recorded-slot-reads slot-read-observers-compatible? slot-read-precheck-active?))
+    (for-each (lambda (name) (check (memq name mop-names) ? values))
+      '(call-with-slot-read-observer make-slot-read slot-read-key slot-read-value %deliver-slot-read
+        replay-slot-reads! reobserve-slot-reads! call-with-current-slot-reads object-read-issued?))
     (def route-names
       (parameterize ((current-expander-context (make-top-context)))
         (map module-export-name

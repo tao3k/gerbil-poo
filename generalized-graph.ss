@@ -220,7 +220,7 @@
 
 ;; An owned schedule saves each Computation's declared reads. Scheduling uses
 ;; those lists to order keys; value construction calls the evaluator later.
-(extern namespace: clan/poo/object %bind-current-slot-reads)
+(extern namespace: clan/poo/object %bind-current-slot-reads %register-slot-dependencies!)
 (defstruct %program (value row with-current) final: #t)
 (defstruct %owned-source (keys programs bases) final: #t)
 (defstruct %revision (parent source changes roots checked footprints added retired retirement-readers) final: #t)

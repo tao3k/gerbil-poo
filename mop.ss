@@ -3,7 +3,10 @@
 ;; Slogan: A Type meta-object as a prototype is a class descriptor,
 ;; as an instance is a type descriptor.
 
-(export #t (except-out (import: ./slot-observation) without-observation)
+;; Raw delivery forwards an observer event. Issuance belongs to the object.
+(export #t make-slot-read slot-read-receiver slot-read-key slot-read-revision
+        slot-read-instance slot-read-value slot-read-dependencies
+        call-with-slot-read-observer %deliver-slot-read
         replay-slot-reads! reobserve-slot-reads! call-with-current-slot-reads object-read-issued? object-read-issuance)
 
 (import ./slot-observation
