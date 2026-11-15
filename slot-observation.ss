@@ -60,7 +60,7 @@
 ;; the existing collection for capture alone, or a scope with actual observers.
 ;; Capture alone allocates no extra context. parameterize still owns nesting,
 ;; exceptions, continuations and the standard inherited thread scope.
-(defstruct read-scope (frame observers prechecks) final: #t)
+(defstruct read-scope (frame observers prechecks inline-observer) final: #t)
 ;; The standard dynamic parameter provides lexical restoration and inheritance.
 (def current-read-scope (make-parameter #f))
 (def (%current-slot-read-frame)
@@ -119,7 +119,8 @@
   (def parent (current-read-scope))
   (def value (parameterize ((current-read-scope
     (if (read-scope? parent)
-      (make-read-scope frame (read-scope-observers parent) (read-scope-prechecks parent))
+      (make-read-scope frame (read-scope-observers parent) (read-scope-prechecks parent)
+        (read-scope-inline-observer parent))
       frame))) (action)))
   (values value (reverse (read-collection-reversed frame))))
 ;; One recording boundary serves normal delivery and already-delivered child
@@ -191,8 +192,11 @@
   ;; effects and exceptions keep their original per-delivery boundary.
   (let (observers (if observed? (%delivery-observers (read-scope-observers scope)) '()))
     (unless (null? observers)
-      (without-observation
-        (lambda () (for-each (lambda (observe) (observe read)) observers)))))
+      (let (inline (read-scope-inline-observer scope))
+        (if (and inline (null? (cdr observers)) (eq? (car observers) (car inline)))
+          ((cdr inline) read)
+          (without-observation
+            (lambda () (for-each (lambda (observe) (observe read)) observers)))))))
   value)
 
 ;; Keep the dynamic scope intact for prechecks and compatibility inspection.
@@ -204,6 +208,15 @@
 ;; Nested observers receive the same actual reads. Final replay is owned by the
 ;; consumer's admission boundary, not memoized as a successful previous check.
 (def (call-with-slot-read-observer observe action before: (before #f))
+  (install-slot-read-observer observe action before #f))
+
+;; The runtime owner supplies a delivery procedure that is responsible for
+;; masking observation if its live effect guard requires it. Public callers
+;; still get the original masking and callback order.
+(def (%call-with-inline-slot-read-observer observe deliver action)
+  (install-slot-read-observer observe action #f (cons observe deliver)))
+
+(def (install-slot-read-observer observe action before inline)
   (unless (and (procedure? observe) (procedure? action)
                (or (not before) (procedure? before)))
     (error "invalid slot-read observer"))
@@ -213,4 +226,5 @@
   (call-with-parameters action current-read-scope
     (make-read-scope (if observed? (read-scope-frame parent) parent)
       (cons observe (if observed? (read-scope-observers parent) '()))
-      (if before (cons before checks) checks))))
+      (if before (cons before checks) checks)
+      (or inline (and observed? (read-scope-inline-observer parent))))))

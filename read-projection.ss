@@ -7,14 +7,15 @@
                  %call-with-recorded-slot-reads %record-slot-reads!
                  slot-read-receiver slot-read-dependencies slot-read-key slot-read-value
                  call-with-slot-read-observer slot-read-observers-compatible?
-                 slot-read-precheck-active?))
+                 slot-read-precheck-active? without-observation))
 (export call-with-owned-read-projection current-owned-read-open-guard owned-read-value! owned-read-leaf! owned-read-copy! owned-read-derived! owned-read-open!
         owned-read-method! owned-read-hook-owner! owned-read-function-scope?
         make-owned-method-check call-with-owned-read-method-checks
         owned-read-fields-present? call-with-owned-source-reads)
 
 (extern namespace: clan/poo/slot-observation
-  %revoke-slot-read-registration-interval! %current-slot-read-frame)
+  %revoke-slot-read-registration-interval! %current-slot-read-frame
+  %call-with-inline-slot-read-observer)
 
 ;; This region is a construction/ownership scope, never a result/currentness
 ;; cache. It is released when the call returns. Only the owning constructors enroll
@@ -108,6 +109,14 @@
                      checks)
           (owned-read-open!))))))
 
+(def (deliver-owned-hook read)
+  ;; The sole stock observer inspects receiver metadata and can revoke the
+  ;; interval. Only an open guard or delegated method check needs the
+  ;; normal callback mask. Public observers never enter this delivery.
+  (if (or (current-owned-read-open-guard) (not (null? (current-owned-method-checks))))
+    (without-observation (lambda () (observe-owned-hook read)))
+    (owned-read-hook-owner! (slot-read-receiver read))))
+
 ;; One maintained precheck, with a private dynamic stack of actual Reader
 ;; boundaries. Nested callers cannot replace an enclosing Reader's boundary.
 ;; This replaces per-Reader callback closures; it is not a purity registry.
@@ -188,7 +197,7 @@
                 (lambda (exception)
                   (set! failed? #t) (set! failure exception) '())
                 (lambda ()
-                  (call-with-slot-read-observer observe-owned-hook
+                  (%call-with-inline-slot-read-observer observe-owned-hook deliver-owned-hook
                     (lambda ()
                       ;; Runtime policy reads belong to this same recording frame.
                       (stable?)

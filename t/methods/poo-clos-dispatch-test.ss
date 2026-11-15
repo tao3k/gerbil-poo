@@ -20,7 +20,8 @@
                  %call-with-recorded-slot-reads)
         (only-in :clan/poo/clos/objects make-effective-method make-invocation-frame
                  clos-call-carrier-policy-guard)
-        (only-in :clan/poo/read-projection call-with-owned-read-projection owned-read-value! owned-read-open!)
+        (only-in :clan/poo/read-projection call-with-owned-read-projection
+                 current-owned-read-open-guard owned-read-value! owned-read-open!)
         :clan/poo/clos)
 
 (export poo-clos-dispatch-test)
@@ -100,6 +101,26 @@
             (call-with-owned-read-projection '() (lambda () #t)
               (lambda () (values 'first 'second)))) list)
         '(first second)))
+    (test-case "owned observer keeps author guard reads outside the capture"
+      (def source (.o value: 1))
+      (def guard-source (.o value: 2))
+      (object-protocol-set! source (.o))
+      (.ref source 'value)
+      (def calls 0)
+      (defvalues (answer reads)
+        (%call-with-recorded-slot-reads
+          (lambda ()
+            (parameterize ((current-owned-read-open-guard
+                            (lambda ()
+                              (set! calls (fx1+ calls))
+                              (.ref guard-source 'value))))
+              (call-with-owned-read-projection '() void
+                (lambda () (.ref source 'value)))))
+          unique-roots?: #t))
+      (check-equal? answer 1)
+      (check (positive? calls) => #t)
+      (check (ormap (lambda (read) (eq? source (slot-read-receiver read))) reads) => #t)
+      (check (ormap (lambda (read) (eq? guard-source (slot-read-receiver read))) reads) => #f))
     (test-case "repeated descriptor admission keeps public events and live refusal"
       (def descriptor (poo-clos-lambda-list 1 0 #f #f '() #f))
       (def (check-shape) (element? ClosLambdaList descriptor))
