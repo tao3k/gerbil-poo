@@ -350,6 +350,19 @@
         (.ref ClosEffectiveMethod 'proto) (.ref ClosInvocationFrame 'proto)))
 (def carrier-declaration-revisions (map object-revision carrier-declaration-owners))
 
+(def (%carrier-declarations-current?)
+  (andmap (lambda (owner revision) (= (object-revision owner) revision))
+    carrier-declaration-owners carrier-declaration-revisions))
+
+;; Direct admission may share only the four stock recursive validators.
+(def (%stock-call-validator? type procedure)
+  (cond
+   ((eq? type ClosGenericFunction) (eq? procedure clos-generic-function-element?))
+   ((eq? type ClosMethod) (eq? procedure clos-method-element?))
+   ((eq? type ClosSpecializer) (eq? procedure clos-specializer-element?))
+   ((eq? type ClosLambdaList) (eq? procedure clos-lambda-list-element?))
+   (else #f)))
+
 ;; Certify only our two original, hook-free carrier predicates/prototypes for
 ;; ONE dynamic operation. Revisions reject mutate-and-restore callbacks too.
 ;; This does not certify contributor methods or arbitrary Type predicates.

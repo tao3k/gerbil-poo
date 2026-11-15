@@ -13,12 +13,13 @@
         make-owned-method-check call-with-owned-read-method-checks
         owned-read-fields-present? call-with-owned-source-reads)
 
-(extern namespace: clan/poo/slot-observation %revoke-slot-read-registration-interval!)
+(extern namespace: clan/poo/slot-observation
+  %revoke-slot-read-registration-interval! %current-slot-read-frame)
 
 ;; This region is a construction/ownership scope, never a result/currentness
 ;; cache. It is released when the call returns. Only the owning constructors enroll
 ;; receivers; ancestry or a user-supplied kind cannot claim ownership.
-(defstruct read-region (bodies owned parents open?) final: #t)
+(defstruct read-region (bodies owned parents open? private-frame) final: #t)
 (def current-region (make-parameter #f))
 (defstruct owned-method-check (receiver key method) final: #t)
 (def current-owned-method-checks (make-parameter '()))
@@ -150,6 +151,11 @@
          (null? (current-owned-method-checks))
          (slot-read-observers-compatible? repeat-read-observers))))
 
+(def (%owned-private-registration?)
+  (and (%owned-closed-registration?)
+       (let (frame (read-region-private-frame (current-region)))
+         (and frame (eq? frame (%current-slot-read-frame))))))
+
 ;; One actual runtime inventory for a fresh factory receipt, not six separate
 ;; presence records retaining that receipt/instance/specification environment.
 ;; Public/contributed values, open callbacks and an already exposed inventory
@@ -169,11 +175,14 @@
   (if (current-region)
     ;; Nested dispatch shares ownership; an unknown body opens the WHOLE region.
     (action)
-    (let ((region (make-read-region bodies (make-hash-table-eq) (make-hash-table-eq) #f))
+    (let ((region (make-read-region bodies (make-hash-table-eq) (make-hash-table-eq) #f #f))
+          (enclosing-frame (%current-slot-read-frame))
           (failed? #f) (failure #f))
       (defvalues (results reads)
         (%call-with-recorded-slot-reads
           (lambda ()
+            (unless enclosing-frame
+              (set! (read-region-private-frame region) (%current-slot-read-frame)))
             (parameterize ((current-region region))
               (with-catch
                 (lambda (exception)

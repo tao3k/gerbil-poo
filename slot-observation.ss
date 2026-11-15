@@ -63,6 +63,9 @@
 (defstruct read-scope (frame observers prechecks) final: #t)
 ;; The standard dynamic parameter provides lexical restoration and inheritance.
 (def current-read-scope (make-parameter #f))
+(def (%current-slot-read-frame)
+  (let (scope (current-read-scope))
+    (if (read-scope? scope) (read-scope-frame scope) scope)))
 (def current-registration-interval (make-parameter #f))
 (def (slot-read-precheck-active? check)
   (let (scope (current-read-scope))

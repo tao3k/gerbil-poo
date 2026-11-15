@@ -7,6 +7,8 @@
 
 (import :clan/poo/object
         (only-in :clan/poo/mop element?)
+        (only-in :clan/poo/slot-observation
+                 %call-with-recorded-slot-reads %record-slot-reads! slot-read-receiver)
         (only-in :std/list/list filter-map find flatten1)
         "types.ss" "objects.ss" "method-combination.ss"
         "funcs.ss"
@@ -24,8 +26,13 @@
         poo-clos-funcall poo-clos-setf)
 
 (extern namespace: clan/poo/clos/objects
-        %published-method-positions %method-position method-positions-size)
-(extern namespace: clan/poo/object %ref-owned-list)
+        %published-method-positions %method-position method-positions-size %frameless-method-body)
+(extern namespace: clan/poo/clos/types %carrier-declarations-current? %stock-call-validator?)
+(extern namespace: clan/poo/slot-observation slot-read-key slot-read-value)
+(extern namespace: clan/poo/object %ref-owned-list %prepared-vector-slot-ref
+        object-construction-current? %call-with-fresh-slot-read-group)
+(extern namespace: clan/poo/read-projection %owned-private-registration?)
+(extern namespace: clan/poo/slot-layout %fresh-vector-seeds-available? %advance-fresh-vector-seeds!)
 (extern namespace: clan/poo/slot-observation
         %with-slot-read-registration-interval %without-slot-read-registration-interval
         %revoke-slot-read-registration-interval!)
@@ -296,7 +303,7 @@
 ;;; generation used to rank all qualifier groups.  The protocol hook receives
 ;;; the checked default effective method rather than a raw evaluator continuation.
 ;; : (-> ClosGenericFunction [SchemeValue] (Maybe ClosEffectiveMethod))
-(def (select-effective-method generic arguments)
+(def (select-effective-method generic arguments (roots #f))
   (arguments-valid! generic arguments)
   (let (ranked (protocol-ranked-methods generic arguments))
     (if (null? ranked)
@@ -307,25 +314,68 @@
         (let* ((admit-default (prepare-default-effective-method generic arguments ranked))
                (protocol (.ref generic 'protocol))
                (hook (.ref protocol 'compute-effective-method))
+               (direct (begin
+                         (owned-read-hook-owner! protocol)
+                         (and (not hook) roots
+                              (prepare-direct-primary generic arguments ranked roots))))
                (effective-method
-                (begin
-                 (owned-read-hook-owner! protocol)
-                 (if hook
-                  (begin (owned-read-open!)
-                    ;; An open hook receives a checked default and its return
-                    ;; is checked again below, even if it returns that object.
-                    (hook generic arguments (map car ranked)
-                      (admit-default)))
+                (cond
+                  (direct direct)
+                  (hook
+                   (begin (owned-read-open!)
+                     ;; An open hook receives a checked default and its return
+                     ;; is checked again below, even if it returns that object.
+                     (hook generic arguments (map car ranked)
+                       (admit-default))))
                   ;; All protocol lookup has completed. There is no public
                   ;; callback between this check and the identity assertion.
-                  (admit-default)))))
-          (unless (and (or (not hook)
-                           (and (element? ClosEffectiveMethod effective-method)
-                                (not (effective-method-empty? effective-method))))
-                       (eq? (.ref effective-method 'generic) generic))
+                  (else (admit-default)))))
+          (unless (or direct
+                      (and (or (not hook)
+                               (and (element? ClosEffectiveMethod effective-method)
+                                    (not (effective-method-empty? effective-method))))
+                           (eq? (.ref effective-method 'generic) generic)))
             (clos-fail 'invalid-effective-method-result
                        generic: (.ref generic 'identity)))
           effective-method)))))
+
+;; The initial Generic admission actually ran every nested method, lambda
+;; list and specializer validator. Accept its native signed graph once after
+;; ranking. Live external list spines or a custom validator keep the
+;; ordinary path. The selected body and the two native preparations cannot
+;; run author code until this interval ends.
+(def (current-direct-group? roots)
+  (with-catch (lambda (_) #f)
+    (lambda ()
+      (%call-with-fresh-slot-read-group roots
+        (lambda (reads)
+          (andmap (lambda (read)
+                    (let ((key (slot-read-key read)) (value (slot-read-value read)))
+                      (cond
+                       ((eq? key '.element?)
+                        (%stock-call-validator? (slot-read-receiver read) value))
+                       ((equal? key '(bootstrap .element?)) #f)
+                       ((symbol? key) (not (pair? value)))
+                       (else #t))))
+                  reads))))))
+
+(def (prepare-direct-primary generic arguments ranked roots)
+  (and (%owned-private-registration?) (null? (cdr ranked))
+       (object-construction-current?) (%carrier-declarations-current?)
+       (%fresh-vector-seeds-available?)
+       (let* ((method (caar ranked))
+              (combination (%prepared-vector-slot-ref generic 'method-combination))
+              (body (%prepared-vector-slot-ref method 'body)))
+         (and (object? combination)
+              (eq? (%prepared-vector-slot-ref combination 'kind) 'standard)
+              (eq? (%prepared-vector-slot-ref method 'qualifier) 'primary)
+              (let (entry (%frameless-method-body method body))
+                (and entry (current-direct-group? roots)
+                     (lambda ()
+                       (%advance-fresh-vector-seeds!) ; EffectiveMethod preparation
+                       (owned-read-method! body method)
+                       (%advance-fresh-vector-seeds!) ; InvocationFrame preparation
+                       (apply entry arguments))))))))
 
 ;; Reflection represents an empty applicable set as an empty effective method.
 (def (compute-effective-method generic arguments)
@@ -639,16 +689,25 @@
     (lambda () (call-generic generic-source arguments))))
 
 (def (call-generic generic-source arguments)
-  (let (generic-value (require-clos-generic generic-source))
+  (defvalues (generic-value roots)
+    (if (%owned-private-registration?)
+      (let-values (((generic-value reads)
+                    (%call-with-recorded-slot-reads
+                      (lambda () (require-clos-generic generic-source)) unique-roots?: #t)))
+        (%record-slot-reads! reads)
+        (values generic-value (and (eq? generic-value generic-source) reads)))
+      (values (require-clos-generic generic-source) #f)))
+  (let ()
     (owned-read-hook-owner! generic-value)
-    (let (effective-method (select-effective-method generic-value arguments))
+    (let (effective-method (select-effective-method generic-value arguments roots))
       (if (not effective-method)
         (poo-clos-no-applicable-method generic-value arguments)
-        (if (.ref effective-method 'executor)
-          ((.ref effective-method 'executor) effective-method)
-          (case (.ref (.ref generic-value 'method-combination) 'kind)
-            ((short) (execute-short-effective-method effective-method))
-            (else (execute-standard-effective-method effective-method))))))))
+        (if (procedure? effective-method) (effective-method)
+          (if (.ref effective-method 'executor)
+            ((.ref effective-method 'executor) effective-method)
+            (case (.ref (.ref generic-value 'method-combination) 'kind)
+              ((short) (execute-short-effective-method effective-method))
+              (else (execute-standard-effective-method effective-method)))))))))
 
 ;; : (-> FunctionName SchemeValue ... SchemeValue)
 (def (poo-clos-funcall function-name . arguments)

@@ -11,7 +11,30 @@
 (export .defgeneric .defmethod .generic-object
         (phi: +1 clos-generic-binding-identifier lower-optional-bindings lower-key-bindings))
 
+(extern namespace: clan/poo/clos/objects %make-clos-method)
+
 (begin-syntax
+  ;; A single application of a runtime binding to required parameters cannot
+  ;; expand a macro that mentions the next-method bindings. Leave other
+  ;; expressions on the framed entry, including callbacks in initializers.
+  (def (frameless-method-expression? body required)
+    (def (eligible-name? id)
+      (and (identifier? id) (not (memq (syntax-e id) '(call-next-method next-method-p)))))
+    (def (parameter? id)
+      (and (eligible-name? id)
+           (ormap (lambda (parameter)
+                    (bound-identifier=? id (clos-parameter-declaration-ir-variable parameter)))
+                  required)))
+    (and (pair? body) (null? (cdr body))
+         (or (parameter? (car body))
+             (syntax-case (car body) ()
+               ((operator operand ...)
+                (and (eligible-name? #'operator)
+                     (or (parameter? #'operator)
+                         (runtime-binding? (resolve-identifier #'operator)))
+                     (andmap parameter? (syntax->list #'(operand ...)))))
+               (_ #f)))))
+
   (def (clos-generic-binding-identifier name)
     (let* ((datum (syntax->datum name))
            (base
@@ -226,7 +249,11 @@
                         (initform (clos-aux-declaration-ir-initform entry)))
                      #'(variable initform)))
                  aux))
-           (specializers (map lower-method-specializer required)))
+           (specializers (map lower-method-specializer required))
+           (frameless?
+            (and (null? optional) (not rest-variable) (null? keys)
+                 (not (clos-lambda-declaration-ir-key? lambda-ir)) (null? aux)
+                 (frameless-method-expression? body required))))
       (with-syntax
           ((name name) (binding binding) (qualifier qualifier)
            (frame frame) (arguments arguments)
@@ -242,9 +269,13 @@
            (key? (clos-lambda-declaration-ir-key? lambda-ir))
            ((key-name ...) (map clos-key-declaration-ir-name keys))
            (allow-other? allow-other?))
-        (let (method-value
-              (syntax/loc source
-                (poo-clos-method
+        (with-syntax ((entry (if frameless?
+                               #'(lambda arguments
+                                   (let* (parameter-binding ...) body ...))
+                               #'#f)))
+          (let (method-value
+                (syntax/loc source
+                  (%make-clos-method
                  'name (list specializer ...)
                  (lambda (frame . arguments)
                    ;; A nested method declaration in the method's executable
@@ -262,12 +293,13 @@
                  lambda-list:
                  (poo-clos-lambda-list
                   required-count optional-count rest? key?
-                  (list 'key-name ...) allow-other?))))
-          (if deferred?
-            method-value
-            (with-syntax ((method-value method-value))
-              (syntax/loc source
-                (poo-clos-generic-binding-add-method! binding method-value))))))))
+                  (list 'key-name ...) allow-other?)
+                 frameless: entry)))
+            (if deferred?
+              method-value
+              (with-syntax ((method-value method-value))
+                (syntax/loc source
+                  (poo-clos-generic-binding-add-method! binding method-value)))))))))
 
 )
 

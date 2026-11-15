@@ -96,6 +96,7 @@
            (eq? state-init (read-runtime.find-method state-class #f ':init!))))))
 ;; Share authenticated finite traversal structure; each call owns fresh source guards.
 (defvalues (call-with-issued-reads call-with-current-slot-reads %bind-current-slot-reads
+            %call-with-fresh-slot-read-group
             %register-slot-dependencies!)
   (let ()
     ;; The index owns neither roots nor cache receivers. A live projection keeps
@@ -231,6 +232,14 @@
                 (lambda (reads current! receivers positions)
                   (require-current-read-sweep! reads receivers positions current! #t)
                   (action (length reads))) #f)))))
+      ;; Private callers only inspect the original signed fields here. The
+      ;; ephemeral projection shares native route checks by receiver.
+      (lambda (roots inspect)
+        (with-projection roots
+          (lambda (reads current! receivers positions)
+            (require-current-read-sweep! reads receivers positions current! #f)
+            (inspect reads))
+          #f #t))
       ;; The initial admission uses the projection's receiver positions once
       ;; across the whole graph. Edge registration remains inside the native
       ;; write guard and the independent return sweep, including foreign routes.

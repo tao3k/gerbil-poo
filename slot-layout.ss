@@ -190,6 +190,19 @@
 ;; Explicit backend qualification uses the same evaluator and resource limits.
 ;; The default owns all computed values in one vector; hash is a measured control.
 (def slot-value-storage (make-parameter 'vector))
+
+;; Only the pinned fresh vector route can consume its three seed operations
+;; without allocating receiver storage. Each preparation calls this at its
+;; own boundary, under the current application/graph seed parameter.
+(def (%fresh-vector-seeds-available?)
+  (and (eq? (slot-value-storage) 'vector) (scalar-shape-routes-current?)))
+
+(def (%advance-fresh-vector-seeds!)
+  (unless (%graph-table-seed)
+    (random-integer (macro-max-fixnum32))
+    (random-integer (macro-max-fixnum32))
+    (random-integer (macro-max-fixnum32)))
+  (void))
 ;; Build the sole instance value store before publishing any read credentials.
 ;; Symbolic shapes describe uncomputed cells, so construction runs no slot body.
 (def (make-slot-values names initial entries missing previous: (previous #f) state: (state #f))

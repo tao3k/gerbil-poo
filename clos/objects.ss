@@ -9,6 +9,7 @@
         (only-in :clan/poo/mop element? .defgeneric)
         (only-in :std/hash/misc hash-ref/default)
         (only-in :std/list/list iota map-in-order delete-duplicates/hash)
+        (only-in :clan/poo/prototype-map prototype-map-ref)
         "types.ss" "funcs.ss"
         (only-in :clan/poo/read-projection owned-read-value! owned-read-open!))
 
@@ -248,6 +249,13 @@
 (def (poo-clos-method identity-value specializer-values body-value
                       qualifier: (qualifier-value 'primary)
                       lambda-list: (lambda-list-value #f))
+  (%make-clos-method identity-value specializer-values body-value
+    qualifier: qualifier-value lambda-list: lambda-list-value))
+
+(def (%make-clos-method identity-value specializer-values body-value
+                         qualifier: (qualifier-value 'primary)
+                         lambda-list: (lambda-list-value #f)
+                         frameless: (invoke #f))
   (def qualifier
     (if (list? qualifier-value) (%make-owned-list qualifier-value) qualifier-value))
   (checked ClosMethod
@@ -258,8 +266,21 @@
                           synthetic-effective-method?: #f))
              (when (list? specializer-values)
                (.putslot! method 'specializers (%owned-list-slot-spec specializer-values)))
+             (when invoke
+               (.putslot! method '%frameless-entry
+                 ($constant-slot-spec (make-frameless-entry body-value invoke))))
              method)
            'invalid-method))
+
+;; Only eligible .defmethod expansions issue this opaque entry. Matching it
+;; to the live body prevents an edit from retaining a former entry's authority.
+(defstruct frameless-entry (body invoke) final: #t)
+
+(def (%frameless-method-body method body)
+  (let* ((spec (prototype-map-ref (object-%slots method) '%frameless-entry))
+         (entry (and ($constant-slot-spec? spec) ($constant-slot-spec-value spec))))
+    (and (frameless-entry? entry) (eq? body (frameless-entry-body entry))
+         (frameless-entry-invoke entry))))
 
 ;;; Synthetic methods are created only by the declarative combination
 ;;; evaluator.  They are typed method values but never enter a generic's

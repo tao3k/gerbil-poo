@@ -27,6 +27,7 @@
 
 (extern namespace: clan/poo/slot-observation
         %with-slot-read-registration-interval %first-registered-read?)
+(extern namespace: clan/poo/clos/objects %frameless-method-body)
 
 (def any-specializer (poo-clos-any-specializer))
 (def animal-class (.o))
@@ -265,6 +266,20 @@
       (check (element? ClosGenericFunction generic) => #t)
       (set-cdr! external 'invalid)
       (check (element? ClosGenericFunction generic) => #f))
+    (test-case "frame-free entry belongs to the actual declared method body"
+      (.defgeneric direct-identity (value))
+      (def method (.defmethod (direct-identity value) value))
+      (def body (.ref method 'body))
+      (def entry (%frameless-method-body method body))
+      (check (procedure? entry) => #t)
+      (check-equal? (entry 'value) 'value)
+      (check-equal?
+        (call-with-owned-read-projection (list body) void
+          (lambda () (direct-identity 'value)))
+        'value)
+      (.put! method 'body (lambda (_frame _value) 'replacement))
+      (check-equal? (%frameless-method-body method (.ref method 'body)) #f)
+      (check-equal? (direct-identity 'value) 'replacement))
     (test-case "an enclosing native capture receives both single-primary carrier identities"
       (.defgeneric captured-primary (argument))
       (def method (.defmethod (captured-primary argument) argument))
