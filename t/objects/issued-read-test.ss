@@ -250,7 +250,8 @@
         call-with-issued-reads active-read-replays object-read-key
         object-read-dependencies object-read-value record-key-field
         record-dependencies-field record-value-field
-        require-current-read-sweep! %pure-read-sweep? %register-slot-dependencies!))
+        require-current-read-sweep! %pure-read-sweep? %register-slot-dependencies!
+        %admitted-vector-read-fields))
     (for-each (lambda (name) (check (memq name names) ? values))
       '(object-read-issued? with-slot-dependencies depend-on-object!))
     (check-equal? (and (memq '%issue-read names) #t) #f)
