@@ -3,7 +3,7 @@
 
 (import :clan/poo/mop
         (only-in :clan/poo/object .o .mix compute-precedence-list!)
-        (only-in :clan/poo/benchmarks/closure-measure measure write-datum)
+        (only-in :clan/poo/benchmarks/closure-measure measure qualified-metrics write-datum)
         (only-in :gerbil/runtime/c3 c4-linearize)
         :std/iter
         (only-in :std/list/list append-map length=?)
@@ -52,16 +52,19 @@
       (for (work (if (even? iteration) workloads (reverse workloads)))
         (let-values (((result clocks) (measure (cdr work) repetitions)))
           (check-equal? (and (length=? result expected) (andmap eq? result expected)) #t)
-          (set! rows (cons (list shape size iteration (car work) repetitions clocks) rows)))))
+          (set! rows (cons (list shape size iteration (car work) repetitions
+                                 (qualified-metrics clocks) (vector-ref clocks 4))
+                           rows)))))
     (reverse rows)))
 
 (def mop-lifecycle-test
   (test-suite "MOP lifecycle cost"
     (test-case "measure C4 merges and POO precedence on deep chains and wide diamonds"
       (write-benchmark "mop-precedence.scm"
-        (list '(benchmark mop-precedence-v1)
+        (list '(benchmark mop-precedence-v2)
               (list 'gerbil (gerbil-version-string))
-              '(units cpu-seconds wall-seconds gc-cpu-seconds collections allocated-bytes)
+              '(metrics cpu-seconds wall-seconds gc-cpu-seconds collections admitted-allocated-bytes)
+              '(row-tail raw-allocation-delta)
               (cons 'rows
                     (append-map
                      (lambda (fixture) (apply precedence-samples fixture))
@@ -97,7 +100,9 @@
                 (verify (cadddr work)) (expected (car (cddddr work))))
             (let-values (((result metrics) (measure call repetitions)))
               (check-equal? (verify result) expected)
-              (set! rows (cons (list mode iteration name repetitions metrics) rows))))))
+              (set! rows (cons (list mode iteration name repetitions
+                                     (qualified-metrics metrics) (vector-ref metrics 4))
+                               rows))))))
       (def (sample-extended iteration)
         (dynamic-wind
           (lambda () (poo-clos-add-method shared extension))
@@ -109,8 +114,9 @@
           (begin (sample-extended iteration) (sample 'standard iteration calls))))
       (check-equal? count (* 8 2 128))
       (write-benchmark "mop-lifecycle.scm"
-        (list '(benchmark mop-lifecycle-v1)
+        (list '(benchmark mop-lifecycle-v2)
               (list 'gerbil (gerbil-version-string))
-              '(units cpu-seconds wall-seconds gc-cpu-seconds collections allocated-bytes)
+              '(metrics cpu-seconds wall-seconds gc-cpu-seconds collections admitted-allocated-bytes)
+              '(row-tail raw-allocation-delta)
               (list 'extension-calls count)
               (cons 'rows (reverse rows)))))))
