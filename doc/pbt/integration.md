@@ -319,7 +319,7 @@ this does not claim equivalence of arbitrary keyword languages or infer an
 unbounded function. Result-only shrinking preserves the finite input domain and
 branch currentness. Domains may be empty; every call then refuses.
 
-`examples/property-workflows.ss` is a downstream `:std/test` suite, with fresh-process
+`examples/property-workflows-test.ss` is a downstream `:std/test` suite, with fresh-process
 replay through the existing module-action executable. The typed boundary is checked
 in `t/representations/property-testing-test.ss`. Lean models generation accounting,
 coverage thresholds from actual labels, bounded prefixes, identity refusal before

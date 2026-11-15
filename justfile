@@ -52,21 +52,23 @@ _build-root package:
     fi
 
 # Linked programs use their own native package.
-build-shared: build-core (_build-root "examples") (_build-root "benchmarks/representation-startup")
+build-shared: build-core (_build-root "benchmarks/representation-startup")
 
 build-benchmarks group: build-core
     cd "benchmarks/$1" && {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s gerbil {{ test-runtime-options }} build
 
 build: build-core
 
-test: build-core (_build-root "examples")
+test: build-core
     just _test-parallel
+    just test-examples
 
-test-examples +files='examples/generated-traces.ss': build-core
+test-examples +files='examples':
     just _test "$@"
 
-test-single-process: build-core (_build-root "examples")
+test-single-process: build-core
     just _test t/*/*-test.ss
+    just test-examples
 
 # Reuse the four test groups and Just's standard queue.
 _test-parallel:
@@ -133,12 +135,14 @@ check-single-process width='2' samples='1' pairs='4': build-shared (check-built 
 
 check-parallel-built width='2' samples='1' pairs='4': check-layout
     just _test-parallel
+    just test-examples
     just _test t/build-test.ss
     just _run-collections "$1" "$2" "$3"
     just _run-generators 8 2
 
 check-built width='2' samples='1' pairs='4': check-layout
     just _test t/*/*-test.ss
+    just test-examples
     just _test t/build-test.ss
     just _run-collections "$1" "$2" "$3"
     just _run-generators 8 2
@@ -155,7 +159,6 @@ _run-collections width samples pairs:
 
 clean:
     {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s gerbil {{ test-runtime-options }} clean
-    cd examples && {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s gerbil {{ test-runtime-options }} clean
     printf '%s\0' benchmarks/*/gerbil.pkg | {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 300s xargs -0 -n 1 sh -c 'cd "$(dirname "$1")" && exec gerbil {{ test-runtime-options }} clean' clean
 
 benchmark-collections width='64' samples='10' pairs='6': build-shared (_run-collections width samples pairs)

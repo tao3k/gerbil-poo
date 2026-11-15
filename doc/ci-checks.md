@@ -1,11 +1,11 @@
 # Standard compilation and CI
 
-CI prepares the production libraries and linked representation workloads
-with `just build-shared`. Gerbil owns compilation, reuse and cleanup.
-The shared artifact contains the native libraries and executables.
+CI builds the production libraries with `just build-core` and shares them with
+the tests. The representation job prepares the linked programs for the runtime
+checks and benchmark studies.
 
 Each test group runs its sources through `gerbil test`. The shared build
-job also checks the build declarations and runs a source example. The
+job also checks the build declarations and runs `examples/*-test.ss`. The
 representation and benchmark jobs retain their separate workloads and
 resource limits. The test matrix runs on cache hits as well.
 The SCC benchmark compiles its timed test modules with their declared

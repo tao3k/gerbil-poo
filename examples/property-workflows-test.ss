@@ -1,6 +1,7 @@
 ;;; Downstream PBT workflows use records, ordinary ports and the standard TestSuite.
 (export property-workflows-test main)
 (import :std/test :std/error :std/iter :std/io/tempfile
+        (only-in :std/source this-source-file this-source-path)
         (only-in :std/misc/process run-process) (only-in :std/misc/ports read-all-as-lines)
         (prefix-in :clan/poo/testing/property/test assertion.)
         (prefix-in :clan/poo/testing/property/generator g.)
@@ -12,7 +13,7 @@
 (def (ledger-codec (identity 'ledger-v1)) (r.make-codec identity values values))
 ;; This property intentionally exposes a small, replayable ledger error.
 (def (ledger-property value) (< value 3))
-;; The standard module-action loader can execute this in a fresh process.
+;; The Gerbil interpreter can run this entry from source in a fresh process.
 (def (main file (identity "ledger-v1"))
   (unless (eq? (call-with-input-file file
     (lambda (port) (r.read-counterexample (ledger-codec (string->symbol identity))
@@ -24,7 +25,7 @@
 ;; Exercise PBT failure propagation through the official CLI and the existing
 ;; Just admission guard. The fixture tests this library's checks, not Gerbil recipes.
 (def (check-standard-refusals)
-  (def fixture (path-expand "lib/clan/poo/examples/property-refusals.ssi" (getenv "GERBIL_PATH")))
+  (def fixture (this-source-path "property-refusals.ss"))
   (def timeout (car (run-process '("sh" "-c" "command -v gtimeout || command -v timeout")
     coprocess: read-all-as-lines)))
   (def exit-status #f)
@@ -33,7 +34,8 @@
     check-status: (lambda (status _settings) (set! exit-status status))))
   ;; A completed refusal is guard exit 1 or gxtest exit 42, in POSIX wait format.
   ;; Timeout, spawn refusal and signal termination cannot satisfy this control.
-  (check (and (memv exit-status '(#x100 #x2a00)) #t) => #t)
+  (unless (memv exit-status '(#x100 #x2a00))
+    (error "PBT refusal fixture did not complete" exit-status lines))
   (unless (= (length (filter (cut string-prefix? "CASE " <>) lines)) 11)
     (error "PBT refusal fixture did not execute all eleven cases" lines))
   (check-equal? (filter (cut string-prefix? "CASE-OK " <>) lines) [])
@@ -476,8 +478,7 @@
         (call-with-output-file file (cut r.write-counterexample report (ledger-codec) <>))
         (def timeout (car (run-process '("sh" "-c" "command -v gtimeout || command -v timeout") coprocess: read-all-as-lines)))
         (def lines (run-process (list timeout "--signal=TERM" "--kill-after=3s" "30s"
-          (path-expand "bin/representation-main" (getenv "GERBIL_PATH")) "-:max-heap=1G,debug=q"
-          "clan/poo/examples/property-workflows" "clan/poo/examples/property-workflows#main" file)
+          "gerbil" "-:max-heap=1G,debug=q" "interactive" (this-source-file) file)
           coprocess: read-all-as-lines))
         (check (and (member "REPLAY-FAILED" lines) #t) => #t))))
     (test-case "finite function tuples shrink with repeatable multi-value calls"

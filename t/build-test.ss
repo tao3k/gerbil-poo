@@ -7,7 +7,7 @@
         (only-in :std/io/tempfile call-with-temporary-directory)
         (only-in :std/misc/ports read-all-as-string)
         (prefix-in (only-in "../build.ss" main) root.)
-        (prefix-in (only-in "../examples/build.ss" main) examples.)
+        (prefix-in (only-in "../benchmarks/representation-startup/build.ss" main) startup.)
         (only-in :std/encoding/json string->json JSONReadOptions) (only-in :std/list/list delete-duplicates/hash take drop) (only-in "build.ss" test-build-spec test-build-partitions call-with-build-jobs))
 
 ;; Preserve the declaration/input projection independently of backend flags;
@@ -92,15 +92,13 @@
           (and (pair? entry) (eq? (car entry) exe:))) spec)))
       (for-each (lambda (entry)
         (check-equal? (metadata entry "meta") '("spec" "compile" "clean")))
-        (list root.main examples.main))
+        (list root.main startup.main))
       (def core (metadata root.main "spec"))
-      (def examples (metadata examples.main "spec"))
+      (def startup (metadata startup.main "spec"))
       (check-equal? (executables core) '())
-      (check-equal? (executables examples) '("representation-main"))
-      (check (member "examples/generated-batches" (map cadr core)) => #f)
-      (check-equal? (map cadr (filter (lambda (entry) (eq? (car entry) gxc:)) examples))
-        '("representation-service" "generalized-checkout" "inherited-services"
-          "property-workflows" "property-refusals")))
+      (check-equal? (executables startup)
+        '("examples/representation-main" "benchmarks/representation-startup/main"))
+      (check (ormap (cut string-prefix? "examples/" <>) (map cadr core)) => #f))
     (test-case "shared graph preserves included-source dependencies and package order"
       (let (complete (build-inputs (test-build-spec)))
         (check (and (member '(gxc: "collection-order/table-cursor-test"
@@ -150,7 +148,7 @@
         (JSONReadOptions key-as-symbol: #f array-as-vector: #f object-as-hash: #t)))
       (def recipes (hash-ref graph "recipes"))
       (def examples (hash-ref recipes "test-examples"))
-      (check (map (cut hash-ref <> "recipe") (hash-ref examples "dependencies")) => '("build-core"))
+      (check (hash-ref examples "dependencies") => '())
       (def tests (hash-ref recipes "_test-packages"))
       (check (hash-ref tests "attributes") => '("parallel"))
       (check (map (cut hash-ref <> "recipe") (hash-ref tests "dependencies")) =>

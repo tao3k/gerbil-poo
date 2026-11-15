@@ -33,25 +33,23 @@ jobs:
         run: |
           printf '%s\n' t/*/gerbil.pkg | jq -Rsc 'split("\n") | map(select(length > 0) | split("/")[1]) | {group: .}' > "$RUNNER_TEMP/groups.json"
           echo "matrix=$(cat "$RUNNER_TEMP/groups.json")" >> "$GITHUB_OUTPUT"
-      # Cache compiled libraries and the linked representation programs.
+      # Cache the production build inputs. Test and benchmark sources use their own jobs.
       - uses: actions/cache@v4
         id: shared-cache
         with:
-          path: |
-            .ci-library/lib
-            .ci-library/bin
-          key: scheme-shared-${{ runner.os }}-${{ runner.arch }}-${{ steps.gerbil.outputs.compiler-key }}-${{ hashFiles('**/*.ss', '**/*.scm', '**/gerbil.pkg', 'justfile', '.github/workflows/test.yml', '.github/actions/setup-gerbil/action.yml') }}
+          path: .ci-library/lib
+          key: scheme-core-${{ runner.os }}-${{ runner.arch }}-${{ steps.gerbil.outputs.compiler-key }}-${{ hashFiles('**/*.ss', '**/*.scm', '**/gerbil.pkg', 'justfile', '.github/actions/setup-gerbil/action.yml', '!examples/**', '!benchmarks/**', '!t/**') }}-${{ hashFiles('t/build.ss') }}
       - name: Check public module packaging
         run: just check-layout
-      - name: Prepare the declared libraries and benchmark programs
+      - name: Build the production libraries
         if: steps.shared-cache.outputs.cache-hit != 'true'
-        run: just build-shared
+        run: just build-core
       - name: Check shared and isolated build declarations
         run: just test-file t/build-test.ss
       - name: Run the source example TestSuites
-        run: just test-file examples/generated-traces.ss
+        run: just test-examples
       - name: Preserve standard executable permissions for artifact transfer
-        run: tar -cf "$RUNNER_TEMP/scheme-shared.tar" -C .ci-library lib bin
+        run: tar -cf "$RUNNER_TEMP/scheme-shared.tar" -C .ci-library lib
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: scheme-library-${{ github.sha }}
@@ -99,12 +97,25 @@ jobs:
         run: mkdir -p .ci-library && tar -xf "$RUNNER_TEMP/scheme-shared.tar" -C .ci-library
       - name: Require the shared compiler and host dependencies
         run: test '${{ steps.gerbil.outputs.compiler-key }}' = '${{ needs.build.outputs.compiler-key }}'
+      - name: Build the linked representation programs
+        env:
+          GERBIL_BUILD_CORES: '1'
+        run: just _build-root benchmarks/representation-startup
       - name: Exercise linked and runtime-loaded entries, including refusals
         run: just _test benchmarks/representation-startup.ss
       - name: Check the paired Slot index workloads
         run: just _test benchmarks/slot-index-test.ss
+      - name: Preserve the linked benchmark artifacts
+        run: tar -cf "$RUNNER_TEMP/scheme-benchmarks.tar" -C .ci-library lib bin
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: scheme-benchmarks-${{ github.sha }}
+          path: ${{ runner.temp }}/scheme-benchmarks.tar
+          retention-days: 1
+          compression-level: 0
+          if-no-files-found: error
   benchmark-studies:
-    needs: build
+    needs: [build, representation-entry]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
@@ -113,10 +124,10 @@ jobs:
         id: gerbil
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
-          name: scheme-library-${{ github.sha }}
+          name: scheme-benchmarks-${{ github.sha }}
           path: ${{ runner.temp }}
       - name: Restore standard executable permissions
-        run: mkdir -p .ci-library && tar -xf "$RUNNER_TEMP/scheme-shared.tar" -C .ci-library
+        run: mkdir -p .ci-library && tar -xf "$RUNNER_TEMP/scheme-benchmarks.tar" -C .ci-library
       - name: Require the shared compiler and host dependencies
         run: test '${{ steps.gerbil.outputs.compiler-key }}' = '${{ needs.build.outputs.compiler-key }}'
       - name: Run the paired collection and generator studies

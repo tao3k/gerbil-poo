@@ -171,9 +171,7 @@
           (check (.ref/cached owner 'missing (lambda () (set! defaults (1+ defaults)) #f)) => #f)
           (check-equal? defaults 1))))
     (test-case "loaded FUN service retains warm guards across invalid runtime names and retries"
-      (def run (module-action "clan/poo/examples/representation-service"
-                             'clan/poo/examples/representation-service#symbolic-read-workflow))
-      (check-equal? (run []) '#(7 11 3 0)))
+      (check-equal? (service.symbolic-read-workflow) '#(7 11 3 0)))
 
     (test-case "invalid runtime names cannot demand observer or precheck callbacks"
       (def owner (.o value: 7)) (def observed 0) (def checked 0)
@@ -241,11 +239,6 @@
         (set! armed? #f)
         (def fresh (make-slot-layout request seed absent-value previous: old))
         (check (slot-layout-ref fresh (slot-layout-index fresh (car request))) => #f)))
-
-    (test-case "batch layout publication composes module FUN contracts and repair"
-      (def load (module-action "clan/poo/examples/representation-service"
-                              'clan/poo/examples/representation-service#batch-shape-workflow))
-      (for (reuse? '(#f #t)) (check-equal? (load (list 32 reuse?)) '#(65 19 6))))
 
     (test-case "seed source enumeration cannot retarget admitted names or entry rows"
       (for* ((storage '(vector hash)) (phase '(1 2)))
@@ -323,8 +316,7 @@
                 (set-cdr! (car rows) (lambda (_) (error "late callback escaped")))
                 (set-cdr! rows [])
                 (when armed? (raise #f)))))))
-        (def action (module-action "clan/poo/examples/representation-service"
-                                  'clan/poo/examples/representation-service#seed-request-workflow))
+        (def action (cut apply service.seed-request-workflow <>))
         (parameterize ((slot-value-storage storage))
           (check-equal? (service.entry-recovery-workflow action (list source)
                           (lambda (cause) (check-eq? cause #f) (set! armed? #f)))

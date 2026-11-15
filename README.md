@@ -82,9 +82,10 @@ compilation and artifact reuse. There is no additional source scanner, hash
 ledger, manifest parser, copied source view or test runner.
 
 The default package build installs the POO libraries, including the public
-property-testing APIs. Run `just test-examples` to pass an example TestSuite to
-`gerbil test`, or `just test-group methods` to run a test directory. The
-benchmark packages declare their own linked programs and compiled inputs.
+property-testing APIs. After building the package, run `just test-examples` for
+the `examples/*-test.ss` suites or `just test-group methods` for a test directory.
+Gerbil discovers and runs the source tests. The benchmark packages declare their
+linked programs and compiled inputs.
 
 See [test execution](doc/test-execution.md) and [CI checks](doc/ci-checks.md).
 

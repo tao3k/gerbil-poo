@@ -124,9 +124,7 @@
       (invalidate-state! 'root root (lambda _ (void)) (lambda (_) (void)))
       (check (map object-state-revision (list root child)) => '(1 2)))
     (test-case "shared tariff admission closes late dependencies before FUN publication"
-      (def action (module-action "clan/poo/examples/representation-service"
-                                'clan/poo/examples/representation-service#closure-invalidation-workflow))
-      (check-equal? (action []) '#((11 11 11) 6 #t (1 1 1 1))))
+      (check-equal? (closure-invalidation-workflow) '#((11 11 11) 6 #t (1 1 1 1))))
     (test-case "V19 C4 linearizes composed object prototypes"
       (def root (.o (value 'root) (shared 'root)))
       (def left (.o (:: @ root) (value 'left)))

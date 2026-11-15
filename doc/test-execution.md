@@ -1,14 +1,13 @@
 # Standard build and test entrypoints
 
 Run `gerbil build` or `just build` for the production libraries.
-Run `just test-examples` for the source example or pass the path of another
-TestSuite to the same recipe. `just test-group methods` runs a directory.
+Run `just test-examples` for the `examples/*-test.ss` suites or pass a test file
+to the same recipe. `just test-group methods` runs a directory.
 Both delegate discovery and execution to `gerbil test` with the existing
 2 GiB VM limit. `just test` runs the test groups using Just's parallel queue.
 
-Tests of the compiled module loader use the selected artifacts declared by
-the examples package. Standalone benchmark packages declare their own
-inputs and executables. Gerbil owns compilation, runtime loading and cleanup.
+The representation benchmark package declares the artifacts used to test
+compiled module loading. Gerbil owns compilation, runtime loading and cleanup.
 
 The following policy records an earlier test configuration.
 

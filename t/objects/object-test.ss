@@ -9,6 +9,7 @@
   :clan/poo/number
   :clan/poo/brace
   (prefix-in :clan/poo/examples/lifecycle lifecycle.)
+  (only-in :clan/poo/examples/representation-service closure-invalidation-workflow)
   :std/assert
   :std/format
   (except-in :clan/poo/support/base ignore-errors)

@@ -4,7 +4,8 @@
         (only-in :clan/poo/benchmarks/representation-startup check-observation-test)
         (only-in :std/list/list find)
         (prefix-in (only-in :gerbil/runtime/mop slot-ref slot-set! object-class find-method bind-method!) read-runtime.)
-        (only-in :gerbil/runtime/loader load-module reload-module! list-modules module-load-order)
+        (only-in :gerbil/expander import-module)
+        (only-in :gerbil/runtime/loader reload-module! list-modules module-load-order)
         (only-in :std/io/tempfile call-with-temporary-directory)
         (only-in :clan/poo/io module-action)
         (only-in :clan/poo/read-route make-read-issuer)
@@ -12,6 +13,7 @@
         (only-in :clan/poo/reflection reflect-slots read-slot write-slot!)
         :clan/poo/object :clan/poo/prototype-map :clan/poo/slot-layout :clan/poo/slot-observation :clan/poo/meta-prototype
         (prefix-in :clan/poo/examples/representation-service service.)
+        (prefix-in (only-in :clan/poo/examples/generalized-checkout prepare-checkout report) checkout.)
         (prefix-in (only-in :clan/poo/fun Observation.) fun.))
 
 ;; Match protocol refusal rather than accepting unrelated arithmetic exceptions.
@@ -219,10 +221,8 @@
         (.putslot! base 'seed ($constant-slot-spec 8))
         (check-equal? (.get child total) 9))))
   (test-case "persistent composition uses the shared checked module lifecycle for both policies"
-    (let (run (module-action "clan/poo/examples/representation-service"
-                'clan/poo/examples/representation-service#composition-workflow))
-      (for* ((width '(0 16)) (policy '(tree compact)))
-        (check-equal? (run (list width policy: policy)) '#(24 30 36 6)))))
+    (for* ((width '(0 16)) (policy '(tree compact)))
+      (check-equal? (service.composition-workflow width policy: policy) '#(24 30 36 6))))
   (test-case "declaration scratch maps retain admission and shared descriptor invalidation"
     (check-exception (.ref (make-object declarations: 'malformed
       slots: (list (cons 'value ($constant-slot-spec 7)))) 'value) true)
@@ -347,10 +347,8 @@
 ;; Structural read credentials and retirement after revision.
 (def (register-structural-read-cases)
   (test-case "override construction composes the shared module and checked revision workflow"
-    (let (run (module-action "clan/poo/examples/representation-service"
-                'clan/poo/examples/representation-service#override-workflow))
-      (for* ((depth '(0 64)) (opaque? '(#f #t)))
-        (check-equal? (run (list depth opaque?: opaque?)) '#(24 30 36 6)))))
+    (for* ((depth '(0 64)) (opaque? '(#f #t)))
+      (check-equal? (service.override-workflow depth opaque?: opaque?) '#(24 30 36 6))))
   (test-case "public names snapshots cannot corrupt canonical reflection or static cells"
     (let* ((f (lambda (x) x)) (payload (list #f f))
            (source (.o enabled: #f callback: f names: payload))
@@ -443,10 +441,8 @@
       (check-eq? (with-catch identity
         (lambda () (call-with-slot-read-observer (lambda (_) (raise cause)) (cut .all-slots source)))) cause)
       (check-equal? (.all-slots source) '(enabled)))
-    (let (run (module-action "clan/poo/examples/representation-service"
-                'clan/poo/examples/representation-service#reflection-workflow))
-      (for (width '(0 16))
-        (check-equal? (run (list width)) '#(24 30 36 6)))))
+    (for (width '(0 16))
+      (check-equal? (service.reflection-workflow width) '#(24 30 36 6))))
   (test-case "indexed persistent deletion preserves sparse append first-method replacement and snapshots"
     (for (policy '(tree compact))
       (let* ((callback (lambda (x) x))
@@ -470,10 +466,8 @@
               (check-eq? (cdr (assq 'callback (prototype-map-list next))) callback)
               (loop next (1+ n))))))))
   (test-case "indexed removal composes shared invalidation refinement failure retry and compact demotion"
-    (def run (module-action "clan/poo/examples/representation-service"
-      'clan/poo/examples/representation-service#removal-workflow))
     (for* ((policy '(tree compact)) (width '(0 5 32)))
-      (check-equal? (run (list width policy: policy)) '#(54 24 30 24 54 10)))
+      (check-equal? (service.removal-workflow width policy: policy) '#(54 24 30 24 54 10)))
     (let* ((parent (.o value: 1)) (child (.o inherit: [parent])) (site (make-slot-cache 'value)))
       (.ref/inline child site)
       (seal-object! parent)
@@ -589,19 +583,12 @@
       (check-exception ((module-action module 'poo-missing-entry) '(ok)) unbound-global-exception?)
       (check-exception (module-action #f binding) contract-violation-error?)
       (check-exception (module-action module "entry") contract-violation-error?))))
-  (test-case "runtime entries compose existing shared-service and generalized FUN workflows"
-    (def service (module-action "clan/poo/examples/representation-service"
-      'clan/poo/examples/representation-service#service-workflow))
-    (check-equal? (service '(4 layout: #t reshape?: #t)) '#(30 36 42 12))
-    (def prepare (module-action "clan/poo/examples/generalized-checkout"
-      'clan/poo/examples/generalized-checkout#prepare-checkout))
-    (def report (module-action "clan/poo/examples/generalized-checkout"
-      'clan/poo/examples/generalized-checkout#report))
-    (let (action (.call fun.Observation. .bind prepare
-      (lambda (snapshot) (lambda (_request) (report (list snapshot))))))
-      (check-equal? (action []) '(30 33 3)))
-    (check-equal? (service.entry-workflow 4 layout: #t) '#(#(30 36 42 12) (30 33 3)))
-    (check-exception (service.entry-workflow -1) contract-violation-error?))
+  (test-case "shared-service and checkout compose through FUN"
+    (check-equal? (service.service-workflow 4 layout: #t reshape?: #t) '#(30 36 42 12))
+    (let (action (.call fun.Observation. .bind
+      (lambda (_) (checkout.prepare-checkout))
+      (lambda (snapshot) (lambda (_) (checkout.report snapshot)))))
+      (check-equal? (action []) '(30 33 3))))
   (test-case "two-shape offsets retain no foreign cells and refuse unknown capacities"
     (for (bad '(0 3 -1 2.0 arbitrary))
       (check-exception (make-slot-cache 'value shapes: bad) contract-violation-error?))
@@ -664,13 +651,11 @@
     (check-eq? (.ref/inline a site) f)
     (.removeslot! root 'approval)
     (check-eq? (.ref/inline b site) f))
-  (test-case "standard module actions compose heterogeneous checked revisions with two shapes"
-    (def action (module-action "clan/poo/examples/representation-service"
-      'clan/poo/examples/representation-service#service-workflow))
+  (test-case "service workflows compose heterogeneous checked revisions with two shapes"
     (def variants (list (.o audit: #f) (.o policy: identity)))
-    (check-equal? (action (list 4 layout: #t shapes: 2 variants: variants reshape?: #t)) '#(30 36 42 12))
-    (check-equal? (action (list 4 layout: #t shapes: 1 variants: variants reshape?: #t)) '#(30 36 42 12))
-    (check-exception (action (list -1 layout: #t shapes: 2 variants: variants)) contract-violation-error?))
+    (check-equal? (service.service-workflow 4 layout: #t shapes: 2 variants: variants reshape?: #t) '#(30 36 42 12))
+    (check-equal? (service.service-workflow 4 layout: #t shapes: 1 variants: variants reshape?: #t) '#(30 36 42 12))
+    (check-exception (service.service-workflow -1 layout: #t shapes: 2 variants: variants) contract-violation-error?))
   (test-case "explicit observed dependencies invalidate selected external sources and transitive consumers"
     (def used (.o rate: 2)) (def unused (.o rate: 7))
     (def router (.o selected: used)) (def calls 0)
@@ -792,7 +777,6 @@
     (check (eq? (slot-layout-shape empty)
       (slot-layout-shape (make-slot-layout [] #f absent-value previous: empty))) => #t))
   (test-case "standard cached service clones reuse shapes across refinement refusal and structural revision"
-    (load-module "clan/poo/examples/representation-service")
     (def source (.o inherit: [service.Service] tariff: 3))
     (def a (.o inherit: [source] capacity: 2)) (def b (.o inherit: [source] capacity: 4))
     (def delivered 0) (def layouts [])
@@ -989,10 +973,10 @@
     (check (object-%layout source) => #f)
     (check (slot-cache-hit? site source (object-revision source) #f) => #f)
     (replay-slot-reads! reads (lambda (_owner _key) (void))))
-  (test-case "standard cached module load keeps recipes lazy across a checked multi-service workflow"
+  (test-case "standard module import keeps recipes lazy across a checked multi-service workflow"
     (def original service.Service)
-    (load-module "clan/poo/examples/representation-service")
-    (load-module "clan/poo/examples/representation-service")
+    (def module ':clan/poo/examples/representation-service)
+    (check-eq? (import-module module #f #t) (import-module module #f #t))
     (check (eq? original service.Service) => #t)
     (def a (.cc service.Service capacity: 10)) (def b (.cc service.Service capacity: 20))
     (def missing (list 'not-evaluated))

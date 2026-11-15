@@ -1,7 +1,9 @@
 ;;; Replay runtime-issued Slot reads and reject fabricated or stale records.
 (export issued-read-test test-cleanup!)
 (import (only-in :clan/poo/slot-layout make-slot-cache slot-cache-layout slot-layout-put!)
-        :std/iter :std/test (only-in :clan/poo/io module-action) :clan/poo/object :clan/poo/slot-observation
+        :std/iter :std/test :clan/poo/object :clan/poo/slot-observation
+        (only-in :clan/poo/examples/representation-service replay-workflow)
+        (only-in :clan/poo/examples/inherited-services read-key-workflow)
         (only-in :clan/poo/read-route make-read-issuer %issued-read?)
         (only-in :gerbil/runtime/gambit unbound-global-exception?)
         (prefix-in (only-in :gerbil/runtime/mop slot-ref slot-set! find-method bind-method! object-class
@@ -221,8 +223,7 @@
     (refuses "stale slot dependency" (cut captured-order roots))
     (def fresh (recorded (cut .get Root port)))
     (replay-slot-reads! fresh (lambda (_r _k) (void)))
-    (check-equal? ((module-action "clan/poo/examples/representation-service"
-                    'clan/poo/examples/representation-service#replay-workflow) []) '#(9 12 9 3))
+    (check-equal? (replay-workflow) '#(9 12 9 3))
     (set! completed (+ completed 1)))
   (test-case "the Gerbil export interface does not expose private read-issuance helpers"
     (def forged-public-read?
@@ -415,8 +416,7 @@
                     (.removeslot! Root 'port)))))
     (check-equal? checks 1)
     (check-equal? observed #f)
-    (check-equal? ((module-action "clan/poo/examples/inherited-services"
-                   'clan/poo/examples/inherited-services#read-key-workflow) []) '(10 20 #t))
+    (check-equal? (read-key-workflow) '(10 20 #t))
     (set! completed (+ completed 1)))
   (test-case "published names and dependency lists are independent of signed replay"
     (.def Root names: (list 'user) enabled: #f)

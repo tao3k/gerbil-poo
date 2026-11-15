@@ -3,7 +3,7 @@
 (import :std/test :std/iter :std/misc/process
         (only-in :clan/poo/io module-action)
         (only-in :gerbil/runtime/loader load-module list-modules)
-        (only-in :std/error Error?) (only-in :std/number/misc uint?)
+        (only-in :std/error Error? contract-violation-error?) (only-in :std/number/misc uint?)
         (only-in :std/test/base test-run! test-result-error? TestResultError? TestResultError
           TestResultErrors? TestResultErrors TestHarness TestModule TestConfig TestSuite)
         (only-in :std/list/list drop-right append-map)
@@ -422,4 +422,14 @@
         "-:max-heap=1G,debug=q" "64" "4" "main"))
     (test-case "joint service and checkout entry pairs"
       (study (cond-expand (darwin "gtimeout") (else "timeout"))
-        "-:max-heap=1G,debug=q" "64" "4" "joint-main"))))
+        "-:max-heap=1G,debug=q" "64" "4" "joint-main"))
+    (test-case "compiled runtime entry composes the service and checkout workflows"
+      (def entry (module-action "clan/poo/examples/representation-service"
+        'clan/poo/examples/representation-service#entry-workflow))
+      (check-equal? (entry '(4 layout: #t)) '#(#(30 36 42 12) (30 33 3)))
+      (check-exception (entry '(-1)) contract-violation-error?))
+    (test-case "batch layout publication composes module FUN contracts and repair"
+      (def batch (module-action "clan/poo/examples/representation-service"
+        'clan/poo/examples/representation-service#batch-shape-workflow))
+      (for (reuse? '(#f #t))
+        (check-equal? (batch (list 32 reuse?)) '#(65 19 6))))))
