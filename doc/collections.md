@@ -1167,7 +1167,7 @@ parallel validation/ownership engine is introduced.
 ## Complete collection IO
 
 Table and Set JSON, bytes and port codecs now share one guarded dispatch in the
-existing table module (`table/io.scm`). It retains the existing List/Pair codecs
+existing table module (`table/io.ss`). It retains the existing List/Pair codecs
 and wire formats. Trie now gives the collection protocol precedence over its raw
 node Wrapper, matching the existing representation-derived table ordering. Table
 payloads are bindings; Set payloads are elements. Encoding

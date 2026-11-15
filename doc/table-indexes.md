@@ -1,7 +1,7 @@
 # Declarative correlated collection indexes
 
 `table-indexes source declarations` derives a complete persistent table descriptor
-in the existing `clan/poo/table` interface. The standard `table/indexes.scm` include
+in the existing `clan/poo/table` interface. The standard `table/indexes.ss` include
 shares the original table/delta/Wrap implementation and `std/make extra-inputs`.
 It advances the general collection proposal's future work; it does not introduce a
 new database engine, global registry or automatic backend selection.
@@ -209,7 +209,7 @@ inverse/refusal controls inside them.
 ## Complete cache admission
 
 Cold construction and warm revisions share `checked-entry` in the existing
-`table/indexes.scm` module. Gerbil's standard `for/collect` prepares declarations
+`table/indexes.ss` module. Gerbil's standard `for/collect` prepares declarations
 in order; after one backend finishes, `require-table` recognizes its complete
 cache before the next recipe starts. It never normalizes or reconstructs the
 accepted cache. Shape-only backend updates and uniqueness claims cannot stand

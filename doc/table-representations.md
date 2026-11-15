@@ -935,7 +935,7 @@ The public default methods now share complete recognition before backend work.
 list conversion); `.iter/key` preserves backend traversal (including Trie prefix
 pruning). These are implementation capabilities, not independent checked public
 observations. The generic fallback retains its existing fold/list traversal.
-`table/observation.scm` owns the complete boundary. Default cursors reuse the
+`table/observation.ss` owns the complete boundary. Default cursors reuse the
 existing mapped Iterator, capturing source/Key/Value/explicit-origin revisions
 and checking them before each pull, including repeated EOF. Issuance admits the
 whole immutable snapshot once; delayed pulls do not rescan it.

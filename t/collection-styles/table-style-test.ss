@@ -21,12 +21,12 @@
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (set-style-test)
-  (let () (include "table-style/set-style.scm")))
+  (let () (include "table-style/set-style.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (table-receiver-test)
-  (let () (include "table-style/table-receiver.scm")))
+  (let () (include "table-style/table-receiver.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (table-style-test)
-  (let () (include "table-style/cases.scm")))
+  (let () (include "table-style/cases.ss")))

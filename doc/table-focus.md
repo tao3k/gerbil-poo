@@ -2,7 +2,7 @@
 
 This is a concrete collection-library future-work unit. It reuses the existing
 Gerbil POO Lens, `using`, table deltas, persistent backends and FUN/IO. The standard
-include `table/focus.scm` stays inside `clan/poo/table`; it is not a public module.
+include `table/focus.ss` stays inside `clan/poo/table`; it is not a public module.
 
 ## Complete key protocol
 

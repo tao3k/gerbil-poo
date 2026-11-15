@@ -2346,7 +2346,7 @@ cold family admission, dual identifier swaps, shared-team migration, retained
 Function identities, genuine conflict refusal, retry and inverse recovery.
 Repeated edits, stored false, collisions, stale/empty-origin requests and invalid
 capability metadata retain explicit negative controls. Fold code lives in the
-existing table module's `table/fold.scm` include. Companion overlay/transport/index
+existing table module's `table/fold.ss` include. Companion overlay/transport/index
 proofs and charged preparation boundaries are in [table-fold.md](table-fold.md).
 Automatic equality/capability discovery remains a separate research boundary.
 

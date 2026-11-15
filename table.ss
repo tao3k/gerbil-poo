@@ -268,7 +268,7 @@
             ((some value) (.call descriptor .acons key value staged))))
         source (table-delta-changes delta)))))
 
-(include "table/fold.scm")
+(include "table/fold.ss")
 
 ;; A failed finite law/collision check reports its kind and offending value.
 ;; No partially converted carrier or change sequence is included in this payload.
@@ -914,8 +914,8 @@
   .unmarshal: (cut collection-codec @ #f '.unmarshal <>))
 
 ;; Set presentation and algebra remain in the existing table module.
-(include "table/sets.scm")
-(include "table/io.scm")
+(include "table/sets.ss")
+(include "table/io.ss")
 
 (define-type (PreZipping. @ [Type.]
   ;; StepF :: Type <- Type
@@ -932,15 +932,15 @@
 (define-type (FocusableZipping. @ [Zipping.]
   .refocus)) ;; Zipper <- FocusKey Zipper
 
-(include "table/focus.scm")
-(include "table/observation.scm")
-(include "table/mapping.scm")
+(include "table/focus.ss")
+(include "table/observation.ss")
+(include "table/mapping.ss")
 
 ;; Derive style ownership in the existing interface; .admit normalizes raw input,
 ;; whereas .ap and transitions retain admitted Function wrappers and batch ordering.
-(include "table/styles.scm")
+(include "table/styles.ss")
 
 ;; Correlated indexes share the same public table namespace and backend contracts.
-(include "table/indexes.scm")
+(include "table/indexes.ss")
 
-(include "table/order.scm")
+(include "table/order.ss")

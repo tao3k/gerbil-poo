@@ -45,8 +45,8 @@
     (gxc: "table-order-test" (extra-inputs: ("table-order/observations.scm")))
     "table-split-test")
     ("collection-styles"
-    (gxc: "set-algebra-test" (extra-inputs: ("set-algebra/cases.scm" "set-algebra/set-observation.scm")))
-    (gxc: "table-style-test" (extra-inputs: ("table-style/set-style.scm" "table-style/table-receiver.scm" "table-style/cases.scm")))
+    (gxc: "set-algebra-test" (extra-inputs: ("set-algebra/cases.ss" "set-algebra/set-observation.ss")))
+    (gxc: "table-style-test" (extra-inputs: ("table-style/set-style.ss" "table-style/table-receiver.ss" "table-style/cases.ss")))
     "uint-trie-set-admission-test")
     ("collection-updates"
     "table-fold-test"
