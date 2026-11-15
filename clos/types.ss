@@ -22,7 +22,25 @@
 
 (def ClosType. Type.)
 
-(extern namespace: clan/poo/object %ref-owned-list)
+(extern namespace: clan/poo/object %ref-owned-list %registered-field-reader)
+(extern namespace: clan/poo/read-projection %owned-closed-registration?)
+
+(def (%closed-registered-field-reader candidate)
+  (and (%owned-closed-registration?) (%registered-field-reader candidate)))
+
+;; Closed groups contain only stock predicates over already registered reads.
+;; A probe miss resumes the original sequence with its ordinary effect boundary.
+(defrules check-closed-slots ()
+  ((_ read ordinary) #t)
+  ((_ read ordinary (name predicate) remaining ...)
+   (let (value (read 'name))
+     (if (eq? value absent-value) (ordinary)
+       (and (predicate value) (check-closed-slots read ordinary remaining ...))))))
+
+(defrule (closed-required-slots? candidate (name predicate) ...)
+  (let* ((receiver candidate) (read (%closed-registered-field-reader receiver)))
+    (def (ordinary) (required-slots? receiver (name predicate) ...))
+    (if read (check-closed-slots read ordinary (name predicate) ...) (ordinary))))
 
 (def (clos-prototype type-value kind-value)
   (.o .type: type-value kind: kind-value schema: 'v1))
@@ -87,7 +105,7 @@
 
 (def (clos-lambda-list-element? candidate)
   (and (clos-instance? (.ref ClosLambdaList 'proto) candidate)
-       (required-slots? candidate
+       (closed-required-slots? candidate
          (required natural?)
          (optional natural?)
          (rest? boolean?)
@@ -112,14 +130,28 @@
   (and (list? value) (andmap natural? value)))
 
 (def (clos-specializer-element? candidate)
+  (def (target-valid? kind target)
+    (case kind
+      ((any) (not (target)))
+      ((class) (element? ClosClass (target)))
+      ((prototype) (object? (target)))
+      ((eql) #t)
+      (else #f)))
+  (def (ordinary)
+    (and (required-slots? candidate (kind specializer-kind?) (target any-value?))
+         (target-valid? (.ref candidate 'kind) (lambda () (.ref candidate 'target)))))
   (and (clos-instance? (.ref ClosSpecializer 'proto) candidate)
-       (required-slots? candidate (kind specializer-kind?) (target any-value?))
-       (case (.ref candidate 'kind)
-         ((any) (not (.ref candidate 'target)))
-         ((class) (element? ClosClass (.ref candidate 'target)))
-         ((prototype) (object? (.ref candidate 'target)))
-         ((eql) #t)
-         (else #f))))
+       (let (read (%closed-registered-field-reader candidate))
+         (if read
+           (let (kind (read 'kind))
+             (cond
+              ((eq? kind absent-value) (ordinary))
+              ((not (specializer-kind? kind)) #f)
+              (else
+               (let (target (read 'target))
+                 (if (eq? target absent-value) (ordinary)
+                   (target-valid? kind (lambda () target)))))))
+           (ordinary)))))
 
 ;;; Boundary: a specializer records only matching identity; it never owns or
 ;;; mutates a class, prototype, or argument value.
@@ -131,12 +163,12 @@
   (and (clos-instance? (.ref ClosMethod 'proto) candidate)
        (required-slots? candidate
          (identity function-name?)
-         (specializers specializers? read: %ref-owned-list)
-         (qualifier qualifier?)
-         (body procedure?)
-         (lambda-list lambda-list-or-false?)
-         (generic-function any-value?)
-         (synthetic-effective-method? boolean?))))
+         (specializers specializers? read: %ref-owned-list))
+       (closed-required-slots? candidate
+         (qualifier qualifier?) (body procedure?))
+       (required-slots? candidate (lambda-list lambda-list-or-false?))
+       (closed-required-slots? candidate
+         (generic-function any-value?) (synthetic-effective-method? boolean?))))
 
 ;;; Invariant: a method is executable only through a generic-owned applicable
 ;;; effective method; its body is not a standalone public procedure contract.
@@ -229,16 +261,16 @@
 
 (def (clos-generic-function-element? candidate)
   (and (clos-instance? (.ref ClosGenericFunction 'proto) candidate)
+       (closed-required-slots? candidate
+         (identity function-name?) (required natural?) (rest? boolean?)
+         (argument-precedence-order argument-precedence-order?))
        (required-slots? candidate
-         (identity function-name?)
-         (required natural?)
-         (rest? boolean?)
-         (argument-precedence-order argument-precedence-order?)
          (method-combination method-combination?)
          (methods methods? read: %ref-owned-list)
          (generation natural?)
          (lambda-list (cut element? ClosLambdaList <>))
-         (protocol generic-protocol?)
+         (protocol generic-protocol?))
+       (closed-required-slots? candidate
          (documentation string-or-false?)
          (generic-function-class any-value?)
          (method-class any-value?)

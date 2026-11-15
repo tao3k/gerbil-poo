@@ -16,13 +16,17 @@
         (only-in :clan/poo/mop Type. element?)
         (only-in :std/list/list foldl)
         (only-in :clan/poo/slot-observation call-with-slot-read-observer
-                 slot-read-key slot-read-receiver slot-read-dependencies slot-read-value)
+                 slot-read-key slot-read-receiver slot-read-dependencies slot-read-value
+                 %call-with-recorded-slot-reads)
         (only-in :clan/poo/clos/objects make-effective-method make-invocation-frame
                  clos-call-carrier-policy-guard)
-        (only-in :clan/poo/read-projection call-with-owned-read-projection owned-read-value!)
+        (only-in :clan/poo/read-projection call-with-owned-read-projection owned-read-value! owned-read-open!)
         :clan/poo/clos)
 
 (export poo-clos-dispatch-test)
+
+(extern namespace: clan/poo/slot-observation
+        %with-slot-read-registration-interval %first-registered-read?)
 
 (def any-specializer (poo-clos-any-specializer))
 (def animal-class (.o))
@@ -94,6 +98,46 @@
             (call-with-owned-read-projection '() (lambda () #t)
               (lambda () (values 'first 'second)))) list)
         '(first second)))
+    (test-case "repeated descriptor admission keeps public events and live refusal"
+      (def descriptor (poo-clos-lambda-list 1 0 #f #f '() #f))
+      (def (check-shape) (element? ClosLambdaList descriptor))
+      (defvalues (accepted reads)
+        (%call-with-recorded-slot-reads
+          (lambda ()
+            (call-with-owned-read-projection '() void
+              (lambda () (and (check-shape) (check-shape)))))))
+      (check-equal? accepted #t)
+      (check (andmap object-read-issued? reads) => #t)
+      (def events 0)
+      (check-equal?
+        (call-with-owned-read-projection '() void
+          (lambda ()
+            (and (check-shape)
+                 (call-with-slot-read-observer
+                   (lambda (read)
+                     (when (and (eq? (slot-read-receiver read) descriptor)
+                                (eq? (slot-read-key read) 'required))
+                       (set! events (1+ events))
+                       (.put! descriptor 'optional 'refuse)))
+                   check-shape))))
+        #f)
+      (check-equal? events 1)
+      (defvalues (_value captured)
+        (%call-with-recorded-slot-reads (lambda () (.ref descriptor 'required))))
+      (def original (car captured))
+      (%call-with-recorded-slot-reads
+        (lambda ()
+          (%with-slot-read-registration-interval
+            (lambda ()
+              (.ref descriptor 'required)
+              (check ((%first-registered-read?) original) => #t)
+              (owned-read-open!)
+              (check-equal? (%first-registered-read?) #f)))
+          (%with-slot-read-registration-interval
+            (lambda ()
+              (.ref descriptor 'required)
+              (check ((%first-registered-read?) original) => #f))))
+        unique-roots?: #t))
     (test-case "effective-method and MOP hooks retain the complete call trace"
      (for-each
       (lambda (axis)

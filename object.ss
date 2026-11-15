@@ -12,7 +12,7 @@
                     require-current-read-sweep! %pure-read-sweep?
                     record-key-field record-dependencies-field record-value-field
                     slot-spec-discards-super? compile-slot-specs prepare-declaration-specifications compute-object-precedence!
-                    %prepared-vector-slot-ref %bind-current-slot-reads %prepared-slot-present?
+                    %prepared-vector-slot-ref %registered-field-reader %bind-current-slot-reads %prepared-slot-present?
                     %with-slot-edit-protection %publish-slot-edits!
                     %owned-list-slot-spec %ref-owned-list define-slot-ref
                     %live-object-instance %live-object-layout) @object? @make-object)
@@ -482,6 +482,40 @@
           (require-read-route! slot #f instance)
           (hash-ref instance slot absent-value)))
       absent-value)))
+
+(extern namespace: clan/poo/slot-observation %first-registered-read?)
+
+;; Use the native capture's first registration of both records. The caller
+;; must have qualified the observer scope and supply only stock predicates.
+;; A missing or changed record leaves the ordinary path in charge.
+(def (%registered-field-reader self)
+  (let ((registered? (%first-registered-read?))
+        (instance (object-%instance self))
+        (reads (object-%reads self))
+        (methods (object-%slot-funs self)))
+    (and registered? instance reads methods (object-%precedence-list self)
+         (not (object-%bootstrap self)) (not (object-protocol self))
+         (with-catch (lambda (_) #f)
+           (lambda ()
+             (require-read-route! 'presence reads instance)
+             (and (%standard-symbol-table-lookup? methods) #t)))
+         (let (revision (object-revision self))
+           (def (registered-current? read key expected)
+             (and read (registered? read) (object-read-issued? read)
+                  (eq? (slot-read-receiver read) self)
+                  (eq? (record-instance-field read) instance)
+                  (= (slot-read-revision read) revision)
+                  (equal? (record-key-field read) key)
+                  (eq? (record-value-field read) expected)))
+           (lambda (key)
+             (let (presence-key (list 'presence key))
+               (if (and (hash-key? methods key)
+                        (registered-current? (hash-get reads presence-key) presence-key #t))
+                 (let (value (hash-ref instance key absent-value))
+                   (if (and (not (eq? value absent-value))
+                            (registered-current? (hash-get reads key) key value))
+                     value absent-value))
+                 absent-value)))))))
 
 ;; Get an existing cached slot value from an object
 (def (.ref/cached self (slot :~ symbol?) (default false))

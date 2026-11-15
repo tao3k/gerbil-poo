@@ -26,6 +26,9 @@
 (extern namespace: clan/poo/clos/objects
         %published-method-positions %method-position method-positions-size)
 (extern namespace: clan/poo/object %ref-owned-list)
+(extern namespace: clan/poo/slot-observation
+        %with-slot-read-registration-interval %without-slot-read-registration-interval
+        %revoke-slot-read-registration-interval!)
 
 ;;; Runtime memq preserves identity comparison; length difference yields its
 ;;; position in the finite C4 precedence list without a project-local walker.
@@ -443,6 +446,14 @@
 ;;; set before the captured continuation can be invoked.
 ;; : (-> ClosInvocationFrame SchemeValue... SchemeValue)
 (def (poo-clos-call-next-method frame . replacement)
+  (if (null? replacement)
+    (call-next-method frame replacement)
+    (begin
+      (%revoke-slot-read-registration-interval!)
+      (%without-slot-read-registration-interval
+        (lambda () (call-next-method frame replacement))))))
+
+(def (call-next-method frame replacement)
   (require-frame frame)
   (unless (memq (.ref frame 'qualifier) '(around primary long))
     (frame-fail frame 'next-forbidden-in-auxiliary))
@@ -624,6 +635,10 @@
 
 ;; : (-> ClosGenericFunction SchemeValue... SchemeValue)
 (def (poo-clos-call generic-source . arguments)
+  (%with-slot-read-registration-interval
+    (lambda () (call-generic generic-source arguments))))
+
+(def (call-generic generic-source arguments)
   (let (generic-value (require-clos-generic generic-source))
     (owned-read-hook-owner! generic-value)
     (let (effective-method (select-effective-method generic-value arguments))

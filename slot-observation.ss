@@ -63,6 +63,7 @@
 (defstruct read-scope (frame observers prechecks) final: #t)
 ;; The standard dynamic parameter provides lexical restoration and inheritance.
 (def current-read-scope (make-parameter #f))
+(def current-registration-interval (make-parameter #f))
 (def (slot-read-precheck-active? check)
   (let (scope (current-read-scope))
     (and (read-scope? scope) (memq check (read-scope-prechecks scope)) #t)))
@@ -122,13 +123,40 @@
 ;; captures. Respect the current collector's occurrence/deduplication policy.
 (defrule (record-in-collection! frame seen read)
   (unless (and seen (table-ref seen read #f))
-    (when seen (table-set! seen read #t))
+    (when seen (table-set! seen read (or (current-registration-interval) #t)))
     (set! (read-collection-reversed frame)
       (cons read (read-collection-reversed frame)))))
 (def (record-slot-read! frame read)
   (when frame
     (let (seen (read-collection-seen frame))
       (record-in-collection! frame seen read))))
+;; Borrow the identity membership of the current unique capture. The caller
+;; still owns live record authentication and its observer/effect boundary.
+(def (%first-registered-read?)
+  (let* ((scope (current-read-scope))
+         (frame (if (read-scope? scope) (read-scope-frame scope) scope))
+         (seen (and frame (read-collection-seen frame)))
+         (interval (current-registration-interval)))
+    (and seen interval (car interval)
+         (lambda (read) (and (car interval) (eq? interval (table-ref seen read #f)))))))
+
+(def (%revoke-slot-read-registration-interval!)
+  (let (interval (current-registration-interval))
+    (when interval (set-car! interval #f))))
+
+(def (%without-slot-read-registration-interval action)
+  (if (current-registration-interval)
+    (parameterize ((current-registration-interval #f)) (action))
+    (action)))
+
+(def (%with-slot-read-registration-interval action)
+  (let* ((scope (current-read-scope))
+         (frame (if (read-scope? scope) (read-scope-frame scope) scope)))
+    (if (and frame (read-collection-seen frame))
+      (parameterize ((current-registration-interval (cons #t #f)))
+        (dynamic-wind void action %revoke-slot-read-registration-interval!))
+      (%without-slot-read-registration-interval action))))
+
 ;; Merge an authenticated child capture under one parent-scope lookup, without
 ;; replaying observers/prechecks. Recording never mints or authenticates provenance.
 (def (%record-slot-reads! reads)

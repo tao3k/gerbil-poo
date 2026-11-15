@@ -13,6 +13,8 @@
         make-owned-method-check call-with-owned-read-method-checks
         owned-read-fields-present? call-with-owned-source-reads)
 
+(extern namespace: clan/poo/slot-observation %revoke-slot-read-registration-interval!)
+
 ;; This region is a construction/ownership scope, never a result/currentness
 ;; cache. It is released when the call returns. Only the owning constructors enroll
 ;; receivers; ancestry or a user-supplied kind cannot claim ownership.
@@ -64,6 +66,7 @@
       (owned-read-open!)))
   copy)
 (def (owned-read-open!)
+  (%revoke-slot-read-registration-interval!)
   (when (current-owned-read-open-guard)
     (let (guard (current-owned-read-open-guard))
       (parameterize ((current-owned-read-open-guard #f)) (guard))))
@@ -136,6 +139,16 @@
 (def (owned-read-function-scope?)
   (slot-read-observers-compatible? (list void observe-owned-hook)
                                  (list before-owned-source-read)))
+
+;; The native observer only inspects a prepared stock receiver in this
+;; scope. Public observers and any precheck keep their ordinary deliveries.
+(def repeat-read-observers (list void observe-owned-hook))
+(def (%owned-closed-registration?)
+  (let (region (current-region))
+    (and region (not (read-region-open? region))
+         (not (current-owned-read-open-guard))
+         (null? (current-owned-method-checks))
+         (slot-read-observers-compatible? repeat-read-observers))))
 
 ;; One actual runtime inventory for a fresh factory receipt, not six separate
 ;; presence records retaining that receipt/instance/specification environment.
