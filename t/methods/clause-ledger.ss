@@ -139,7 +139,7 @@
 (def poo-clos-evidence-suites
   (list
    (evidence-suite 'dispatch "t/methods/poo-clos-dispatch-test.ss"
-                   'poo-clos-dispatch-test 27)
+                   'poo-clos-dispatch-test 33)
    (evidence-suite 'lifecycle "t/methods/poo-clos-lifecycle-test.ss"
                    'poo-clos-lifecycle-test 15)
    (evidence-suite 'syntax "t/methods/poo-clos-syntax-test.ss"
@@ -151,7 +151,7 @@
                    'poo-clos-evolution-test 9)
    (evidence-suite 'generic-evolution
                    "t/methods/poo-clos-generic-evolution-test.ss"
-                   'poo-clos-generic-evolution-test 3)
+                   'poo-clos-generic-evolution-test 6)
    (evidence-suite 'load-form "t/methods/poo-clos-load-form-test.ss"
                    'poo-clos-load-form-test 5)))
 
