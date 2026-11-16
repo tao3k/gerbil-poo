@@ -141,7 +141,7 @@
    (evidence-suite 'dispatch "t/methods/clos-dispatch-test.ss"
                    'clos-dispatch-test 36)
    (evidence-suite 'lifecycle "t/methods/clos-lifecycle-test.ss"
-                   'clos-lifecycle-test 22)
+                   'clos-lifecycle-test 23)
    (evidence-suite 'syntax "t/methods/clos-syntax-test.ss"
                    'clos-syntax-test 21)
    (evidence-suite 'method-combination

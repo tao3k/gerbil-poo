@@ -6,7 +6,7 @@
 ;;; POO CLOS classes and direct/effective slot projection.
 
 (import :clan/poo/object
-        (only-in :clan/poo/mop/prototype element? Type. Any)
+        (only-in :clan/poo/mop/prototype element? Type.)
         (only-in :std/hash/misc hash-ref/default hash-remove!)
         (only-in :std/list/list delete-duplicates/hash)
         (only-in :std/list/list find filter filter-map flatten1)
@@ -261,26 +261,30 @@
          (type-predicate-values
           (filter-map (lambda (entry) (.ref (cdr entry) 'type-predicate))
                       descriptions)))
-    (seal-object!
-     (checked
-      ClosEffectiveSlotDefinition
-      (.o (:: @ ClosEffectiveSlotDefinition.)
-          identity: slot-name allocation: allocation-value
-          initargs: (%make-owned-list (merged-slot-list descriptions 'initargs))
-          initfunction: initfunction-value
-          readers: (%make-owned-list (merged-slot-list descriptions 'readers) clos-copy-function-names)
-          writers: (%make-owned-list (merged-slot-list descriptions 'writers) clos-copy-function-names)
-          optional: #t
-          type: (if (null? type-predicate-values) Any
-                  (seal-object! (.o (:: @ Type.)
-                      sexp: (list 'slot-type slot-name)
-                      .element?: (lambda (value)
-                                   (andmap (lambda (predicate) (predicate value))
-                                           type-predicate-values)))))
-          documentation: documentation-value
-          defining-classes: (%make-owned-list (map car descriptions))
-          storage-class: (car most-specific))
-      'invalid-effective-slot-definition))))
+    (let (slot
+          (.o (:: @ ClosEffectiveSlotDefinition.)
+              identity: slot-name allocation: allocation-value
+              initargs: (%make-owned-list (merged-slot-list descriptions 'initargs))
+              initfunction: initfunction-value
+              readers: (%make-owned-list (merged-slot-list descriptions 'readers) clos-copy-function-names)
+              writers: (%make-owned-list (merged-slot-list descriptions 'writers) clos-copy-function-names)
+              optional: #t
+              documentation: documentation-value
+              defining-classes: (%make-owned-list (map car descriptions))
+              storage-class: (car most-specific)))
+      ;; Match Slot's optional type declaration. Omission is not a synthesized
+      ;; Any contract; all explicit inherited constraints remain conjunctive.
+      (unless (null? type-predicate-values)
+        (.putslot! slot 'type
+          ($constant-slot-spec
+           (seal-object!
+            (.o (:: @ Type.)
+                sexp: (list 'slot-type slot-name)
+                .element?: (lambda (value)
+                             (andmap (lambda (predicate) (predicate value))
+                                     type-predicate-values)))))))
+      (seal-object! (checked ClosEffectiveSlotDefinition slot
+                             'invalid-effective-slot-definition)))))
 
 ;; : (-> [ClosClass] Procedure
 ;;        [ClosEffectiveSlotDefinition])

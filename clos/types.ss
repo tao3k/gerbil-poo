@@ -11,7 +11,7 @@
 (import :clan/poo/object
         :clan/poo/read-projection
         (only-in :clan/poo/class-validation required-slots?)
-        (only-in :clan/poo/mop/prototype define-type Type. Type Class. Slot element?)
+        (only-in :clan/poo/mop/prototype define-type Type. Class. Slot element?)
         (only-in "funcs.ss"
                  clos-function-name? clos-function-name-list? clos-qualifier?
                  clos-initarg-name-list? clos-default-initargs?))
@@ -411,6 +411,7 @@
 
 (def (clos-effective-slot-definition-element? candidate)
   (and (prototype-instance? (.ref ClosEffectiveSlotDefinition 'proto) candidate)
+       (element? Slot candidate)
        (required-slots? candidate
          (identity symbol?)
          (allocation allocation?)
@@ -418,7 +419,6 @@
          (initfunction procedure-or-false?)
          (readers clos-function-name-list?)
          (writers clos-function-name-list?)
-         (type (lambda (value) (element? Type value)))
          (documentation string-or-false?)
          (defining-classes class-references?)
          (storage-class class-reference?))))

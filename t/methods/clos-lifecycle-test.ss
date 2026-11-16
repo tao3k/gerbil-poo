@@ -86,7 +86,33 @@
       (check (.get initialized deferred) => 'ready)
       (check lazy-calls => 1))
 
+    (test-case "omitted types stay absent without weakening inherited constraints"
+      (def untyped
+        (clos-class 'untyped-slot
+          direct-slots: (list (clos-direct-slot-definition 'value initargs: (list value:)))))
+      (def slot (clos-find-effective-slot untyped 'value))
+      (check (.slot? slot 'type) => #f)
+      (check (element? Slot slot) => #t)
+      (check (element? ClosEffectiveSlotDefinition (.o (:: @ slot) type: #f)) => #f)
+      (check (.get (clos-make-instance untyped value: 'dynamic) value) => 'dynamic)
+      (def base
+        (clos-class 'typed-parent
+          direct-slots: (list (clos-direct-slot-definition
+                               'value initargs: (list value:) type-predicate: integer?))))
+      (def child
+        (clos-class 'untyped-child direct-superclasses: (list base)
+          direct-slots: (list (clos-direct-slot-definition 'value))))
+      (def effective (clos-find-effective-slot child 'value))
+      (check (.slot? effective 'type) => #t)
+      (check (element? (.get effective type) 3) => #t)
+      (check (element? (.get effective type) 'bad) => #f)
+      (check-exception (clos-make-instance child value: 'bad) TypeError?)
+      (def instance (clos-make-instance child value: 3))
+      (check-exception (clos-set-slot-value! instance 'value 'bad) TypeError?)
+      (check (.get instance value) => 3))
+
     (test-case "Slot rejection leaves the bound cell and generation unchanged"
+
       (def class-value
         (clos-class 'checked-cell
           direct-slots: (list (clos-direct-slot-definition

@@ -53,12 +53,15 @@ generation and its read evidence intact.
 
 Lifecycle classes implement the existing POO `Type` and `Class` contracts.
 Effective declarations use `Slot` validation; predicate constraints are
-normalized into its `type` field. Pure models use the same Slot checker.
+normalized into its `type` field only when declared. An omitted type adds no
+value-type restriction and does not synthesize `Any`. All inherited constraints
+remain conjunctive; an untyped override cannot erase them. Pure models use the
+same Slot checker.
 Class schema maps and effective descriptors are read-only; redefinition
 publishes them through the existing generation and dependency index.
 
 ```scheme
-(.defclass Pane () ((width (initarg width:) (initform 80))))
+(.defclass Pane () ((width (initarg width:) (initform 80) (type integer?))))
 (def pane (clos-make-instance Pane width: 100))
 (element? Class Pane)     ; => #t
 (element? Pane pane)      ; => #t
@@ -75,7 +78,7 @@ does not imply completed initialization. Native `.get` reads require a current
 layout and reject `instance-update-required` before any migration effects.
 Lifecycle operations such as `clos-slot-value` perform lazy class updates;
 subsequent `.get` reads use those same cells. Ordinary `.new` retains lazy Slots.
-[Construction contracts](https://github.com/tao3k/lean-poo/blob/c370399/LeanPoo/Object/ClosConstruction.lean).
+[Construction contracts](https://github.com/tao3k/lean-poo/blob/8c77d3c/LeanPoo/Object/ClosConstruction.lean).
 
 `just test-source-file benchmarks/mop-lifecycle-test.ss` runs the lifecycle study.
 The benchmark saves the lifecycle and C4 measurements in `$GERBIL_PATH/benchs`.
