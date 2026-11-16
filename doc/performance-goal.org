@@ -107,6 +107,19 @@ first capture in both execution orders. Both are withdrawn. See
 cold SlotSpec/value-store preparation. The Goal is active; no stock deletion
 or consumer pin promotion is justified by these findings.
 
+** Bounded standard normalization
+
+The actual Graph workload has 9,999 two-name layouts. Scalar-only changes do
+not address it. Native requests of at most eight names now use Std foldr and
+Scheme identity membership; larger/hinted requests keep the hash algorithm.
+Four paired first and later captures all improve, with CPU medians
+206.140/198.294 and 159.5585/153.7895 ms. The full native control and negative
+refusal gate pass. See [[file:performance/bounded-shape-normalization.org][evidence and explicit limits]].
+
+SourceRole has no stable CPU benefit and still trails stock. Do not remove
+Core stock or promote a consumer pin on this evidence. Linked CI and the
+remaining cold/call costs remain separate open gates; the Goal stays active.
+
 * Next decision
 
 Work on the measured first-Generic admission and group replay paths.

@@ -29,7 +29,7 @@
     (lambda () (random-source-state-set! default-random-source saved))))
 
 (def shape-admission-test
-  (test-suite "scalar shape admission ownership and effects"
+  (test-suite "shape admission ownership and effects"
     (test-case "standard cached adapter is admitted without consuming randomness"
       (make-hash-table-symbolic seed: 0)
       (def start (random-source-state-ref default-random-source))
@@ -54,7 +54,10 @@
       (def anchor (make-slot-layout '(seed-hit) #f absent-value))
       ;; Admit the standard error machinery outside the random-state window.
       (with-catch void (lambda () (make-slot-layout '(17) #f absent-value)))
-      (for (names (list [] '(seed-hit) (list (string->uninterned-symbol "seed-miss")) '(17)))
+      (def general (make-slot-layout '(seed-hit general-seed-hit) #f absent-value))
+      (for (names (list [] '(seed-hit) (list (string->uninterned-symbol "seed-miss")) '(17)
+                       (list-copy (shape-names (slot-layout-shape general)))
+                       '(seed-hit general-seed-hit seed-hit) '(17 value 23)))
         (def start (random-source-state-ref default-random-source))
         (def expected (sample-state start (lambda () (make-hash-table-symbolic))))
         (def actual (sample-state start (lambda () (make-slot-layout names #f absent-value))))
@@ -88,15 +91,94 @@
       (check-equal? (cadr observed) (cadr ordinary))
       (check-eq? (%graph-table-seed) #f))
     (test-case "caller names cannot edit the intern key and receiver cells remain independent"
-      (def names (list 'owned-key))
+      ;; The uninterned name guarantees a miss even in a shared process.
+      (def key (string->uninterned-symbol "owned-shape"))
+      (def names (list key))
       (def first (make-slot-layout names #f absent-value))
-      (set-car! names 'edited-key)
-      (def second (make-slot-layout '(owned-key) #f absent-value))
+      (set-car! names 'edited-miss-key)
+      (def hit-names (list key))
+      (def second (make-slot-layout hit-names #f absent-value))
+      (set-car! hit-names 'edited-hit-key)
       (check-eq? (slot-layout-shape first) (slot-layout-shape second))
-      (check-equal? (shape-names (slot-layout-shape first)) '(owned-key))
+      (check-equal? (shape-names (slot-layout-shape first)) (list key))
+      (check-equal? (slot-layout-index first key) 0)
+      (check-equal? (slot-layout-index second key) 0)
+      (check-eq? (slot-layout-index second 'edited-hit-key) #f)
       (slot-layout-set! first 0 #f)
       (check-eq? (slot-layout-ref first 0) #f)
       (check-eq? (slot-layout-ref second 0) absent-value))
+    (test-case "canonical multi-name hits borrow no caller spine and misses still normalise"
+      (def left (string->uninterned-symbol "canonical-left"))
+      (def right (string->uninterned-symbol "canonical-right"))
+      (def original (make-slot-layout (list left right) #f absent-value))
+      (def canonical (shape-names (slot-layout-shape original)))
+      (def request (list-copy canonical))
+      (def hit (make-slot-layout request #f absent-value))
+      (set-car! request 'edited-request)
+      (check-eq? (slot-layout-shape hit) (slot-layout-shape original))
+      (check-equal? (shape-names (slot-layout-shape hit)) canonical)
+      (for (names (list (reverse canonical) (append canonical canonical)))
+        (check-eq? (slot-layout-shape (make-slot-layout names #f absent-value))
+                   (slot-layout-shape original)))
+      (check-eq? (slot-layout-index hit 'edited-request) #f)
+      (slot-layout-set! hit 0 #f)
+      (check-eq? (slot-layout-ref hit 0) #f)
+      (check-eq? (slot-layout-ref original 0) absent-value))
+    (test-case "multi-name misses retain the exact drawn seed and RNG state"
+      (def names (list (string->uninterned-symbol "seed-left")
+                       (string->uninterned-symbol "seed-right")))
+      (def initial (random-source-state-ref default-random-source))
+      (def expected (sample-state initial (lambda () (make-hash-table-symbolic))))
+      (def actual (sample-state initial (lambda () (make-slot-layout names #f absent-value))))
+      (def expected-seed (runtime.slot-ref (interface-instance-object (car expected)) 'seed))
+      (def actual-seed (runtime.slot-ref
+                        (interface-instance-object (shape-indices (slot-layout-shape (car actual)))) 'seed))
+      (check-equal? actual-seed expected-seed)
+      (check-equal? (cadr actual) (cadr expected)))
+    (test-case "restored enumeration routes still normalise duplicate names"
+      (def left (string->uninterned-symbol "source-left"))
+      (def right (string->uninterned-symbol "source-right"))
+      (def anchor (make-slot-layout (list left right) #f absent-value))
+      (def owner (make-object slots:
+        (list (cons left ($constant-slot-spec 1)) (cons right ($constant-slot-spec 2)))))
+      (def proto (prototype))
+      (def original (runtime.slot-ref proto 'for-each))
+      (def counts (make-table test: eq?))
+      (def injected? #f)
+      (try
+        (runtime.slot-set! proto 'for-each
+          (lambda (backend visit)
+            (def count (1+ (table-ref counts backend 0)))
+            (table-set! counts backend count)
+            (if (= count 3)
+              (begin
+                ;; Two compile snapshots precede the method-name enumeration.
+                ;; Restore both future and present routes before returning
+                ;; duplicate names; native metadata is not a uniqueness witness.
+                (set! injected? #t)
+                (runtime.slot-set! proto 'for-each original)
+                (runtime.slot-set! (runtime.slot-ref owner '%slot-funs) 'for-each original)
+                (original backend (lambda (key value)
+                  (visit key value)
+                  (when (eq? key left) (visit key value)))))
+              (original backend visit))))
+        (check-equal? (.ref owner left) 1)
+        (check-eq? injected? #t)
+        (def actual (slot-values-layout (runtime.slot-ref owner '%instance)))
+        (check-eq? (slot-layout-shape actual) (slot-layout-shape anchor))
+        (check-equal? (length (shape-names (slot-layout-shape actual))) 2)
+        (finally (runtime.slot-set! proto 'for-each original))))
+    (test-case "bounded and hash paths agree across the name-width boundary"
+      (for (width '(2 8 9 64))
+        (def keys (for/collect (_ (in-range width))
+                    (string->uninterned-symbol "boundary-name")))
+        (for (request (list keys (append keys (list (car keys)))))
+          (def expected (ordinary-shape-for-names request #f))
+          (def actual (make-slot-layout request #f absent-value))
+          (check-eq? (slot-layout-shape actual) expected)
+          (check-equal? (length (shape-names expected)) width)
+          (for (key keys)
+            (check-equal? (slot-layout-index actual key) (hash-ref (shape-indices expected) key))))))
     (test-case "equal printed names keep distinct symbol identities"
       (def left (string->uninterned-symbol "same-name"))
       (def right (string->uninterned-symbol "same-name"))

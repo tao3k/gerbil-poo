@@ -232,3 +232,42 @@ natural exit without error/overflow markers. The property command takes
 118.10 s wall including its existing independent-library build/test. No child
 budget or test inventory changes. This is compiler-source conformance evidence,
 not a Lean proof of Gerbil/Gambit compilation or a full new-head CI result.
+
+* Bounded name normalization
+
+The owned Graph capture contains 9,999 two-name requests (=sexp= and =reads=),
+plus one scalar projection request. This is a Graph-program workload, not a
+10,000-Module EVAL. The earlier scalar-only lookup experiment did not address
+its main preparation path.
+
+For no-hint requests of at most eight names, the existing live construction
+guard now selects Gerbil Std =foldr= and Scheme =memq= instead of allocating
+a temporary membership table. The bound limits membership to at most 28
+identity comparisons and fold depth eight. Wider requests retain the existing
+hash algorithm; the selection scans at most nine cells. Hint-based shape
+changes also retain their original algorithm.
+
+Each element is admitted BEFORE membership, from right to left, including
+duplicates. The result keeps the last occurrence exactly as
+=delete-duplicates/hash= did. The SAME standard sorter then receives the same
+owned sequence, including for colliding uninterned-symbol hashes. The one
+existing weak interner, per-receiver cells and state binding remain unchanged.
+
+Draw the native scratch seed once before admission even on a hit or refusal.
+A miss constructs its real index with that same seed. Changed/cold/foreign
+constructor routes still execute the unmodified ordinary path. No runtime
+certificate, new table, public flag or source API is introduced.
+
+[[https://github.com/tao3k/lean-poo/blob/d508e976c6aa99a1ac26af76a958f24db7232d9f/LeanPoo/Proof/Gerbil/ShapeAdmission.lean#L283][ShapeAdmission.BoundedNames at d508e97]]
+proves the hash/list membership invariant, full state-and-first-error equality,
+algorithm selection, the original seed prefix and arbitrary subsequent
+sorting/publication. It uses Std =List.foldl_reverse=, not a new evaluator.
+Its new equalities use only standard =propext= and =Quot.sound=.
+
+The existing ownership control now forces an independent miss and hit.
+Additional controls cover multi-name seed identity, duplicate names returned
+after an enumerator restores native routes, and actual widths 8 and 9.
+Replacing ONLY =foldr= with =foldl= in a frozen native build produces an
+assertion failure: actual first bad value 17, expected 23; child exit 42.
+The restored implementation naturally exits successfully. See
+[[file:performance/bounded-shape-normalization.org][complete workload evidence and limits]].

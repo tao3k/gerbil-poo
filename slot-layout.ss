@@ -14,7 +14,7 @@
         (only-in ./support/base %compare-symbol-identity %graph-table-seed)
         (only-in ./object-state object-state-revision)
         ./slot-observation
-        (only-in :std/hash/misc hash-ensure-ref) :std/iter (only-in :std/list/list delete-duplicates/hash find))
+        (only-in :std/hash/misc hash-ensure-ref) :std/iter (only-in :std/list/list delete-duplicates/hash find foldr length<=n?))
 
 ;; Carry Gambit's macro definitions in this module's static source as well as
 ;; its standard make invocation. Linked programs compile the dependency closure
@@ -136,14 +136,23 @@
 (def (scalar-shape-request? names)
   (or (null? names) (and (pair? names) (null? (cdr names)))))
 (def (admit-shape-name name) (using (name :~ symbol?) name))
+;; Bound quadratic membership and foldr depth; larger requests keep the hash path.
+(def small-shape-name-limit 8)
 (def (shape-for-names names hint)
-  (if (and (not hint) (scalar-shape-request? names) (scalar-shape-routes-current?))
-    ;; Keep the native seed draw BEFORE admission, even for a hit or a bad key.
-    ;; This fixed RNG primitive preserves routes/caller spines in the serial
-    ;; runtime law. It is not an author callback or a reusable currentness check.
+  (def scalar? (scalar-shape-request? names))
+  (if (and (not hint) (or scalar? (length<=n? names small-shape-name-limit))
+           (scalar-shape-routes-current?))
+    ;; Retain the native scratch seed BEFORE any key admission, on hits and
+    ;; failures too. Only its callback-free allocation/membership is omitted.
     (let* ((seed (or (%graph-table-seed) (random-integer (macro-max-fixnum32))))
-           (owned (if (null? names) [] (list (admit-shape-name (car names))))))
-      (intern-ordered-shape owned #f seed))
+           (owned
+             (if scalar? (if (null? names) [] (list (admit-shape-name (car names))))
+               ;; Std foldr keeps the original right-to-left admission and
+               ;; last occurrence, while producing a fresh owned name spine.
+               (foldr (lambda (name kept)
+                        (admit-shape-name name)
+                        (if (memq name kept) kept (cons name kept))) [] names))))
+      (intern-ordered-shape (if scalar? owned (list-sort shape-name<? owned)) #f seed))
     (ordinary-shape-for-names names hint)))
 (def (ordinary-shape-for-names names hint)
   (def seed (and (%graph-table-seed) (scalar-shape-routes-current?) (%graph-table-seed)))

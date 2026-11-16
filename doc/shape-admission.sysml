@@ -38,4 +38,12 @@ package ShapeAdmission {
                source as well as its dynamic compile command. Linked entry and
                fresh-process replay gates must pass independently of SSI tests. */
     }
+    requirement def BoundedNameNormalization {
+        doc /* At most eight names use Std foldr with identity membership;
+               wider requests and hints retain the original hash algorithm.
+               Admit each name from right to left before membership, retain
+               last occurrences, then use the SAME sorter/publication.
+               Keep the native seed prefix, independent cells and exact
+               fallback. No verdict survives an effect boundary. */
+    }
 }
