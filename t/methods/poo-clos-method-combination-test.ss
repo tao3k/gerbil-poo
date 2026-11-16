@@ -201,6 +201,58 @@
 
 (def poo-clos-method-combination-test
   (test-suite "POO CLOS method combinations and protocol"
+    (test-case "standard combinations share qualifier-list meaning with reflection"
+      (def seen '())
+      (def generic (poo-clos-generic-function 'listed-standard-qualifiers 1))
+      (def (add name qualifiers body)
+        (def method (poo-clos-method name (list any-specializer) body qualifier: qualifiers))
+        (poo-clos-add-method generic method)
+        (check-equal? (poo-clos-method-qualifiers method) qualifiers)
+        (check-equal? (.ref method 'qualifier) qualifiers)
+        method)
+      (def primary (add 'primary '() (lambda (_frame _value) (set! seen (cons 'primary seen)) 42)))
+      (add 'around '(around)
+        (lambda (frame _value)
+          (set! seen (cons 'enter seen))
+          (def value (poo-clos-call-next-method frame))
+          (set! seen (cons 'leave seen)) value))
+      (add 'before '(before) (lambda (_frame _value) (set! seen (cons 'before seen))))
+      (add 'after '(after) (lambda (_frame _value) (set! seen (cons 'after seen))))
+      (check-equal? (poo-clos-call generic 'item) 42)
+      (check-equal? (reverse seen) '(enter before primary after leave))
+      (check (eq? (poo-clos-find-method generic '() (list any-specializer)) primary) => #t)
+      (check-exception
+        (add 'qualified-primary '(primary) void)
+        (failure-code? 'invalid-method-qualifier))
+      (def cycle (list 'around))
+      (set-cdr! cycle cycle)
+      (for-each
+        (lambda (qualifiers)
+          (check-exception
+            (poo-clos-method 'invalid-list (list any-specializer) void qualifier: qualifiers)
+            (failure-code? 'invalid-method)))
+        (list '(around . invalid) cycle)))
+    (test-case "short combinations select singleton lists through the shared qualifier policy"
+      (for-each
+        (lambda (name)
+          (def generic (poo-clos-generic-function 'listed-short-qualifiers 1
+            method-combination: (poo-clos-short-method-combination name list)))
+          (def old (poo-clos-method 'shorthand (list any-specializer)
+                      (lambda (_frame _value) 'old)
+                      qualifier: (if (eq? name 'primary) '(primary) name)))
+          (poo-clos-add-method generic old)
+          (def replacement (poo-clos-method 'listed (list any-specializer)
+                              (lambda (_frame _value) 'new) qualifier: (list name)))
+          (poo-clos-add-method generic replacement)
+          (check-equal? (poo-clos-method-generic-function old) #f)
+          (check (eq? (poo-clos-find-method generic (list name) (list any-specializer)) replacement) => #t)
+          (check-equal? (poo-clos-call generic 'item) '(new))
+          (check-exception
+            (poo-clos-add-method generic
+              (poo-clos-method 'unqualified (list any-specializer) void qualifier: '()))
+            (failure-code? 'invalid-method-qualifier)))
+        '(collect primary)))
+
     (test-case "single-receiver qualifier policy follows effective inherited slots"
       (def parent (poo-clos-short-method-combination 'collect list))
       ;; Force the parent callback before deriving another policy identity.

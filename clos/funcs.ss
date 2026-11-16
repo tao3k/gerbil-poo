@@ -8,7 +8,8 @@
 (import (only-in :std/list/plist plist?)
         (only-in :gerbil/runtime/hash list->hash-table-eq))
 
-(export poo-clos-setf-name? poo-clos-function-name? poo-clos-function-name-list?
+(export poo-clos-qualifier? poo-clos-normalize-qualifier poo-clos-short-qualifier
+        poo-clos-setf-name? poo-clos-function-name? poo-clos-function-name-list?
         poo-clos-initarg-name? poo-clos-initarg-name-list? poo-clos-default-initargs?
         poo-clos-initarg-list? poo-clos-initarg-names
         poo-clos-initarg-ref poo-clos-initarg-index
@@ -17,6 +18,24 @@
         poo-clos-allow-other-keys-name? poo-clos-allow-other-keys?
         poo-clos-position-lookup
         poo-clos-natural-permutation?)
+
+;; Qualifier lists must be finite before traversing their elements.
+(def (poo-clos-qualifier? value)
+  (or (symbol? value) (and (list? value) (andmap symbol? value))))
+
+;; Preserve the actual Slot value; normalize only the comparison key.
+;; (primary) is an explicit long-form qualifier, distinct from no qualifier.
+(def (poo-clos-normalize-qualifier value)
+  (cond
+   ((symbol? value) value)
+   ((null? value) 'primary)
+   ((and (pair? value) (null? (cdr value))
+         (symbol? (car value)) (not (eq? (car value) 'primary))) (car value))
+   (else value)))
+
+;; A short-combination name denotes one qualifier, even when named primary.
+(def (poo-clos-short-qualifier name)
+  (if (eq? name 'primary) '(primary) name))
 
 (def (poo-clos-setf-name? name)
   (and (pair? name) (eq? (car name) 'setf)

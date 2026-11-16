@@ -10,7 +10,8 @@
 
 (import :clan/poo/object
         (only-in :std/list/list find)
-        "types.ss" "objects.ss")
+        "types.ss" "objects.ss"
+        (only-in "funcs.ss" poo-clos-normalize-qualifier))
 
 (export poo-clos-methods-with-qualifier
         poo-clos-partition-long-methods
@@ -20,9 +21,11 @@
 ;;; group observes the same class/eql precedence decision.
 ;; : (-> [(Pair ClosMethod [Natural])] MethodQualifier [ClosMethod])
 (def (poo-clos-methods-with-qualifier ranked qualifier)
+  (def expected (poo-clos-normalize-qualifier qualifier))
   (map car
        (filter (lambda (entry)
-                 (equal? (.ref (car entry) 'qualifier) qualifier))
+                 (equal? (poo-clos-normalize-qualifier (.ref (car entry) 'qualifier))
+                         expected))
                ranked)))
 
 ;;; A proper pattern matches length exactly.  A dotted tail =*= accepts any

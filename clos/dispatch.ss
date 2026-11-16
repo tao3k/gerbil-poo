@@ -281,7 +281,8 @@
         generic arguments
         (poo-clos-methods-with-qualifier ranked 'around)
         '()
-        (poo-clos-methods-with-qualifier ranked (.ref combination 'identity))
+        (poo-clos-methods-with-qualifier ranked
+          (poo-clos-short-qualifier (.ref combination 'identity)))
         '()))
       ((long)
        (owned-read-open!)

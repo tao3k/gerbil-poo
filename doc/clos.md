@@ -58,6 +58,14 @@ serial mutation model, refusal leaves the method table, method ownership and
 generation unchanged. Successful installation applies the normal replacement
 order and advances generation once per method. [LeanPoo admission model](https://github.com/tao3k/lean-poo/blob/39dcf42fdc7800d25cdafe0ab474116b49c7845e/LeanPoo/Object/ClosAdmission.lean)
 
+Method qualifiers accept symbols as shorthand or finite lists. `primary`
+and `()` denote an unqualified primary method; `around` and `(around)`
+denote the same auxiliary qualifier. Default admission, grouping and method
+replacement agree on these meanings. `(primary)` stays distinct from `()`.
+POO Slot reads retain the stored spelling; `method-qualifiers` returns its list meaning.
+[LeanPoo qualifier proof](https://github.com/tao3k/lean-poo/blob/a825417663af730aa4b562fe0015478644d770c9/LeanPoo/Object/ClosQualifiers.lean) ·
+[HyperSpec standard method combination](https://www.lispworks.com/documentation/HyperSpec/Body/07_ffb.htm)
+
 A bare `&key` enables keyword checks with an empty list of declared keys.
 Applicable methods may contribute keys, and `&allow-other-keys` permits
 additional ones. A supplied `allow-other-keys` or `allow-other-keys:` uses

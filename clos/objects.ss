@@ -79,9 +79,11 @@
     ;; Derived combinations can refine it through inheritance.
     .admits-qualifier?:
     (lambda (qualifier)
+      (set! qualifier (poo-clos-normalize-qualifier qualifier))
       (case kind
         ((standard) (if (memq qualifier '(around before primary after)) #t #f))
-        ((short) (or (eq? qualifier 'around) (eq? qualifier identity)))
+        ((short) (or (eq? qualifier 'around)
+                     (equal? qualifier (poo-clos-short-qualifier identity))))
         ((long) #t)
         (else #f)))))
 ;; : POOObject

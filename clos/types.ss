@@ -13,7 +13,7 @@
         (only-in :clan/poo/class-validation required-slots?)
         (only-in :clan/poo/mop/prototype define-type Type. element?)
         (only-in "funcs.ss"
-                 poo-clos-function-name? poo-clos-function-name-list?
+                 poo-clos-function-name? poo-clos-function-name-list? poo-clos-qualifier?
                  poo-clos-initarg-name-list? poo-clos-default-initargs?))
 
 (export ClosSpecializer ClosLambdaList ClosMethod ClosMethodBundle
@@ -89,10 +89,6 @@
 (def (specializer-kind? value)
   (if (memq value '(any class prototype eql)) #t #f))
 
-(def (qualifier? value)
-  (or (symbol? value)
-      (and (pair? value) (andmap symbol? value))))
-
 (def (method-combination? value)
   (and (object? value)
        (clos-instance? (.ref ClosMethodCombination 'proto) value)))
@@ -167,7 +163,7 @@
          (identity poo-clos-function-name?)
          (specializers specializers? read: %ref-owned-list))
        (closed-required-slots? candidate
-         (qualifier qualifier? owned-list) (body procedure?))
+         (qualifier poo-clos-qualifier? owned-list) (body procedure?))
        (required-slots? candidate (lambda-list lambda-list-or-false?))
        (closed-required-slots? candidate
          (generic-function any-value?) (synthetic-effective-method? boolean?))))
@@ -326,7 +322,7 @@
          (effective-method (cut element? ClosEffectiveMethod <>))
          (arguments list?)
          (next next-method?)
-         (qualifier qualifier?)
+         (qualifier poo-clos-qualifier?)
          (method (cut element? ClosMethod <>)))))
 
 ;;; Boundary: the lexical frame owns next-method continuation access; it is not
