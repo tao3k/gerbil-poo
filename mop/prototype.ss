@@ -4,7 +4,10 @@
 ;; as an instance is a type descriptor.
 
 ;; Raw delivery forwards an observer event. Issuance belongs to the object.
-(export #t make-slot-read slot-read-receiver slot-read-key slot-read-revision
+(export #t object-precedence-ready? object-find-in-precedence
+        object-direct-slot-specification object-direct-slot-declared? object-slot-assigned?
+        object-direct-protocol?
+        make-slot-read slot-read-receiver slot-read-key slot-read-revision
         slot-read-instance slot-read-value slot-read-dependencies
         call-with-slot-read-observer %deliver-slot-read
         replay-slot-reads! reobserve-slot-reads! call-with-current-slot-reads object-read-issued? object-read-issuance)
@@ -32,6 +35,9 @@
            make-object object object? .def/ctx .cc .mix .ref .@ .get .has? .call
            .all-slots with-slots .slot? .putslot! .putdefault! .for-each!
            object-%precedence-list compute-precedence-list!
+           object-precedence-ready? object-find-in-precedence
+           object-direct-slot-specification object-direct-slot-declared? object-slot-assigned?
+           object-direct-protocol?
            NoApplicableMethod? NoApplicableMethod-self NoApplicableMethod-slot
            .alist object<-alist
            $constant-slot-spec $computed-slot-spec)

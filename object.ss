@@ -113,6 +113,20 @@
     (map (lambda (entry) (cons (car entry) ($constant-slot-spec (cdr entry))))
          (hash->list/sort (object-%overrides self) symbol<?)) '()))
 
+;; Inspect one direct contribution without constructing the receiver or copying its catalog.
+(def (object-direct-slot-specification self name (default #f))
+  (prototype-map-ref (object-%slots self) name default))
+
+(def (object-direct-slot-declared? self name)
+  (not (eq? (prototype-map-ref (object-%declarations self) name absent-value) absent-value)))
+
+(def (object-slot-assigned? self (name :~ symbol?))
+  (let (overrides (object-%overrides self))
+    (and overrides (hash-key? overrides name))))
+
+(def (object-direct-protocol? self)
+  (and (object-%protocol self) #t))
+
 ;; Track dependencies on prototypes, protocol objects and declaration descriptors.
 (def (depend-on-object! self source)
   (unless (object? source) (error "object dependency required"))
@@ -238,6 +252,18 @@
 (def (invalid-object-summary self)
   (InvalidObject slots: (append (prototype-map-keys (object-%slots self))
     (prototype-map-keys (object-%defaults self)) (prototype-map-keys (object-%declarations self)))))
+
+;; A hook can see its candidate order internally before it has been admitted.
+;; Readiness is conservative during construction and never invokes a hook.
+(def (object-precedence-ready? self)
+  (and (object? self) (object-%precedence-list self)
+       (not (memq self (active-object-constructions)))))
+
+;; Visit an admitted order without exposing the cached list. The selector
+;; sees one prototype at a time, and its first true result ends the search.
+(def (object-find-in-precedence self select)
+  (and (object-precedence-ready? self)
+       (ormap select (object-%precedence-list self))))
 
 ;; Public inspection owns its spine; mutating it cannot edit cached C3 membership.
 ;; Internal construction borrows the private result without per-call snapshot copies.
