@@ -1,7 +1,10 @@
 ;;-*- Gerbil -*-
 ;;; More types on top of POO and its MOP
 
-(export (except-out #t %owned-list-slot-spec %ref-owned-list))
+(export (except-out #t %owned-list-slot-spec %ref-owned-list)
+        Any Bool Object MonomorphicObject. MonomorphicObject ObjectObject
+        Function. Function CaseFunction Fun
+        Type Type. define-type element? validate TypeError TypeError? raise-type-error)
 
 (import
   (only-in :std/assert assert!)
@@ -23,8 +26,9 @@
            write-uint-u8vector read-uint-u8vector unmarshal-n-u8)
   (only-in ./support/json json-normalize string<-json json<-string)
   (only-in ./object .@ .ref object<-alist .slot? .call .o .putslot! seal-object!)
-  (only-in ./mop/prototype define-type Type Type. Class. Any
-           raise-type-error validate element? :sexp sexp<- json<- <-json)
+  (only-in ./mop/prototype define-type Type Type. Class. Any Bool Object
+           MonomorphicObject. MonomorphicObject ObjectObject Function. Function CaseFunction Fun
+           TypeError TypeError? raise-type-error validate element? :sexp sexp<- json<- <-json)
   (only-in ./number UInt UIntN Real Integer)
   (only-in ./brace @method)
   (only-in ./io methods.bytes<-marshal methods.marshal<-bytes

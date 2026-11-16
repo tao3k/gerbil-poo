@@ -1,6 +1,6 @@
 ;;; Fresh-process factory/publication phases; no approval or result is cached.
 (export main compare)
-(import :clan/poo/object
+(import (only-in :clan/poo/type Function) :clan/poo/object
         :clan/poo/mop
         :clan/poo/prototype-types
         (runtime: :clan/poo/declarative-metadata)

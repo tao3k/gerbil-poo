@@ -1,7 +1,6 @@
 ;;; RecursiveCatalog / RecursiveDispatch: shared requests with current Type admission.
 (export program registry expected run-service)
-(import ../object
-        (only-in ../mop Any Type. validate)
+(import (only-in ../type Any Type. validate) ../object
         (only-in ../number IntegerRange)
         (prefix-in ../proto proto.)
         (runtime: :clan/poo/recursive)

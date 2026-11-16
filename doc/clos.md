@@ -1,11 +1,12 @@
 # CLOS-like classes and methods
 
 Application code imports CLOS operations, descriptors, declaration syntax and
-prototype ancestry queries from `:clan/poo/mop`. For example:
+prototype ancestry queries from `:clan/poo/mop`. Import ordinary value
+types and type declaration and validation operations from `:clan/poo/type`.
 
 ```scheme
-(import (only-in :clan/poo/mop prototype-instance? Type. Fun Object)
-        (only-in :clan/poo/type Exactly Record))
+(import (only-in :clan/poo/mop prototype-instance?)
+        (only-in :clan/poo/type Type. Fun Object Exactly Record))
 ```
 
 `prototype-instance?` also accepts plain POO objects; it tests ancestry without

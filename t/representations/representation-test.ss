@@ -1,6 +1,7 @@
 ;;; Persistent storage and guarded layouts are exercised through real object APIs.
 (export representation-test check-observation-test)
-(import (only-in :gerbil/runtime/hash HashTable) :std/test :std/error :std/iter (only-in :gerbil/runtime/gambit string->uninterned-symbol unbound-global-exception? type-exception?)
+(import (only-in :clan/poo/type validate TypeError? Fun)
+        (only-in :gerbil/runtime/hash HashTable) :std/test :std/error :std/iter (only-in :gerbil/runtime/gambit string->uninterned-symbol unbound-global-exception? type-exception?)
         (only-in :clan/poo/benchmarks/representation-startup check-observation-test)
         (only-in :std/list/list find)
         (prefix-in (only-in :gerbil/runtime/mop slot-ref slot-set! object-class find-method bind-method!) read-runtime.)
@@ -9,7 +10,7 @@
         (only-in :std/io/tempfile call-with-temporary-directory)
         (only-in :clan/poo/io module-action)
         (only-in :clan/poo/read-route make-read-issuer)
-        (only-in :clan/poo/mop validate TypeError? Fun Slot .new) (only-in :clan/poo/number Integer)
+        (only-in :clan/poo/mop Slot .new) (only-in :clan/poo/number Integer)
         (only-in :clan/poo/reflection reflect-slots read-slot write-slot!)
         :clan/poo/object :clan/poo/prototype-map :clan/poo/slot-layout :clan/poo/slot-observation :clan/poo/meta-prototype
         (prefix-in :clan/poo/examples/representation-service service.)

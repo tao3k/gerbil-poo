@@ -1,6 +1,6 @@
 ;;; Asymmetric component lifecycles share one atomic approval/head bundle.
 (export Change. start stage-current value joint-approved?)
-(import ../object
+(import (only-in ../type define-type) ../object
         ../mop
         ../brace
         (runtime: :clan/poo/joint-publication)

@@ -16,7 +16,7 @@
         (only-in :std/list/plist alist->plist)
         (only-in :std/list/alist plist->alist aremq arem)
         :clan/poo/object :clan/poo/mop :clan/poo/number :clan/poo/object-contract :clan/poo/support/option :clan/poo/slot-layout
-        (only-in :clan/poo/type Record List Tuple)
+        (only-in :clan/poo/type Record List Tuple Any Type. validate TypeError? Fun)
         (prefix-in :clan/poo/types/validation containers.)
         (prefix-in :clan/poo/examples/service-collection service.)
         (prefix-in :clan/poo/dependency-analysis code.)

@@ -5,7 +5,7 @@
         ../brace
         ../number
         ../io
-        (only-in ../type String Json)
+        (only-in ../type String Json define-type Type. Bool)
         ../object-contract
         (runtime: :clan/poo/fun)
         (prefix-in (only-in :clan/poo/fun Observation.) fun.))

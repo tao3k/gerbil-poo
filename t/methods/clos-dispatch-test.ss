@@ -5,7 +5,7 @@
 
 ;;; CLOS specializer, multi-dispatch, and standard-combination conformance.
 
-(import (only-in :std/test
+(import (only-in :clan/poo/type Type. element?) (only-in :std/test
                  test-suite test-case check-equal? check-exception check)
         :std/error
         (only-in :clan/poo/object .o .ref .put! .all-slots object-slots $constant-slot-spec $constant-slot-spec?
@@ -13,7 +13,6 @@
                  replay-slot-reads! object-read-issued? object-instance object-revision hash<-object
                  depend-on-object! object-%precedence-list with-slot-dependencies)
         (prefix-in (only-in :gerbil/runtime/mop slot-ref slot-set!) runtime.)
-        (only-in :clan/poo/mop Type. element?)
         (only-in :std/list/list foldl)
         (only-in :clan/poo/slot-observation call-with-slot-read-observer
                  slot-read-key slot-read-receiver slot-read-dependencies slot-read-value

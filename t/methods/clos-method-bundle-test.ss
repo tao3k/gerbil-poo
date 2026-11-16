@@ -3,10 +3,9 @@
 ;;;
 ;;; SPDX-License-Identifier: Apache-2.0 AND LGPL-2.1-or-later
 
-(import :std/test
+(import (only-in :clan/poo/type element?) :std/test
         (only-in :clan/poo/object .def .o .ref seal-object! object-revision
                  replay-slot-reads!)
-        (only-in :clan/poo/mop element?)
         (only-in :clan/poo/slot-observation %call-with-recorded-slot-reads)
         (only-in :std/error Error? Error-message)
         (only-in :std/sync/threads thread-join!/error)

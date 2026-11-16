@@ -4,7 +4,7 @@
 (import (only-in ../support/base number-comparer) :std/iter (prefix-in :std/instance std.)
         (only-in ../table Set<-Table. table-isomorphism iterator-map table-fold table-group-fold table-combination table-projection table-projection-compose table-group-join table-lookup-join table-wrapper table-styles set-styles set-image table-indexes table-comparer table-comparer-wrapper table-order)
         (only-in ../brace @@method) (only-in ../fun Wrapper.) (only-in ../number UInt Integer)
-        (only-in ../type Fun Tuple Pair List) (only-in ../rationaldict RationalDict)
+        (only-in ../type Fun Tuple Pair List validate Type Bool Type. element? raise-type-error) (only-in ../rationaldict RationalDict)
         (only-in ../trie SimpleTrie)
         ../object ../mop ../object-contract ../support/option
         (prefix-in ../construction-cache cache.)

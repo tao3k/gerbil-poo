@@ -3,13 +3,11 @@
 (export reservation specialized-reservation declarations contracts services cook start revise release-rule)
 (import :std/iter
         (only-in :std/func compose)
-        (only-in ../mop element?)
         (only-in :std/values first-value)
         (only-in :std/list/list delete-duplicates/hash append-map)
         ../object
-        (only-in ../mop Any Bool)
         (only-in ../number Integer IntegerRange)
-        (only-in ../type String List)
+        (only-in ../type String List element? Any Bool)
         (runtime: :clan/poo/declarative-metadata)
         (prefix-in (only-in ../declarative-metadata atom both check contract
                    declaration-name install predicate replace with-meaning) metadata.)

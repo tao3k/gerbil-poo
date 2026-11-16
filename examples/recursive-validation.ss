@@ -4,7 +4,7 @@
         ../mop
         ../number
         ../object-contract
-        (only-in ../type Record String)
+        (only-in ../type Record String Fun Any Bool)
         (runtime: :clan/poo/recursive)
         (prefix-in (only-in ../recursive Generator. Interaction. request source-error
                    value) recursive.)

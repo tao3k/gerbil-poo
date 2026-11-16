@@ -9,10 +9,10 @@
                  test-suite test-case check-equal? check-exception check)
         (only-in :clan/poo/object .ref .o .get .put! .putslot! $thunk-slot-spec .slot? object? object-revision
                  replay-slot-reads! object-read-issued?)
-        (only-in :clan/poo/mop Type. Type define-type element? clos-instance?)
+        (only-in :clan/poo/mop clos-instance?)
         (only-in :clan/poo/slot-observation call-with-slot-read-observer)
         (only-in :clan/poo/number Integer)
-        (only-in :clan/poo/type Record)
+        (only-in :clan/poo/type Record Type. Type define-type element? Any validate TypeError? Bool Fun)
         :std/error
         :clan/poo/mop)
 

@@ -19,7 +19,10 @@
                    (.defgeneric .defclos-generic)))
 
 (export (except-out (import: "mop/prototype.ss")
-                    .defclass .defgeneric .defprototype-class .defreceiver-generic)
+                    .defclass .defgeneric .defprototype-class .defreceiver-generic
+                    Any Bool Object MonomorphicObject. MonomorphicObject ObjectObject
+                    Function. Function CaseFunction Fun
+                    Type Type. define-type element? validate TypeError TypeError? raise-type-error)
         ClosSpecializer ClosLambdaList ClosMethod ClosMethodBundle ClosMethodGroup
         ClosMethodCombination
         ClosGenericProtocol ClosGenericFunction ClosGenericBinding ClosEffectiveMethod

@@ -1,7 +1,7 @@
 ;;; Related fixture-free suites share one standard runtime section.
 ;;; Gerbil retains export discovery, case order and all fixture boundaries.
 (export recursive-benchmark-test recursive-test)
-(import
+(import (only-in :clan/poo/type Any Bool)
   :std/test
   :std/iter
   (only-in :clan/poo/benchmarks/recursive-benchmark workload)
@@ -9,7 +9,6 @@
   (prefix-in :clan/poo/benchmarks/metadata-paired-suite paired.)
   (only-in :std/values first-value)
   :clan/poo/object
-  (only-in :clan/poo/mop Any Bool)
   (prefix-in :clan/poo/recursive recursive.)
   (prefix-in :clan/poo/recursive-cache cached.)
   (prefix-in :clan/poo/recursive-handling handling.)

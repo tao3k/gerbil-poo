@@ -1,6 +1,6 @@
 ;;; Closed recursive service trees with inferred row extensions and FUN admission.
 (export Tree ServiceType service-expression admit-service shared-service publish-service)
-(import ../object
+(import (only-in ../type Object Function) ../object
         ../mop
         ../types/relation
         ../prototype-types

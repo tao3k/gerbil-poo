@@ -1,8 +1,7 @@
 ;;; SPDX-License-Identifier: Apache-2.0 AND LGPL-2.1-or-later
 
-(import :std/test
+(import (only-in :clan/poo/type TypeError?) :std/test
         (only-in :clan/poo/object .cc .call .ref .put!)
-        (only-in :clan/poo/mop TypeError?)
         (only-in :clan/poo/slot-observation
                  call-with-slot-read-observer slot-read-key slot-read-receiver
                  %call-with-recorded-slot-reads)

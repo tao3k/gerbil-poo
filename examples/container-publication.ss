@@ -5,7 +5,7 @@
         ../mop
         ../number
         ../object-contract
-        (only-in ../type String List Tuple)
+        (only-in ../type String List Tuple Fun Bool)
         (runtime: :clan/poo/fun)
         (prefix-in ./object-contracts service.)
         (prefix-in ./contract-publication publication.)

@@ -1,7 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; SPDX-License-Identifier: Apache-2.0 AND LGPL-2.1-or-later
 
-(import :clan/poo/mop
+(import (only-in :clan/poo/type element? Type) :clan/poo/mop
         (only-in :clan/poo/object .ref .o)
         (only-in :std/test test-suite test-case check check-equal? check-exception)
         "duim-pane.ss")

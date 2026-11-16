@@ -5,10 +5,9 @@
 
 ;;; ANSI short method combinations and generic protocol customization.
 
-(import (only-in :std/test
+(import (only-in :clan/poo/type element?) (only-in :std/test
                  test-suite test-case check-equal? check-exception check)
         (only-in :clan/poo/object .o .ref .cc)
-        (only-in :clan/poo/mop element?)
         (only-in :std/list/list foldl)
         (only-in :std/sync/threads thread-join!/error)
         :clan/poo/mop)

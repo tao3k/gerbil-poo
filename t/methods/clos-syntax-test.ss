@@ -5,7 +5,7 @@
 
 ;;; Hygienic CLOS declaration lowering and lambda-list conformance.
 
-(import (only-in :std/test
+(import (only-in :clan/poo/type TypeError?) (only-in :std/test
                  test-suite test-case check-equal? check-exception check)
         (only-in :clan/poo/object .def .o .ref .get .call)
         (only-in :clan/poo/fun Observation.)

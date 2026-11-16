@@ -3,9 +3,8 @@
 (import :std/iter
         (only-in :std/values first-value)
         ../object
-        (only-in ../mop define-type Any Bool)
         (only-in ../number IntegerRange)
-        (only-in ../type String)
+        (only-in ../type String define-type Any Bool)
         (runtime: :clan/poo/contract-family)
         (prefix-in (only-in ../contract-family Source.) contract-family.)
         (runtime: :clan/poo/generic-family)

@@ -3,7 +3,7 @@
 ;;;
 ;;; SPDX-License-Identifier: Apache-2.0 AND LGPL-2.1-or-later
 
-(import (only-in :clan/poo/object .o .ref)
+(import (only-in :clan/poo/type define-type Type.) (only-in :clan/poo/object .o .ref)
         :clan/poo/mop
         (only-in :clan/poo/number Integer)
         :std/test :std/error)

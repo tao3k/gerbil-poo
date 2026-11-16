@@ -1,6 +1,6 @@
 (export #t)
 
-(import
+(import (only-in :clan/poo/type raise-type-error Type. validate)
   :gerbil/core/more-syntax-sugar
   :std/format :std/iter :std/list/list :std/number/misc :std/struct/queue :std/shuffle
   (only-in :std/list/list-builder with-list-builder)

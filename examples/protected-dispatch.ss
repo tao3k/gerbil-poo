@@ -2,9 +2,8 @@
 (export make-dispatch invoice report card bank path protected watches release-family)
 (import :std/iter
         (only-in ../object .o .@ .mix)
-        (only-in ../mop Object Bool)
         (only-in ../number IntegerRange)
-        (only-in ../type List)
+        (only-in ../type List Object Bool)
         (runtime: :clan/poo/multimethod)
         (prefix-in (only-in ../multimethod make prototype prototype-precedence
                    register) multimethod.)

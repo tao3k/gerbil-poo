@@ -4,7 +4,7 @@
         ../mop
         ../number
         ../brace
-        (only-in ../type Symbol)
+        (only-in ../type Symbol define-type)
         (runtime: :clan/poo/fun)
         (prefix-in (only-in :clan/poo/fun Observation.) fun.))
 ;; Typed fields are checked before this construction hook enforces the cross-field law.
