@@ -1,0 +1,85 @@
+#+title: Capture-local visitation storage: contract and native comparison
+
+* Change and limits
+
+The existing unique-root capture frame owns one Gerbil identity hash table for
+read traversal. Each bound projection receives a fresh private identity marker;
+old marks never authorize the next projection. Receiver registration and dense
+positions remain in their original per-projection index. This removes repeated
+table construction, not signature or currentness checks. No successful admission
+verdict survives a binding, and callback-return guards remain independent.
+
+Borrowing is restricted to the creating thread in a closed unique-root capture.
+Observers, prechecks, other threads and ordinary captures use the original path.
+Normal and exceptional exit revoke borrowing and release the workspace. Bound
+currentness retains its own projection rather than the workspace.
+
+The corresponding Lean contract is [[https://github.com/tao3k/lean-poo/commit/5c71ec98c45a647dfec66f7edc5e22790a0b06b5][5c71ec9]],
+=LeanPoo/Object/ReadVisitWorkspace.lean=. It proves ordered traversal/first-error
+equivalence, fresh-generation exclusion, thread ownership, retirement and the
+abstract table count. It does not prove native hash latency, GC behavior, the
+whole evaluator, or a wall-clock bound. Runtime tests cover that correspondence.
+
+* Frozen workload and results
+
+Comparison base: =31b42c30b8c35879f6e9f31479f6c7bd2a47ef38=, with the same CLOS/MOP
+native modules in both arms. Toolchain: Gerbil =2591dcd=, Gambit =dcd677c=;
+=gxc -O -cc-options -O2=; each process has a 2 GiB Scheme heap. Native preparation
+used a 4 GiB process-tree RSS guard and one compiler worker.
+
+=benchmarks/graph-capture-test.ss= uses the original compiled capture loop:
+10,000 owner names, 9,999 Computations reading the first provider. Every captured
+program remains in its original table through source construction and public
+order/row validation. Source preparation and scheduling are outside the measured
+capture interval. Each process runs production, attributed, attributed,
+production with fresh inputs; four pairs alternate B,C / C,B / B,C / C,B.
+
+CPU milliseconds including GC, all samples retained:
+
+| Arm | First capture, four processes | Later capture, same processes |
+|------+-------------------------------+-------------------------------|
+| Base | 231.027, 259.366, 230.411, 223.940 | 201.770, 204.697, 186.003, 184.886 |
+| Change | 232.167, 235.457, 226.665, 228.824 | 154.357, 167.616, 151.652, 153.015 |
+| Median base / change | 230.719 / 230.496 | 193.887 / 153.686 |
+
+There is no demonstrated first-capture improvement. Later capture improves
+20.7% by median and improves in every adjacent pair. This is not a measurement
+of Yuanxu 10,000 real-module EVAL or of full Graph scheduling.
+
+The instrumented binding phase has median CPU 72.269 -> 32.868 ms. Its inserted
+clocks affect execution, so this is diagnostic rather than a total speedup.
+Whole-capture allocation is unavailable because every total interval includes
+GC. Qualified binding allocation is 73,966,400--73,980,480 bytes in 2/8 base
+intervals and 48,188,016--49,108,128 bytes in 8/8 changed intervals; the other six
+base intervals remain #f, not substituted estimates. Maximum process RSS ranges
+499,154,944--502,267,904 vs 494,288,896--496,205,824 bytes. Wall time is not a
+cross-platform performance gate.
+
+Earlier interpreted/discarded-result probes are not comparable: they changed
+carrier lifetime and compilation policy. Per-receiver vector shortcuts and
+coalesced receiver/visit tables did not produce stable full-loop gains and are
+not part of this change.
+
+* Reproduction and controls
+
+Use the same Gerbil/Gambit toolchain for both revisions and build each normally.
+Compile the optional benchmark with the same options into its own output prefix:
+
+#+begin_src scheme
+;; Native commands, not additional build/test entrypoints:
+;; gxc -O -cc-options -O2 -d "$GERBIL_PATH/lib" benchmarks/closure-measure.ss
+;; gxc -O -cc-options -O2 -d "$GERBIL_PATH/lib" benchmarks/graph-capture-test.ss
+;; just test-file "$GERBIL_PATH/lib/clan/poo/benchmarks/graph-capture-test.ssi"
+#+end_src
+
+The explicit compiled .ssi is essential: running the benchmark source instead
+would measure interpreted loop overhead. Run both revision orders and retain
+all output, CPU/GC fields, #f allocations and process exit status.
+
+The new =t/objects/read-projection-index-test.ss= has eight controls: dense
+receiver identity/write guard, RNG, fresh markers, changed issuance after a
+successful binding, observer fallback, inherited child-thread refusal,
+normal/exceptional retirement and weak-GC release. Existing issued-read,
+Graph-order repair, CLOS evolution and method-combination suites also passed,
+including callback mutation and return revalidation controls. No check in those
+paths was removed to obtain the result.

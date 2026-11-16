@@ -132,6 +132,7 @@
       (and (eq? object-init (read-runtime.find-method object::t #f ':init!))
            (eq? state-init (read-runtime.find-method state-class #f ':init!))))))
 ;; Share authenticated finite traversal structure; each call owns fresh source guards.
+(extern namespace: clan/poo/slot-observation %projection-read-visit-index)
 (defvalues (call-with-issued-reads call-with-current-slot-reads %bind-current-slot-reads
             %call-with-fresh-slot-read-group
             %register-slot-dependencies!)
@@ -157,15 +158,15 @@
       (if (null? saved) (null? roots)
         (and (pair? roots) (eq? (car roots) (car saved))
              (same-roots? (cdr roots) (cdr saved)))))
-    (def (build owner roots)
+    (def (build owner roots (visit-index #f))
       (def indexed? (%pure-read-sweep?))
-      (def seen (make-hash-table-eq))
+      (def seen (or (and visit-index (car visit-index)) (make-hash-table-eq)))
       (def receivers (make-hash-table-eq))
       (def ordered '())
       (def (collect read)
-        (unless (hash-key? seen read)
+        (unless (if visit-index (eq? visit-index (hash-get seen read)) (hash-key? seen read))
           (require-issued! read)
-          (hash-put! seen read #t)
+          (hash-put! seen read (or visit-index #t))
           (let (receiver (slot-read-receiver read))
             (if indexed?
               (unless (hash-key? receivers receiver)
@@ -255,7 +256,10 @@
       ;; The captured program owns the exact traversal directly, without a
       ;; synthetic POO receiver. Every call still admits the live evidence.
       (lambda (roots)
-        (def selected (without-observation (lambda () (using (roots :~ list?) (build #f roots)))))
+        (def selected
+          (let (visit-index (and (%pure-read-sweep?) (%projection-read-visit-index)))
+            (without-observation
+              (lambda () (using (roots :~ list?) (build #f roots visit-index))))))
         (without-observation
           (lambda ()
             (apply-projection selected

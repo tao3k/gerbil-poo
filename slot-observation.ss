@@ -57,7 +57,7 @@
 ;; record identity and its original position and multiplicity.
 (def (copy-slot-read-dependencies read)
   (list-copy (slot-read-dependencies read)))
-(defstruct read-collection (seen reversed) final: #t)
+(defstruct read-collection (seen reversed visit-index thread) final: #t)
 ;; One dynamic binding owns the complete observation scope: #f when disabled,
 ;; the existing collection for capture alone, or a scope with actual observers.
 ;; Capture alone allocates no extra context. parameterize still owns nesting,
@@ -68,6 +68,19 @@
 (def (%current-slot-read-frame)
   (let (scope (current-read-scope))
     (if (read-scope? scope) (read-scope-frame scope) scope)))
+;; Reuse traversal storage only within a closed, unique native capture. A fresh
+;; identity marks each build, so an older visit never authenticates a new read.
+;; The frame owns this workspace; no projection or bound action retains it.
+(def (%projection-read-visit-index)
+  (let (frame (current-read-scope))
+    (and (read-collection? frame) (read-collection-seen frame)
+         (eq? (read-collection-thread frame) (current-thread))
+         (let (index (or (read-collection-visit-index frame)
+                        (let (next (make-hash-table-eq))
+                          (set! (read-collection-visit-index frame) next)
+                          next)))
+           (cons index #f)))))
+
 (def current-registration-interval (make-parameter #f))
 (def (slot-read-precheck-active? check)
   (let (scope (current-read-scope))
@@ -117,13 +130,19 @@
   (unless (boolean? unique-roots?) (error "invalid root collection policy"))
   ;; This private identity membership has no public adapter or callbacks.
   ;; Keep the original first-occurrence spine and the delivery scope below.
-  (def frame (make-read-collection (and unique-roots? (make-table test: eq?)) '()))
+  (def frame (make-read-collection (and unique-roots? (make-table test: eq?)) '() #f (and unique-roots? (current-thread))))
   (def parent (current-read-scope))
   (def value (parameterize ((current-read-scope
     (if (read-scope? parent)
       (make-read-scope frame (read-scope-observers parent) (read-scope-prechecks parent)
         (read-scope-inline-observer parent))
-      frame))) (action)))
+      frame)))
+    (if unique-roots?
+      (dynamic-wind void action
+        (lambda ()
+          (set! (read-collection-thread frame) #f)
+          (set! (read-collection-visit-index frame) #f)))
+      (action))))
   (values value (reverse (read-collection-reversed frame))))
 ;; One recording boundary serves normal delivery and already-delivered child
 ;; captures. Respect the current collector's occurrence/deduplication policy.
