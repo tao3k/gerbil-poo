@@ -134,3 +134,51 @@ the existing 180-second/4-GiB guard and completed in 47.748 seconds with sampled
 peak process-tree footprint 4,184,020,704 bytes. It must not be compiled alongside
 other large C targets. Logs and frozen fixtures remain under the ignored
 =.build/graph-capture/= directory; they are not installation dependencies.
+
+* Rejected candidate: empty-catalog intermediate-list pruning
+
+A candidate classified the private declaration catalogs in precedence order.
+When all were empty it omitted the prepared/sources wrapper lists and visited
+original owners directly. Mixed families retained the complete resolve-all then
+define-all path. A generic Lean model proved effectful preparation and arbitrary
+continuation equivalence assuming that the native empty-catalog constructor is
+no-effect; a second theorem proved direct traversal equivalent to traversal of
+None wrappers. The model and candidate are retained in ignored research fixtures,
+not registered as a production algorithm.
+
+114 runtime controls passed: the previous 111 plus distinct self/super binding,
+resolve-all before definitions, and later resolution failure before any earlier
+definition callback. No authentication or callback-return guard changed.
+
+Four complete pairs alternated baseline/candidate order, same compiled benchmark
+and 31b42c3 CLOS/MOP cohort. Only object.ss differed; this compares the frozen
+object construction path rather than claiming a measurement of later CLOS
+renames. CPU milliseconds including GC, in adjacent pair order:
+
+| Pair | First base / candidate | Later base / candidate |
+|------+------------------------+------------------------|
+| B,C | 238.940 / 237.153 | 156.377 / 155.869 |
+| C,B | 277.138 / 240.666 | 184.251 / 175.520 |
+| B,C | 271.134 / 283.650 | 173.878 / 182.601 |
+| C,B | 237.086 / 255.999 | 154.596 / 170.579 |
+| Median | 255.037 / 248.332 | 165.128 / 173.049 |
+
+Only two pairs improve. First-capture non-GC CPU median increases from 132.230
+to 133.421 ms; later capture including GC increases 4.8%. Maximum RSS ranges
+494,731,264--497,745,920 vs 496,304,128--498,466,816 bytes. All whole-operation
+allocation entries remain #f because their intervals include GC. No sample was
+excluded or rerun to manufacture a win.
+
+The candidate is withdrawn. Additional catalog classification and duplicated
+loops are not justified by this result. Native candidate compilation completed
+under the existing 180-second/4-GiB guard (44.324 seconds, sampled peak footprint
+3,754,786,816 bytes). Earlier fixture syntax/dependency failures remain recorded;
+the final 114-case run includes the original frozen source-search environment.
+The baseline preparation receipt was labelled candidate before the unsuccessful
+source patch was detected; its actual frozen source is byte-identical to the
+unmodified base, and is the baseline arm. The later, separate candidate receipt
+and source contain the tested change. Labels alone are not provenance.
+
+The next construction candidate must remove repeated effective Slot/store work
+rather than adding an empty-catalog branch. No Core fast path is removed and no
+cold-path improvement is claimed from this rejected experiment.
