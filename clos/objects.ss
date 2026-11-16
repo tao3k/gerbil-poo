@@ -245,7 +245,7 @@
 
 ;;; Method construction is declarative; arity agreement is checked only when a
 ;;; generic generation admits the method.
-;; : (-> Symbol [ClosSpecializer] Procedure
+;; : (-> FunctionName [ClosSpecializer] Procedure
 ;;        qualifier: MethodQualifier ClosMethod)
 (def (clos-method identity-value specializer-values body-value
                       qualifier: (qualifier-value 'primary)
@@ -265,6 +265,8 @@
                           qualifier body: body-value
                           lambda-list: lambda-list-value generic-function: #f
                           synthetic-effective-method?: #f))
+             (.putslot! method 'identity
+               (%owned-list-slot-spec identity-value clos-copy-function-name))
              (when (list? specializer-values)
                (.putslot! method 'specializers (%owned-list-slot-spec specializer-values)))
              (when invoke
@@ -614,6 +616,8 @@
               generic-function-class: generic-class-value
               method-class: method-class-value
               declarations)))
+      (.putslot! candidate 'identity
+        (%owned-list-slot-spec identity-value clos-copy-function-name))
       (.putslot! candidate 'methods (%owned-list-slot-spec '()))
       (checked ClosGenericFunction candidate 'invalid-generic-function))))
 
@@ -739,15 +743,18 @@
   (when edits (%publish-slot-edits! edits))
   generic-value)
 
-;; : (-> Symbol ClosGenericFunction ClosGenericBinding)
+;; : (-> FunctionName ClosGenericFunction ClosGenericBinding)
 (def (clos-generic-binding identity-value generic-value)
   (let (current-value (require-clos-generic generic-value))
     (unless (equal? identity-value (.ref current-value 'identity))
       (clos-fail 'generic-binding-identity-mismatch generic: identity-value))
     (clos-register-generic-function!
      (checked ClosGenericBinding
-              (.o (:: @ ClosGenericBinding.)
-                  identity: identity-value current: current-value)
+              (let (binding (.o (:: @ ClosGenericBinding.)
+                                identity: identity-value current: current-value))
+                (.putslot! binding 'identity
+                  (%owned-list-slot-spec identity-value clos-copy-function-name))
+                binding)
               'invalid-generic-binding))))
 
 ;; : (-> ClosGenericBinding ClosGenericFunction)

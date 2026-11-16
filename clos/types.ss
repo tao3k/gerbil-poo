@@ -260,7 +260,7 @@
 (def (clos-generic-function-element? candidate)
   (and (prototype-instance? (.ref ClosGenericFunction 'proto) candidate)
        (closed-required-slots? candidate
-         (identity clos-function-name?) (required natural?) (rest? boolean?)
+         (identity clos-function-name? owned-list) (required natural?) (rest? boolean?)
          (argument-precedence-order argument-precedence-order? owned-list))
        (required-slots? candidate
          (method-combination method-combination?)

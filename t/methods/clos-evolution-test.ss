@@ -57,9 +57,11 @@
 (def clos-evolution-test
   (test-suite "POO CLOS class evolution"
     (test-case "common slot readers compose with direct and effective class slots"
+      (def writer-name (list 'setf 'value))
       (def direct
         (clos-direct-slot-definition 'value allocation: 'class
-          initargs: (list value:) readers: '(read-value) writers: '(write-value)))
+          initargs: (list value:) readers: '(read-value) writers: (list 'write-value writer-name)))
+      (set-car! (cdr writer-name) 'input-changed)
       (def class-value (clos-class 'slot-reflection direct-slots: (list direct)))
       (def effective (clos-find-effective-slot class-value 'value))
       (for-each
@@ -68,13 +70,14 @@
           (check-equal? (clos-slot-allocation slot) 'class)
           (check-equal? (clos-slot-initargs slot) (list value:))
           (check-equal? (clos-slot-readers slot) '(read-value))
-          (check-equal? (clos-slot-writers slot) '(write-value))
+          (check-equal? (clos-slot-writers slot) '(write-value (setf value)))
           (set-car! (clos-slot-initargs slot) other:)
           (set-car! (clos-slot-readers slot) 'other-reader)
           (set-car! (clos-slot-writers slot) 'other-writer)
+          (set-car! (cdr (cadr (clos-slot-writers slot))) 'nested-result-changed)
           (check-equal? (clos-slot-initargs slot) (list value:))
           (check-equal? (clos-slot-readers slot) '(read-value))
-          (check-equal? (clos-slot-writers slot) '(write-value)))
+          (check-equal? (clos-slot-writers slot) '(write-value (setf value))))
         (list (car (clos-class-direct-slots class-value)) effective))
       (check-equal? (clos-slot-defining-classes effective) (list class-value))
       (check (clos-slot-storage-class effective) => class-value)

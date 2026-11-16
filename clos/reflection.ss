@@ -9,6 +9,7 @@
         (only-in :clan/poo/mop/prototype element?)
         (only-in :clan/poo/type Union)
         (only-in :std/list/list find)
+        (only-in "funcs.ss" clos-copy-function-name clos-copy-function-names)
         "types.ss" "objects.ss" "classes.ss" "lifecycle.ss" "dispatch.ss")
 
 (export clos-class-name clos-set-class-name!
@@ -121,14 +122,14 @@
 
 ;; : (-> SlotDefinition [FunctionName])
 (def (clos-slot-readers slot-value)
-  (list-copy
+  (clos-copy-function-names
    (.ref (checked SlotDefinition slot-value
                   'invalid-slot-definition)
          'readers)))
 
 ;; : (-> SlotDefinition [FunctionName])
 (def (clos-slot-writers slot-value)
-  (list-copy
+  (clos-copy-function-names
    (.ref (checked SlotDefinition slot-value
                   'invalid-slot-definition)
          'writers)))
@@ -158,9 +159,10 @@
                  'invalid-specializer)
         'target))
 
-;; : (-> ClosMethod Symbol)
+;; : (-> ClosMethod FunctionName)
 (def (clos-method-name method-value)
-  (.ref (checked ClosMethod method-value 'invalid-method) 'identity))
+  (clos-copy-function-name
+   (.ref (checked ClosMethod method-value 'invalid-method) 'identity)))
 
 ;; : (-> ClosMethod [MethodQualifier])
 (def (clos-method-qualifiers method-value)
@@ -212,9 +214,10 @@
     (clos-fail 'method-not-found generic: (.ref generic 'identity) qualifier: qualifiers))
   method)
 
-;; : (-> GenericSource Symbol)
+;; : (-> GenericSource FunctionName)
 (def (clos-generic-name generic-source)
-  (.ref (require-clos-generic generic-source) 'identity))
+  (clos-copy-function-name
+   (.ref (require-clos-generic generic-source) 'identity)))
 
 ;; : (-> GenericSource [ClosMethod])
 (def (clos-generic-methods generic-source)

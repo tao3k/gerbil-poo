@@ -9,7 +9,7 @@
                  test-suite test-case check-equal? check-exception check)
         (only-in :std/error Error? Error-message)
         (only-in :clan/poo/object .o .ref depend-on-object! object-revision
-                 object-read-current? seal-object!)
+                 object-read-current? seal-object! .put! replay-slot-reads!)
         (only-in :clan/poo/mop call-with-slot-read-observer slot-read-key slot-read-receiver)
         :clan/poo/mop)
 
@@ -42,6 +42,46 @@
 
 (def clos-generic-evolution-test
   (test-suite "POO CLOS generic evolution"
+    (test-case "list function names remain owned through reflection and observation"
+      (def name (list 'setf 'owned-generic-name))
+      (def method-name (list 'setf 'owned-method-name))
+      (def binding (clos-ensure-generic-function name required: 1))
+      (def generic (clos-generic-binding-current binding))
+      (def method
+        (clos-method method-name (list (clos-any-specializer))
+          (lambda (_frame value) value)))
+      (clos-generic-binding-add-method! binding method)
+      (set-car! (cdr name) 'input-changed)
+      (set-car! (cdr method-name) 'method-input-changed)
+      (check-equal? (clos-generic-name binding) '(setf owned-generic-name))
+      (check-equal? (clos-method-name method) '(setf owned-method-name))
+      (set-car! (cdr (clos-generic-name binding)) 'result-changed)
+      (set-car! (cdr (clos-method-name method)) 'method-result-changed)
+      (def owners (list generic binding method))
+      (def revisions (map object-revision owners))
+      (def reads '())
+      (call-with-slot-read-observer
+        (lambda (read)
+          (when (and (memq (slot-read-receiver read) owners)
+                     (eq? (slot-read-key read) 'identity))
+            (set! reads (cons read reads))
+            (set-car! (cdr (slot-read-value read)) 'observer-changed)))
+        (lambda () (for-each (lambda (owner) (.ref owner 'identity)) owners)))
+      (check-equal? (length reads) 3)
+      (replay-slot-reads! (reverse reads) void)
+      (check-equal? (clos-generic-name binding) '(setf owned-generic-name))
+      (check-equal? (.ref binding 'identity) '(setf owned-generic-name))
+      (check-equal? (clos-method-name method) '(setf owned-method-name))
+      (check-equal? (map object-revision owners) revisions)
+      (check (clos-find-generic-function '(setf owned-generic-name)) => binding)
+      (check-equal? (clos-find-generic-function '(setf input-changed) error?: #f) #f)
+      (check-equal? (clos-call binding 'ok) 'ok)
+      (def replacement (list 'setf 'assigned-name))
+      (.put! generic 'identity 'temporary-name)
+      (.put! generic 'identity replacement)
+      (set-car! (cdr replacement) 'assignment-input-changed)
+      (check-equal? (.ref generic 'identity) '(setf assigned-name))
+      (check-exception (replay-slot-reads! (reverse reads) void) (lambda (_) #t)))
     (test-case "ensure creates an explicit dispatchable binding"
       (let (binding
             (clos-ensure-generic-function

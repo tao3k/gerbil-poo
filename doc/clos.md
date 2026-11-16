@@ -43,6 +43,10 @@ Common slot readers accept direct declarations and effective class slots.
 slots. List-valued readers return detached lists. The shared metadata follows
 [SBCL's slot-definition hierarchy](https://github.com/sbcl/sbcl/blob/e7684366f8b450d3d94f47001f3bbcc7f7e947b2/src/pcl/defs.lisp#L376).
 
+Function-name metadata owns `(setf name)` lists at construction and returns
+detached names through reflection and read observation. Generic, binding, method
+and slot accessor metadata use the existing POO Slot ownership policy.
+
 `clos-instance?` recognises lifecycle instances; `element?` checks membership
 in a declared POO Type. Prototype ancestry checks stay inside the implementation.
 

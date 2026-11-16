@@ -129,15 +129,18 @@
     (clos-fail 'invalid-slot-documentation slot: identity-value))
   (checked
    ClosDirectSlotDefinition
-   (.o (:: @ ClosDirectSlotDefinition.)
-       identity: identity-value allocation: allocation-value
-       initargs: (unique/identity initarg-values)
-       initfunction: (if (eq? initform-value +clos-no-initform+)
-                       #f initform-value)
-       readers: (unique/identity reader-values)
-       writers: (unique/identity writer-values)
-       type-predicate: type-predicate-value
-       documentation: documentation-value)
+   (let (slot (.o (:: @ ClosDirectSlotDefinition.)
+                 identity: identity-value allocation: allocation-value
+                 initargs: (unique/identity initarg-values)
+                 initfunction: (if (eq? initform-value +clos-no-initform+)
+                                 #f initform-value)
+                 type-predicate: type-predicate-value
+                 documentation: documentation-value))
+     (.putslot! slot 'readers
+       (%owned-list-slot-spec (unique/identity reader-values) clos-copy-function-names))
+     (.putslot! slot 'writers
+       (%owned-list-slot-spec (unique/identity writer-values) clos-copy-function-names))
+     slot)
    'invalid-direct-slot-definition))
 
 ;; : (-> [SchemeValue] [Pair])
@@ -265,8 +268,8 @@
           identity: slot-name allocation: allocation-value
           initargs: (%make-owned-list (merged-slot-list descriptions 'initargs))
           initfunction: initfunction-value
-          readers: (%make-owned-list (merged-slot-list descriptions 'readers))
-          writers: (%make-owned-list (merged-slot-list descriptions 'writers))
+          readers: (%make-owned-list (merged-slot-list descriptions 'readers) clos-copy-function-names)
+          writers: (%make-owned-list (merged-slot-list descriptions 'writers) clos-copy-function-names)
           type-predicates: (%make-owned-list type-predicate-values)
           documentation: documentation-value
           defining-classes: (%make-owned-list (map car descriptions))

@@ -264,6 +264,7 @@
     (for-each (lambda (name) (check-equal? (memq name mop-names) #f))
       '(prototype-instance? SlotDefinition checked require-clos-generic require-clos-method
         require-class require-metaobject reflection-generic require-frame
+        clos-copy-function-name clos-copy-function-names
         %slot-read-active? %slot-read-demand! %record-slot-reads!
         %call-with-recorded-slot-reads slot-read-observers-compatible? slot-read-precheck-active?))
     (for-each (lambda (name) (check (memq name mop-names) ? values))

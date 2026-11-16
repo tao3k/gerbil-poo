@@ -10,6 +10,7 @@
 
 (export clos-qualifier? clos-normalize-qualifier clos-short-qualifier
         clos-setf-name? clos-function-name? clos-function-name-list?
+        clos-copy-function-name clos-copy-function-names
         clos-initarg-name? clos-initarg-name-list? clos-default-initargs?
         clos-initarg-list? clos-initarg-names
         clos-initarg-ref clos-initarg-index
@@ -43,6 +44,13 @@
 
 (def (clos-function-name? name)
   (or (symbol? name) (clos-setf-name? name)))
+
+;; Names contain only symbols and, for setf, one finite two-cell list.
+(def (clos-copy-function-name name)
+  (if (clos-setf-name? name) (list-copy name) name))
+
+(def (clos-copy-function-names names)
+  (map clos-copy-function-name names))
 
 (def (clos-function-name-list? names)
   (and (list? names) (andmap clos-function-name? names)))

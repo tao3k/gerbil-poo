@@ -151,7 +151,7 @@
                    'clos-evolution-test 16)
    (evidence-suite 'generic-evolution
                    "t/methods/clos-generic-evolution-test.ss"
-                   'clos-generic-evolution-test 6)
+                   'clos-generic-evolution-test 7)
    (evidence-suite 'load-form "t/methods/clos-load-form-test.ss"
                    'clos-load-form-test 5)))
 
