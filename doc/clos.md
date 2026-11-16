@@ -1,5 +1,20 @@
 # CLOS-like classes and methods
 
+Application code imports CLOS operations, descriptors, declaration syntax and
+prototype ancestry queries from `:clan/poo/mop`. For example:
+
+```scheme
+(import (only-in :clan/poo/mop prototype-instance? Type. Fun Object)
+        (only-in :clan/poo/type Exactly Record))
+```
+
+`prototype-instance?` also accepts plain POO objects; it tests ancestry without
+reading business Slots. The `clos/*` files are implementation factors, not
+separate application entrypoints. Parsers, carrier guards, field validators and
+publication helpers remain internal. Factor implementations import their lower
+level dependencies directly rather than importing the MOP facade and creating
+a dependency cycle. Internal factor tests may import the factor they exercise.
+
 ```scheme
 (import :clan/poo/mop)
 

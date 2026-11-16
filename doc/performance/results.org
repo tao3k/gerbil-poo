@@ -10,6 +10,11 @@ in ignored ~.build/~ output. Do not commit raw JSON/Scheme matrices, compressed
 archives or binary benchmark artifacts. Documentation contains only concise
 source-bound summaries, reproduction commands, dimensions and claim limits.
 
+Version benchmark implementations, assertions and stable protocols. Keep per-run
+logs, receipts and exploratory narratives in ignored local output or CI artifacts.
+A concise matrix may accompany the implementation it qualifies; do not create
+standalone result/Goal commits or add a report for every platform and execution.
+
 Current Scheme data records common field/case definitions once and one
 observation per line. Allocation crossing collection or a negative native
 counter delta is unavailable. Source and binary digests bind a study to the run;

@@ -14,6 +14,15 @@
 ;; Exercise inheritance protocol composition through actual objects and hooks.
 (def inheritance-hooks-test
   (test-suite "inherited hooks mutation and declared reflection"
+    (test-case "public MOP prototype membership works without CLOS classes"
+      (def parent (.o marker: 'parent))
+      (def child (.o (:: @ parent) marker: 'child))
+      (def unrelated (.o marker: 'unrelated))
+      (check-equal? (prototype-instance? parent parent) #t)
+      (check-equal? (prototype-instance? parent child) #t)
+      (check-equal? (prototype-instance? child parent) #f)
+      (check-equal? (prototype-instance? unrelated child) #f)
+      (check-equal? (prototype-instance? parent #f) #f))
     (test-case "fixed field checks retain observed reads and recheck after predicates"
       (def object (.o first: 1 second: #f))
       (.ref object 'first)

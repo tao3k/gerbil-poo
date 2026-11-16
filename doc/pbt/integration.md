@@ -246,7 +246,7 @@ seconds cover compilation, test preparation/execution and the paired study;
 the startup executable stage separately passed its unchanged 90-second gate.
 The current shared module entry avoids the former duplicate collection link.
 This closes that local build gate without retroactively accepting the failed
-run or proving a host adapter simulation premise. See the macOS receipt in
+run or proving a host adapter simulation premise. See the build protocol in
 `performance/build-summary.org` for the cache-cohort and timing boundaries.
 
 The published baseline CI was checked before this follow-up. Every later revision

@@ -262,14 +262,32 @@
         (map module-export-name
           (module-context-export (core-import-module ':clan/poo/mop)))))
     (for-each (lambda (name) (check-equal? (memq name mop-names) #f))
-      '(prototype-instance? SlotDefinition checked require-clos-generic require-clos-method
+      '(SlotDefinition checked require-clos-generic require-clos-method
         require-class require-metaobject reflection-generic require-frame
         clos-copy-function-name clos-copy-function-names
         %slot-read-active? %slot-read-demand! %record-slot-reads!
         %call-with-recorded-slot-reads slot-read-observers-compatible? slot-read-precheck-active?))
     (for-each (lambda (name) (check (memq name mop-names) ? values))
-      '(clos-instance? call-with-slot-read-observer make-slot-read slot-read-key slot-read-value %deliver-slot-read
+      '(prototype-instance? clos-instance? call-with-slot-read-observer make-slot-read slot-read-key slot-read-value %deliver-slot-read
         replay-slot-reads! reobserve-slot-reads! call-with-current-slot-reads object-read-issued?))
+    ;; These leaves contain application-facing protocols, not parser/carrier
+    ;; internals. New public operations must remain available at the one MOP entry.
+    (for-each
+      (lambda (id)
+        (def public-names
+          (parameterize ((current-expander-context (make-top-context)))
+            (map module-export-name
+              (module-context-export (core-import-module id)))))
+        (for-each (lambda (name) (check (memq name mop-names) ? values)) public-names))
+      '(:clan/poo/clos/dispatch :clan/poo/clos/evolution
+        :clan/poo/clos/generic-evolution :clan/poo/clos/lifecycle
+        :clan/poo/clos/reflection :clan/poo/clos/load-form
+        :clan/poo/clos/mop :clan/poo/clos/model))
+    (def clos-type-names
+      (parameterize ((current-expander-context (make-top-context)))
+        (map module-export-name
+          (module-context-export (core-import-module ':clan/poo/clos/types)))))
+    (check-equal? (memq 'prototype-instance? clos-type-names) #f)
     ;; Reject the retired project prefix across the complete public MOP surface.
     (for-each (lambda (name)
                 (check-equal? (pregexp-match "^poo-clos" (symbol->string name)) #f))

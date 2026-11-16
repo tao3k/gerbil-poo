@@ -11,6 +11,7 @@
 (import :clan/poo/object
         :clan/poo/read-projection
         (only-in :clan/poo/class-validation required-slots?)
+        (only-in :clan/poo/mop/prototype prototype-instance?)
         (only-in :clan/poo/mop/prototype define-type Type. Class. Slot element?)
         (only-in "funcs.ss"
                  clos-function-name? clos-function-name-list? clos-qualifier?
@@ -22,7 +23,7 @@
         ClosInvocationFrame ClosFailure ClosUnboundSlotFailure
         ClosDirectSlotDefinition
         ClosEffectiveSlotDefinition ClosClass ClosInstanceState ClosSlotCell
-        ClosMopProfile prototype-instance? clos-carrier-policy-guard)
+        ClosMopProfile clos-carrier-policy-guard)
 
 (def ClosType. Type.)
 
@@ -60,14 +61,6 @@
 
 (def (clos-prototype type-value kind-value)
   (.o .type: type-value kind: kind-value schema: 'v1))
-
-(def (prototype-instance? prototype candidate)
-  (and (object? candidate)
-       ;; No user code receives this spine. Cold queries still prepare through
-       ;; the runtime, including any installed inheritance hook.
-       (if (memq prototype (or (object-%precedence-list candidate)
-                               (compute-precedence-list! candidate)))
-         #t #f)))
 
 (def (natural? value)
   (and (exact-integer? value) (>= value 0)))

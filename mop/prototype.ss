@@ -31,6 +31,7 @@
         (only-in ../object replay-slot-reads! reobserve-slot-reads! call-with-current-slot-reads object-read-issued? object-read-issuance
            make-object object object? .def/ctx .cc .mix .ref .@ .get .has? .call
            .all-slots with-slots .slot? .putslot! .putdefault! .for-each!
+           object-%precedence-list compute-precedence-list!
            NoApplicableMethod? NoApplicableMethod-self NoApplicableMethod-slot
            .alist object<-alist
            $constant-slot-spec $computed-slot-spec)
@@ -116,6 +117,14 @@
                            #'method
                            (call<-formals #'(method selfvar ...) #'formals)))))
            #'(def (gf self . formals) body))))))
+
+;; Prototype ancestry is shared by plain POO values and CLOS model values.
+;; Preserve cold inheritance hooks; do not demand any business Slot.
+(def (prototype-instance? prototype candidate)
+  (and (object? candidate)
+       (if (memq prototype (or (object-%precedence-list candidate)
+                               (compute-precedence-list! candidate)))
+         #t #f)))
 
 ;;(def (and-combination new-value old-value) (and (new-value dont-call-next-method) (old-value)))
 
