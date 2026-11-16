@@ -83,3 +83,54 @@ normal/exceptional retirement and weak-GC release. Existing issued-read,
 Graph-order repair, CLOS evolution and method-combination suites also passed,
 including callback mutation and return revalidation controls. No check in those
 paths was removed to obtain the result.
+
+* Next-stage cold-path attribution (diagnostic, not an optimization claim)
+
+The same compiled benchmark now separates Slot demand, row normalization and
+row snapshot inside its attributed arm. The production loop is unchanged.
+An initial complete run reported normalization 10.757--10.862 ms and snapshot
+6.104--6.125 ms; Slot demand 161.405--204.641 ms included 77.564--120.293 ms of
+GC. Nested timing allocates statistics objects and changes GC placement: these
+figures locate work; they cannot be compared with the previous uninstrumented
+total as a speedup or summed as independent costs.
+
+A second diagnostic uses a frozen object.ss source fixture with internal clocks
+around the original operations, without preparing any object before .get. Both
+attributed passes completed all original source/order/row checks. Columns below
+are call count, CPU milliseconds INCLUDING GC, and GC milliseconds:
+
+| Phase | Pass 1 count / CPU / GC | Pass 2 count / CPU / GC |
+|-------+-------------------------+-------------------------|
+| precedence | 10000 / 16.666 / 0 | 10000 / 16.327 / 0 |
+| SlotSpec construction | 10000 / 32.619 / 0 | 10000 / 83.057 / 50.892 |
+| value store | 10000 / 26.666 / 0 | 10000 / 26.518 / 0 |
+| issuer call | 20000 / 19.109 / 0 | 20000 / 19.299 / 0 |
+| Slot evaluation | 10000 / 17.341 / 0 | 10000 / 19.728 / 0 |
+
+These clocks exclude surrounding capture, active-construction bookkeeping,
+preparation-read publication and other work. They also perturb execution.
+The second pass's SlotSpec difference is almost entirely GC; it is not evidence
+that its algorithm became slower. The workload has 9999 declared Computations;
+the measured call count includes metadata work and is not a module count.
+The instrumented issuer alone is not the entire evidence collection cost.
+
+This rejects treating the remaining cold interval as one large repeated signature
+check. The leading candidates are effective Slot construction and value-store
+preparation, followed by precedence and issuance. Before Scheme changes, the
+Lean obligations are: preserve canonical inheritance/contribution order, bind
+self and mutable cells to the original owner, preserve callbacks and first-error
+order, and preserve random-source advancement. Only owner-independent structure
+may be shared through existing POO mechanisms; no successful authentication may
+be carried across author code.
+
+Separately, delayed bound invocation performs whole-traversal issuance preflight
+followed by an authenticating entry sweep. Sharing that authentication requires a
+proof that the intervening native operations are effect-free. The ordinary/foreign
+route fallback and callback-return authentication remain independent. This path
+is outside initial capture timing and cannot count as a cold-capture improvement.
+
+The diagnostic source fixture stays out of production. Native preparation used
+the existing 180-second/4-GiB guard and completed in 47.748 seconds with sampled
+peak process-tree footprint 4,184,020,704 bytes. It must not be compiled alongside
+other large C targets. Logs and frozen fixtures remain under the ignored
+=.build/graph-capture/= directory; they are not installation dependencies.

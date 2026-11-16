@@ -44,7 +44,10 @@
                 (call-with-values
                   (lambda ()
                     (%call-with-recorded-slot-reads
-                      (lambda () (list-copy (keys! (.get program reads)))))) list))))
+                      (lambda ()
+                        (let* ((reads (clock-phase totals 'slot-demand (lambda () (.get program reads))))
+                               (row (clock-phase totals 'row-normalization (lambda () (keys! reads)))))
+                          (clock-phase totals 'row-snapshot (lambda () (list-copy row))))))) list))))
           (def bound
             (clock-phase totals 'bind-evidence
               (lambda () (%bind-current-slot-reads (cadr captured)))))
@@ -74,7 +77,8 @@
             (if (eq? side 'production) (capture-index code-keys programs)
                 (attributed code-keys programs totals))) 1))
         (displayln (list 'GRAPH-CAPTURE side 'total (qualified-metrics clocks)))
-        (for (name '(getter-and-normalization bind-evidence merge-roots batch-currentness))
+        (for (name '(getter-and-normalization slot-demand row-normalization row-snapshot
+                    bind-evidence merge-roots batch-currentness))
           (let (entry (hash-get totals name))
             (when entry (displayln (list 'GRAPH-CAPTURE side name (qualified-metrics entry))))))
         (check-eq? result programs)
