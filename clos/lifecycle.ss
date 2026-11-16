@@ -7,6 +7,7 @@
 
 (import :clan/poo/object
         (only-in :std/hash/misc hash-ref/default)
+        (only-in :clan/poo/mop/prototype element? raise-type-error)
         (only-in :std/list/list filter-map find)
         "types.ss" "objects.ss" "classes.ss" "dispatch.ss"
         "instance-state.ss" "funcs.ss")
@@ -30,7 +31,7 @@
         clos-update-instance-for-different-class-generic)
 
 (extern namespace: clan/poo/clos/dispatch %prospective-instance-methods)
-(extern namespace: clan/poo/object %publish-slot-edits!)
+(extern namespace: clan/poo/object %publish-slot-edits! %with-slot-edit-protection)
 
 ;; : (-> ClosInstance [Symbol] [Symbol] [SchemeValue] SchemeValue ... ClosInstance)
 (def (%clos-update-instance-for-redefined-class
@@ -93,51 +94,80 @@
       state)))
 
 ;; : (-> ClosInstance ClosInstanceState)
-(def (ensure-current-instance-state! instance-value)
+(def (ensure-current-instance-state! instance-value (update? #t))
   (unless (clos-instance? instance-value) (clos-fail 'invalid-instance))
   (let* ((state (.ref instance-value '%clos-state))
          (class-value (.ref state 'class)))
     (if (= (.ref state 'generation) (.ref class-value 'generation))
       state
-      (migrate-instance-generation! instance-value state class-value))))
+      (if update?
+        (migrate-instance-generation! instance-value state class-value)
+        (clos-fail 'instance-update-required
+                   class: (.ref class-value 'identity) operation: 'slot-value)))))
 
 ;; : (-> ClosInstance ClosClass)
 (def (clos-class-of instance-value)
   (.ref (ensure-current-instance-state! instance-value) 'class))
 
+;; Reflect lifecycle fields through POO's existing fallback protocol. Cells remain
+;; the only storage; normal Slot observation owns caching and invalidation.
+(def lifecycle-instance-protocol
+  (.o fallback-slot-present?:
+      (lambda (self name)
+        (let (cell (instance-slot-cell self name #f))
+          (and cell (.ref cell 'bound?))))
+      fallback-slot-names:
+      (lambda (self names)
+        (def state (ensure-current-instance-state! self #f))
+        (append names
+                (filter-map
+                 (lambda (slot)
+                   (let (name (.ref slot 'identity))
+                     (and (not (memq name names))
+                          (.ref (effective-slot-cell state slot) 'bound?) name)))
+                 (clos-class-effective-slots (.ref state 'class)))))))
+
 ;; : (-> ClosClass ClosInstance)
 (def (%clos-allocate-instance class-value . _initargs)
-  (let (current-value (clos-resolve-class class-value))
-    (.o (:: @ (.ref current-value 'instance-prototype))
-        %clos-state: (make-instance-state current-value))))
+  (let* ((current-value (clos-resolve-class class-value))
+         (state-value (make-instance-state current-value)))
+    (let (instance-value
+          (.o (:: @ (.ref current-value 'instance-prototype))
+              %clos-state: state-value
+              no-applicable-method:
+              (lambda (self name)
+                (with-slot-dependencies self
+                  (lambda () (%clos-slot-value self name #f))))))
+      (object-protocol-set! instance-value lifecycle-instance-protocol)
+      instance-value)))
 
 ;; : (-> ClosInstance Symbol (Maybe ClosSlotCell))
-(def (instance-slot-cell instance-value slot-name)
-  (let* ((class-value (clos-class-of instance-value))
-         (slot (clos-find-effective-slot class-value slot-name)))
-    (and slot
-         (if (eq? (.ref slot 'allocation) 'class)
-           (clos-class-slot-cell (.ref slot 'storage-class) slot-name)
-           (hash-ref/default
-            (.ref (.ref instance-value '%clos-state) 'storage)
-            slot-name (lambda () #f))))))
+(def (instance-slot-cell instance-value slot-name (update? #t))
+  (let* ((state (ensure-current-instance-state! instance-value update?))
+         (slot (clos-find-effective-slot (.ref state 'class) slot-name)))
+    (and slot (effective-slot-cell state slot))))
 
 ;; Initialization already traverses effective slot definitions.  Resolve the
 ;; cell directly instead of searching the full effective-slot list again.
 (def (effective-slot-cell state slot)
   (if (eq? (.ref slot 'allocation) 'class)
-    (clos-class-slot-cell (.ref slot 'storage-class)
-                              (.ref slot 'identity))
+    (hash-ref/default (.ref (.ref slot 'storage-class) 'class-storage)
+                      (.ref slot 'identity) (lambda () #f))
     (hash-ref/default (.ref state 'storage) (.ref slot 'identity)
                       (lambda () #f))))
 
-(def (bind-effective-slot! state slot value)
+(def (bind-effective-slot! instance-value state slot value)
   (let (cell (effective-slot-cell state slot))
     (unless cell
       (clos-fail 'slot-missing slot: (.ref slot 'identity)
                  operation: 'initialize-instance))
-    (.put! cell 'value value)
-    (.put! cell 'bound? #t)))
+    (let (checked
+          (%with-slot-edit-protection
+           (list instance-value state (.ref state 'class) cell)
+           (lambda ()
+             (.call (.ref slot '.type) .slot.validate slot (.ref slot 'identity) value instance-value))))
+      (%publish-slot-edits!
+       (list (list cell (cons 'value checked) (cons 'bound? #t)))))))
 
 ;; : (-> SchemeValue (Maybe Symbol))
 (def (failure-name value)
@@ -208,10 +238,17 @@
 ;;   | doc m%
 ;;   | result: the bound value or the primary value returned by a hook.
 (def (clos-slot-value instance-value slot-name)
+  (%clos-slot-value instance-value slot-name #t))
+
+;; Lifecycle operations may migrate. Native getters must not mutate their
+;; active receiver; they refuse stale layouts before running update methods.
+(def (%clos-slot-value instance-value slot-name update?)
   (unless (symbol? slot-name)
     (clos-fail 'invalid-slot-name slot: (failure-name slot-name)))
-  (let* ((class-value (clos-class-of instance-value))
-         (cell (instance-slot-cell instance-value slot-name)))
+  (let* ((state (ensure-current-instance-state! instance-value update?))
+         (class-value (.ref state 'class))
+         (slot (clos-find-effective-slot class-value slot-name))
+         (cell (and slot (effective-slot-cell state slot))))
     (cond
      ((not cell)
       (call-slot-missing class-value instance-value slot-name 'slot-value '()))
@@ -225,9 +262,8 @@
   (let* ((class-value (clos-class-of instance-value))
          (cell (instance-slot-cell instance-value slot-name)))
     (if cell
-      (begin
-        (.put! cell 'value new-value)
-        (.put! cell 'bound? #t))
+      (bind-effective-slot! instance-value (.ref instance-value '%clos-state)
+                            (clos-find-effective-slot class-value slot-name) new-value)
       (call-slot-missing class-value instance-value slot-name
                          'setf (list new-value)))
     new-value))
@@ -258,8 +294,8 @@
          (cell (instance-slot-cell instance-value slot-name)))
     (if cell
       (begin
-        (.put! cell 'bound? #f)
-        (.put! cell 'value #f))
+        (%publish-slot-edits!
+         (list (list cell (cons 'bound? #f) (cons 'value #f)))))
       (call-slot-missing class-value instance-value slot-name
                          'slot-makunbound '()))
     instance-value))
@@ -354,12 +390,12 @@
                       initarg-index (.ref slot 'initargs))))
          (cond
           (supplied?
-           (bind-effective-slot! state slot supplied-value))
+           (bind-effective-slot! instance-value state slot supplied-value))
           ((and (or (eq? slot-names #t)
                     (hash-key? slot-name-index (.ref slot 'identity)))
                 (not (.ref (effective-slot-cell state slot) 'bound?))
                 (.ref slot 'initfunction))
-           (bind-effective-slot! state slot ((.ref slot 'initfunction)))))))
+           (bind-effective-slot! instance-value state slot ((.ref slot 'initfunction)))))))
      (clos-class-effective-slots class-value))
     instance-value))
 
@@ -442,6 +478,14 @@
       (let (instance-value (apply clos-allocate-instance
                                   current-value initargs))
         (apply clos-initialize-instance instance-value initargs)
+        ;; After every initializer method has returned, validate through the
+        ;; same Class/Slot protocol as ordinary POO values. Unbound lifecycle
+        ;; fields are optional; membership alone never runs initialization.
+        (with-slot-dependencies instance-value
+          (lambda ()
+            (let (completed-class (clos-class-of instance-value))
+              (unless (element? completed-class instance-value)
+                (raise-type-error completed-class instance-value)))))
         instance-value))))
 
 ;; : (-> ClosClass Symbol Symbol ClosMethod)

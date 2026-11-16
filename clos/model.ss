@@ -6,7 +6,6 @@
 ;;; Boundary: validate ordinary POO values against CLOS class slot metadata.
 ;;; These are pure model values, not mutable CLOS lifecycle instances.
 (import :clan/poo/object
-        (only-in :std/list/list every)
         (only-in :clan/poo/clos/types prototype-instance?)
         (only-in :clan/poo/clos/classes clos-class-effective-slots))
 (export clos-model-prototype clos-model-validation-failure
@@ -42,13 +41,9 @@
             (list 'non-instance-slot name))
            ((not (.slot? candidate name))
             (list 'missing-slot name))
-           ((let (value (.ref candidate name))
-              (if (every (lambda (predicate) (predicate value))
-                         (.ref slot 'type-predicates))
-                #f
-                (list 'type-predicate-failed name
-                      (clos-model-diagnostic-value value))))
-            => values)
+           ((not (.call (.ref slot '.type) .slot.check slot name candidate))
+            (list 'type-predicate-failed name
+                  (clos-model-diagnostic-value (.ref candidate name))))
            (else (loop (cdr slots))))))))))
 
 (def (clos-model? class-value candidate)

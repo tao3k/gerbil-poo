@@ -6,7 +6,7 @@
 ;;; POO CLOS classes and direct/effective slot projection.
 
 (import :clan/poo/object
-        (only-in :clan/poo/mop/prototype element?)
+        (only-in :clan/poo/mop/prototype element? Type. Any)
         (only-in :std/hash/misc hash-ref/default hash-remove!)
         (only-in :std/list/list delete-duplicates/hash)
         (only-in :std/list/list find filter filter-map flatten1)
@@ -270,7 +270,13 @@
           initfunction: initfunction-value
           readers: (%make-owned-list (merged-slot-list descriptions 'readers) clos-copy-function-names)
           writers: (%make-owned-list (merged-slot-list descriptions 'writers) clos-copy-function-names)
-          type-predicates: (%make-owned-list type-predicate-values)
+          optional: #t
+          type: (if (null? type-predicate-values) Any
+                  (seal-object! (.o (:: @ Type.)
+                      sexp: (list 'slot-type slot-name)
+                      .element?: (lambda (value)
+                                   (andmap (lambda (predicate) (predicate value))
+                                           type-predicate-values)))))
           documentation: documentation-value
           defining-classes: (%make-owned-list (map car descriptions))
           storage-class: (car most-specific))
@@ -304,7 +310,7 @@
               (lambda (owner) (.ref owner 'direct-slots))))
     (%publish-slot-edits!
      (list (list class-value
-                 (cons 'effective-slots (%make-owned-list slots))
+                 (cons 'effective-slot-definitions (%make-owned-list slots))
                  (cons 'effective-slot-index (effective-slot-lookup slots)))))
     class-value))
 
@@ -333,9 +339,11 @@
                     class-value (.ref slot 'identity)))
              (initfunction (.ref slot 'initfunction)))
          (when (and initfunction (not (.ref cell 'bound?)))
-           (.put! cell 'value (initfunction))
-           (.put! cell 'bound? #t)))))
-   (.ref class-value 'effective-slots))
+           (let (value (.call (.ref slot '.type) .slot.validate slot (.ref slot 'identity)
+                                    (initfunction) class-value))
+             (%publish-slot-edits!
+              (list (list cell (cons 'value value) (cons 'bound? #t)))))))))
+   (.ref class-value 'effective-slot-definitions))
   class-value)
 
 ;; | ClosClass = POOObject
@@ -389,7 +397,7 @@
   (let* ((class-storage-value (make-hash-table-eq))
          (candidate
         (.o (:: self ClosClass.)
-            identity: identity-value
+            identity: identity-value sexp: identity-value
             direct-superclasses: (%make-owned-list superclass-values)
             generation: generation-value
             slot-missing-handler: slot-missing-handler-value
@@ -408,7 +416,7 @@
             class-precedence-index:
             (clos-position-lookup
              (%ref-owned-list self 'class-precedence-list))
-            effective-slots: '()
+            effective-slot-definitions: '()
             effective-slot-index: (lambda (_) #f))))
     (.putslot! candidate 'direct-slots (%owned-list-slot-spec direct-slot-values))
     (.putslot! candidate 'default-initargs
@@ -459,7 +467,7 @@
   (def slots (require-direct-slots direct-slot-values))
   (def defaults (require-default-initargs default-initarg-values))
   (def generation (.ref class-value 'generation))
-  (def previous-slots (%ref-owned-list class-value 'effective-slots))
+  (def previous-slots (%ref-owned-list class-value 'effective-slot-definitions))
   (def history (.ref class-value 'layout-history))
   (list class-value
         (cons 'layout-history
@@ -477,7 +485,7 @@
         (cons 'instance-prototype (.ref projection 'prototype))
         (cons 'class-precedence-list (%make-owned-list (.ref projection 'precedence)))
         (cons 'class-precedence-index (.ref projection 'precedence-index))
-        (cons 'effective-slots (%make-owned-list (.ref projection 'effective-slots)))
+        (cons 'effective-slot-definitions (%make-owned-list (.ref projection 'effective-slots)))
         (cons 'effective-slot-index (.ref projection 'effective-slot-index))))
 
 ;;; The root class contributes no slots; all ordinary classes with an omitted
@@ -527,7 +535,7 @@
 ;; : (-> ClosClass [ClosEffectiveSlotDefinition])
 (def (clos-class-effective-slots class-value)
   (unless (element? ClosClass class-value) (clos-fail 'invalid-class))
-  (.ref class-value 'effective-slots))
+  (.ref class-value 'effective-slot-definitions))
 
 ;; : (-> ClosClass Symbol (Maybe ClosEffectiveSlotDefinition))
 (def (clos-find-effective-slot class-value slot-name)

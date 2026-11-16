@@ -299,7 +299,7 @@
         (lambda () (clos-redefine-class base direct-superclasses: (list right)))
         before:
         (lambda (_receiver key)
-          (when (memq key '(generation prototype precedence effective-slots))
+          (when (memq key '(generation prototype precedence effective-slots effective-slot-definitions))
             (set! seen (cons (snapshot) seen)))))
       (check-equal? (snapshot) after)
       (check-equal? (and (member before seen) #t) #t)

@@ -7,8 +7,11 @@
 
 (import (only-in :std/test
                  test-suite test-case check-equal? check-exception check)
-        (only-in :clan/poo/object .ref .o object?)
+        (only-in :clan/poo/object .ref .o .get .put! .putslot! $thunk-slot-spec .slot? object? object-revision
+                 replay-slot-reads! object-read-issued?)
         (only-in :clan/poo/mop Type. Type define-type element? clos-instance?)
+        (only-in :clan/poo/slot-observation call-with-slot-read-observer)
+        :std/error
         :clan/poo/mop)
 
 (export clos-lifecycle-test)
@@ -52,7 +55,133 @@
                     class-value)
                => #t)))
 
+    (test-case "lifecycle classes and effective slots share the POO contracts"
+      (def calls 0)
+      (def class-value
+        (clos-class 'native-slot-contract
+          direct-slots:
+          (list (clos-direct-slot-definition
+                 'value initargs: (list value:) type-predicate: integer?
+                 initform: (lambda () (set! calls (+ calls 1)) 7)))))
+      (check (element? Type class-value) => #t)
+      (check (element? Class class-value) => #t)
+      (check (element? Slot (clos-find-effective-slot class-value 'value)) => #t)
+      (check-exception (.put! (.get class-value slots) 'value (.o)) Error?)
+      (check-exception (.put! (.get class-value effective-slots) 'value (.o)) Error?)
+      (check-exception (.put! (.get class-value effective-slots value) 'type Any) Error?)
+      (def allocated (clos-allocate-instance class-value))
+      (check calls => 0)
+      (check (clos-slot-bound? allocated 'value) => #f)
+      (check (element? class-value allocated) => #t)
+      (check (validate class-value allocated) => allocated)
+      (def initialized (clos-make-instance class-value))
+      (check calls => 1)
+      (check (.get initialized value) => 7)
+      (check (element? class-value initialized) => #t)
+      (def lazy-calls 0)
+      (.putslot! initialized 'deferred
+        ($thunk-slot-spec (lambda () (set! lazy-calls (+ lazy-calls 1)) 'ready)))
+      (check (validate class-value initialized) => initialized)
+      (check lazy-calls => 0)
+      (check (.get initialized deferred) => 'ready)
+      (check lazy-calls => 1))
+
+    (test-case "Slot rejection leaves the bound cell and generation unchanged"
+      (def class-value
+        (clos-class 'checked-cell
+          direct-slots: (list (clos-direct-slot-definition
+                               'value initargs: (list value:) type-predicate: integer?))))
+      (def instance (clos-make-instance class-value value: 1))
+      (def state (.ref instance '%clos-state))
+      (def cell (hash-get (.ref state 'storage) 'value))
+      (def revision (object-revision cell))
+      (def generation (.ref state 'generation))
+      (check-exception (clos-set-slot-value! instance 'value 'bad) TypeError?)
+      (check (clos-slot-value instance 'value) => 1)
+      (check (object-revision cell) => revision)
+      (check (.ref state 'generation) => generation)
+      (check-exception (clos-make-instance class-value value: 'bad) TypeError?))
+
+    (test-case "native get observes the same cell and its invalidation"
+      (def class-value
+        (clos-class 'reflected-cell
+          direct-slots: (list (clos-direct-slot-definition 'value initargs: (list value:)))))
+      (def instance (clos-make-instance class-value value: 1))
+      (def reads '())
+      (call-with-slot-read-observer
+        (lambda (read) (set! reads (cons read reads)))
+        (lambda () (check (.get instance value) => 1)))
+      (check (andmap object-read-issued? reads) => #t)
+      (replay-slot-reads! (reverse reads) void)
+      (clos-set-slot-value! instance 'value 2)
+      (check (.get instance value) => 2)
+      (check-exception (replay-slot-reads! (reverse reads) void) (lambda (_) #t))
+      (clos-slot-makunbound! instance 'value)
+      (check (.slot? instance 'value) => #f)
+      (check-exception (.get instance value) clos-unbound-slot?)
+      (def migrations 0)
+      (clos-redefine-class class-value
+        direct-slots: (list (clos-direct-slot-definition
+                             'added initform: (lambda ()
+                                                (set! migrations (+ migrations 1)) 3))))
+      (check (element? class-value instance) => #f)
+      (check-exception (.get instance added) (failure-code? 'instance-update-required))
+      (check migrations => 0)
+      (check (clos-slot-value instance 'added) => 3)
+      (check (.get instance added) => 3)
+      (check migrations => 1))
+
+    (test-case "the complete initializer combination precedes final Class checks"
+      (def class-value
+        (clos-class 'complete-initialization
+          direct-slots: (list (clos-direct-slot-definition
+                               'value initargs: (list value:) type-predicate: integer?))))
+      (def corrupt
+        (clos-method 'corrupt-initialized-value
+          (list (clos-class-specializer class-value))
+          (lambda (_frame instance . _args)
+            (.put! (hash-get (.ref (.ref instance '%clos-state) 'storage) 'value)
+                   'value 'bad))
+          qualifier: 'after
+          lambda-list: (clos-lambda-list 1 0 #t #f '() #f)))
+      (dynamic-wind
+        (lambda () (clos-add-method clos-initialize-instance-generic corrupt))
+        (lambda ()
+          (check-exception (clos-make-instance class-value value: 1) TypeError?))
+        (lambda () (clos-remove-method clos-initialize-instance-generic corrupt))))
+
+    (test-case "a final validator cannot publish evidence from before its callback edit"
+      (def current-instance #f)
+      (def effects 0)
+      (def class-value
+        (clos-class 'validation-effect-boundary
+          direct-slots:
+          (list (clos-direct-slot-definition
+                 'value initargs: (list value:)
+                 type-predicate:
+                 (lambda (value)
+                   (when current-instance
+                     (set! effects (+ effects 1))
+                     (.put! (hash-get (.ref (.ref current-instance '%clos-state) 'storage)
+                                      'value)
+                            'value 'changed-during-check))
+                   (integer? value))))))
+      (def expose
+        (clos-method 'expose-for-final-check
+          (list (clos-class-specializer class-value))
+          (lambda (_frame instance . _args) (set! current-instance instance))
+          qualifier: 'after
+          lambda-list: (clos-lambda-list 1 0 #t #f '() #f)))
+      (dynamic-wind
+        (lambda () (clos-add-method clos-initialize-instance-generic expose))
+        (lambda ()
+          (check-exception (clos-make-instance class-value value: 1) Error?)
+          (check effects => 1))
+        (lambda () (clos-remove-method clos-initialize-instance-generic expose))))
+
     (test-case "POO C4 closes a diamond and effective slot options merge"
+
+
       (let* ((root-slot
               (clos-direct-slot-definition
                'payload initargs: (list root:)

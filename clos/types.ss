@@ -11,7 +11,7 @@
 (import :clan/poo/object
         :clan/poo/read-projection
         (only-in :clan/poo/class-validation required-slots?)
-        (only-in :clan/poo/mop/prototype define-type Type. element?)
+        (only-in :clan/poo/mop/prototype define-type Type. Type Class. Slot element?)
         (only-in "funcs.ss"
                  clos-function-name? clos-function-name-list? clos-qualifier?
                  clos-initarg-name-list? clos-default-initargs?))
@@ -396,9 +396,10 @@
 
 ;;; A direct slot is an inert declaration value.  Captured initforms are
 ;;; represented as thunks so their lexical environment remains Scheme-owned.
-(define-type (ClosDirectSlotDefinition @ ClosType.)
-  proto: (clos-prototype ClosDirectSlotDefinition
-                         'clos/direct-slot-definition)
+(define-type (ClosDirectSlotDefinition @ Slot)
+  proto: (.mix (clos-prototype ClosDirectSlotDefinition
+                              'clos/direct-slot-definition)
+               (.ref Slot 'proto))
   .element?: clos-direct-slot-definition-element?)
 
 (def (class-reference? value)
@@ -417,15 +418,16 @@
          (initfunction procedure-or-false?)
          (readers clos-function-name-list?)
          (writers clos-function-name-list?)
-         (type-predicates list?)
+         (type (lambda (value) (element? Type value)))
          (documentation string-or-false?)
          (defining-classes class-references?)
          (storage-class class-reference?))))
 
 ;;; Effective slots are immutable projections over the POO class CPL.
-(define-type (ClosEffectiveSlotDefinition @ ClosType.)
-  proto: (clos-prototype ClosEffectiveSlotDefinition
-                         'clos/effective-slot-definition)
+(define-type (ClosEffectiveSlotDefinition @ Slot)
+  proto: (.mix (clos-prototype ClosEffectiveSlotDefinition
+                              'clos/effective-slot-definition)
+               (.ref Slot 'proto))
   .element?: clos-effective-slot-definition-element?)
 
 (def (direct-slot-definitions? value)
@@ -451,7 +453,28 @@
 ;;; Class metaobjects own lazy runtime prototypes and class-allocated storage;
 ;;; they do not replace gerbil-poo's inheritance or C4 implementation.
 (define-type (ClosClass @ ClosType.)
-  proto: (clos-prototype ClosClass 'clos/class)
+  slot-descriptor-class: ClosEffectiveSlotDefinition
+  proto:
+  (.o (:: self [Class. (clos-prototype ClosClass 'clos/class)])
+      slots: (seal-object!
+              (object<-alist
+               (map (lambda (slot) (cons (.ref slot 'identity) slot))
+                    (.ref self 'effective-slot-definitions))))
+      (effective-slots (inherited)
+        (let (slots (inherited))
+          (.for-each! slots (lambda (_name slot) (seal-object! slot)))
+          (seal-object! slots)))
+      proto: (.ref self 'instance-prototype)
+      (.element? (inherited)
+        (lambda (candidate)
+          (and (object? candidate)
+               (if (.slot? candidate '%clos-state)
+                 (let* ((state (.ref candidate '%clos-state))
+                        (current-class (.ref state 'class)))
+                   (and (= (.ref state 'generation) (.ref current-class 'generation))
+                        (memq self (.ref current-class 'class-precedence-list))))
+                 (prototype-instance? (.ref self 'instance-prototype) candidate))
+               ((inherited) candidate)))))
   .element?: clos-class-element?)
 
 (def (clos-instance-state-element? candidate)

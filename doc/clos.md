@@ -51,8 +51,31 @@ Argument precedence is a finite permutation of the required positions. Creation
 and reconfiguration share admission; a rejected order leaves the current generic
 generation and its read evidence intact.
 
-`clos-instance?` recognises lifecycle instances; `element?` checks membership
-in a declared POO Type. Prototype ancestry checks stay inside the implementation.
+Lifecycle classes implement the existing POO `Type` and `Class` contracts.
+Effective declarations use `Slot` validation; predicate constraints are
+normalized into its `type` field. Pure models use the same Slot checker.
+Class schema maps and effective descriptors are read-only; redefinition
+publishes them through the existing generation and dependency index.
+
+```scheme
+(.defclass Pane () ((width (initarg width:) (initform 80))))
+(def pane (clos-make-instance Pane width: 100))
+(element? Class Pane)     ; => #t
+(element? Pane pane)      ; => #t
+(.get pane width)         ; => 100, from the lifecycle cell
+```
+
+Allocation leaves cells unbound and does not execute initforms. A class name
+or alias re-enters the same `make-instance` generic after resolution.
+The complete initializer method combination precedes the final Class check
+and POO read-currentness validation. Failed Slot validation preserves that
+cell; effects already performed by author methods are not rolled back.
+`clos-instance?` identifies lifecycle storage, while class membership alone
+does not imply completed initialization. Native `.get` reads require a current
+layout and reject `instance-update-required` before any migration effects.
+Lifecycle operations such as `clos-slot-value` perform lazy class updates;
+subsequent `.get` reads use those same cells. Ordinary `.new` retains lazy Slots.
+[Construction contracts](https://github.com/tao3k/lean-poo/blob/c370399/LeanPoo/Object/ClosConstruction.lean).
 
 `just test-source-file benchmarks/mop-lifecycle-test.ss` runs the lifecycle study.
 The benchmark saves the lifecycle and C4 measurements in `$GERBIL_PATH/benchs`.
