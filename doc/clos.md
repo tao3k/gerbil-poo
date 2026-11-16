@@ -118,6 +118,12 @@ lookups share the read-only method index implementation. A class redefinition
 publishes effective slots, their lookup, history and generation together with
 the affected subclass updates. Effective slot descriptors are sealed and their
 list fields are detached on read. Class slot initializers run after publication.
+
+Class declaration Slots own direct-slot list cells and default-initarg association
+cells. Public reflection and read projections return detached cells, retaining
+metaobject and thunk identities. Slot assignment and class redefinition preserve
+this ownership. [LeanPoo ownership proof](https://github.com/tao3k/lean-poo/blob/748c111d9c2f30f7d2d830e3ec33bb852af81f82/LeanPoo/Object/ClosAdmission.lean#L882)
+
 Instance migration publishes class, generation and storage in one POO Slot batch.
 In the supported serial callback model, read prechecks see a complete layout.
 A refused publication preserves the layout and revision. Update methods run

@@ -12,12 +12,14 @@
 
 ;; The value store and signed reads retain one token. Public projections
 ;; receive copies. Only the private traversal key can borrow its spine.
-(defstruct owned-list (access) final: #t)
+(defstruct owned-list (access copy) final: #t)
 (def owned-list-access-key (cons 'owned-list 'access))
-(def (%make-owned-list values)
-  (let (spine (list-copy values))
+;; List metadata may own entry cells as well as the outer spine. The same
+;; pure copier runs at capture and public projection; opaque values stay shared.
+(def (%make-owned-list values (copy list-copy))
+  (let (spine (copy values))
     (make-owned-list (lambda (key)
-      (if (eq? key owned-list-access-key) spine (list-copy spine))))))
+      (if (eq? key owned-list-access-key) spine (copy spine))) copy)))
 (def (%owned-list-value value)
   (if (owned-list? value) ((owned-list-access value) #f) value))
 (def (%borrow-owned-list value)

@@ -349,15 +349,15 @@
 (defstruct ($constant-slot-spec $slot-spec) (value) transparent: #t) ;; constant value
 (extern namespace: clan/poo/slot-observation %make-owned-list %owned-list-value %borrow-owned-list
         %slot-store-snapshot)
-(def (%owned-list-slot-spec values)
-  ($constant-slot-spec (%make-owned-list values)))
-(extern namespace: clan/poo/slot-observation owned-list?)
+(def (%owned-list-slot-spec values (copy list-copy))
+  ($constant-slot-spec (%make-owned-list values copy)))
+(extern namespace: clan/poo/slot-observation owned-list? owned-list-copy)
 (def (own-assigned-slot-value self slot value)
   (let (spec (prototype-map-ref (object-%slots self) slot))
     (if (and ($constant-slot-spec? spec)
              (owned-list? ($constant-slot-spec-value spec))
              (list? value))
-      (%make-owned-list value)
+      (%make-owned-list value (owned-list-copy ($constant-slot-spec-value spec)))
       value)))
 (defstruct ($thunk-slot-spec $slot-spec) (thunk) transparent: #t) ;; thunk
 (defstruct ($self-slot-spec $slot-spec) (fun) transparent: #t) ;; fun to be passed self as argument, not super

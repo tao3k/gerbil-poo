@@ -12,7 +12,7 @@
         (only-in :std/list/list find filter filter-map flatten1)
         "types.ss" "objects.ss" "funcs.ss")
 
-(extern namespace: clan/poo/object %ref-owned-list %publish-slot-edits!)
+(extern namespace: clan/poo/object %ref-owned-list %publish-slot-edits! %owned-list-slot-spec)
 (extern namespace: clan/poo/slot-observation %make-owned-list)
 
 (export ClosDirectSlotDefinition ClosEffectiveSlotDefinition ClosClass
@@ -147,6 +147,11 @@
   (unless (unique-identities? (map car values))
     (clos-fail 'duplicate-default-initarg))
   values)
+
+;; Default thunks are opaque values; copy their association cells, never
+;; their environments and never by evaluating them.
+(def (copy-default-initargs entries)
+  (map (lambda (entry) (cons (car entry) (cdr entry))) entries))
 
 ;; : (-> [ClosDirectSlotDefinition] [ClosDirectSlotDefinition])
 (def (require-direct-slots values)
@@ -383,8 +388,6 @@
         (.o (:: self ClosClass.)
             identity: identity-value
             direct-superclasses: (%make-owned-list superclass-values)
-            direct-slots: direct-slot-values
-            default-initargs: default-initarg-values
             generation: generation-value
             slot-missing-handler: slot-missing-handler-value
             slot-unbound-handler: slot-unbound-handler-value
@@ -404,6 +407,9 @@
              (%ref-owned-list self 'class-precedence-list))
             effective-slots: '()
             effective-slot-index: (lambda (_) #f))))
+    (.putslot! candidate 'direct-slots (%owned-list-slot-spec direct-slot-values))
+    (.putslot! candidate 'default-initargs
+      (%owned-list-slot-spec default-initarg-values copy-default-initargs))
     (let (class-value
           (initialize-direct-class-slots!
            (refresh-effective-slots!
@@ -458,8 +464,8 @@
                 (if (= requested generation) (list-copy previous-slots)
                     (history requested))))
         (cons 'direct-superclasses (%make-owned-list parents))
-        (cons 'direct-slots slots)
-        (cons 'default-initargs defaults)
+        (cons 'direct-slots (%make-owned-list slots))
+        (cons 'default-initargs (%make-owned-list defaults copy-default-initargs))
         (cons 'slot-missing-handler slot-missing-handler-value)
         (cons 'slot-unbound-handler slot-unbound-handler-value)
         (cons 'redefinition-update-handler redefinition-handler-value)

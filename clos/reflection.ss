@@ -84,11 +84,11 @@
 
 ;; : (-> ClosClass [ClosDirectSlotDefinition])
 (def (poo-clos-class-direct-slots class-value)
-  (list-copy (.ref (require-class class-value) 'direct-slots)))
+  (.ref (require-class class-value) 'direct-slots))
 
 ;; : (-> ClosClass [Pair])
 (def (poo-clos-class-default-initargs class-value)
-  (list-copy (.ref (require-class class-value) 'default-initargs)))
+  (.ref (require-class class-value) 'default-initargs))
 
 (def (poo-clos-class-documentation class-value)
   (.ref (require-class class-value) 'documentation))
