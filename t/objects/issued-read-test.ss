@@ -262,7 +262,8 @@
         (map module-export-name
           (module-context-export (core-import-module ':clan/poo/mop)))))
     (for-each (lambda (name) (check-equal? (memq name mop-names) #f))
-      '(prototype-instance?
+      '(prototype-instance? checked require-clos-generic require-clos-method
+        require-class require-metaobject reflection-generic require-frame
         %slot-read-active? %slot-read-demand! %record-slot-reads!
         %call-with-recorded-slot-reads slot-read-observers-compatible? slot-read-precheck-active?))
     (for-each (lambda (name) (check (memq name mop-names) ? values))

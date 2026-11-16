@@ -515,9 +515,7 @@
 ;;; captured next-method continuation.
 ;; : (forall (a) (-> a ClosInvocationFrame))
 (def (require-frame frame)
-  (unless (element? ClosInvocationFrame frame)
-    (clos-fail 'invalid-invocation-frame))
-  frame)
+  (checked ClosInvocationFrame frame 'invalid-invocation-frame))
 
 ;;; Invocation failures retain method and qualifier identity while omitting raw
 ;;; arguments from the raised POO value.
