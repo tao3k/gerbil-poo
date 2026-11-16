@@ -7,6 +7,7 @@
 
 (import :clan/poo/object
         (only-in :clan/poo/mop/prototype element?)
+        (only-in :clan/poo/type Union)
         (only-in :std/list/list find)
         "types.ss" "objects.ss" "classes.ss" "lifecycle.ss" "dispatch.ss")
 
@@ -30,6 +31,9 @@
         clos-generic-method-combination clos-generic-generation
         clos-generic-documentation
         clos-generic-function-class clos-generic-method-class)
+
+;; Shared fields belong to both direct declarations and effective class slots.
+(def SlotDefinition (Union ClosEffectiveSlotDefinition ClosDirectSlotDefinition))
 
 ;; : (-> SchemeValue ClosClass)
 (def (require-class value)
@@ -96,37 +100,37 @@
        (clos-class-effective-slots
        (clos-class-of instance-value))))
 
-;; : (-> ClosEffectiveSlotDefinition Symbol)
+;; : (-> SlotDefinition Symbol)
 (def (clos-slot-name slot-value)
-  (.ref (checked ClosEffectiveSlotDefinition slot-value
-                 'invalid-effective-slot-definition)
+  (.ref (checked SlotDefinition slot-value
+                 'invalid-slot-definition)
         'identity))
 
-;; : (-> ClosEffectiveSlotDefinition SlotAllocation)
+;; : (-> SlotDefinition SlotAllocation)
 (def (clos-slot-allocation slot-value)
-  (.ref (checked ClosEffectiveSlotDefinition slot-value
-                 'invalid-effective-slot-definition)
+  (.ref (checked SlotDefinition slot-value
+                 'invalid-slot-definition)
         'allocation))
 
-;; : (-> ClosEffectiveSlotDefinition [InitargName])
+;; : (-> SlotDefinition [InitargName])
 (def (clos-slot-initargs slot-value)
   (list-copy
-   (.ref (checked ClosEffectiveSlotDefinition slot-value
-                  'invalid-effective-slot-definition)
+   (.ref (checked SlotDefinition slot-value
+                  'invalid-slot-definition)
          'initargs)))
 
-;; : (-> ClosEffectiveSlotDefinition [Symbol])
+;; : (-> SlotDefinition [FunctionName])
 (def (clos-slot-readers slot-value)
   (list-copy
-   (.ref (checked ClosEffectiveSlotDefinition slot-value
-                  'invalid-effective-slot-definition)
+   (.ref (checked SlotDefinition slot-value
+                  'invalid-slot-definition)
          'readers)))
 
-;; : (-> ClosEffectiveSlotDefinition [Symbol])
+;; : (-> SlotDefinition [FunctionName])
 (def (clos-slot-writers slot-value)
   (list-copy
-   (.ref (checked ClosEffectiveSlotDefinition slot-value
-                  'invalid-effective-slot-definition)
+   (.ref (checked SlotDefinition slot-value
+                  'invalid-slot-definition)
          'writers)))
 
 ;; : (-> ClosEffectiveSlotDefinition [ClosClass])

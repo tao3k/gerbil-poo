@@ -38,6 +38,11 @@ checks operation-specific keyword admission, slot masks and method order.
 [HyperSpec initialization](https://www.lispworks.com/documentation/HyperSpec/Body/07_.htm) ·
 [Gerbil #1372](https://github.com/mighty-gerbils/gerbil/issues/1372)
 
+Common slot readers accept direct declarations and effective class slots.
+`clos-slot-defining-classes` and `clos-slot-storage-class` require effective
+slots. List-valued readers return detached lists. The shared metadata follows
+[SBCL's slot-definition hierarchy](https://github.com/sbcl/sbcl/blob/e7684366f8b450d3d94f47001f3bbcc7f7e947b2/src/pcl/defs.lisp#L376).
+
 `clos-instance?` recognises lifecycle instances; `element?` checks membership
 in a declared POO Type. Prototype ancestry checks stay inside the implementation.
 

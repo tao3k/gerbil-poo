@@ -56,6 +56,33 @@
 
 (def clos-evolution-test
   (test-suite "POO CLOS class evolution"
+    (test-case "common slot readers compose with direct and effective class slots"
+      (def direct
+        (clos-direct-slot-definition 'value allocation: 'class
+          initargs: (list value:) readers: '(read-value) writers: '(write-value)))
+      (def class-value (clos-class 'slot-reflection direct-slots: (list direct)))
+      (def effective (clos-find-effective-slot class-value 'value))
+      (for-each
+        (lambda (slot)
+          (check-equal? (clos-slot-name slot) 'value)
+          (check-equal? (clos-slot-allocation slot) 'class)
+          (check-equal? (clos-slot-initargs slot) (list value:))
+          (check-equal? (clos-slot-readers slot) '(read-value))
+          (check-equal? (clos-slot-writers slot) '(write-value))
+          (set-car! (clos-slot-initargs slot) other:)
+          (set-car! (clos-slot-readers slot) 'other-reader)
+          (set-car! (clos-slot-writers slot) 'other-writer)
+          (check-equal? (clos-slot-initargs slot) (list value:))
+          (check-equal? (clos-slot-readers slot) '(read-value))
+          (check-equal? (clos-slot-writers slot) '(write-value)))
+        (list (car (clos-class-direct-slots class-value)) effective))
+      (check-equal? (clos-slot-defining-classes effective) (list class-value))
+      (check (clos-slot-storage-class effective) => class-value)
+      (check-exception (clos-slot-defining-classes direct)
+        (failure-code? 'invalid-effective-slot-definition))
+      (check-exception (clos-slot-storage-class direct)
+        (failure-code? 'invalid-effective-slot-definition))
+      (check-exception (clos-slot-name #f) (failure-code? 'invalid-slot-definition)))
     (test-case "lazy migration publishes one complete instance layout"
       (check-instance-publication (quote redefine)))
     (test-case "change-class publishes one complete instance layout"

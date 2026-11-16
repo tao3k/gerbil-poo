@@ -148,7 +148,7 @@
                    "t/methods/clos-method-combination-test.ss"
                    'clos-method-combination-test 17)
    (evidence-suite 'evolution "t/methods/clos-evolution-test.ss"
-                   'clos-evolution-test 15)
+                   'clos-evolution-test 16)
    (evidence-suite 'generic-evolution
                    "t/methods/clos-generic-evolution-test.ss"
                    'clos-generic-evolution-test 6)
