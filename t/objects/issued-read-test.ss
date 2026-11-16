@@ -12,7 +12,8 @@
         (only-in :gerbil/runtime/hash HashTable::interface)
         (only-in :gerbil/expander current-expander-context make-top-context
                  core-import-module module-context-export module-export-name eval-syntax)
-        (only-in :std/error Error? Error-message contract-violation-error?))
+        (only-in :std/error Error? Error-message contract-violation-error?)
+        (only-in :std/text/pregexp pregexp-match))
 (def completed 0)
 (def (test-cleanup!)
   (check-equal? completed 35)
@@ -261,11 +262,16 @@
         (map module-export-name
           (module-context-export (core-import-module ':clan/poo/mop)))))
     (for-each (lambda (name) (check-equal? (memq name mop-names) #f))
-      '(%slot-read-active? %slot-read-demand! %record-slot-reads!
+      '(prototype-instance?
+        %slot-read-active? %slot-read-demand! %record-slot-reads!
         %call-with-recorded-slot-reads slot-read-observers-compatible? slot-read-precheck-active?))
     (for-each (lambda (name) (check (memq name mop-names) ? values))
-      '(call-with-slot-read-observer make-slot-read slot-read-key slot-read-value %deliver-slot-read
+      '(clos-instance? call-with-slot-read-observer make-slot-read slot-read-key slot-read-value %deliver-slot-read
         replay-slot-reads! reobserve-slot-reads! call-with-current-slot-reads object-read-issued?))
+    ;; Reject the retired project prefix across the complete public MOP surface.
+    (for-each (lambda (name)
+                (check-equal? (pregexp-match "^poo-clos" (symbol->string name)) #f))
+              mop-names)
     (def route-names
       (parameterize ((current-expander-context (make-top-context)))
         (map module-export-name

@@ -8,28 +8,28 @@
 (import :clan/poo/object
         (only-in :clan/poo/mop/prototype element?)
         (only-in :std/list/list map-in-order)
-        (only-in "funcs.ss" poo-clos-function-name?)
+        (only-in "funcs.ss" clos-function-name?)
         "types.ss" "objects.ss")
 
-(export poo-clos-ensure-generic-function
-        poo-clos-reinitialize-generic-function!)
+(export clos-ensure-generic-function
+        clos-reinitialize-generic-function!)
 
 (extern namespace: clan/poo/object %with-slot-edit-protection %publish-slot-edits!)
 (extern namespace: clan/poo/slot-observation %make-owned-list)
 
-(def +poo-clos-unspecified-generic-option+
-  (cons 'poo-clos 'unspecified-generic-option))
+(def +clos-unspecified-generic-option+
+  (cons 'clos 'unspecified-generic-option))
 
 ;; : (forall (a) (-> a a a))
 (def (option-or-current option current)
-  (if (eq? option +poo-clos-unspecified-generic-option+) current option))
+  (if (eq? option +clos-unspecified-generic-option+) current option))
 
 ;; : (-> ClosGenericFunction GenericFunctionOptions ClosGenericFunction)
 (def (generic-configuration-template
       current-value required-value rest-value optional-value key-value key-values
       allow-other-keys-value precedence-value combination-value protocol-value)
   (let (lambda-list-value (.ref current-value 'lambda-list))
-    (poo-clos-generic-function
+    (clos-generic-function
      (.ref current-value 'identity)
      (option-or-current required-value (.ref current-value 'required))
      rest?: (option-or-current rest-value (.ref current-value 'rest?))
@@ -55,9 +55,9 @@
     (lambda ()
       (for-each (lambda (method-value)
                   ;; Admit a detached method while the original stays with its generic.
-                  (poo-clos-add-method
+                  (clos-add-method
                    template-value
-                   (poo-clos-method
+                   (clos-method
                     (.ref method-value 'identity)
                     (.ref method-value 'specializers)
                     (.ref method-value 'body)
@@ -75,7 +75,7 @@
           (cons current-value
             (cons (cons 'generation (1+ (.ref current-value 'generation))) fields)))))))
 
-;; poo-clos-reinitialize-generic-function!
+;; clos-reinitialize-generic-function!
 ;;   : (-> ClosGenericBinding required: (Maybe Natural)
 ;;         rest?: (Maybe Boolean) optional: (Maybe Natural)
 ;;         key?: (Maybe Boolean) keys: (Maybe [InitargName])
@@ -86,37 +86,37 @@
 ;;   | contract: validates a complete configuration and every existing method
 ;;     before mutating the stable ANSI generic-function object.
 ;;   | doc m%
-;;       `poo-clos-reinitialize-generic-function!` attributes mutation to one
+;;       `clos-reinitialize-generic-function!` attributes mutation to one
 ;;       explicit generic binding.
 ;;
 ;;       # Examples
 ;;       ```scheme
-;;       (poo-clos-reinitialize-generic-function! binding rest?: #t)
+;;       (clos-reinitialize-generic-function! binding rest?: #t)
 ;;       ;; => successor-generic
 ;;       ```
 ;;
 ;;       result: the same generic-function identity at its next generation.
 ;;     %
-(def (poo-clos-reinitialize-generic-function!
+(def (clos-reinitialize-generic-function!
       binding-value
-      required: (required-value +poo-clos-unspecified-generic-option+)
-      rest?: (rest-value +poo-clos-unspecified-generic-option+)
-      optional: (optional-value +poo-clos-unspecified-generic-option+)
-      key?: (key-value +poo-clos-unspecified-generic-option+)
-      keys: (key-values +poo-clos-unspecified-generic-option+)
+      required: (required-value +clos-unspecified-generic-option+)
+      rest?: (rest-value +clos-unspecified-generic-option+)
+      optional: (optional-value +clos-unspecified-generic-option+)
+      key?: (key-value +clos-unspecified-generic-option+)
+      keys: (key-values +clos-unspecified-generic-option+)
       allow-other-keys?:
-      (allow-other-keys-value +poo-clos-unspecified-generic-option+)
+      (allow-other-keys-value +clos-unspecified-generic-option+)
       argument-precedence-order:
-      (precedence-value +poo-clos-unspecified-generic-option+)
+      (precedence-value +clos-unspecified-generic-option+)
       method-combination:
-      (combination-value +poo-clos-unspecified-generic-option+)
-      protocol: (protocol-value +poo-clos-unspecified-generic-option+))
+      (combination-value +clos-unspecified-generic-option+)
+      protocol: (protocol-value +clos-unspecified-generic-option+))
   (defvalues (current-value edits)
     (%with-slot-edit-protection (list binding-value)
       (lambda ()
         (unless (element? ClosGenericBinding binding-value)
           (clos-fail 'invalid-generic-binding))
-        (def current-value (poo-clos-generic-binding-current binding-value))
+        (def current-value (clos-generic-binding-current binding-value))
         (values current-value
           (%with-slot-edit-protection (list current-value)
             (lambda ()
@@ -134,7 +134,7 @@
 (def (initial-generic identity-value required-value rest-value optional-value
                       key-value key-values allow-other-keys-value
                       precedence-value combination-value protocol-value)
-  (poo-clos-generic-function
+  (clos-generic-function
    identity-value
    (option-or-current required-value 0)
    rest?: (option-or-current rest-value #f)
@@ -143,62 +143,62 @@
    keys: (option-or-current key-values '())
    allow-other-keys?: (option-or-current allow-other-keys-value #f)
    argument-precedence-order:
-   (if (eq? precedence-value +poo-clos-unspecified-generic-option+)
+   (if (eq? precedence-value +clos-unspecified-generic-option+)
      #f precedence-value)
    method-combination: (option-or-current combination-value 'standard)
-   protocol: (if (eq? protocol-value +poo-clos-unspecified-generic-option+)
+   protocol: (if (eq? protocol-value +clos-unspecified-generic-option+)
                #f protocol-value)))
 
-;; poo-clos-ensure-generic-function
+;; clos-ensure-generic-function
 ;;   : (-> Symbol existing: (Maybe GenericSource)
 ;;         required: (Maybe Natural) GenericFunctionOptions ClosGenericBinding)
 ;;   | contract: creates a binding when absent or reconfigures an existing
 ;;     binding only through its checked immutable successor transition.
 ;;   | doc m%
-;;       `poo-clos-ensure-generic-function` is the explicit Scheme adaptation of
+;;       `clos-ensure-generic-function` is the explicit Scheme adaptation of
 ;;       ANSI `ensure-generic-function`; it returns the POO mutation owner.
 ;;
 ;;       # Examples
 ;;       ```scheme
-;;       (poo-clos-ensure-generic-function 'route required: 2)
+;;       (clos-ensure-generic-function 'route required: 2)
 ;;       ;; => route-binding
 ;;       ```
 ;;
 ;;       result: a POO generic binding accepted by ordinary dispatch.
 ;;     %
-(def (poo-clos-ensure-generic-function
+(def (clos-ensure-generic-function
       identity-value
       existing: (existing-value #f)
-      required: (required-value +poo-clos-unspecified-generic-option+)
-      rest?: (rest-value +poo-clos-unspecified-generic-option+)
-      optional: (optional-value +poo-clos-unspecified-generic-option+)
-      key?: (key-value +poo-clos-unspecified-generic-option+)
-      keys: (key-values +poo-clos-unspecified-generic-option+)
+      required: (required-value +clos-unspecified-generic-option+)
+      rest?: (rest-value +clos-unspecified-generic-option+)
+      optional: (optional-value +clos-unspecified-generic-option+)
+      key?: (key-value +clos-unspecified-generic-option+)
+      keys: (key-values +clos-unspecified-generic-option+)
       allow-other-keys?:
-      (allow-other-keys-value +poo-clos-unspecified-generic-option+)
+      (allow-other-keys-value +clos-unspecified-generic-option+)
       argument-precedence-order:
-      (precedence-value +poo-clos-unspecified-generic-option+)
+      (precedence-value +clos-unspecified-generic-option+)
       method-combination:
-      (combination-value +poo-clos-unspecified-generic-option+)
-      protocol: (protocol-value +poo-clos-unspecified-generic-option+))
-  (unless (poo-clos-function-name? identity-value)
+      (combination-value +clos-unspecified-generic-option+)
+      protocol: (protocol-value +clos-unspecified-generic-option+))
+  (unless (clos-function-name? identity-value)
     (clos-fail 'invalid-generic-name generic: identity-value))
   (if existing-value
     (let (binding-value
           (if (element? ClosGenericBinding existing-value)
             existing-value
-            (poo-clos-generic-binding identity-value existing-value)))
+            (clos-generic-binding identity-value existing-value)))
       (unless (equal? identity-value (.ref binding-value 'identity))
         (clos-fail 'generic-binding-identity-mismatch
                    generic: identity-value))
-      (poo-clos-reinitialize-generic-function!
+      (clos-reinitialize-generic-function!
        binding-value required: required-value rest?: rest-value
        optional: optional-value key?: key-value keys: key-values
        allow-other-keys?: allow-other-keys-value
        argument-precedence-order: precedence-value
        method-combination: combination-value protocol: protocol-value)
       binding-value)
-    (poo-clos-generic-binding
+    (clos-generic-binding
      identity-value
      (initial-generic
       identity-value required-value rest-value optional-value key-value

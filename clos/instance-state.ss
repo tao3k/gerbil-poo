@@ -11,7 +11,7 @@
         (only-in :std/list/list filter find foldl)
         "types.ss" "objects.ss" "classes.ss" "funcs.ss")
 
-(export poo-clos-instance?
+(export clos-instance?
         make-slot-cell instance-state-value class-generation
         instance-allocated-slot? effective-slot-identity make-instance-state
         class-handler instance-slot-names effective-instance-slot-names
@@ -50,27 +50,27 @@
        (when (instance-allocated-slot? slot)
          (hash-put! storage-value
                     (effective-slot-identity slot) (make-slot-cell))))
-     (poo-clos-class-effective-slots class-value))
+     (clos-class-effective-slots class-value))
     (instance-state-value class-value generation-value storage-value)))
 
 ;; : (-> SchemeValue Boolean)
-(def (poo-clos-instance? value)
+(def (clos-instance? value)
   (and (object? value)
-       (.slot? value '%poo-clos-state)
-       (element? ClosInstanceState (.ref value '%poo-clos-state))))
+       (.slot? value '%clos-state)
+       (element? ClosInstanceState (.ref value '%clos-state))))
 
 ;; : (-> ClosClass Symbol (Maybe Procedure))
 (def (class-handler class-value handler-slot)
   (let (owner
         (find (lambda (candidate) (.ref candidate handler-slot))
-              (poo-clos-class-precedence-list class-value)))
+              (clos-class-precedence-list class-value)))
     (and owner (.ref owner handler-slot))))
 
 ;; : (-> ClosClass [Symbol])
 (def (instance-slot-names class-value)
   (map effective-slot-identity
        (filter instance-allocated-slot?
-               (poo-clos-class-effective-slots class-value))))
+               (clos-class-effective-slots class-value))))
 
 ;; : (-> [ClosEffectiveSlotDefinition] [Symbol])
 (def (effective-instance-slot-names slots)
@@ -81,20 +81,20 @@
 (def (effective-slot-difference old-slots new-slots)
   (let* ((old-names (effective-instance-slot-names old-slots))
         (new-names (effective-instance-slot-names new-slots))
-        (old-index (poo-clos-identity-index old-names))
-        (new-index (poo-clos-identity-index new-names)))
+        (old-index (clos-identity-index old-names))
+        (new-index (clos-identity-index new-names)))
     (values (filter (lambda (name) (not (hash-key? old-index name))) new-names)
             (filter (lambda (name) (not (hash-key? new-index name))) old-names))))
 
 ;; : (-> ClosClass ClosClass (values [Symbol] [Symbol]))
 (def (class-slot-difference old-class new-class)
-  (effective-slot-difference (poo-clos-class-effective-slots old-class)
-                             (poo-clos-class-effective-slots new-class)))
+  (effective-slot-difference (clos-class-effective-slots old-class)
+                             (clos-class-effective-slots new-class)))
 
 ;; : (-> ClosClass Natural [ClosEffectiveSlotDefinition])
 (def (class-effective-slots-at-generation class-value generation-value)
   (if (= generation-value (.ref class-value 'generation))
-    (poo-clos-class-effective-slots class-value)
+    (clos-class-effective-slots class-value)
     (or ((.ref class-value 'layout-history) generation-value)
         (clos-fail 'missing-class-layout
                    class: (.ref class-value 'identity)
@@ -123,7 +123,7 @@
                  (hash-ref/default (.ref state 'storage)
                                    slot-name (lambda () #f))))
            (hash-put! new-storage slot-name (or old-cell (make-slot-cell))))))
-     (poo-clos-class-effective-slots new-class))
+     (clos-class-effective-slots new-class))
     new-storage))
 
 ;; The previous change-class view must not share mutable SlotCells with the

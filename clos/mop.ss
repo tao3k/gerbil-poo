@@ -9,30 +9,30 @@
         (only-in ../mop/prototype element?)
         "types.ss" "objects.ss")
 
-(export ClosMopProfile poo-clos-mop-extended-profile
-        poo-clos-mop-profile-admits?)
+(export ClosMopProfile clos-mop-extended-profile
+        clos-mop-profile-admits?)
 
 ;; : POOObject
 (def ClosMopProfile. (.ref ClosMopProfile 'proto))
 
 ;; | ClosMopProfile = POOObject
-;; poo-clos-mop-extended-profile
+;; clos-mop-extended-profile
 ;;   : (-> ClosMopProfile)
 ;;   | contract: returns the closed portable extension inventory without
 ;;     registering new metaclasses or changing POO dispatch.
 ;;   | doc m%
-;;       `poo-clos-mop-extended-profile` separates de facto MOP capabilities
+;;       `clos-mop-extended-profile` separates de facto MOP capabilities
 ;;       from the POO CLOS core profile.
 ;;
 ;;       # Examples
 ;;       ```scheme
-;;       (poo-clos-mop-extended-profile)
+;;       (clos-mop-extended-profile)
 ;;       ;; => sealed-mop-profile
 ;;       ```
 ;;
 ;;       result: a checked read-only POO capability descriptor.
 ;;     %
-(def (poo-clos-mop-extended-profile)
+(def (clos-mop-extended-profile)
   (checked
    ClosMopProfile
    (.o (:: @ ClosMopProfile.)
@@ -59,7 +59,7 @@
    'invalid-mop-profile))
 
 ;; : (-> ClosMopProfile Symbol Boolean)
-(def (poo-clos-mop-profile-admits? profile-value operation)
+(def (clos-mop-profile-admits? profile-value operation)
   (unless (element? ClosMopProfile profile-value)
     (clos-fail 'invalid-mop-profile))
   (if (memq operation (.ref profile-value 'operations)) #t #f))

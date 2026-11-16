@@ -10,26 +10,26 @@
         (only-in :std/list/list find)
         "types.ss" "objects.ss" "classes.ss" "lifecycle.ss" "dispatch.ss")
 
-(export poo-clos-class-name poo-clos-set-class-name!
-        poo-clos-class-name-generic poo-clos-set-class-name-generic
-        poo-clos-class-generation
-        poo-clos-class-direct-superclasses poo-clos-class-direct-subclasses
-        poo-clos-class-direct-slots poo-clos-class-default-initargs
-        poo-clos-class-documentation poo-clos-class-metaclass
-        poo-clos-instance-slot-names
-        poo-clos-slot-name poo-clos-slot-allocation poo-clos-slot-initargs
-        poo-clos-slot-readers poo-clos-slot-writers
-        poo-clos-slot-defining-classes poo-clos-slot-storage-class
-        poo-clos-specializer-kind poo-clos-specializer-object
-        poo-clos-method-name poo-clos-method-qualifiers
-        poo-clos-method-specializers poo-clos-method-lambda-list
-        poo-clos-method-generic-function poo-clos-find-method
-        poo-clos-function-keywords
-        poo-clos-generic-name poo-clos-generic-methods
-        poo-clos-generic-lambda-list poo-clos-generic-argument-precedence-order
-        poo-clos-generic-method-combination poo-clos-generic-generation
-        poo-clos-generic-documentation
-        poo-clos-generic-function-class poo-clos-generic-method-class)
+(export clos-class-name clos-set-class-name!
+        clos-class-name-generic clos-set-class-name-generic
+        clos-class-generation
+        clos-class-direct-superclasses clos-class-direct-subclasses
+        clos-class-direct-slots clos-class-default-initargs
+        clos-class-documentation clos-class-metaclass
+        clos-instance-slot-names
+        clos-slot-name clos-slot-allocation clos-slot-initargs
+        clos-slot-readers clos-slot-writers
+        clos-slot-defining-classes clos-slot-storage-class
+        clos-specializer-kind clos-specializer-object
+        clos-method-name clos-method-qualifiers
+        clos-method-specializers clos-method-lambda-list
+        clos-method-generic-function clos-find-method
+        clos-function-keywords
+        clos-generic-name clos-generic-methods
+        clos-generic-lambda-list clos-generic-argument-precedence-order
+        clos-generic-method-combination clos-generic-generation
+        clos-generic-documentation
+        clos-generic-function-class clos-generic-method-class)
 
 ;; : (-> SchemeValue ClosClass)
 (def (require-class value)
@@ -42,160 +42,160 @@
   value)
 
 ;; : ClosGenericFunction
-(def poo-clos-class-name-generic
-  (poo-clos-add-method
-   (poo-clos-generic-function 'class-name 1)
-   (poo-clos-method
-    'class-name/default (list (poo-clos-any-specializer))
+(def clos-class-name-generic
+  (clos-add-method
+   (clos-generic-function 'class-name 1)
+   (clos-method
+    'class-name/default (list (clos-any-specializer))
     (lambda (_frame class-value)
       (.ref (require-class class-value) 'identity))
-    lambda-list: (poo-clos-lambda-list 1 0 #f #f '() #f))))
+    lambda-list: (clos-lambda-list 1 0 #f #f '() #f))))
 
 ;; : ClosGenericFunction
-(def poo-clos-set-class-name-generic
-  (poo-clos-add-method
-   (poo-clos-generic-function '(setf class-name) 2)
-   (poo-clos-method
+(def clos-set-class-name-generic
+  (clos-add-method
+   (clos-generic-function '(setf class-name) 2)
+   (clos-method
     'set-class-name/default
-    (list (poo-clos-any-specializer) (poo-clos-any-specializer))
+    (list (clos-any-specializer) (clos-any-specializer))
     (lambda (_frame new-name class-value)
-      (%poo-clos-set-class-name! new-name class-value))
-    lambda-list: (poo-clos-lambda-list 2 0 #f #f '() #f))))
+      (%clos-set-class-name! new-name class-value))
+    lambda-list: (clos-lambda-list 2 0 #f #f '() #f))))
 
 ;; : (-> ClosClass Symbol)
-(def (poo-clos-class-name class-value)
-  (poo-clos-call poo-clos-class-name-generic class-value))
+(def (clos-class-name class-value)
+  (clos-call clos-class-name-generic class-value))
 
 ;; : (-> Symbol ClosClass Symbol)
-(def (poo-clos-set-class-name! new-name class-value)
-  (poo-clos-call poo-clos-set-class-name-generic new-name class-value))
+(def (clos-set-class-name! new-name class-value)
+  (clos-call clos-set-class-name-generic new-name class-value))
 
 ;; : (-> ClosClass Natural)
-(def (poo-clos-class-generation class-value)
+(def (clos-class-generation class-value)
   (.ref (require-class class-value) 'generation))
 
 ;; : (-> ClosClass [ClosClass])
-(def (poo-clos-class-direct-superclasses class-value)
+(def (clos-class-direct-superclasses class-value)
   (list-copy (.ref (require-class class-value) 'direct-superclasses)))
 
 ;; : (-> ClosClass [ClosClass])
-(def (poo-clos-class-direct-subclasses class-value)
+(def (clos-class-direct-subclasses class-value)
   (list-copy (.ref (require-class class-value) 'direct-subclasses)))
 
 ;; : (-> ClosClass [ClosDirectSlotDefinition])
-(def (poo-clos-class-direct-slots class-value)
+(def (clos-class-direct-slots class-value)
   (.ref (require-class class-value) 'direct-slots))
 
 ;; : (-> ClosClass [Pair])
-(def (poo-clos-class-default-initargs class-value)
+(def (clos-class-default-initargs class-value)
   (.ref (require-class class-value) 'default-initargs))
 
-(def (poo-clos-class-documentation class-value)
+(def (clos-class-documentation class-value)
   (.ref (require-class class-value) 'documentation))
 
-(def (poo-clos-class-metaclass class-value)
+(def (clos-class-metaclass class-value)
   (.ref (require-class class-value) 'metaclass))
 
 ;; : (-> ClosInstance [Symbol])
-(def (poo-clos-instance-slot-names instance-value)
+(def (clos-instance-slot-names instance-value)
   (map (lambda (slot) (.ref slot 'identity))
-       (poo-clos-class-effective-slots
-       (poo-clos-class-of instance-value))))
+       (clos-class-effective-slots
+       (clos-class-of instance-value))))
 
 ;; : (-> ClosEffectiveSlotDefinition Symbol)
-(def (poo-clos-slot-name slot-value)
+(def (clos-slot-name slot-value)
   (.ref (require-metaobject ClosEffectiveSlotDefinition slot-value
                             'invalid-effective-slot-definition)
         'identity))
 
 ;; : (-> ClosEffectiveSlotDefinition SlotAllocation)
-(def (poo-clos-slot-allocation slot-value)
+(def (clos-slot-allocation slot-value)
   (.ref (require-metaobject ClosEffectiveSlotDefinition slot-value
                             'invalid-effective-slot-definition)
         'allocation))
 
 ;; : (-> ClosEffectiveSlotDefinition [InitargName])
-(def (poo-clos-slot-initargs slot-value)
+(def (clos-slot-initargs slot-value)
   (list-copy
    (.ref (require-metaobject ClosEffectiveSlotDefinition slot-value
                              'invalid-effective-slot-definition)
          'initargs)))
 
 ;; : (-> ClosEffectiveSlotDefinition [Symbol])
-(def (poo-clos-slot-readers slot-value)
+(def (clos-slot-readers slot-value)
   (list-copy
    (.ref (require-metaobject ClosEffectiveSlotDefinition slot-value
                              'invalid-effective-slot-definition)
          'readers)))
 
 ;; : (-> ClosEffectiveSlotDefinition [Symbol])
-(def (poo-clos-slot-writers slot-value)
+(def (clos-slot-writers slot-value)
   (list-copy
    (.ref (require-metaobject ClosEffectiveSlotDefinition slot-value
                              'invalid-effective-slot-definition)
          'writers)))
 
 ;; : (-> ClosEffectiveSlotDefinition [ClosClass])
-(def (poo-clos-slot-defining-classes slot-value)
+(def (clos-slot-defining-classes slot-value)
   (list-copy
    (.ref (require-metaobject ClosEffectiveSlotDefinition slot-value
                              'invalid-effective-slot-definition)
          'defining-classes)))
 
 ;; : (-> ClosEffectiveSlotDefinition ClosClass)
-(def (poo-clos-slot-storage-class slot-value)
+(def (clos-slot-storage-class slot-value)
   (.ref (require-metaobject ClosEffectiveSlotDefinition slot-value
                             'invalid-effective-slot-definition)
         'storage-class))
 
 ;; : (-> ClosSpecializer Symbol)
-(def (poo-clos-specializer-kind specializer-value)
+(def (clos-specializer-kind specializer-value)
   (.ref (require-metaobject ClosSpecializer specializer-value
                             'invalid-specializer)
         'kind))
 
 ;; : (-> ClosSpecializer SchemeValue)
-(def (poo-clos-specializer-object specializer-value)
+(def (clos-specializer-object specializer-value)
   (.ref (require-metaobject ClosSpecializer specializer-value
                             'invalid-specializer)
         'target))
 
 ;; : (-> ClosMethod Symbol)
-(def (poo-clos-method-name method-value)
+(def (clos-method-name method-value)
   (.ref (require-metaobject ClosMethod method-value 'invalid-method) 'identity))
 
 ;; : (-> ClosMethod [MethodQualifier])
-(def (poo-clos-method-qualifiers method-value)
+(def (clos-method-qualifiers method-value)
   (list-copy (method-qualifier-list
               (.ref (require-metaobject ClosMethod method-value 'invalid-method) 'qualifier))))
 
 ;; : (-> ClosMethod [ClosSpecializer])
-(def (poo-clos-method-specializers method-value)
+(def (clos-method-specializers method-value)
   (list-copy
    (.ref (require-metaobject ClosMethod method-value 'invalid-method)
          'specializers)))
 
 ;; : (-> ClosMethod (Maybe ClosLambdaList))
-(def (poo-clos-method-lambda-list method-value)
+(def (clos-method-lambda-list method-value)
   (.ref (require-metaobject ClosMethod method-value 'invalid-method)
         'lambda-list))
 
 ;; : (-> ClosMethod (Maybe ClosGenericFunction))
-(def (poo-clos-method-generic-function method-value)
+(def (clos-method-generic-function method-value)
   (.ref (require-metaobject ClosMethod method-value 'invalid-method)
         'generic-function))
 
 ;; : (-> ClosMethod (values [InitargName] Boolean))
-(def (poo-clos-function-keywords method-value)
+(def (clos-function-keywords method-value)
   (let (lambda-list-value
-        (poo-clos-method-lambda-list method-value))
+        (clos-method-lambda-list method-value))
     (if lambda-list-value
       (values (list-copy (.ref lambda-list-value 'keys))
               (.ref lambda-list-value 'allow-other-keys?))
       (values '() #f))))
 
 ;; : (-> GenericSource List [ClosSpecializer] Boolean (Maybe ClosMethod))
-(def (poo-clos-find-method generic-source qualifiers specializers
+(def (clos-find-method generic-source qualifiers specializers
                            error?: (error-value #t))
   (def generic (require-clos-generic generic-source))
   (unless (and (list? qualifiers) (andmap symbol? qualifiers))
@@ -219,35 +219,35 @@
   (require-clos-generic generic-source))
 
 ;; : (-> GenericSource Symbol)
-(def (poo-clos-generic-name generic-source)
+(def (clos-generic-name generic-source)
   (.ref (reflection-generic generic-source) 'identity))
 
 ;; : (-> GenericSource [ClosMethod])
-(def (poo-clos-generic-methods generic-source)
+(def (clos-generic-methods generic-source)
   (list-copy (.ref (reflection-generic generic-source) 'methods)))
 
 ;; : (-> GenericSource ClosLambdaList)
-(def (poo-clos-generic-lambda-list generic-source)
+(def (clos-generic-lambda-list generic-source)
   (.ref (reflection-generic generic-source) 'lambda-list))
 
 ;; : (-> GenericSource [Natural])
-(def (poo-clos-generic-argument-precedence-order generic-source)
+(def (clos-generic-argument-precedence-order generic-source)
   (list-copy
    (.ref (reflection-generic generic-source) 'argument-precedence-order)))
 
 ;; : (-> GenericSource ClosMethodCombination)
-(def (poo-clos-generic-method-combination generic-source)
+(def (clos-generic-method-combination generic-source)
   (.ref (reflection-generic generic-source) 'method-combination))
 
 ;; : (-> GenericSource Natural)
-(def (poo-clos-generic-generation generic-source)
+(def (clos-generic-generation generic-source)
   (.ref (reflection-generic generic-source) 'generation))
 
-(def (poo-clos-generic-documentation generic-source)
+(def (clos-generic-documentation generic-source)
   (.ref (reflection-generic generic-source) 'documentation))
 
-(def (poo-clos-generic-function-class generic-source)
+(def (clos-generic-function-class generic-source)
   (.ref (reflection-generic generic-source) 'generic-function-class))
 
-(def (poo-clos-generic-method-class generic-source)
+(def (clos-generic-method-class generic-source)
   (.ref (reflection-generic generic-source) 'method-class))

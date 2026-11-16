@@ -9,25 +9,25 @@
         (only-in :std/list/list foldl)
         "declaration-ir-core.ss")
 
-(export parse-poo-clos-method-combination-declaration-ir
-        parse-poo-clos-long-method-combination-declaration-ir)
+(export parse-clos-method-combination-declaration-ir
+        parse-clos-long-method-combination-declaration-ir)
 
 ;;; Combination options are a closed single-occurrence set.  Operator syntax
 ;;; remains hygienic and is never resolved through a runtime name registry.
-;; parse-poo-clos-method-combination-declaration-ir
+;; parse-clos-method-combination-declaration-ir
 ;;   : (-> Syntax Syntax [Syntax] Syntax ClosMethodCombinationDeclarationIR)
 ;;   | contract: validates a short combination without evaluating its operator.
 ;;   | doc m%
-;;       `parse-poo-clos-method-combination-declaration-ir` returns immutable phase data.
+;;       `parse-clos-method-combination-declaration-ir` returns immutable phase data.
 ;;
 ;;       # Examples
 ;;
 ;;       ```scheme
-;;       (parse-poo-clos-method-combination-declaration-ir name operator options source)
+;;       (parse-clos-method-combination-declaration-ir name operator options source)
 ;;       ;; => ClosMethodCombinationDeclarationIR
 ;;       ```
 ;;     %
-(def (parse-poo-clos-method-combination-declaration-ir
+(def (parse-clos-method-combination-declaration-ir
       name operator options source)
   (clos-identifier name "method combination name must be an identifier")
   (let option-loop ((rest options) (order 'most-specific-first)
@@ -49,7 +49,7 @@
                        (identifier? (car arguments))
                        (memq (syntax->datum (car arguments))
                              '(most-specific-first most-specific-last)))
-            (clos-syntax-error 'poo-clos-invalid-method-combination-option
+            (clos-syntax-error 'clos-invalid-method-combination-option
                                "order expects one unique admitted name" option))
           (option-loop (cdr rest) (syntax->datum (car arguments)) option
                        identity-with-one? identity-source documentation))
@@ -57,20 +57,20 @@
                (clos-literal=? head #'identity-with-one-argument))
           (unless (and (= (length arguments) 1) (not identity-source)
                        (boolean? (syntax->datum (car arguments))))
-            (clos-syntax-error 'poo-clos-invalid-method-combination-option
+            (clos-syntax-error 'clos-invalid-method-combination-option
                                "identity option expects one unique boolean"
                                option))
           (option-loop (cdr rest) order order-source
                        (syntax->datum (car arguments)) option documentation))
          ((and head (clos-literal=? head #'documentation))
           (unless (and (= (length arguments) 1) (not documentation))
-            (clos-syntax-error 'poo-clos-invalid-method-combination-option
+            (clos-syntax-error 'clos-invalid-method-combination-option
                                "documentation expects one unique expression"
                                option))
           (option-loop (cdr rest) order order-source identity-with-one?
                        identity-source (car arguments)))
          (else
-          (clos-syntax-error 'poo-clos-unknown-method-combination-option
+          (clos-syntax-error 'clos-unknown-method-combination-option
                              "unknown short method combination option"
                              option)))))))
 
@@ -95,7 +95,7 @@
       (if (null? rest)
         (begin
           (when (null? matchers)
-            (clos-syntax-error 'poo-clos-missing-method-group-matcher
+            (clos-syntax-error 'clos-missing-method-group-matcher
                                "method group requires a matcher" source))
           (clos-method-group-declaration-ir
            name: name matchers: (reverse matchers) order: order
@@ -109,7 +109,7 @@
                ((clos-literal=? head #'order)
                 (unless (and (= (length arguments) 1) (not order-source))
                   (clos-syntax-error
-                   'poo-clos-invalid-method-group-option
+                   'clos-invalid-method-group-option
                    "group order expects one unique expression" item))
                 (item-loop (cdr rest) matchers #t
                            (car arguments) item
@@ -117,24 +117,24 @@
                ((clos-literal=? head #'required)
                 (unless (and (= (length arguments) 1) (not required-source))
                   (clos-syntax-error
-                   'poo-clos-invalid-method-group-option
+                   'clos-invalid-method-group-option
                    "group required expects one unique expression" item))
                 (item-loop (cdr rest) matchers #t order order-source
                            (car arguments) item description))
                (else
                 (unless (and (= (length arguments) 1) (not description))
                   (clos-syntax-error
-                   'poo-clos-invalid-method-group-option
+                   'clos-invalid-method-group-option
                    "group description expects one unique expression" item))
                 (item-loop (cdr rest) matchers #t order order-source
                            required? required-source (car arguments)))))
             (begin
               (when options-started?
-                (clos-syntax-error 'poo-clos-invalid-method-group-option-order
+                (clos-syntax-error 'clos-invalid-method-group-option-order
                                    "matcher cannot follow a group option" item))
               (unless (or (identifier? item) (syntax->list item)
                           (pair? (syntax-e item)))
-                (clos-syntax-error 'poo-clos-invalid-method-group-matcher
+                (clos-syntax-error 'clos-invalid-method-group-matcher
                                    "matcher must be *, a pattern, or predicate"
                                    item))
               (item-loop (cdr rest) (cons item matchers) #f order order-source
@@ -146,7 +146,7 @@
    (lambda (parameter)
      (unless (eq? (clos-parameter-declaration-ir-kind parameter) 'any)
        (clos-syntax-error
-        'poo-clos-invalid-method-combination-lambda-list
+        'clos-invalid-method-combination-lambda-list
         "required combination parameters cannot be specialized" source)))
    (clos-lambda-declaration-ir-required ir)))
 
@@ -164,7 +164,7 @@
          (remaining (if whole? (cddr items) items)))
     (when (and whole? (not whole))
       (clos-syntax-error
-       'poo-clos-invalid-method-combination-arguments
+       'clos-invalid-method-combination-arguments
        "&whole requires one identifier" source))
     (let (ir
           (parse-clos-lambda-list
@@ -190,11 +190,11 @@
          ((and head (clos-literal=? head #'arguments))
           (when arguments
             (clos-syntax-error
-             'poo-clos-duplicate-method-combination-option
+             'clos-duplicate-method-combination-option
              "arguments clause can appear only once" form))
           (unless (= (length items) 2)
             (clos-syntax-error
-             'poo-clos-invalid-method-combination-arguments
+             'clos-invalid-method-combination-arguments
              "arguments expects one lambda list" form))
           (let-values (((ir whole-name)
                         (parse-combination-arguments-lambda-list (cadr items))))
@@ -204,7 +204,7 @@
           (unless (and (= (length items) 2)
                        (identifier? (cadr items)))
             (clos-syntax-error
-             'poo-clos-invalid-method-combination-generic-function
+             'clos-invalid-method-combination-generic-function
              "generic-function expects one identifier" form))
           (loop (cdr rest) arguments whole (cadr items)
                 declarations documentation))
@@ -220,20 +220,20 @@
 
 ;;; Long declarations have no runtime syntax parser: every lambda list, group,
 ;;; binding clause, and duplicate name is admitted once during expansion.
-;; parse-poo-clos-long-method-combination-declaration-ir
+;; parse-clos-long-method-combination-declaration-ir
 ;;   : (-> Syntax Syntax [Syntax] Syntax ClosLongMethodCombinationDeclarationIR)
 ;;   | contract: validates long-form groups and preserves a hygienic body.
 ;;   | doc m%
-;;       `parse-poo-clos-long-method-combination-declaration-ir` owns group admission.
+;;       `parse-clos-long-method-combination-declaration-ir` owns group admission.
 ;;
 ;;       # Examples
 ;;
 ;;       ```scheme
-;;       (parse-poo-clos-long-method-combination-declaration-ir name groups body source)
+;;       (parse-clos-long-method-combination-declaration-ir name groups body source)
 ;;       ;; => ClosLongMethodCombinationDeclarationIR
 ;;       ```
 ;;     %
-(def (parse-poo-clos-long-method-combination-declaration-ir
+(def (parse-clos-long-method-combination-declaration-ir
       name lambda-list groups body source)
   (clos-identifier name "method combination name must be an identifier")
   (let ((lambda-ir (parse-clos-lambda-list lambda-list #t))
@@ -243,12 +243,12 @@
     (require-ordinary-required-parameters lambda-ir lambda-list)
     (clos-require-unique-identifiers
      (map clos-method-group-declaration-ir-name group-irs)
-     'poo-clos-duplicate-method-group groups)
+     'clos-duplicate-method-group groups)
     (let-values (((arguments whole generic-function declarations documentation
                             executable-body)
                   (parse-long-method-combination-preamble body source)))
       (when (null? executable-body)
-        (clos-syntax-error 'poo-clos-missing-method-combination-body
+        (clos-syntax-error 'clos-missing-method-combination-body
                            "long method combination requires an execution body"
                            source))
       (clos-long-method-combination-declaration-ir

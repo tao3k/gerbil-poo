@@ -11,20 +11,20 @@
 (import :clan/poo/object
         (only-in :std/list/list find)
         "types.ss" "objects.ss"
-        (only-in "funcs.ss" poo-clos-normalize-qualifier))
+        (only-in "funcs.ss" clos-normalize-qualifier))
 
-(export poo-clos-methods-with-qualifier
-        poo-clos-partition-long-methods
-        poo-clos-execute-short-operator)
+(export clos-methods-with-qualifier
+        clos-partition-long-methods
+        clos-execute-short-operator)
 
 ;;; Qualifier partitioning happens after one shared specificity sort, so every
 ;;; group observes the same class/eql precedence decision.
 ;; : (-> [(Pair ClosMethod [Natural])] MethodQualifier [ClosMethod])
-(def (poo-clos-methods-with-qualifier ranked qualifier)
-  (def expected (poo-clos-normalize-qualifier qualifier))
+(def (clos-methods-with-qualifier ranked qualifier)
+  (def expected (clos-normalize-qualifier qualifier))
   (map car
        (filter (lambda (entry)
-                 (equal? (poo-clos-normalize-qualifier (.ref (car entry) 'qualifier))
+                 (equal? (clos-normalize-qualifier (.ref (car entry) 'qualifier))
                          expected))
                ranked)))
 
@@ -78,7 +78,7 @@
 ;;; effective executor is published.
 ;; : (-> ClosGenericFunction [(Pair ClosMethod [Natural])]
 ;;        [(Pair Symbol [ClosMethod])])
-(def (poo-clos-partition-long-methods generic ranked)
+(def (clos-partition-long-methods generic ranked)
   (let* ((combination (.ref generic 'method-combination))
          (groups (.ref combination 'groups))
          (initial (map (lambda (group) (cons group '())) groups))
@@ -157,7 +157,7 @@
 
 ;; : (-> (U Symbol Procedure) [ClosMethod]
 ;;        (-> ClosMethod SchemeValue) SchemeValue)
-(def (poo-clos-execute-short-operator operator methods invoke-one)
+(def (clos-execute-short-operator operator methods invoke-one)
   (let (driver (and (symbol? operator) (short-control-driver operator)))
     (if driver
       (driver methods invoke-one)

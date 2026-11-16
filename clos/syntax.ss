@@ -41,13 +41,13 @@
            (documentation (or documentation #'#f)))
         (if initform
           (with-syntax ((initform initform))
-            #'(poo-clos-direct-slot-definition
+            #'(clos-direct-slot-definition
                'name allocation: 'allocation
                initargs: (list 'initarg ...) initform: (lambda () initform)
                readers: (list 'reader ...) writers: (list 'writer ...)
                type-predicate: type-predicate
                documentation: documentation))
-          #'(poo-clos-direct-slot-definition
+          #'(clos-direct-slot-definition
              'name allocation: 'allocation
              initargs: (list 'initarg ...)
              readers: (list 'reader ...) writers: (list 'writer ...)
@@ -78,19 +78,19 @@
                        (reader-name reader-name))
                     #'(begin
                         (def reader-binding
-                          (or (poo-clos-find-generic-function
+                          (or (clos-find-generic-function
                                'reader-name error?: #f)
-                              (poo-clos-generic-binding
+                              (clos-generic-binding
                                'reader-name
-                               (poo-clos-generic-function 'reader-name 1))))
+                               (clos-generic-function 'reader-name 1))))
                         (def (reader object)
-                          (poo-clos-call reader-binding object))
+                          (clos-call reader-binding object))
                         (def writer-binding
-                          (or (poo-clos-find-generic-function
+                          (or (clos-find-generic-function
                                '(setf reader-name) error?: #f)
-                              (poo-clos-generic-binding
+                              (clos-generic-binding
                                '(setf reader-name)
-                               (poo-clos-generic-function
+                               (clos-generic-function
                                 '(setf reader-name) 2))))))))))
        (clos-slot-declaration-ir-readers slot))))
 
@@ -106,9 +106,9 @@
                    ((binding (clos-generic-binding-identifier reader))
                     (reader reader) (class-name class-name)
                     (slot-name slot-name))
-                 #'(poo-clos-generic-binding-add-method!
+                 #'(clos-generic-binding-add-method!
                     binding
-                    (poo-clos-slot-reader-method
+                    (clos-slot-reader-method
                      class-name 'slot-name 'reader))))
              readers))
            (writer-effects
@@ -118,16 +118,16 @@
                    ((binding (clos-generic-binding-identifier writer))
                     (writer writer) (class-name class-name)
                     (slot-name slot-name))
-                 #'(poo-clos-generic-binding-add-method!
+                 #'(clos-generic-binding-add-method!
                     binding
-                    (poo-clos-slot-writer-method
+                    (clos-slot-writer-method
                      class-name 'slot-name 'writer))))
              writers)))
       (with-syntax (((effect ...) (append reader-effects writer-effects)))
         #'(begin effect ...))))
 
   ;; : (-> ClosClassDeclarationIR Syntax Syntax)
-  (def (lower-poo-clos-class ir source)
+  (def (lower-clos-class ir source)
     (let ((name (clos-class-declaration-ir-name ir))
           (supers (clos-class-declaration-ir-supers ir))
           (slots (clos-class-declaration-ir-slots ir))
@@ -152,7 +152,7 @@
         (syntax/loc source
           (begin
             (def name
-              (poo-clos-class
+              (clos-class
                'name
                direct-superclasses:
                (if (null? (list super ...)) #f (list super ...))
@@ -170,7 +170,7 @@
   ;;; The short-form declaration emits one POO descriptor binding; invocation
   ;;; remains in the shared dispatch factor and never in macro-generated DSL data.
   ;; : (-> ClosMethodCombinationDeclarationIR Syntax Syntax)
-  (def (lower-poo-clos-method-combination ir source)
+  (def (lower-clos-method-combination ir source)
     (let ((name (clos-method-combination-declaration-ir-name ir))
           (operator (clos-method-combination-declaration-ir-operator ir))
           (order (clos-method-combination-declaration-ir-order ir))
@@ -183,7 +183,7 @@
                     (documentation (or documentation #'#f)))
         (syntax/loc source
           (def name
-            (poo-clos-short-method-combination
+            (clos-short-method-combination
              'name operator order: 'order
              identity-with-one-argument?: identity-with-one?
              documentation: documentation))))))
@@ -210,7 +210,7 @@
            ((matcher ...) (map lower-method-group-matcher matchers))
            (order order) (required? required?)
            (description (or description #'#f)))
-        #'(poo-clos-method-group
+        #'(clos-method-group
            'name (list matcher ...) order: order required?: required?
            description: description))))
 
@@ -241,7 +241,7 @@
               (with-syntax ((variable rest-variable) (arguments arguments)
                             (tail-start tail-start))
                 (list #'(variable
-                         (poo-clos-rest-arguments arguments tail-start))))
+                         (clos-rest-arguments arguments tail-start))))
               '()))
            (key-bindings
             (apply append
@@ -267,13 +267,13 @@
                     (generic generic) (args args))
         (let (value-binding
               #'(variable
-                 (poo-clos-combination-optional-argument
+                 (clos-combination-optional-argument
                   generic args index (lambda () initform))))
           (if supplied
             (with-syntax ((supplied supplied))
               (list
                #'(supplied
-                  (poo-clos-combination-optional-supplied?
+                  (clos-combination-optional-supplied?
                    generic args index))
                value-binding))
             (list value-binding))))))
@@ -289,14 +289,14 @@
         (let (value-binding
               #'(variable
                  (let (entry
-                       (poo-clos-combination-key-argument generic args 'name))
+                       (clos-combination-key-argument generic args 'name))
                    (if (car entry) (cdr entry) initform))))
           (if supplied
             (with-syntax ((supplied supplied))
               (list
                value-binding
                #'(supplied
-                  (car (poo-clos-combination-key-argument
+                  (car (clos-combination-key-argument
                         generic args 'name)))))
             (list value-binding))))))
 
@@ -320,7 +320,7 @@
                          ((variable (clos-parameter-declaration-ir-variable parameter))
                           (generic generic) (args args) (index index))
                        #'(variable
-                          (poo-clos-combination-required-argument
+                          (clos-combination-required-argument
                            generic args index))))
                    required (iota (length required))))
              (optional-bindings
@@ -334,7 +334,7 @@
                 (with-syntax ((variable rest-variable) (generic generic)
                               (args args))
                   (list #'(variable
-                           (poo-clos-combination-rest-arguments
+                           (clos-combination-rest-arguments
                             generic args))))
                 '()))
              (key-bindings
@@ -357,7 +357,7 @@
   ;;; configuration and invocation lambda lists, group variables, and lexical
   ;;; CALL-METHOD/MAKE-METHOD operators over one checked effective method.
   ;; : (-> ClosLongMethodCombinationDeclarationIR Syntax Syntax)
-  (def (lower-poo-clos-long-method-combination ir source)
+  (def (lower-clos-long-method-combination ir source)
     (let* ((name (clos-long-method-combination-declaration-ir-name ir))
            (lambda-ir
             (clos-long-method-combination-declaration-ir-lambda-list ir))
@@ -375,7 +375,7 @@
             (datum->syntax name
                            (string->symbol
                             (string-append (symbol->string (syntax->datum name))
-                                           "$poo-clos-configurer"))))
+                                           "$clos-configurer"))))
            (options (datum->syntax name (gensym 'combination-options)))
            (generic-value (datum->syntax name (gensym 'generic-function)))
            (arguments (datum->syntax name (gensym 'arguments)))
@@ -422,12 +422,12 @@
           (begin
             (def (configurer . options)
               (unless
-                  (poo-clos-method-combination-options-valid?
+                  (clos-method-combination-options-valid?
                    options required-count optional-count rest? key?
                    (list 'key-name ...) allow-other?)
                 (clos-fail 'invalid-method-combination-options method: 'name))
               (let* ((configuration-variable configuration-expression) ...)
-                (poo-clos-long-method-combination
+                (clos-long-method-combination
                  'name (list group-expression ...)
                  (lambda (generic-value arguments grouped)
                    (lambda (effective-method)
@@ -438,7 +438,7 @@
                              (lambda (method . next-method-lists)
                                (unless (<= (length next-method-lists) 1)
                                  (clos-fail 'invalid-call-method))
-                               (poo-clos-call-method
+                               (clos-call-method
                                 effective-method method
                                 (if (null? next-method-lists)
                                   '()
@@ -447,7 +447,7 @@
                              ((make-method
                                (syntax-rules ()
                                  ((_ form)
-                                  (poo-clos-make-method
+                                  (clos-make-method
                                    (lambda () form))))))
                            body ...)))))
                  configurer: configurer configuration: options
@@ -459,39 +459,39 @@
 ;;; place expansion.  No value is snapshotted and the instance form is still
 ;;; evaluated exactly once by the public wrapper.
 ;; | SchemeValue = SchemeValue
-;; %poo-clos-with-slots
+;; %clos-with-slots
 ;;   : (-> (SlotBinding ...) ClosInstance Body ... SchemeValue)
 ;;   | contract: recursively lowers hygienic slot aliases to live POO slot reads.
 ;;   | doc m%
-;;       =%poo-clos-with-slots= is the private expansion worker for
+;;       =%clos-with-slots= is the private expansion worker for
 ;;       =.with-slots=; an empty binding list evaluates the body directly.
 ;;
 ;;       # Examples
 ;;       ```scheme
-;;       (%poo-clos-with-slots () point (poo-clos-slot-value point 'x))
+;;       (%clos-with-slots () point (clos-slot-value point 'x))
 ;;       ;; => slot-value
 ;;       ```
 ;;     %
-(defrules %poo-clos-with-slots ()
+(defrules %clos-with-slots ()
   ((_ () object body ...) (begin body ...))
   ((_ ((variable slot-name) entry ...) object body ...)
    (let-syntax
        ((variable
          (identifier-rules (set!)
            ((set! id new-value)
-            (poo-clos-set-slot-value! object 'slot-name new-value))
+            (clos-set-slot-value! object 'slot-name new-value))
            (id (identifier? #'id)
-               (poo-clos-slot-value object 'slot-name)))))
-     (%poo-clos-with-slots (entry ...) object body ...)))
+               (clos-slot-value object 'slot-name)))))
+     (%clos-with-slots (entry ...) object body ...)))
   ((_ (slot-name entry ...) object body ...)
    (let-syntax
        ((slot-name
          (identifier-rules (set!)
            ((set! id new-value)
-            (poo-clos-set-slot-value! object 'slot-name new-value))
+            (clos-set-slot-value! object 'slot-name new-value))
            (id (identifier? #'id)
-               (poo-clos-slot-value object 'slot-name)))))
-     (%poo-clos-with-slots (entry ...) object body ...))))
+               (clos-slot-value object 'slot-name)))))
+     (%clos-with-slots (entry ...) object body ...))))
 
 ;; | SchemeValue = SchemeValue
 ;; .with-slots
@@ -510,35 +510,35 @@
 (defrules .with-slots ()
   ((_ entries instance body ...)
    (let (object instance)
-     (%poo-clos-with-slots entries object body ...))))
+     (%clos-with-slots entries object body ...))))
 
 ;;; Boundary: accessor aliases remain ordinary generic calls at every use.
 ;;; Keeping recursion entirely in hygienic syntax prevents this helper from
 ;;; becoming an alternate accessor cache or dispatch path.
 ;; | SchemeValue = SchemeValue
-;; %poo-clos-with-accessors
+;; %clos-with-accessors
 ;;   : (-> (AccessorBinding ...) ClosInstance Body ... SchemeValue)
 ;;   | contract: recursively lowers hygienic aliases to live generic dispatch.
 ;;   | doc m%
-;;       =%poo-clos-with-accessors= is the private expansion worker for
+;;       =%clos-with-accessors= is the private expansion worker for
 ;;       =.with-accessors= and preserves the ordinary generic-function owner.
 ;;
 ;;       # Examples
 ;;       ```scheme
-;;       (%poo-clos-with-accessors () point (point-x point))
+;;       (%clos-with-accessors () point (point-x point))
 ;;       ;; => accessor-value
 ;;       ```
 ;;     %
-(defrules %poo-clos-with-accessors ()
+(defrules %clos-with-accessors ()
   ((_ () object body ...) (begin body ...))
   ((_ ((variable accessor) entry ...) object body ...)
    (let-syntax
        ((variable
          (identifier-rules (set!)
            ((set! id new-value)
-            (poo-clos-setf 'accessor new-value object))
+            (clos-setf 'accessor new-value object))
            (id (identifier? #'id) (accessor object)))))
-     (%poo-clos-with-accessors (entry ...) object body ...))))
+     (%clos-with-accessors (entry ...) object body ...))))
 
 ;; | SchemeValue = SchemeValue
 ;; .with-accessors
@@ -557,7 +557,7 @@
 (defrules .with-accessors ()
   ((_ entries instance body ...)
    (let (object instance)
-     (%poo-clos-with-accessors entries object body ...))))
+     (%clos-with-accessors entries object body ...))))
 
 ;; | ClosClass = POOObject
 ;; .defclass
@@ -576,8 +576,8 @@
 (defsyntax (.defclass stx)
   (syntax-case stx ()
     ((_ name supers slots option ...)
-     (lower-poo-clos-class
-      (parse-poo-clos-class-declaration-ir
+     (lower-clos-class
+      (parse-clos-class-declaration-ir
        #'name #'supers #'slots (syntax->list #'(option ...)) stx)
       stx))))
 
@@ -599,20 +599,20 @@
 (defsyntax (.define-method-combination stx)
   (syntax-case stx (short long)
     ((_ name (short operator) option ...)
-     (lower-poo-clos-method-combination
-      (parse-poo-clos-method-combination-declaration-ir
+     (lower-clos-method-combination
+      (parse-clos-method-combination-declaration-ir
        #'name #'operator (syntax->list #'(option ...)) stx)
       stx))
     ((_ name (long) groups body ...)
-     (lower-poo-clos-long-method-combination
-      (parse-poo-clos-long-method-combination-declaration-ir
+     (lower-clos-long-method-combination
+      (parse-clos-long-method-combination-declaration-ir
        #'name #'() #'groups (syntax->list #'(body ...)) stx)
       stx))
     ((_ name (long lambda-list) groups body ...)
-     (lower-poo-clos-long-method-combination
-      (parse-poo-clos-long-method-combination-declaration-ir
+     (lower-clos-long-method-combination
+      (parse-clos-long-method-combination-declaration-ir
        #'name #'lambda-list #'groups (syntax->list #'(body ...)) stx)
       stx))
     (_
      (raise-syntax-error
-      #f "poo-clos-invalid-method-combination-declaration" stx))))
+      #f "clos-invalid-method-combination-declaration" stx))))

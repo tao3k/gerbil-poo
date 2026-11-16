@@ -9,11 +9,11 @@
         "class-declaration-ir.ss"
         "method-combination-declaration-ir.ss")
 
-(export parse-poo-clos-class-declaration-ir
-        parse-poo-clos-generic-declaration-ir
-        parse-poo-clos-method-declaration-ir
-        parse-poo-clos-method-combination-declaration-ir
-        parse-poo-clos-long-method-combination-declaration-ir
+(export parse-clos-class-declaration-ir
+        parse-clos-generic-declaration-ir
+        parse-clos-method-declaration-ir
+        parse-clos-method-combination-declaration-ir
+        parse-clos-long-method-combination-declaration-ir
         clos-class-declaration-ir-name clos-class-declaration-ir-supers
         clos-class-declaration-ir-slots clos-class-declaration-ir-default-initargs
         clos-class-declaration-ir-slot-missing

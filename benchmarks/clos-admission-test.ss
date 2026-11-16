@@ -3,7 +3,7 @@
 
 (import :std/iter :std/test :clan/poo/mop
         (only-in :clan/poo/object .ref)
-        (only-in :clan/poo/clos/lambda-list poo-clos-key-argument)
+        (only-in :clan/poo/clos/lambda-list clos-key-argument)
         (only-in :clan/poo/benchmarks/closure-measure measure median qualified-metrics))
 (export clos-admission-test)
 
@@ -16,17 +16,17 @@
 
 ;; Use the former two lookups with the same dispatch and lambda-list shape.
 (def keyword-reference
-  (poo-clos-generic-function 'keyword-call 1 key?: #t keys: '(color:)))
-(poo-clos-add-method keyword-reference
-  (poo-clos-method
-   'keyword-call (list (poo-clos-any-specializer))
+  (clos-generic-function 'keyword-call 1 key?: #t keys: '(color:)))
+(clos-add-method keyword-reference
+  (clos-method
+   'keyword-call (list (clos-any-specializer))
    (lambda (_frame . arguments)
      (let* ((object (list-ref arguments 0))
-            (color (let (entry (poo-clos-key-argument arguments 1 'color:))
+            (color (let (entry (clos-key-argument arguments 1 'color:))
                      (if (car entry) (cdr entry) object)))
-            (color? (car (poo-clos-key-argument arguments 1 'color:))))
+            (color? (car (clos-key-argument arguments 1 'color:))))
        (cons color? color)))
-   lambda-list: (poo-clos-lambda-list 1 0 #f #t '(color:) #f)))
+   lambda-list: (clos-lambda-list 1 0 #f #t '(color:) #f)))
 
 (def (report label rows)
   (displayln
@@ -61,15 +61,15 @@
 
 (def bundle-size 8)
 (def bundles-per-sample 32)
-(def bundle-protocol (poo-clos-generic-protocol 'benchmark-bundle))
+(def bundle-protocol (clos-generic-protocol 'benchmark-bundle))
 
 (def (bundle-fixture)
-  (def generic (poo-clos-generic-function 'bundle 1 protocol: bundle-protocol))
+  (def generic (clos-generic-function 'bundle 1 protocol: bundle-protocol))
   (def methods
     (for/collect (i (in-range bundle-size))
-      (poo-clos-method 'member (list (poo-clos-eql-specializer i))
+      (clos-method 'member (list (clos-eql-specializer i))
                        (lambda (_frame value) value))))
-  (cons generic (poo-clos-method-bundle 'bundle bundle-protocol methods)))
+  (cons generic (clos-method-bundle 'bundle bundle-protocol methods)))
 
 (def (measure-bundles side call?)
   (def fixtures (for/collect (_ (in-range bundles-per-sample)) (bundle-fixture)))
@@ -77,11 +77,11 @@
     (for (fixture fixtures)
       (let ((generic (car fixture)) (bundle (cdr fixture)))
         (if (eq? side 'production)
-          (poo-clos-compose-method-bundle generic bundle)
-          (for-each (lambda (method) (poo-clos-add-method generic method))
+          (clos-compose-method-bundle generic bundle)
+          (for-each (lambda (method) (clos-add-method generic method))
                     (.ref bundle 'methods)))
         (when call?
-          (unless (eqv? (poo-clos-call generic 0) 0)
+          (unless (eqv? (clos-call generic 0) 0)
             (error "first bundle dispatch returned the wrong result"))))))
   (defvalues (_ row) (measure install 1 #t))
   (for (fixture fixtures)
@@ -103,7 +103,7 @@
         (paired (list 'keyword calls-per-sample arguments)
                 (lambda (side)
                   (def generic (keyword-generic side))
-                  (measure-call (lambda () (apply poo-clos-call generic arguments))
+                  (measure-call (lambda () (apply clos-call generic arguments))
                                 expected)))
         (paired (list 'keyword-body body-calls-per-sample arguments)
                 (lambda (side)

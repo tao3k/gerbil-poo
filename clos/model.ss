@@ -7,15 +7,15 @@
 ;;; These are pure model values, not mutable CLOS lifecycle instances.
 (import :clan/poo/object
         (only-in :std/list/list every)
-        (only-in :clan/poo/clos/types clos-instance?)
-        (only-in :clan/poo/clos/classes poo-clos-class-effective-slots))
-(export poo-clos-model-prototype poo-clos-model-validation-failure
-        poo-clos-model? poo-clos-check-model)
+        (only-in :clan/poo/clos/types prototype-instance?)
+        (only-in :clan/poo/clos/classes clos-class-effective-slots))
+(export clos-model-prototype clos-model-validation-failure
+        clos-model? clos-check-model)
 
-(def (poo-clos-model-prototype class-value)
+(def (clos-model-prototype class-value)
   (.ref class-value 'instance-prototype))
 
-(def (poo-clos-model-diagnostic-value value)
+(def (clos-model-diagnostic-value value)
   (cond
    ((or (symbol? value) (keyword? value) (string? value)
         (number? value) (boolean? value) (char? value)) value)
@@ -26,13 +26,13 @@
    (else 'opaque-value)))
 
 ;;; Return the first bounded diagnostic without forcing unrelated lazy slots.
-(def (poo-clos-model-validation-failure class-value candidate)
+(def (clos-model-validation-failure class-value candidate)
   (cond
    ((not (object? candidate)) '(candidate-not-poo-object))
-   ((not (clos-instance? (poo-clos-model-prototype class-value) candidate))
+   ((not (prototype-instance? (clos-model-prototype class-value) candidate))
     '(prototype-ancestry-mismatch))
    (else
-    (let loop ((slots (poo-clos-class-effective-slots class-value)))
+    (let loop ((slots (clos-class-effective-slots class-value)))
       (if (null? slots)
         #f
         (let* ((slot (car slots))
@@ -47,15 +47,15 @@
                          (.ref slot 'type-predicates))
                 #f
                 (list 'type-predicate-failed name
-                      (poo-clos-model-diagnostic-value value))))
+                      (clos-model-diagnostic-value value))))
             => values)
            (else (loop (cdr slots))))))))))
 
-(def (poo-clos-model? class-value candidate)
-  (not (poo-clos-model-validation-failure class-value candidate)))
+(def (clos-model? class-value candidate)
+  (not (clos-model-validation-failure class-value candidate)))
 
-(def (poo-clos-check-model class-value candidate)
-  (let (failure (poo-clos-model-validation-failure class-value candidate))
+(def (clos-check-model class-value candidate)
+  (let (failure (clos-model-validation-failure class-value candidate))
     (when failure
       (error "invalid POO model" (.ref class-value 'identity) failure))
     candidate))

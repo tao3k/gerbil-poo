@@ -12,18 +12,18 @@
         (only-in :std/hash/misc hash-remove!)
         "types.ss" "objects.ss" "method-combination.ss"
         "funcs.ss"
-        (only-in "lambda-list.ss" poo-clos-rest-arguments)
+        (only-in "lambda-list.ss" clos-rest-arguments)
         (only-in :clan/poo/read-projection owned-read-open! owned-read-method! owned-read-hook-owner!))
 
-(export poo-clos-compute-applicable-methods poo-clos-call
-        poo-clos-compute-effective-method
-        poo-clos-no-applicable-method poo-clos-no-next-method
-        poo-clos-no-applicable-method-generic
-        poo-clos-no-next-method-generic
-        poo-clos-effective-method-group poo-clos-call-method
-        poo-clos-make-method
-        poo-clos-call-next-method poo-clos-next-method?
-        poo-clos-funcall poo-clos-setf)
+(export clos-compute-applicable-methods clos-call
+        clos-compute-effective-method
+        clos-no-applicable-method clos-no-next-method
+        clos-no-applicable-method-generic
+        clos-no-next-method-generic
+        clos-effective-method-group clos-call-method
+        clos-make-method
+        clos-call-next-method clos-next-method?
+        clos-funcall clos-setf)
 
 (extern namespace: clan/poo/clos/objects
         %published-method-positions %method-position method-positions-size %frameless-method-body)
@@ -55,15 +55,15 @@
 ;; : (-> SchemeValue Boolean)
 (def (clos-instance-state-bearing? value)
   (and (object? value)
-       (.slot? value '%poo-clos-state)
-       (element? ClosInstanceState (.ref value '%poo-clos-state))))
+       (.slot? value '%clos-state)
+       (element? ClosInstanceState (.ref value '%clos-state))))
 
 ;;; Logical class precedence follows the identity-preserved class generation;
 ;;; POO prototypes remain the sole source of its C4 order.
 ;; : (-> SchemeValue (Maybe ClosClass))
 (def (argument-clos-class argument)
   (and (clos-instance-state-bearing? argument)
-       (.ref (.ref argument '%poo-clos-state) 'class)))
+       (.ref (.ref argument '%clos-state) 'class)))
 
 ;; : (-> SchemeValue SchemeValue (Maybe Natural))
 (def (class-target-distance target argument)
@@ -71,7 +71,7 @@
        (let* ((argument-class (argument-clos-class argument))
               (index
                (and argument-class
-                    (poo-clos-class-precedence-position
+                    (clos-class-precedence-position
                      argument-class target))))
          (and index (+ index 1)))))
 
@@ -80,7 +80,7 @@
   (+ 2 (if (object? argument)
          (let (argument-class (argument-clos-class argument))
            (length (if argument-class
-                     (poo-clos-class-precedence-list argument-class)
+                     (clos-class-precedence-list argument-class)
                      (or (object-%precedence-list argument)
                          (compute-precedence-list! argument)))))
          0)))
@@ -180,8 +180,8 @@
                     method-lists))
       (let* ((start (+ (.ref lambda-list 'required)
                        (.ref lambda-list 'optional)))
-             (tail (poo-clos-rest-arguments arguments start)))
-        (unless (poo-clos-initarg-list? tail)
+             (tail (clos-rest-arguments arguments start)))
+        (unless (clos-initarg-list? tail)
           (clos-fail 'malformed-keyword-arguments
                      generic: (.ref generic 'identity)))
         (let* ((valid-keys
@@ -192,14 +192,14 @@
                        method-lists))))
                (allow-other?
                 (or (.ref lambda-list 'allow-other-keys?)
-                    (poo-clos-allow-other-keys? tail)
+                    (clos-allow-other-keys? tail)
                     (find (lambda (method-list)
                             (.ref method-list 'allow-other-keys?))
                           method-lists)))
-               (valid-key-index (poo-clos-identity-index valid-keys))
+               (valid-key-index (clos-identity-index valid-keys))
                (invalid-key
-                (poo-clos-first-invalid-initarg
-                 tail valid-key-index poo-clos-allow-other-keys-name?)))
+                (clos-first-invalid-initarg
+                 tail valid-key-index clos-allow-other-keys-name?)))
           (when (and invalid-key (not allow-other?))
             (clos-fail 'invalid-keyword-argument
                        generic: (.ref generic 'identity))))))))
@@ -210,7 +210,7 @@
   (def count (length ranked))
   (def positions (and (>= count 4) (%published-method-positions generic)))
   (def (hash-lookup)
-    (let (index (poo-clos-leftmost-index-by car ranked))
+    (let (index (clos-leftmost-index-by car ranked))
       (lambda (method) (hash-get index method))))
   (cond
    ((< count 4) find-ranked)
@@ -271,23 +271,23 @@
       ((standard)
        (%prepare-effective-method
         generic arguments
-        (poo-clos-methods-with-qualifier ranked 'around)
-        (poo-clos-methods-with-qualifier ranked 'before)
-        (poo-clos-methods-with-qualifier ranked 'primary)
-        (poo-clos-methods-with-qualifier ranked 'after)))
+        (clos-methods-with-qualifier ranked 'around)
+        (clos-methods-with-qualifier ranked 'before)
+        (clos-methods-with-qualifier ranked 'primary)
+        (clos-methods-with-qualifier ranked 'after)))
       ((short)
        (owned-read-open!)
        (%prepare-effective-method
         generic arguments
-        (poo-clos-methods-with-qualifier ranked 'around)
+        (clos-methods-with-qualifier ranked 'around)
         '()
-        (poo-clos-methods-with-qualifier ranked
-          (poo-clos-short-qualifier (.ref combination 'identity)))
+        (clos-methods-with-qualifier ranked
+          (clos-short-qualifier (.ref combination 'identity)))
         '()))
       ((long)
        (owned-read-open!)
        (let ((builder (.ref combination 'effective-builder))
-             (groups (poo-clos-partition-long-methods generic ranked)))
+             (groups (clos-partition-long-methods generic ranked)))
          (unless builder
            (clos-fail 'missing-effective-method-builder
                       generic: (.ref generic 'identity)))
@@ -394,7 +394,7 @@
 ;;; Public reflection returns the shared specificity order before qualifier
 ;;; grouping; qualifiers do not create a second precedence system.
 ;; : (-> ClosGenericFunction SchemeValue... [ClosMethod])
-(def (poo-clos-compute-applicable-methods generic-source . arguments)
+(def (clos-compute-applicable-methods generic-source . arguments)
   (let (generic-value (require-clos-generic generic-source))
     (arguments-valid! generic-value arguments)
     (map car (protocol-ranked-methods generic-value arguments))))
@@ -409,10 +409,10 @@
       (if (= index position)
         (case (.ref specializer 'kind)
           ((class)
-           (let (rank (poo-clos-class-precedence-position
+           (let (rank (clos-class-precedence-position
                        class-value (.ref specializer 'target)))
              (and rank (+ rank 1))))
-          ((any) (+ 2 (length (poo-clos-class-precedence-list class-value))))
+          ((any) (+ 2 (length (clos-class-precedence-list class-value))))
           ((prototype)
            (if instance
              (specializer-distance specializer instance)
@@ -431,45 +431,45 @@
      (%ref-owned-list generic 'methods))))
 
 ;; : (-> ClosGenericFunction SchemeValue... ClosEffectiveMethod)
-(def (poo-clos-compute-effective-method generic-source . arguments)
+(def (clos-compute-effective-method generic-source . arguments)
   (let (generic-value (require-clos-generic generic-source))
     (compute-effective-method generic-value arguments)))
 
 ;;; An empty applicable set invokes the terminal generic with the original call.
 ;; : (-> ClosGenericFunction [SchemeValue] SchemeValue)
-(def (poo-clos-no-applicable-method generic arguments)
+(def (clos-no-applicable-method generic arguments)
   (owned-read-open!)
-  (apply poo-clos-call poo-clos-no-applicable-method-generic
+  (apply clos-call clos-no-applicable-method-generic
          (cons generic arguments)))
 
 ;; : (-> ClosGenericFunction ClosMethod [SchemeValue] SchemeValue)
-(def (poo-clos-no-next-method generic method arguments)
+(def (clos-no-next-method generic method arguments)
   (owned-read-open!)
-  (apply poo-clos-call poo-clos-no-next-method-generic
+  (apply clos-call clos-no-next-method-generic
          (cons generic (cons method arguments))))
 
 ;; : ClosGenericFunction
-(def poo-clos-no-applicable-method-generic
-  (poo-clos-add-method
-   (poo-clos-generic-function 'no-applicable-method 1 rest?: #t)
-   (poo-clos-method
+(def clos-no-applicable-method-generic
+  (clos-add-method
+   (clos-generic-function 'no-applicable-method 1 rest?: #t)
+   (clos-method
     'no-applicable-method/default
-    (list (poo-clos-any-specializer))
+    (list (clos-any-specializer))
     (lambda (_frame generic . arguments)
       (let (hook (.ref (.ref generic 'protocol) 'no-applicable-method))
         (if hook
           (hook generic arguments)
           (clos-fail 'no-applicable-method
                      generic: (.ref generic 'identity)))))
-    lambda-list: (poo-clos-lambda-list 1 0 #t #f '() #f))))
+    lambda-list: (clos-lambda-list 1 0 #t #f '() #f))))
 
 ;; : ClosGenericFunction
-(def poo-clos-no-next-method-generic
-  (poo-clos-add-method
-   (poo-clos-generic-function 'no-next-method 2 rest?: #t)
-   (poo-clos-method
+(def clos-no-next-method-generic
+  (clos-add-method
+   (clos-generic-function 'no-next-method 2 rest?: #t)
+   (clos-method
     'no-next-method/default
-    (list (poo-clos-any-specializer) (poo-clos-any-specializer))
+    (list (clos-any-specializer) (clos-any-specializer))
     (lambda (_frame generic method . arguments)
       (let (hook (.ref (.ref generic 'protocol) 'no-next-method))
         (if hook
@@ -478,7 +478,7 @@
                      generic: (.ref generic 'identity)
                      qualifier: (.ref method 'qualifier)
                      method: (.ref method 'identity)))))
-    lambda-list: (poo-clos-lambda-list 2 0 #t #f '() #f))))
+    lambda-list: (clos-lambda-list 2 0 #t #f '() #f))))
 
 ;; Methods with agreeing specializers can trade places within their run.
 ;; Every method identity and every other ordering decision must agree.
@@ -532,7 +532,7 @@
 ;;; Auxiliary frames never report a next method even if another auxiliary
 ;;; method follows in specificity order.
 ;; : (-> ClosInvocationFrame Boolean)
-(def (poo-clos-next-method? frame)
+(def (clos-next-method? frame)
   (require-frame frame)
   (and (if (memq (.ref frame 'qualifier) '(around primary long)) #t #f)
        (if (.ref frame 'next) #t #f)))
@@ -540,7 +540,7 @@
 ;;; Replacement arguments must preserve the complete ordered applicable method
 ;;; set before the captured continuation can be invoked.
 ;; : (-> ClosInvocationFrame SchemeValue... SchemeValue)
-(def (poo-clos-call-next-method frame . replacement)
+(def (clos-call-next-method frame . replacement)
   (if (null? replacement)
     (call-next-method frame replacement)
     (begin
@@ -568,12 +568,12 @@
           (frame-fail frame 'changed-applicable-methods))))
     (if (.ref frame 'next)
       ((.ref frame 'next) arguments)
-      (poo-clos-no-next-method generic (.ref frame 'method) arguments))))
+      (clos-no-next-method generic (.ref frame 'method) arguments))))
 
 ;;; Long-form bodies receive named immutable method lists through the effective method,
 ;;; never through a mutable global method-group registry.
 ;; : (-> ClosEffectiveMethod Symbol [ClosMethod])
-(def (poo-clos-effective-method-group effective-method name)
+(def (clos-effective-method-group effective-method name)
   (unless (element? ClosEffectiveMethod effective-method)
     (clos-fail 'invalid-effective-method))
   (let (entry (assq name (.ref effective-method 'groups)))
@@ -581,7 +581,7 @@
         (clos-fail 'unknown-effective-method-group))))
 
 ;; : (-> Thunk ClosMethod)
-(def (poo-clos-make-method thunk)
+(def (clos-make-method thunk)
   (make-synthetic-effective-method thunk))
 
 ;; : (-> ClosEffectiveMethod ClosMethod Boolean)
@@ -596,7 +596,7 @@
 ;;; =call-method= semantics invoke one explicit method and provide only the
 ;;; declared next-method list as its continuation chain.
 ;; : (-> ClosEffectiveMethod ClosMethod [ClosMethod] SchemeValue)
-(def (poo-clos-call-method effective-method method next-methods)
+(def (clos-call-method effective-method method next-methods)
   (unless (element? ClosEffectiveMethod effective-method)
     (clos-fail 'invalid-call-method operation: 'invalid-effective-method))
   (unless (element? ClosMethod method)
@@ -665,7 +665,7 @@
                (null? (cdr ordered)))
         (invoke (car ordered) effective-method args #f
                 (.ref (car ordered) 'qualifier))
-        (poo-clos-execute-short-operator
+        (clos-execute-short-operator
          (.ref combination 'operator) ordered
          (lambda (method) (invoke-short method effective-method args)))))
     (def (run-around methods args)
@@ -733,7 +733,7 @@
        (null? (.ref effective-method 'after))))
 
 ;; : (-> ClosGenericFunction SchemeValue... SchemeValue)
-(def (poo-clos-call generic-source . arguments)
+(def (clos-call generic-source . arguments)
   (%with-slot-read-registration-interval
     (lambda () (call-generic generic-source arguments))))
 
@@ -754,7 +754,7 @@
     (owned-read-hook-owner! generic-value)
     (let (effective-method (select-effective-method generic-value arguments roots))
       (if (not effective-method)
-        (poo-clos-no-applicable-method generic-value arguments)
+        (clos-no-applicable-method generic-value arguments)
         (if (procedure? effective-method) (effective-method)
           (if (.ref effective-method 'executor)
             ((.ref effective-method 'executor) effective-method)
@@ -763,11 +763,11 @@
               (else (execute-standard-effective-method effective-method)))))))))
 
 ;; : (-> FunctionName SchemeValue ... SchemeValue)
-(def (poo-clos-funcall function-name . arguments)
-  (apply poo-clos-call
-         (poo-clos-find-generic-function function-name) arguments))
+(def (clos-funcall function-name . arguments)
+  (apply clos-call
+         (clos-find-generic-function function-name) arguments))
 
 ;; : (-> Symbol SchemeValue SchemeValue ... SchemeValue)
-(def (poo-clos-setf accessor-name new-value . arguments)
-  (apply poo-clos-funcall
+(def (clos-setf accessor-name new-value . arguments)
+  (apply clos-funcall
          (cons (list 'setf accessor-name) (cons new-value arguments))))

@@ -13,8 +13,8 @@
         (only-in :clan/poo/class-validation required-slots?)
         (only-in :clan/poo/mop/prototype define-type Type. element?)
         (only-in "funcs.ss"
-                 poo-clos-function-name? poo-clos-function-name-list? poo-clos-qualifier?
-                 poo-clos-initarg-name-list? poo-clos-default-initargs?))
+                 clos-function-name? clos-function-name-list? clos-qualifier?
+                 clos-initarg-name-list? clos-default-initargs?))
 
 (export ClosSpecializer ClosLambdaList ClosMethod ClosMethodBundle
         ClosMethodGroup ClosMethodCombination
@@ -22,7 +22,7 @@
         ClosInvocationFrame ClosFailure ClosUnboundSlotFailure
         ClosDirectSlotDefinition
         ClosEffectiveSlotDefinition ClosClass ClosInstanceState ClosSlotCell
-        ClosMopProfile clos-instance? clos-carrier-policy-guard)
+        ClosMopProfile prototype-instance? clos-carrier-policy-guard)
 
 (def ClosType. Type.)
 
@@ -61,7 +61,7 @@
 (def (clos-prototype type-value kind-value)
   (.o .type: type-value kind: kind-value schema: 'v1))
 
-(def (clos-instance? prototype candidate)
+(def (prototype-instance? prototype candidate)
   (and (object? candidate)
        ;; No user code receives this spine. Cold queries still prepare through
        ;; the runtime, including any installed inheritance hook.
@@ -91,30 +91,30 @@
 
 (def (method-combination? value)
   (and (object? value)
-       (clos-instance? (.ref ClosMethodCombination 'proto) value)))
+       (prototype-instance? (.ref ClosMethodCombination 'proto) value)))
 
 (def (generic-protocol? value)
   (and (object? value)
-       (clos-instance? (.ref ClosGenericProtocol 'proto) value)))
+       (prototype-instance? (.ref ClosGenericProtocol 'proto) value)))
 
 (def (specializers? value)
   (and (list? value)
        (andmap (cut element? ClosSpecializer <>) value)))
 
 (def (clos-lambda-list-element? candidate)
-  (and (clos-instance? (.ref ClosLambdaList 'proto) candidate)
+  (and (prototype-instance? (.ref ClosLambdaList 'proto) candidate)
        (closed-required-slots? candidate
          (required natural?)
          (optional natural?)
          (rest? boolean?)
          (key? boolean?)
-         (keys poo-clos-initarg-name-list? owned-list)
+         (keys clos-initarg-name-list? owned-list)
          (allow-other-keys? boolean?))))
 
 ;;; Lambda-list descriptors retain only the congruence and call-admission
 ;;; shape; lexical parameter bindings remain in hygienic method expansions.
 (define-type (ClosLambdaList @ ClosType.)
-  proto: (clos-prototype ClosLambdaList 'poo-clos/lambda-list)
+  proto: (clos-prototype ClosLambdaList 'clos/lambda-list)
   .element?: clos-lambda-list-element?)
 
 (def (lambda-list-or-false? value)
@@ -138,7 +138,7 @@
   (def (ordinary)
     (and (required-slots? candidate (kind specializer-kind?) (target any-value?))
          (target-valid? (.ref candidate 'kind) (lambda () (.ref candidate 'target)))))
-  (and (clos-instance? (.ref ClosSpecializer 'proto) candidate)
+  (and (prototype-instance? (.ref ClosSpecializer 'proto) candidate)
        (let (read (%closed-registered-field-reader candidate))
          (if read
            (let (kind (read 'kind))
@@ -154,16 +154,16 @@
 ;;; Boundary: a specializer records only matching identity; it never owns or
 ;;; mutates a class, prototype, or argument value.
 (define-type (ClosSpecializer @ ClosType.)
-  proto: (clos-prototype ClosSpecializer 'poo-clos/specializer)
+  proto: (clos-prototype ClosSpecializer 'clos/specializer)
   .element?: clos-specializer-element?)
 
 (def (clos-method-element? candidate)
-  (and (clos-instance? (.ref ClosMethod 'proto) candidate)
+  (and (prototype-instance? (.ref ClosMethod 'proto) candidate)
        (required-slots? candidate
-         (identity poo-clos-function-name?)
+         (identity clos-function-name?)
          (specializers specializers? read: %ref-owned-list))
        (closed-required-slots? candidate
-         (qualifier poo-clos-qualifier? owned-list) (body procedure?))
+         (qualifier clos-qualifier? owned-list) (body procedure?))
        (required-slots? candidate (lambda-list lambda-list-or-false?))
        (closed-required-slots? candidate
          (generic-function any-value?) (synthetic-effective-method? boolean?))))
@@ -171,7 +171,7 @@
 ;;; Invariant: a method is executable only through a generic-owned applicable
 ;;; effective method; its body is not a standalone public procedure contract.
 (define-type (ClosMethod @ ClosType.)
-  proto: (clos-prototype ClosMethod 'poo-clos/method)
+  proto: (clos-prototype ClosMethod 'clos/method)
   .element?: clos-method-element?)
 
 (def (combination-kind? value)
@@ -187,10 +187,10 @@
   (or (eq? value '*) (list? value) (pair? value) (procedure? value)))
 
 (def (method-group-matchers? value)
-  (and (pair? value) (andmap method-group-matcher? value)))
+  (and (list? value) (pair? value) (andmap method-group-matcher? value)))
 
 (def (clos-method-group-element? candidate)
-  (and (clos-instance? (.ref ClosMethodGroup 'proto) candidate)
+  (and (prototype-instance? (.ref ClosMethodGroup 'proto) candidate)
        (required-slots? candidate
          (identity symbol?)
          (matchers method-group-matchers?)
@@ -201,14 +201,14 @@
 ;;; A long-form method group owns qualifier selection, order, requirement, and
 ;;; reflection text without owning executable method bodies.
 (define-type (ClosMethodGroup @ ClosType.)
-  proto: (clos-prototype ClosMethodGroup 'poo-clos/method-group)
+  proto: (clos-prototype ClosMethodGroup 'clos/method-group)
   .element?: clos-method-group-element?)
 
 (def (method-groups? value)
   (and (list? value) (andmap (cut element? ClosMethodGroup <>) value)))
 
 (def (clos-method-combination-element? candidate)
-  (and (clos-instance? (.ref ClosMethodCombination 'proto) candidate)
+  (and (prototype-instance? (.ref ClosMethodCombination 'proto) candidate)
        (required-slots? candidate
          (identity symbol?)
          (kind combination-kind?)
@@ -225,11 +225,11 @@
 ;;; A method-combination descriptor is inert POO policy data.  Dispatch owns
 ;;; invocation, and a long-form builder can only return a checked effective method.
 (define-type (ClosMethodCombination @ ClosType.)
-  proto: (clos-prototype ClosMethodCombination 'poo-clos/method-combination)
+  proto: (clos-prototype ClosMethodCombination 'clos/method-combination)
   .element?: clos-method-combination-element?)
 
 (def (clos-generic-protocol-element? candidate)
-  (and (clos-instance? (.ref ClosGenericProtocol 'proto) candidate)
+  (and (prototype-instance? (.ref ClosGenericProtocol 'proto) candidate)
        (required-slots? candidate
          (identity symbol?)
          (no-applicable-method procedure-or-false?)
@@ -240,11 +240,11 @@
 ;;; Generic protocol hooks are collected behind one named POO object so raw
 ;;; procedures never become an unowned parallel public dispatch surface.
 (define-type (ClosGenericProtocol @ ClosType.)
-  proto: (clos-prototype ClosGenericProtocol 'poo-clos/generic-protocol)
+  proto: (clos-prototype ClosGenericProtocol 'clos/generic-protocol)
   .element?: clos-generic-protocol-element?)
 
 (def (clos-method-bundle-element? candidate)
-  (and (clos-instance? (.ref ClosMethodBundle 'proto) candidate)
+  (and (prototype-instance? (.ref ClosMethodBundle 'proto) candidate)
        (required-slots? candidate
          (identity symbol?)
          (protocol generic-protocol?)
@@ -254,13 +254,13 @@
 ;;; A bundle is the checked composition unit between one generic protocol and
 ;;; a method family.  It owns no registry and performs no dispatch itself.
 (define-type (ClosMethodBundle @ ClosType.)
-  proto: (clos-prototype ClosMethodBundle 'poo-clos/method-bundle)
+  proto: (clos-prototype ClosMethodBundle 'clos/method-bundle)
   .element?: clos-method-bundle-element?)
 
 (def (clos-generic-function-element? candidate)
-  (and (clos-instance? (.ref ClosGenericFunction 'proto) candidate)
+  (and (prototype-instance? (.ref ClosGenericFunction 'proto) candidate)
        (closed-required-slots? candidate
-         (identity poo-clos-function-name?) (required natural?) (rest? boolean?)
+         (identity clos-function-name?) (required natural?) (rest? boolean?)
          (argument-precedence-order argument-precedence-order? owned-list))
        (required-slots? candidate
          (method-combination method-combination?)
@@ -277,23 +277,23 @@
 ;;; Boundary: a generic value is the stable ANSI generic-function identity;
 ;;; method-set generation is a mutation counter, not a replacement object.
 (define-type (ClosGenericFunction @ ClosType.)
-  proto: (clos-prototype ClosGenericFunction 'poo-clos/generic-function)
+  proto: (clos-prototype ClosGenericFunction 'clos/generic-function)
   .element?: clos-generic-function-element?)
 
 (def (clos-generic-binding-element? candidate)
-  (and (clos-instance? (.ref ClosGenericBinding 'proto) candidate)
+  (and (prototype-instance? (.ref ClosGenericBinding 'proto) candidate)
        (required-slots? candidate
-         (identity poo-clos-function-name?)
+         (identity clos-function-name?)
          (current (cut element? ClosGenericFunction <>)))))
 
 ;;; A binding is the explicit effect owner for top-level defmethod evolution;
 ;;; each current value remains an immutable generic generation.
 (define-type (ClosGenericBinding @ ClosType.)
-  proto: (clos-prototype ClosGenericBinding 'poo-clos/generic-binding)
+  proto: (clos-prototype ClosGenericBinding 'clos/generic-binding)
   .element?: clos-generic-binding-element?)
 
 (def (clos-effective-method-element? candidate)
-  (and (clos-instance? (.ref ClosEffectiveMethod 'proto) candidate)
+  (and (prototype-instance? (.ref ClosEffectiveMethod 'proto) candidate)
        (required-slots? candidate
          (generic (cut element? ClosGenericFunction <>))
          (arguments list?)
@@ -311,18 +311,18 @@
   .element?: clos-effective-method-element?)
 
 (def effective-method-prototype
-  (clos-prototype ClosEffectiveMethod 'poo-clos/effective-method))
+  (clos-prototype ClosEffectiveMethod 'clos/effective-method))
 
 (def (next-method? value)
   (or (not value) (procedure? value)))
 
 (def (clos-invocation-frame-element? candidate)
-  (and (clos-instance? (.ref ClosInvocationFrame 'proto) candidate)
+  (and (prototype-instance? (.ref ClosInvocationFrame 'proto) candidate)
        (required-slots? candidate
          (effective-method (cut element? ClosEffectiveMethod <>))
          (arguments list?)
          (next next-method?)
-         (qualifier poo-clos-qualifier?)
+         (qualifier clos-qualifier?)
          (method (cut element? ClosMethod <>)))))
 
 ;;; Boundary: the lexical frame owns next-method continuation access; it is not
@@ -334,7 +334,7 @@
 ;; Replacing a Type validator revises its policy. The carrier's prototype
 ;; identity still belongs to the same type and must survive recomputation.
 (def invocation-frame-prototype
-  (clos-prototype ClosInvocationFrame 'poo-clos/invocation-frame))
+  (clos-prototype ClosInvocationFrame 'clos/invocation-frame))
 
 ;; This certificate belongs to the private declarations above, not to whatever
 ;; public policy a caller installs later. A replaced/edited policy remains
@@ -383,14 +383,14 @@
   (if (memq value '(instance class)) #t #f))
 
 (def (clos-direct-slot-definition-element? candidate)
-  (and (clos-instance? (.ref ClosDirectSlotDefinition 'proto) candidate)
+  (and (prototype-instance? (.ref ClosDirectSlotDefinition 'proto) candidate)
        (required-slots? candidate
          (identity symbol?)
          (allocation allocation?)
-         (initargs poo-clos-initarg-name-list?)
+         (initargs clos-initarg-name-list?)
          (initfunction procedure-or-false?)
-         (readers poo-clos-function-name-list?)
-         (writers poo-clos-function-name-list?)
+         (readers clos-function-name-list?)
+         (writers clos-function-name-list?)
          (type-predicate procedure-or-false?)
          (documentation string-or-false?))))
 
@@ -398,25 +398,25 @@
 ;;; represented as thunks so their lexical environment remains Scheme-owned.
 (define-type (ClosDirectSlotDefinition @ ClosType.)
   proto: (clos-prototype ClosDirectSlotDefinition
-                         'poo-clos/direct-slot-definition)
+                         'clos/direct-slot-definition)
   .element?: clos-direct-slot-definition-element?)
 
 (def (class-reference? value)
   (and (object? value)
-       (clos-instance? (.ref ClosClass 'proto) value)))
+       (prototype-instance? (.ref ClosClass 'proto) value)))
 
 (def (class-references? value)
   (and (list? value) (andmap class-reference? value)))
 
 (def (clos-effective-slot-definition-element? candidate)
-  (and (clos-instance? (.ref ClosEffectiveSlotDefinition 'proto) candidate)
+  (and (prototype-instance? (.ref ClosEffectiveSlotDefinition 'proto) candidate)
        (required-slots? candidate
          (identity symbol?)
          (allocation allocation?)
-         (initargs poo-clos-initarg-name-list?)
+         (initargs clos-initarg-name-list?)
          (initfunction procedure-or-false?)
-         (readers poo-clos-function-name-list?)
-         (writers poo-clos-function-name-list?)
+         (readers clos-function-name-list?)
+         (writers clos-function-name-list?)
          (type-predicates list?)
          (documentation string-or-false?)
          (defining-classes class-references?)
@@ -425,7 +425,7 @@
 ;;; Effective slots are immutable projections over the POO class CPL.
 (define-type (ClosEffectiveSlotDefinition @ ClosType.)
   proto: (clos-prototype ClosEffectiveSlotDefinition
-                         'poo-clos/effective-slot-definition)
+                         'clos/effective-slot-definition)
   .element?: clos-effective-slot-definition-element?)
 
 (def (direct-slot-definitions? value)
@@ -433,12 +433,12 @@
        (andmap (cut element? ClosDirectSlotDefinition <>) value)))
 
 (def (clos-class-element? candidate)
-  (and (clos-instance? (.ref ClosClass 'proto) candidate)
+  (and (prototype-instance? (.ref ClosClass 'proto) candidate)
        (required-slots? candidate
          (identity symbol?)
          (direct-superclasses class-references?)
          (direct-slots direct-slot-definitions?)
-         (default-initargs poo-clos-default-initargs?)
+         (default-initargs clos-default-initargs?)
          (generation natural?)
          (slot-missing-handler procedure-or-false?)
          (slot-unbound-handler procedure-or-false?)
@@ -451,11 +451,11 @@
 ;;; Class metaobjects own lazy runtime prototypes and class-allocated storage;
 ;;; they do not replace gerbil-poo's inheritance or C4 implementation.
 (define-type (ClosClass @ ClosType.)
-  proto: (clos-prototype ClosClass 'poo-clos/class)
+  proto: (clos-prototype ClosClass 'clos/class)
   .element?: clos-class-element?)
 
 (def (clos-instance-state-element? candidate)
-  (and (clos-instance? (.ref ClosInstanceState 'proto) candidate)
+  (and (prototype-instance? (.ref ClosInstanceState 'proto) candidate)
        (required-slots? candidate
          (class class-reference?)
          (generation natural?)
@@ -463,20 +463,20 @@
 
 ;;; An instance state is the explicit identity-preserving mutation boundary.
 (define-type (ClosInstanceState @ ClosType.)
-  proto: (clos-prototype ClosInstanceState 'poo-clos/instance-state)
+  proto: (clos-prototype ClosInstanceState 'clos/instance-state)
   .element?: clos-instance-state-element?)
 
 (def (clos-slot-cell-element? candidate)
-  (and (clos-instance? (.ref ClosSlotCell 'proto) candidate)
+  (and (prototype-instance? (.ref ClosSlotCell 'proto) candidate)
        (required-slots? candidate (bound? boolean?) (value any-value?))))
 
 ;;; Slot cells distinguish an unbound slot from a slot whose value is =#f=.
 (define-type (ClosSlotCell @ ClosType.)
-  proto: (clos-prototype ClosSlotCell 'poo-clos/slot-cell)
+  proto: (clos-prototype ClosSlotCell 'clos/slot-cell)
   .element?: clos-slot-cell-element?)
 
 (def (clos-mop-profile-element? candidate)
-  (and (clos-instance? (.ref ClosMopProfile 'proto) candidate)
+  (and (prototype-instance? (.ref ClosMopProfile 'proto) candidate)
        (required-slots? candidate
          (identity symbol?)
          (version symbol?)
@@ -490,11 +490,11 @@
 ;;; A MOP profile is a sealed capability inventory.  It exposes no mutable
 ;;; registry and therefore cannot add a second metaobject dispatch hierarchy.
 (define-type (ClosMopProfile @ ClosType.)
-  proto: (clos-prototype ClosMopProfile 'poo-clos/mop-profile)
+  proto: (clos-prototype ClosMopProfile 'clos/mop-profile)
   .element?: clos-mop-profile-element?)
 
 (def (clos-failure-element? candidate)
-  (and (clos-instance? (.ref ClosFailure 'proto) candidate)
+  (and (prototype-instance? (.ref ClosFailure 'proto) candidate)
        (required-slots? candidate
          (code symbol?)
          (generic any-value?)
@@ -507,7 +507,7 @@
 ;;; Boundary: failures preserve symbolic dispatch context and never retain raw
 ;;; argument payloads.
 (define-type (ClosFailure @ ClosType.)
-  proto: (clos-prototype ClosFailure 'poo-clos/failure)
+  proto: (clos-prototype ClosFailure 'clos/failure)
   .element?: clos-failure-element?)
 
 ;;; The inherited failure prototype is stable for the lifetime of this module.
@@ -516,7 +516,7 @@
 
 (def (clos-unbound-slot-failure-element? candidate)
   (and (element? ClosFailure candidate)
-       (clos-instance? (.ref ClosUnboundSlotFailure 'proto) candidate)
+       (prototype-instance? (.ref ClosUnboundSlotFailure 'proto) candidate)
        (required-slots? candidate (instance any-value?))))
 
 ;;; UNBOUND-SLOT refines the common failure carrier with the exact instance;
@@ -524,5 +524,5 @@
 (define-type (ClosUnboundSlotFailure @ ClosFailure)
   proto: (.o (:: @ ClosFailure.)
              .type: ClosUnboundSlotFailure
-             kind: 'poo-clos/unbound-slot schema: 'v1)
+             kind: 'clos/unbound-slot schema: 'v1)
   .element?: clos-unbound-slot-failure-element?)

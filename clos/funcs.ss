@@ -8,24 +8,24 @@
 (import (only-in :std/list/plist plist?)
         (only-in :gerbil/runtime/hash list->hash-table-eq))
 
-(export poo-clos-qualifier? poo-clos-normalize-qualifier poo-clos-short-qualifier
-        poo-clos-setf-name? poo-clos-function-name? poo-clos-function-name-list?
-        poo-clos-initarg-name? poo-clos-initarg-name-list? poo-clos-default-initargs?
-        poo-clos-initarg-list? poo-clos-initarg-names
-        poo-clos-initarg-ref poo-clos-initarg-index
-        poo-clos-initarg-index-first-of poo-clos-identity-index
-        poo-clos-leftmost-index-by poo-clos-first-invalid-initarg
-        poo-clos-allow-other-keys-name? poo-clos-allow-other-keys?
-        poo-clos-position-lookup
-        poo-clos-natural-permutation?)
+(export clos-qualifier? clos-normalize-qualifier clos-short-qualifier
+        clos-setf-name? clos-function-name? clos-function-name-list?
+        clos-initarg-name? clos-initarg-name-list? clos-default-initargs?
+        clos-initarg-list? clos-initarg-names
+        clos-initarg-ref clos-initarg-index
+        clos-initarg-index-first-of clos-identity-index
+        clos-leftmost-index-by clos-first-invalid-initarg
+        clos-allow-other-keys-name? clos-allow-other-keys?
+        clos-position-lookup
+        clos-natural-permutation?)
 
 ;; Qualifier lists must be finite before traversing their elements.
-(def (poo-clos-qualifier? value)
+(def (clos-qualifier? value)
   (or (symbol? value) (and (list? value) (andmap symbol? value))))
 
 ;; Preserve the actual Slot value; normalize only the comparison key.
 ;; (primary) is an explicit long-form qualifier, distinct from no qualifier.
-(def (poo-clos-normalize-qualifier value)
+(def (clos-normalize-qualifier value)
   (cond
    ((symbol? value) value)
    ((null? value) 'primary)
@@ -34,54 +34,54 @@
    (else value)))
 
 ;; A short-combination name denotes one qualifier, even when named primary.
-(def (poo-clos-short-qualifier name)
+(def (clos-short-qualifier name)
   (if (eq? name 'primary) '(primary) name))
 
-(def (poo-clos-setf-name? name)
+(def (clos-setf-name? name)
   (and (pair? name) (eq? (car name) 'setf)
        (pair? (cdr name)) (symbol? (cadr name)) (null? (cddr name))))
 
-(def (poo-clos-function-name? name)
-  (or (symbol? name) (poo-clos-setf-name? name)))
+(def (clos-function-name? name)
+  (or (symbol? name) (clos-setf-name? name)))
 
-(def (poo-clos-function-name-list? names)
-  (and (list? names) (andmap poo-clos-function-name? names)))
+(def (clos-function-name-list? names)
+  (and (list? names) (andmap clos-function-name? names)))
 
-(def (poo-clos-initarg-name? name)
+(def (clos-initarg-name? name)
   (or (symbol? name) (keyword? name)))
 
-(def (poo-clos-initarg-name-list? names)
-  (and (list? names) (andmap poo-clos-initarg-name? names)))
+(def (clos-initarg-name-list? names)
+  (and (list? names) (andmap clos-initarg-name? names)))
 
-(def (poo-clos-default-initargs? entries)
+(def (clos-default-initargs? entries)
   (and (list? entries)
        (andmap (lambda (entry)
-                 (and (pair? entry) (poo-clos-initarg-name? (car entry))
+                 (and (pair? entry) (clos-initarg-name? (car entry))
                       (procedure? (cdr entry))))
                entries)))
 
-(def (poo-clos-initarg-list? values)
+(def (clos-initarg-list? values)
   (and (plist? values)
        (let loop ((rest values))
          (or (null? rest)
-             (and (poo-clos-initarg-name? (car rest))
+             (and (clos-initarg-name? (car rest))
                   (loop (cddr rest)))))))
 
-(def (poo-clos-initarg-names values)
+(def (clos-initarg-names values)
   (let loop ((rest values) (result-rev '()))
     (if (null? rest)
       (reverse result-rev)
       (loop (cddr rest) (cons (car rest) result-rev)))))
 
 ;; A presence flag keeps an explicit #f value distinct from absence.
-(def (poo-clos-initarg-ref arguments name)
+(def (clos-initarg-ref arguments name)
   (let loop ((rest arguments))
     (cond ((null? rest) (values #f #f))
           ((eq? (car rest) name) (values #t (cadr rest)))
           (else (loop (cddr rest))))))
 
 ;; Retain each key's leftmost position and value, matching CLOS semantics.
-(def (poo-clos-initarg-index arguments)
+(def (clos-initarg-index arguments)
   ;; The runtime constructor writes duplicate keys from left to right.  Build
   ;; entries in reverse call order so the original leftmost occurrence wins.
   (let loop ((rest arguments) (position 0) (entries '()))
@@ -91,7 +91,7 @@
             (cons (cons (car rest) (cons position (cadr rest))) entries)))))
 
 ;; A slot can name several initargs; call order decides which value wins.
-(def (poo-clos-initarg-index-first-of index names)
+(def (clos-initarg-index-first-of index names)
   (let (selected #f)
     (for-each
      (lambda (name)
@@ -102,20 +102,20 @@
      names)
     (if selected (values #t (cdr selected)) (values #f #f))))
 
-(def (poo-clos-identity-index values)
+(def (clos-identity-index values)
   (list->hash-table-eq
    (map (lambda (value) (cons value #t)) values)))
 
 ;; Index domain objects once while preserving the first declaration selected
 ;; by the former linear `find` traversal.
-(def (poo-clos-leftmost-index-by key-of values)
+(def (clos-leftmost-index-by key-of values)
   ;; Reversing makes the runtime constructor's final write for a duplicate key
   ;; the declaration that appeared first in the source list.
   (list->hash-table-eq
    (reverse (map (lambda (value) (cons (key-of value) value)) values))))
 
 ;; Admitted class and method orders have distinct identities.
-(def (poo-clos-position-lookup values)
+(def (clos-position-lookup values)
   (def positions (make-table test: eq?))
   (let loop ((remaining values) (position 0))
     (unless (null? remaining)
@@ -124,7 +124,7 @@
   (lambda (value) (table-ref positions value #f)))
 
 ;; One bounded vector pass proves that values are exactly 0..size-1.
-(def (poo-clos-natural-permutation? values size)
+(def (clos-natural-permutation? values size)
   (and (= (length values) size)
        (let (seen (make-vector size #f))
          (let loop ((rest values))
@@ -138,22 +138,22 @@
              (loop (cdr rest))))))))
 
 ;; Preserve the first invalid supplied key for stable diagnostics.
-(def (poo-clos-first-invalid-initarg arguments valid-index exempt?)
+(def (clos-first-invalid-initarg arguments valid-index exempt?)
   (let loop ((rest arguments))
     (cond ((null? rest) #f)
           ((or (exempt? (car rest)) (hash-key? valid-index (car rest)))
            (loop (cddr rest)))
           (else (car rest)))))
 
-(def (poo-clos-allow-other-keys-name? name)
+(def (clos-allow-other-keys-name? name)
   (or (eq? name 'allow-other-keys)
       (and (keyword? name)
            (string=? (keyword->string name) "allow-other-keys"))))
 
 ;; Callers have already checked the plist. Both spellings name the same
 ;; control, so an explicit #f at the first occurrence ends the search.
-(def (poo-clos-allow-other-keys? arguments)
+(def (clos-allow-other-keys? arguments)
   (let loop ((rest arguments))
     (cond ((null? rest) #f)
-          ((poo-clos-allow-other-keys-name? (car rest)) (cadr rest))
+          ((clos-allow-other-keys-name? (car rest)) (cadr rest))
           (else (loop (cddr rest))))))

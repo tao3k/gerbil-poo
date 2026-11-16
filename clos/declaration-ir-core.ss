@@ -6,10 +6,11 @@
 ;;; Shared grammar, immutable IR types, and callable declaration parsing.
 
 (import :gerbil/expander
-        (only-in :std/list/list find filter-map foldl iota))
+        (only-in :std/list/list find filter-map foldl iota)
+        (only-in "funcs.ss" clos-qualifier?))
 
-(export parse-poo-clos-generic-declaration-ir
-        parse-poo-clos-method-declaration-ir
+(export parse-clos-generic-declaration-ir
+        parse-clos-method-declaration-ir
         clos-class-declaration-ir-name clos-class-declaration-ir-supers
         clos-class-declaration-ir-slots clos-class-declaration-ir-default-initargs
         clos-class-declaration-ir-slot-missing
@@ -131,7 +132,7 @@
 ;; : (-> Syntax String [Syntax])
 (def (clos-syntax-list source message)
   (or (syntax->list source)
-      (clos-syntax-error 'poo-clos-invalid-syntax message source)))
+      (clos-syntax-error 'clos-invalid-syntax message source)))
 
 ;;; Identifier admission returns the same syntax object, preserving bindings
 ;;; for hygienic comparison and lowering.
@@ -139,7 +140,7 @@
 (def (clos-identifier source message)
   (if (identifier? source)
     source
-    (clos-syntax-error 'poo-clos-invalid-identifier message source)))
+    (clos-syntax-error 'clos-invalid-identifier message source)))
 
 ;; : (-> Syntax String Syntax)
 (def (clos-function-name source message)
@@ -150,7 +151,7 @@
                (clos-literal=? (car items) #'setf)
                (identifier? (cadr items)))
         source
-        (clos-syntax-error 'poo-clos-invalid-function-name message source)))))
+        (clos-syntax-error 'clos-invalid-function-name message source)))))
 
 ;;; Grammar markers are binding-aware; a locally shadowed =&key= is data, not
 ;;; a phase transition token.
@@ -188,7 +189,7 @@
     (let (items (clos-syntax-list
                  source "specialized parameter must be (variable specializer)"))
       (unless (= (length items) 2)
-        (clos-syntax-error 'poo-clos-invalid-specializer
+        (clos-syntax-error 'clos-invalid-specializer
                            "specialized parameter expects two forms" source))
       (let ((variable (clos-identifier
                        (car items) "parameter must be an identifier"))
@@ -205,13 +206,13 @@
             (let (items (syntax->list specializer))
               (unless (and (list? items) (= (length items) 2))
                 (clos-syntax-error
-                 'poo-clos-invalid-specializer
+                 'clos-invalid-specializer
                  "prototype/eql specializer expects exactly one target"
                  specializer))
               (values variable kind (cadr items)))
             (values variable 'class specializer))))))
    (else
-    (clos-syntax-error 'poo-clos-invalid-generic-lambda-list
+    (clos-syntax-error 'clos-invalid-generic-lambda-list
                        "generic required parameters must be identifiers"
                        source))))
 
@@ -224,12 +225,12 @@
                           source: source)
     (let (items (clos-syntax-list source "invalid optional parameter"))
       (when generic?
-        (clos-syntax-error 'poo-clos-invalid-generic-lambda-list
+        (clos-syntax-error 'clos-invalid-generic-lambda-list
                            "generic optional parameters cannot have defaults"
                            source))
       (unless (and (<= 1 (length items) 3)
                    (identifier? (car items)))
-        (clos-syntax-error 'poo-clos-invalid-method-lambda-list
+        (clos-syntax-error 'clos-invalid-method-lambda-list
                            "optional parameter is var or (var init supplied)"
                            source))
       (clos-optional-declaration-ir
@@ -252,7 +253,7 @@
           (and head (pair? (syntax-e head)) (syntax->list head)))
       (unless (and explicit (= (length explicit) 2)
                    (identifier? (cadr explicit)))
-        (clos-syntax-error 'poo-clos-invalid-key-parameter
+        (clos-syntax-error 'clos-invalid-key-parameter
                            "key parameter has an invalid name" source))
       (values (syntax->datum (car explicit)) (cadr explicit))))))
 
@@ -266,12 +267,12 @@
     (let* ((items (clos-syntax-list source "invalid key parameter"))
            (head (and (pair? items) (car items))))
       (when (and generic? (> (length items) 1))
-        (clos-syntax-error 'poo-clos-invalid-generic-lambda-list
+        (clos-syntax-error 'clos-invalid-generic-lambda-list
                            "generic key parameters cannot have defaults"
                            source))
       (unless (and (<= 1 (length items) 3)
                    head)
-        (clos-syntax-error 'poo-clos-invalid-key-parameter
+        (clos-syntax-error 'clos-invalid-key-parameter
                            "key parameter has an invalid shape" source))
       (let-values (((name variable) (parse-key-head head source)))
         (clos-key-declaration-ir
@@ -290,7 +291,7 @@
     (clos-aux-declaration-ir variable: source initform: #'#f source: source)
     (let (items (clos-syntax-list source "invalid aux parameter"))
       (unless (and (<= 1 (length items) 2) (identifier? (car items)))
-        (clos-syntax-error 'poo-clos-invalid-aux-parameter
+        (clos-syntax-error 'clos-invalid-aux-parameter
                            "aux parameter is var or (var initform)" source))
       (clos-aux-declaration-ir variable: (car items)
                        initform: (if (= (length items) 2)
@@ -322,7 +323,7 @@
       (begin
         (clos-require-unique-identifiers
          (lambda-ir-variables required optional rest-variable keys aux)
-         'poo-clos-duplicate-lambda-variable source)
+         'clos-duplicate-lambda-variable source)
         (clos-lambda-declaration-ir
          required: (reverse required) optional: (reverse optional)
          rest: rest-variable key?: key? keys: (reverse keys)
@@ -331,14 +332,14 @@
         (cond
          ((clos-literal=? item #'&optional)
           (unless (eq? phase 'required)
-            (clos-syntax-error 'poo-clos-invalid-lambda-list-order
+            (clos-syntax-error 'clos-invalid-lambda-list-order
                                "&optional is out of order" item))
           (item-loop (cdr rest) 'optional required optional rest-variable
                      keys key? allow-other? aux))
          ((clos-literal=? item #'&rest)
           (unless (and (memq phase '(required optional))
                        (pair? (cdr rest)))
-            (clos-syntax-error 'poo-clos-invalid-lambda-list-order
+            (clos-syntax-error 'clos-invalid-lambda-list-order
                                "&rest requires one following variable" item))
           (let (variable
                 (clos-identifier (cadr rest)
@@ -347,19 +348,19 @@
                        keys key? allow-other? aux)))
          ((clos-literal=? item #'&key)
           (unless (memq phase '(required optional post-rest))
-            (clos-syntax-error 'poo-clos-invalid-lambda-list-order
+            (clos-syntax-error 'clos-invalid-lambda-list-order
                                "&key is out of order" item))
           (item-loop (cdr rest) 'key required optional rest-variable
                      keys #t allow-other? aux))
          ((clos-literal=? item #'&allow-other-keys)
           (unless (eq? phase 'key)
-            (clos-syntax-error 'poo-clos-invalid-lambda-list-order
+            (clos-syntax-error 'clos-invalid-lambda-list-order
                                "&allow-other-keys requires &key" item))
           (item-loop (cdr rest) 'post-key required optional rest-variable
                      keys key? #t aux))
          ((clos-literal=? item #'&aux)
           (when (not specialized?)
-            (clos-syntax-error 'poo-clos-invalid-generic-lambda-list
+            (clos-syntax-error 'clos-invalid-generic-lambda-list
                                "generic lambda lists cannot contain &aux" item))
           (item-loop (cdr rest) 'aux required optional rest-variable
                      keys key? allow-other? aux))
@@ -385,7 +386,7 @@
           (item-loop (cdr rest) phase required optional rest-variable keys key?
                      allow-other? (cons (parse-aux-parameter item) aux)))
          (else
-          (clos-syntax-error 'poo-clos-invalid-lambda-list-order
+          (clos-syntax-error 'clos-invalid-lambda-list-order
                              "parameter follows a closed lambda-list section"
                              item)))))))
 
@@ -408,7 +409,7 @@
               (map clos-parameter-declaration-ir-variable required))
              (positions (make-hash-table-eq)))
         (unless (= (length names) (length required-names))
-          (clos-syntax-error 'poo-clos-invalid-argument-precedence-order
+          (clos-syntax-error 'clos-invalid-argument-precedence-order
                              "precedence order must name every required parameter"
                              option))
         (for-each
@@ -421,11 +422,11 @@
              (let (key (syntax->datum name))
                (unless (hash-key? positions key)
                  (clos-syntax-error
-                  'poo-clos-invalid-argument-precedence-order
+                  'clos-invalid-argument-precedence-order
                   "precedence order contains an unknown parameter" name))
                (when (hash-key? seen key)
                  (clos-syntax-error
-                  'poo-clos-invalid-argument-precedence-order
+                  'clos-invalid-argument-precedence-order
                   "precedence order repeats a parameter" name))
                (hash-put! seen key #t)
                (hash-ref positions key)))
@@ -445,7 +446,7 @@
     (if option
       (let (items (syntax->list option))
         (unless (>= (length items) 2)
-          (clos-syntax-error 'poo-clos-invalid-generic-option
+          (clos-syntax-error 'clos-invalid-generic-option
                              "method-combination requires a name" option))
         (clos-identifier
          (cadr items) "method-combination name must be an identifier")
@@ -481,11 +482,11 @@
                 ((and head (clos-literal=? head #'method)) 'method)
                 (else #f))))
          (unless kind
-           (clos-syntax-error 'poo-clos-unknown-generic-option
+           (clos-syntax-error 'clos-unknown-generic-option
                               "unknown generic function option" candidate))
          (when (and (not (memq kind '(declare method)))
                     (hash-key? seen kind))
-           (clos-syntax-error 'poo-clos-duplicate-generic-option
+           (clos-syntax-error 'clos-duplicate-generic-option
                               "generic option can appear only once" candidate))
          (hash-put! seen kind #t)))
      options)))
@@ -496,7 +497,7 @@
                     option "inline method option must be a list")))
     (let loop ((rest items) (qualifiers '()))
       (when (null? rest)
-        (clos-syntax-error 'poo-clos-invalid-inline-method
+        (clos-syntax-error 'clos-invalid-inline-method
                            "inline method requires a specialized lambda list"
                            option))
       (if (syntax->list (car rest))
@@ -507,7 +508,7 @@
                 ((null? (cdr ordered-qualifiers))
                  (syntax->datum (car ordered-qualifiers)))
                 (else (map syntax->datum ordered-qualifiers)))))
-          (parse-poo-clos-method-declaration-ir
+          (parse-clos-method-declaration-ir
            name (datum->syntax name qualifier-value) (car rest)
            (cdr rest) option))
         (begin
@@ -539,20 +540,20 @@
         (cond
          ((clos-literal=? head #'protocol)
           (unless (and (list? arguments) (= (length arguments) 1))
-            (clos-syntax-error 'poo-clos-invalid-generic-option
+            (clos-syntax-error 'clos-invalid-generic-option
                                "protocol expects one expression" option))
           (loop (cdr rest) (car arguments) documentation generic-class method-class
                 declarations))
          ((clos-literal=? head #'documentation)
           (unless (= (length arguments) 1)
-            (clos-syntax-error 'poo-clos-invalid-generic-option
+            (clos-syntax-error 'clos-invalid-generic-option
                                "documentation expects one expression" option))
           (loop (cdr rest) protocol (car arguments) generic-class method-class
                 declarations))
          ((clos-literal=? head #'generic-function-class)
           (unless (and (= (length arguments) 1)
                        (identifier? (car arguments)))
-            (clos-syntax-error 'poo-clos-invalid-generic-option
+            (clos-syntax-error 'clos-invalid-generic-option
                                "generic-function-class expects one class name"
                                option))
           (loop (cdr rest) protocol documentation (car arguments) method-class
@@ -560,7 +561,7 @@
          ((clos-literal=? head #'method-class)
           (unless (and (= (length arguments) 1)
                        (identifier? (car arguments)))
-            (clos-syntax-error 'poo-clos-invalid-generic-option
+            (clos-syntax-error 'clos-invalid-generic-option
                                "method-class expects one class name" option))
           (loop (cdr rest) protocol documentation generic-class (car arguments)
                 declarations))
@@ -574,7 +575,7 @@
 ;;; Generic IR construction joins independently validated lambda-list, APO, and
 ;;; combination values without evaluating user forms.
 ;; : (-> Syntax Syntax [Syntax] Syntax ClosGenericDeclarationIR)
-(def (parse-poo-clos-generic-declaration-ir name lambda-list options source)
+(def (parse-clos-generic-declaration-ir name lambda-list options source)
   (clos-function-name name
                       "generic function name must be an identifier or (setf name)")
   (validate-generic-options options source)
@@ -596,14 +597,12 @@
 ;;; Method IR construction closes the standard qualifier set and retains specialized
 ;;; parameters for the lowering phase.
 ;; : (-> Syntax Syntax Syntax [Syntax] Syntax ClosMethodDeclarationIR)
-(def (parse-poo-clos-method-declaration-ir name qualifier lambda-list body source)
+(def (parse-clos-method-declaration-ir name qualifier lambda-list body source)
   (clos-function-name name
                       "method generic name must be an identifier or (setf name)")
   (let (qualifier-value (syntax->datum qualifier))
-    (unless (or (symbol? qualifier-value)
-                (and (pair? qualifier-value)
-                     (andmap symbol? qualifier-value)))
-      (clos-syntax-error 'poo-clos-invalid-method-qualifier
+    (unless (clos-qualifier? qualifier-value)
+      (clos-syntax-error 'clos-invalid-method-qualifier
                          "method qualifier must be a symbol or symbol list"
                          qualifier))
     (clos-method-declaration-ir

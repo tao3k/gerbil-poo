@@ -15,7 +15,7 @@
         protocol-ranked-methods keyword-arguments-valid!
         prepare-default-effective-method execute-standard-effective-method)
 (extern namespace: clan/poo/clos/lifecycle
-        require-initialization-arguments %poo-clos-reinitialize-instance %poo-clos-shared-initialize)
+        require-initialization-arguments %clos-reinitialize-instance %clos-shared-initialize)
 
 (.defgeneric (prototype-width instance) slot: width)
 (.defclass BenchmarkPane ()
@@ -71,24 +71,24 @@
     (reverse rows)))
 
 (def (reconfiguration-samples)
-  (def pane (poo-clos-make-instance BenchmarkPane))
+  (def pane (clos-make-instance BenchmarkPane))
   (def initargs [width: 80])
   (def args (cons* pane '() initargs))
-  (def generic poo-clos-shared-initialize-generic)
+  (def generic clos-shared-initialize-generic)
   (def ranked (protocol-ranked-methods generic args))
   (def effective ((prepare-default-effective-method generic args ranked)))
   (def (lifecycle-keywords)
     (require-initialization-arguments
-     (poo-clos-class-of pane) 'reinitialize-instance initargs
+     (clos-class-of pane) 'reinitialize-instance initargs
      (lambda () (error "unexpected method-level keyword admission"))))
   ;; Each sample times one phase in isolation. The rows overlap and do not
   ;; form a sum for the whole call.
   (def phases
     (list
-     (cons 'reinitialize (lambda () (apply poo-clos-reinitialize-instance pane initargs)))
-     (cons 'reinitialize-primary (lambda () (apply %poo-clos-reinitialize-instance pane initargs)))
+     (cons 'reinitialize (lambda () (apply clos-reinitialize-instance pane initargs)))
+     (cons 'reinitialize-primary (lambda () (apply %clos-reinitialize-instance pane initargs)))
      (cons 'lifecycle-keywords lifecycle-keywords)
-     (cons 'shared-initialize (lambda () (apply poo-clos-shared-initialize args)))
+     (cons 'shared-initialize (lambda () (apply clos-shared-initialize args)))
      (cons 'shared-generic (lambda () (require-clos-generic generic)))
      (cons 'shared-applicability (lambda () (protocol-ranked-methods generic args)))
      (cons 'shared-keywords (lambda () (keyword-arguments-valid! generic ranked args)))
@@ -97,7 +97,7 @@
      (cons 'shared-frame
            (lambda () (make-invocation-frame effective args #f 'primary (caar ranked))))
      (cons 'shared-combination-and-write (lambda () (execute-standard-effective-method effective)))
-     (cons 'shared-slot-write (lambda () (apply %poo-clos-shared-initialize args)))))
+     (cons 'shared-slot-write (lambda () (apply %clos-shared-initialize args)))))
   (let ((rows []) (repetitions 128))
     (for (pass (in-range 8))
       (for (phase (if (even? pass) phases (reverse phases)))
@@ -106,7 +106,7 @@
           (set! rows (cons (list pass (car phase) repetitions
                                  (qualified-metrics clocks) (vector-ref clocks 4))
                            rows)))))
-    (check-equal? (poo-clos-slot-value pane 'width) 80)
+    (check-equal? (clos-slot-value pane 'width) 80)
     (reverse rows)))
 
 (def mop-lifecycle-test
@@ -120,10 +120,10 @@
       (write-benchmark 'mop-reconfiguration-phases (reconfiguration-samples)))
     (test-case "record prototype and CLOS workloads with natural GC"
       (def prototype (.o width: 80))
-      (def pane (poo-clos-make-instance BenchmarkPane))
-      (def (make-pane) (poo-clos-make-instance BenchmarkPane width: 80))
-      (def (refresh-pane) (poo-clos-reinitialize-instance pane width: 80))
-      (def (pane-width value) (poo-clos-slot-value value 'width))
+      (def pane (clos-make-instance BenchmarkPane))
+      (def (make-pane) (clos-make-instance BenchmarkPane width: 80))
+      (def (refresh-pane) (clos-reinitialize-instance pane width: 80))
+      (def (pane-width value) (clos-slot-value value 'width))
       (def (allocate-prototype) (.o (:: @ prototype)))
       (def calls
         (list
@@ -132,16 +132,16 @@
          (list 'clos-slot 2048 (lambda () (pane-width pane)) values 80)
          (list 'clos-construction 128 make-pane pane-width 80)
          (list 'clos-reinitialization 128 refresh-pane pane-width 80)))
-      (def shared poo-clos-shared-initialize-generic)
+      (def shared clos-shared-initialize-generic)
       (def count 0)
       (def extension
-        (poo-clos-method
+        (clos-method
          'benchmark-pane-extension
-         (list (poo-clos-class-specializer BenchmarkPane)
-               (poo-clos-any-specializer))
+         (list (clos-class-specializer BenchmarkPane)
+               (clos-any-specializer))
          (lambda (_frame _pane _slots . _initargs) (set! count (+ count 1)))
          qualifier: 'after
-         lambda-list: (poo-clos-lambda-list 2 0 #t #f '() #f)))
+         lambda-list: (clos-lambda-list 2 0 #t #f '() #f)))
       (def rows [])
       (def (sample mode iteration workloads)
         (for (work (if (even? iteration) workloads (reverse workloads)))
@@ -154,9 +154,9 @@
                                rows))))))
       (def (sample-extended iteration)
         (dynamic-wind
-          (lambda () (poo-clos-add-method shared extension))
+          (lambda () (clos-add-method shared extension))
           (lambda () (sample 'extended iteration (cdddr calls)))
-          (lambda () (poo-clos-remove-method shared extension))))
+          (lambda () (clos-remove-method shared extension))))
       (for (iteration (in-range 8))
         (if (even? iteration)
           (begin (sample 'standard iteration calls) (sample-extended iteration))

@@ -30,7 +30,7 @@
   (def construct (prepare-default-effective-method generic arguments ranked))
   (def effective (construct))
   (def method (caar ranked))
-  (def (full) (apply poo-clos-call generic arguments))
+  (def (full) (apply clos-call generic arguments))
   (def (observed) (%call-with-recorded-slot-reads full unique-roots?: #t))
   (defvalues (_ reads) (observed))
   (def phases
@@ -63,8 +63,8 @@
   (def samples (make-hash-table-eq))
   (def generic (.generic-object render))
   (def (call)
-    (if (eq? (poo-clos-call generic 'item color: 'selected) 'selected)
-      (poo-clos-call generic 'other)
+    (if (eq? (clos-call generic 'item color: 'selected) 'selected)
+      (clos-call generic 'other)
       (error "keyword dispatch result changed")))
   (for (side '(reference candidate candidate reference candidate reference reference candidate))
     (defvalues (result clocks)
@@ -120,13 +120,13 @@
   (def roots (for/collect (_ (in-range 32)) (.o)))
   (def argument (.o inherit: roots))
   (def protocol
-    (poo-clos-generic-protocol 'reorder
+    (clos-generic-protocol 'reorder
       compute-applicable-methods: (lambda (_generic _args methods) (reverse methods))))
-  (def generic (poo-clos-generic-function 'compare-protocol-lookup 1 protocol: protocol))
+  (def generic (clos-generic-function 'compare-protocol-lookup 1 protocol: protocol))
   (for-each
     (lambda (root)
-      (poo-clos-add-method generic
-        (poo-clos-method 'method (list (poo-clos-prototype-specializer root)) void)))
+      (clos-add-method generic
+        (clos-method 'method (list (clos-prototype-specializer root)) void)))
     roots)
   (def arguments (list argument))
   (def (call) (protocol-ranked-methods generic arguments))

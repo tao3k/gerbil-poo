@@ -43,7 +43,7 @@
               (string-append "setf-" (symbol->string (cadr datum))))))
       (datum->syntax
        (if (identifier? name) name (cadr (syntax->list name)))
-       (string->symbol (string-append base "$poo-clos-generic")))))
+       (string->symbol (string-append base "$clos-generic")))))
 
   ;;; Built-in combination names are symbolic kernel identities.  Every other
   ;;; identifier remains a hygienic lexical reference to a POO descriptor.
@@ -64,11 +64,11 @@
       (if (null? arguments)
         base
         (with-syntax ((base base) ((argument ...) arguments))
-          #'(poo-clos-configure-method-combination
-             (poo-clos-resolve-method-combination base) argument ...)))))
+          #'(clos-configure-method-combination
+             (clos-resolve-method-combination base) argument ...)))))
 
   ;; : (-> ClosGenericDeclarationIR Syntax Syntax)
-  (def (lower-poo-clos-generic ir source)
+  (def (lower-clos-generic ir source)
     (let* ((name (clos-generic-declaration-ir-name ir))
            (binding (clos-generic-binding-identifier name))
            (lambda-ir (clos-generic-declaration-ir-lambda-list ir))
@@ -99,7 +99,7 @@
               (with-syntax ((name name) (binding binding)
                             (arguments arguments))
                 #'(def (name . arguments)
-                    (apply poo-clos-call binding arguments)))
+                    (apply clos-call binding arguments)))
               #'(begin))))
       (with-syntax
           ((name name) (binding binding) (arguments arguments)
@@ -119,15 +119,15 @@
            ((declaration ...) (map syntax->datum declarations))
            ((method-effect ...)
             (map (lambda (method-ir)
-                   (lower-poo-clos-method method-ir source))
+                   (lower-clos-method method-ir source))
                  methods))
            (callable-definition callable-definition))
         (syntax/loc source
           (begin
             (def binding
-              (poo-clos-generic-binding
+              (clos-generic-binding
                'name
-               (poo-clos-generic-function
+               (clos-generic-function
                 'name required-count rest?: rest?
                 optional: optional-count key?: key?
                 keys: (list 'key-name ...)
@@ -146,16 +146,16 @@
   ;; : (-> ClosParameterDeclarationIR Syntax)
   (def (lower-method-specializer parameter)
     (case (clos-parameter-declaration-ir-kind parameter)
-      ((any) #'(poo-clos-any-specializer))
+      ((any) #'(clos-any-specializer))
       ((class)
        (with-syntax ((target (clos-parameter-declaration-ir-target parameter)))
-         #'(poo-clos-class-specializer target)))
+         #'(clos-class-specializer target)))
       ((prototype)
        (with-syntax ((target (clos-parameter-declaration-ir-target parameter)))
-         #'(poo-clos-prototype-specializer target)))
+         #'(clos-prototype-specializer target)))
       ((eql)
        (with-syntax ((target (clos-parameter-declaration-ir-target parameter)))
-         #'(poo-clos-eql-specializer target)))
+         #'(clos-eql-specializer target)))
       (else (error "unknown CLOS specializer IR"))))
 
   ;; : (-> ClosOptionalDeclarationIR Natural Syntax [Syntax])
@@ -167,13 +167,13 @@
                     (index index) (arguments arguments))
         (let (value-binding
               #'(variable
-                 (poo-clos-positional-argument
+                 (clos-positional-argument
                   arguments index (lambda () initform))))
           (if supplied
             (with-syntax ((supplied supplied))
               (list
                #'(supplied
-                  (poo-clos-positional-supplied? arguments index))
+                  (clos-positional-supplied? arguments index))
                value-binding))
             (list value-binding))))))
 
@@ -188,15 +188,15 @@
         (if supplied
           (with-syntax ((supplied supplied)
                         (entry (datum->syntax #'variable (gensym 'keyword-entry))))
-            (list #'(entry (poo-clos-key-argument arguments start 'name))
+            (list #'(entry (clos-key-argument arguments start 'name))
                   #'(variable (if (car entry) (cdr entry) initform))
                   #'(supplied (car entry))))
           (list #'(variable
-                   (let (entry (poo-clos-key-argument arguments start 'name))
+                   (let (entry (clos-key-argument arguments start 'name))
                      (if (car entry) (cdr entry) initform))))))))
 
   ;; : (-> ClosMethodDeclarationIR Syntax Syntax)
-  (def (lower-poo-clos-method ir source (deferred? #f))
+  (def (lower-clos-method ir source (deferred? #f))
     (let* ((name (clos-method-declaration-ir-name ir))
            (binding (clos-generic-binding-identifier name))
            (qualifier (clos-method-declaration-ir-qualifier ir))
@@ -235,7 +235,7 @@
               (with-syntax ((variable rest-variable) (arguments arguments)
                             (tail-start tail-start))
                 (list #'(variable
-                         (poo-clos-rest-arguments arguments tail-start))))
+                         (clos-rest-arguments arguments tail-start))))
               '()))
            (key-bindings
             (apply append
@@ -284,14 +284,14 @@
                      (let* (parameter-binding ...)
                        (let ((call-next
                               (lambda replacement-arguments
-                                (apply poo-clos-call-next-method
+                                (apply clos-call-next-method
                                        frame replacement-arguments)))
                              (next-method-p
-                              (lambda () (poo-clos-next-method? frame))))
+                              (lambda () (clos-next-method? frame))))
                          body ...))))
                  qualifier: 'qualifier
                  lambda-list:
-                 (poo-clos-lambda-list
+                 (clos-lambda-list
                   required-count optional-count rest? key?
                   (list 'key-name ...) allow-other?)
                  frameless: entry)))
@@ -299,7 +299,7 @@
               method-value
               (with-syntax ((method-value method-value))
                 (syntax/loc source
-                  (poo-clos-generic-binding-add-method! binding method-value)))))))))
+                  (clos-generic-binding-add-method! binding method-value)))))))))
 
 )
 
@@ -314,14 +314,14 @@
 ;;
 ;;       ```scheme
 ;;       (.defgeneric render (object &key format))
-;;       ;; => render$poo-clos-generic
+;;       ;; => render$clos-generic
 ;;       ```
 ;;     %
 (defsyntax (.defgeneric stx)
   (syntax-case stx ()
     ((_ name lambda-list option ...)
-     (lower-poo-clos-generic
-      (parse-poo-clos-generic-declaration-ir
+     (lower-clos-generic
+      (parse-clos-generic-declaration-ir
        #'name #'lambda-list (syntax->list #'(option ...)) stx)
       stx))))
 
@@ -331,7 +331,7 @@
     ((_ name)
      (with-syntax ((binding (clos-generic-binding-identifier
                              (clos-function-name #'name "expected a CLOS generic name"))))
-       #'(poo-clos-generic-binding-current binding)))))
+       #'(clos-generic-binding-current binding)))))
 
 ;; | ClosMethod = POOObject
 ;; .defmethod
@@ -356,7 +356,7 @@
        (values #'name #'method-qualifier #'(parameter ...) #'(body ...)))
       ((_ (name parameter ...) body ...)
        (values #'name #'primary #'(parameter ...) #'(body ...)))))
-  (lower-poo-clos-method
-    (parse-poo-clos-method-declaration-ir name qualifier parameters
+  (lower-clos-method
+    (parse-clos-method-declaration-ir name qualifier parameters
                                          (syntax->list body) stx)
     stx (syntax-parameter-value #'%method-declaration-only)))

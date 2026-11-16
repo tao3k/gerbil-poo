@@ -1,0 +1,476 @@
+;;; -*- Gerbil -*-
+;;; SPDX-FileCopyrightText: 2026 tao3k team and Contributors
+;;;
+;;; SPDX-License-Identifier: Apache-2.0 AND LGPL-2.1-or-later
+
+;;; POO CLOS class, slot, and instance lifecycle conformance.
+
+(import (only-in :std/test
+                 test-suite test-case check-equal? check-exception check)
+        (only-in :clan/poo/object .ref .o object?)
+        (only-in :clan/poo/mop Type. Type define-type element? clos-instance?)
+        :clan/poo/mop)
+
+(export clos-lifecycle-test)
+
+(define-type (LifecycleInstance @ Type.) .element?: clos-instance?)
+
+(def (failure-code? code)
+  (lambda (error)
+    (and (clos-failure? error)
+         (eq? (.ref error 'code) code))))
+
+(def (class-identities class-value)
+  (map (lambda (entry) (.ref entry 'identity))
+       (clos-class-precedence-list class-value)))
+
+(def (slot-names class-value)
+  (map (lambda (slot) (.ref slot 'identity))
+       (clos-class-effective-slots class-value)))
+
+(def clos-lifecycle-test
+  (test-suite "POO CLOS class and instance lifecycle"
+    (test-case "the public lifecycle predicate composes with the existing Type API"
+      (def class-value (clos-class 'instance-predicate))
+      (def instance (clos-make-instance class-value))
+      (check (clos-instance? instance) => #t)
+      (check (element? LifecycleInstance instance) => #t)
+      (for-each
+        (lambda (value)
+          (check (clos-instance? value) => #f)
+          (check (element? LifecycleInstance value) => #f))
+        (list #f (.o) class-value (clos-generic-function 'predicate-generic 0))))
+
+    (test-case "class descriptors and identities stay on the MOP spine"
+      (let (class-value (clos-class 'runtime-mop-spine))
+        (check (element? Type ClosClass) => #t)
+        (check (eq? (.ref (.ref class-value 'instance-prototype)
+                          '%clos-class)
+                    class-value)
+               => #t)
+        (check (eq? (car (clos-class-precedence-list class-value))
+                    class-value)
+               => #t)))
+
+    (test-case "POO C4 closes a diamond and effective slot options merge"
+      (let* ((root-slot
+              (clos-direct-slot-definition
+               'payload initargs: (list root:)
+               initform: (lambda () 'root)))
+             (left-slot
+              (clos-direct-slot-definition
+               'payload initargs: (list left:)))
+             (right-slot
+              (clos-direct-slot-definition
+               'payload initargs: (list right:)
+               initform: (lambda () 'right)))
+             (root (clos-class 'root direct-slots: (list root-slot)))
+             (left (clos-class 'left direct-superclasses: (list root)
+                                   direct-slots: (list left-slot)))
+             (right (clos-class 'right direct-superclasses: (list root)
+                                    direct-slots: (list right-slot)))
+             (leaf (clos-class 'leaf
+                                   direct-superclasses: (list left right)))
+             (effective (clos-find-effective-slot leaf 'payload))
+             (instance-value (clos-make-instance leaf)))
+        (check-equal? (class-identities leaf)
+                      '(leaf left right root standard-object))
+        (check-equal? (slot-names leaf) '(payload))
+        (check-equal? (.ref effective 'allocation) 'instance)
+        (check-equal? (.ref effective 'initargs) (list left: right: root:))
+        (check-equal? (map (lambda (entry) (.ref entry 'identity))
+                           (.ref effective 'defining-classes))
+                      '(left right root))
+        (check-equal? (clos-slot-value instance-value 'payload) 'right)
+        (check (clos-class-subclass? leaf root) => #t)))
+
+    (test-case "POO C4 preserves monotonic pedalo precedence"
+      ;; Barrett et al., figure 2, separates the historical ANSI topological
+      ;; order from C4. POO CLOS intentionally uses prototype
+      ;; linearization, so day-boat remains before wheel-boat in pedalo.
+      (let* ((boat (clos-class 'boat))
+             (day-boat
+              (clos-class 'day-boat direct-superclasses: (list boat)))
+             (wheel-boat
+              (clos-class 'wheel-boat direct-superclasses: (list boat)))
+             (engineless
+              (clos-class 'engineless
+                              direct-superclasses: (list day-boat)))
+             (pedal-wheel-boat
+              (clos-class
+               'pedal-wheel-boat
+               direct-superclasses: (list engineless wheel-boat)))
+             (small-multihull
+              (clos-class 'small-multihull
+                              direct-superclasses: (list day-boat)))
+             (small-catamaran
+              (clos-class 'small-catamaran
+                              direct-superclasses: (list small-multihull)))
+             (pedalo
+              (clos-class
+               'pedalo
+               direct-superclasses: (list pedal-wheel-boat
+                                           small-catamaran))))
+        (check-equal?
+         (class-identities pedal-wheel-boat)
+         '(pedal-wheel-boat engineless day-boat wheel-boat boat
+                            standard-object))
+        (check-equal?
+         (class-identities small-catamaran)
+         '(small-catamaran small-multihull day-boat boat standard-object))
+        (check-equal?
+         (class-identities pedalo)
+         '(pedalo pedal-wheel-boat engineless small-catamaran
+                  small-multihull day-boat wheel-boat boat standard-object))))
+
+    (test-case "explicit and default initargs precede initforms with leftmost wins"
+      (let ((default-count 0)
+            (initform-count 0))
+        (def slot
+          (clos-direct-slot-definition
+           'value initargs: (list first: second:)
+           initform: (lambda ()
+                       (set! initform-count (+ initform-count 1))
+                       'from-initform)))
+        (def class-value
+          (clos-class
+           'initialized direct-slots: (list slot)
+           default-initargs:
+           (list (cons second:
+                       (lambda ()
+                         (set! default-count (+ default-count 1))
+                         'from-default)))))
+        (let ((explicit
+               (clos-make-instance class-value first: 'explicit
+                                       second: 'ignored))
+              (defaulted (clos-make-instance class-value)))
+          (check-equal? (clos-slot-value explicit 'value) 'explicit)
+          (check-equal? (clos-slot-value defaulted 'value) 'from-default)
+          (check-equal? default-count 1)
+          (check-equal? initform-count 0))))
+
+    (test-case "class names are registered ANSI class designators"
+      (let* ((source (clos-class 'registered-source))
+             (target (clos-class 'registered-target))
+             (instance (clos-make-instance 'registered-source)))
+        (check (eq? (clos-find-class 'registered-source) source) => #t)
+        (check-equal? (clos-find-class 'missing-class error?: #f) #f)
+        (check (eq? (clos-class-of instance) source) => #t)
+        (check (eq? (clos-change-class instance 'registered-target)
+                    instance)
+               => #t)
+        (check (eq? (clos-class-of instance) target) => #t)
+        (check (eq? (clos-set-find-class! source 'registered-alias)
+                    source) => #t)
+        (check (eq? (clos-find-class 'registered-alias) source) => #t)
+        (check-equal? (clos-set-find-class! #f 'registered-alias) #f)
+        (check-equal? (clos-find-class 'registered-alias error?: #f) #f)
+        (check-equal? (clos-set-class-name! 'renamed-source source)
+                      'renamed-source)
+        (check-equal? (clos-class-name source) 'renamed-source)
+        ;; Naming and association are independent until FIND-CLASS is set.
+        (check (eq? (clos-find-class 'registered-source) source) => #t)
+        (check-equal? (clos-find-class 'renamed-source error?: #f) #f)
+        (clos-set-find-class! source 'renamed-source)
+        (check (eq? (clos-find-class 'renamed-source) source) => #t)
+        (check-exception (clos-make-instance 'missing-class)
+                         (failure-code? 'class-not-found))))
+
+    (test-case "standard lifecycle entry points are extensible generic functions"
+      (let* ((slot
+              (clos-direct-slot-definition
+               'initialized initform: (lambda () 'default)))
+             (class-value
+              (clos-class 'custom-initialization direct-slots: (list slot)))
+             (method
+              (clos-method
+               'custom-initialize
+               (list (clos-class-specializer class-value))
+               (lambda (frame instance-value . initargs)
+                 (apply clos-call-next-method
+                        frame instance-value initargs)
+                 (clos-set-slot-value!
+                  instance-value 'initialized (cadr initargs)))
+               lambda-list:
+               (clos-lambda-list 1 0 #f #t (list custom:) #f))))
+        (clos-add-method clos-initialize-instance-generic method)
+        (let (instance (clos-make-instance class-value custom: 'custom))
+          (check-equal? (clos-slot-value instance 'initialized) 'custom)
+          (check (eq? (clos-method-generic-function method)
+                      clos-initialize-instance-generic)
+                 => #t)
+          (check-equal?
+           (call-with-values
+            (lambda () (clos-function-keywords method)) list)
+           (list (list custom:) #f)))))
+
+    (test-case "class-allocated cells are shared and a redefining subclass owns a new cell"
+      (let (class-init-count 0)
+        (def shared-slot
+          (clos-direct-slot-definition
+           'counter allocation: 'class initform:
+           (lambda ()
+             (set! class-init-count (+ class-init-count 1))
+             10)))
+        (def base
+          (clos-class 'shared-base direct-slots: (list shared-slot)))
+        (def inherited
+          (clos-class 'shared-child direct-superclasses: (list base)))
+        (def replacement-slot
+          (clos-direct-slot-definition 'counter allocation: 'class))
+        (def replaced
+          (clos-class 'replaced-child direct-superclasses: (list base)
+                          direct-slots: (list replacement-slot)))
+        (let ((one (clos-make-instance base))
+              (two (clos-make-instance inherited))
+              (three (clos-make-instance replaced)))
+          (check-equal? class-init-count 2)
+          (check-equal? (clos-slot-value one 'counter) 10)
+          (clos-set-slot-value! two 'counter 11)
+          (check-equal? (clos-slot-value one 'counter) 11)
+          (check-equal? (clos-slot-value three 'counter) 10)
+          (clos-set-slot-value! three 'counter 30)
+          (check-equal? (clos-slot-value two 'counter) 11)
+          (check-equal? (clos-slot-value three 'counter) 30))))
+
+    (test-case "bound state and missing or unbound hooks have exact operations"
+      (let (events '())
+        (def plain-slot (clos-direct-slot-definition 'plain))
+        (def hooked
+          (clos-class
+           'hooked direct-slots: (list plain-slot)
+           slot-missing-handler:
+           (lambda (_class _instance slot operation . values)
+             (set! events (append events (list (list slot operation values))))
+             (eq? operation 'slot-boundp))
+           slot-unbound-handler:
+           (lambda (_class _instance slot)
+             (set! events (append events (list (list slot 'slot-unbound))))
+             'unbound-value)))
+        (let (instance-value (clos-make-instance hooked))
+          (check-equal? (clos-slot-bound? instance-value 'plain) #f)
+          (check-equal? (clos-slot-value instance-value 'plain)
+                        'unbound-value)
+          (check-equal? (clos-slot-bound? instance-value 'missing) #t)
+          (check-equal? (clos-slot-value instance-value 'missing) #f)
+          (clos-set-slot-value! instance-value 'missing 8)
+          (clos-slot-makunbound! instance-value 'missing)
+          (check-equal?
+           events
+           '((plain slot-unbound)
+             (missing slot-boundp ())
+             (missing slot-value ())
+             (missing setf (8))
+             (missing slot-makunbound ()))))))
+
+    (test-case "default hooks raise typed failures and makunbound preserves identity"
+      (let* ((slot (clos-direct-slot-definition 'state))
+             (class-value (clos-class 'plain direct-slots: (list slot)))
+             (instance-value (clos-allocate-instance class-value)))
+        (check (object? instance-value) => #t)
+        (check (clos-instance? instance-value) => #t)
+        (check (eq? (clos-class-of instance-value) class-value) => #t)
+        (check-exception (clos-slot-value instance-value 'state)
+                         (failure-code? 'slot-unbound))
+        (check-exception (clos-slot-value instance-value 'absent)
+                         (failure-code? 'slot-missing))
+        (clos-set-slot-value! instance-value 'state #f)
+        (check-equal? (clos-slot-bound? instance-value 'state) #t)
+        (check-equal? (clos-slot-value instance-value 'state) #f)
+        (check (eq? (clos-slot-makunbound! instance-value 'state)
+                    instance-value) => #t)
+        (check-equal? (clos-slot-bound? instance-value 'state) #f)))
+
+    (test-case "unbound slot failures retain their condition subtype and instance"
+      (let* ((slot (clos-direct-slot-definition 'state))
+             (class-value
+              (clos-class 'typed-unbound-slot direct-slots: (list slot)))
+             (instance-value (clos-allocate-instance class-value))
+             (condition #f))
+        (with-exception-catcher
+         (lambda (failure) (set! condition failure))
+         (lambda () (clos-slot-value instance-value 'state)))
+        (check (clos-failure? condition) => #t)
+        (check (clos-unbound-slot? condition) => #t)
+        (check (eq? (clos-unbound-slot-instance condition)
+                    instance-value) => #t)
+        (check-equal? (.ref condition 'slot) 'state)))
+
+    (test-case "slot-missing and slot-unbound are ordinary mutable generics"
+      (let* ((slot (clos-direct-slot-definition 'state))
+             (class-value
+              (clos-class 'generic-slot-protocol
+                              direct-slots: (list slot)))
+             (instance-value (clos-allocate-instance class-value))
+             (slot-missing-method
+              (clos-method
+               'generic-slot-protocol/missing
+               (list (clos-eql-specializer class-value)
+                     (clos-any-specializer)
+                     (clos-any-specializer)
+                     (clos-any-specializer))
+               (lambda (_frame _class _instance slot-name operation . values)
+                 (list slot-name operation values))
+               lambda-list: (clos-lambda-list 4 1 #f #f '() #f)))
+             (slot-unbound-method
+              (clos-method
+               'generic-slot-protocol/unbound
+               (list (clos-eql-specializer class-value)
+                     (clos-any-specializer)
+                     (clos-any-specializer))
+               (lambda (_frame _class _instance slot-name)
+                 (list slot-name 'unbound))
+               lambda-list: (clos-lambda-list 3 0 #f #f '() #f))))
+        (clos-add-method clos-slot-missing-generic
+                             slot-missing-method)
+        (clos-add-method clos-slot-unbound-generic
+                             slot-unbound-method)
+        (check-equal? (clos-slot-value instance-value 'absent)
+                      '(absent slot-value ()))
+        (check-equal? (clos-slot-value instance-value 'state)
+                      '(state unbound))
+        (check (eq? (clos-method-generic-function slot-unbound-method)
+                    clos-slot-unbound-generic) => #t)
+        (clos-remove-method clos-slot-missing-generic
+                                slot-missing-method)
+        (clos-remove-method clos-slot-unbound-generic
+                                slot-unbound-method)))
+
+    (test-case "reinitialize uses initargs only while shared-initialize can rerun initforms"
+      (let (init-count 0)
+        (def slot
+          (clos-direct-slot-definition
+           'state initargs: (list state:)
+           initform: (lambda ()
+                       (set! init-count (+ init-count 1))
+                       init-count)))
+        (def class-value
+          (clos-class 'reinitializable direct-slots: (list slot)))
+        (let (instance-value (clos-make-instance class-value))
+          (check-equal? (clos-slot-value instance-value 'state) 1)
+          (clos-reinitialize-instance instance-value)
+          (check-equal? init-count 1)
+          (clos-reinitialize-instance instance-value state: 9)
+          (check-equal? (clos-slot-value instance-value 'state) 9)
+          (clos-slot-makunbound! instance-value 'state)
+          (clos-reinitialize-instance instance-value)
+          (check-equal? (clos-slot-bound? instance-value 'state) #f)
+          (clos-shared-initialize instance-value '(state))
+          (check-equal? (clos-slot-value instance-value 'state) 2))))
+
+    (test-case "reader and writer methods participate in ordinary multiple dispatch"
+      (let* ((slot
+              (clos-direct-slot-definition
+               'name initargs: (list name:)
+               readers: '(name-of) writers: '(set-name)))
+             (class-value
+              (clos-class 'named direct-slots: (list slot)))
+             (instance-value
+              (clos-make-instance class-value name: 'old))
+             (reader
+              (clos-add-method
+               (clos-generic-function 'name-of 1)
+               (clos-slot-reader-method class-value 'name 'read-name)))
+             (writer
+              (clos-add-method
+               (clos-generic-function 'set-name 2)
+               (clos-slot-writer-method class-value 'name 'write-name))))
+        (check-equal? (clos-call reader instance-value) 'old)
+        (check-equal? (clos-call writer 'new instance-value) 'new)
+        (check-equal? (clos-call reader instance-value) 'new)))
+
+    (test-case "rejected C4 redefinition leaves the live class and edges intact"
+      (let* ((x (clos-class 'redefine-precedence-x))
+             (y (clos-class 'redefine-precedence-y))
+             (xy (clos-class 'redefine-precedence-xy
+                                 direct-superclasses: (list x y)))
+             (yx (clos-class 'redefine-precedence-yx
+                                 direct-superclasses: (list y x)))
+             (current (clos-class 'redefine-precedence-current
+                                      direct-superclasses: (list xy)))
+             (prototype (.ref current 'instance-prototype))
+             (generation (clos-class-generation current)))
+        (check-exception
+         (clos-redefine-class current direct-superclasses: (list xy yx))
+         (failure-code? 'inconsistent-class-precedence))
+        (check (eq? (.ref current 'instance-prototype) prototype) => #t)
+        (check-equal? (clos-class-generation current) generation)
+        (check-equal? (class-identities current)
+                      '(redefine-precedence-current redefine-precedence-xy
+                        redefine-precedence-x redefine-precedence-y
+                        standard-object))
+        (check (if (memq current (.ref xy 'direct-subclasses)) #t #f)
+               => #t)
+        (check (memq current (.ref yx 'direct-subclasses)) => #f)))
+
+    (test-case "invalid declarations and initialization arguments fail before effects"
+      (let (slot (clos-direct-slot-definition 'only initargs: (list only:)))
+        (check-exception
+         (clos-direct-slot-definition 'bad allocation: 'dynamic)
+         (failure-code? 'invalid-slot-allocation))
+        (check-exception
+         (clos-direct-slot-definition 'bad initargs: '((setf only)) writers: '((setf . writer)))
+         (failure-code? 'invalid-slot-initargs))
+        (check-exception
+         (clos-direct-slot-definition 'bad writers: '((setf . writer)))
+         (failure-code? 'invalid-slot-accessors))
+        (check-exception
+         (clos-class 'bad-default
+           default-initargs: (list (cons '(setf only) (lambda () 1))))
+         (failure-code? 'invalid-default-initargs))
+        (check-equal? (.ref (clos-lambda-list 0 0 #f #t (list 'one two:) #f) 'keys)
+                      (list 'one two:))
+        (check-exception
+         (clos-lambda-list 0 0 #f #t '((setf name)) #f)
+         (failure-code? 'invalid-lambda-list))
+        (check-exception
+         (clos-class 'duplicates direct-slots: (list slot slot))
+         (failure-code? 'duplicate-direct-slot))
+        (let (class-value
+              (clos-class 'strict-initargs direct-slots: (list slot)))
+          (check-exception (clos-make-instance class-value unknown: 1)
+                           (failure-code? 'invalid-initialization-argument))
+          (check-exception
+           (apply clos-make-instance class-value
+             (list 'allow-other-keys #f allow-other-keys: #t unknown: 1))
+           (failure-code? 'invalid-initialization-argument))
+          (let (instance-value (clos-make-instance class-value only: 1))
+            (check (clos-slot-exists? instance-value 'only) => #t)
+            (check (clos-slot-exists? instance-value 'missing) => #f))
+          (check-exception (apply clos-make-instance
+                                  (list class-value only:))
+                           (failure-code? 'malformed-initialization-arguments))
+          (check-exception (apply clos-make-instance class-value '((setf only) 1))
+                           (failure-code? 'malformed-initialization-arguments))
+          (check (clos-instance?
+                  (clos-make-instance
+                   class-value unknown: 1 allow-other-keys: #t
+                   'allow-other-keys #f))
+                 => #t)))
+      (let* ((slot (clos-direct-slot-definition
+                    'aliased initargs: (list primary: alias:)))
+             (class-value (clos-class 'indexed-initargs
+                            direct-slots: (list slot)))
+             (leftmost-alias
+              (clos-make-instance class-value alias: 'first primary: 'second))
+             (leftmost-duplicate
+              (clos-make-instance class-value primary: 'first primary: 'second)))
+        ;; The linear index preserves the previous leftmost argument behavior,
+        ;; including when multiple initarg aliases name the same slot.
+        (check-equal? (clos-slot-value leftmost-alias 'aliased) 'first)
+        (check-equal? (clos-slot-value leftmost-duplicate 'aliased) 'first))
+      (let* ((x (clos-class 'precedence-x))
+             (y (clos-class 'precedence-y))
+             (xy (clos-class 'precedence-xy
+                                 direct-superclasses: (list x y)))
+             (yx (clos-class 'precedence-yx
+                                 direct-superclasses: (list y x))))
+        ;; The CLOS boundary
+        ;; translates its rejection without recomputing precedence.
+        (check-exception
+         (clos-class 'inconsistent
+                         direct-superclasses: (list xy yx))
+         (lambda (error)
+           (and (clos-failure? error)
+                (eq? (.ref error 'code)
+                     'inconsistent-class-precedence))))))))

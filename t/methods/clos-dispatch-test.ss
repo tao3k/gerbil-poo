@@ -24,14 +24,14 @@
                  current-owned-read-open-guard owned-read-value! owned-read-open!)
         :clan/poo/mop)
 
-(export poo-clos-dispatch-test)
+(export clos-dispatch-test)
 
 (extern namespace: clan/poo/slot-observation
         %with-slot-read-registration-interval %first-registered-read?
         %call-with-private-slot-read-prefix)
 (extern namespace: clan/poo/clos/objects %frameless-method-body)
 
-(def any-specializer (poo-clos-any-specializer))
+(def any-specializer (clos-any-specializer))
 (def animal-class (.o))
 (def dog-class (.o (:: @ animal-class)))
 (def cat-class (.o (:: @ animal-class)))
@@ -40,57 +40,57 @@
 
 (def (failure-code? code)
   (lambda (error)
-    (and (poo-clos-failure? error)
+    (and (clos-failure? error)
          (eq? (.ref error 'code) code))))
 
 (def (primary-method identity specializers value)
-  (poo-clos-method identity specializers
+  (clos-method identity specializers
                    (lambda (_frame . _arguments) value)))
 
-(def poo-clos-dispatch-test
+(def clos-dispatch-test
   (test-suite "POO CLOS multi-dispatch conformance"
     (test-case "ordered qualifier values determine long-form replacement and lookup"
-      (def group (poo-clos-method-group 'ordered '((first second))))
-      (def other (poo-clos-method-group 'other '((second first) (tag) () (primary))))
+      (def group (clos-method-group 'ordered '((first second))))
+      (def other (clos-method-group 'other '((second first) (tag) () (primary))))
       (def combination
-        (poo-clos-long-method-combination 'ordered-qualifiers (list group other)
+        (clos-long-method-combination 'ordered-qualifiers (list group other)
           (lambda (_generic _arguments _groups)
             (lambda (effective)
-              (def methods (poo-clos-effective-method-group effective 'ordered))
-              (poo-clos-call-method effective (car methods) '())))))
-      (def generic (poo-clos-generic-function 'qualifier-test 1 method-combination: combination))
+              (def methods (clos-effective-method-group effective 'ordered))
+              (clos-call-method effective (car methods) '())))))
+      (def generic (clos-generic-function 'qualifier-test 1 method-combination: combination))
       (def (make-method name qualifiers specializer)
-        (poo-clos-method name (list specializer) (lambda (_frame _argument) name)
+        (clos-method name (list specializer) (lambda (_frame _argument) name)
                           qualifier: qualifiers))
       (def supplied (list 'first 'second))
       (def old (make-method 'old supplied any-specializer))
       (def new (make-method 'new (list 'first 'second) any-specializer))
       (def reversed (make-method 'reversed (list 'second 'first) any-specializer))
-      (def other-specializer (poo-clos-eql-specializer 'elsewhere))
+      (def other-specializer (clos-eql-specializer 'elsewhere))
       (def other-target (make-method 'other-target (list 'first 'second) other-specializer))
-      (poo-clos-add-method generic old)
-      (check (eq? (poo-clos-find-method generic '(first second) (list any-specializer)) old) => #t)
-      (check-equal? (poo-clos-method-qualifiers old) '(first second))
-      (for-each (cut poo-clos-add-method generic <>) (list reversed other-target new))
-      (check-equal? (poo-clos-generic-generation generic) 4)
-      (check-equal? (length (poo-clos-generic-methods generic)) 3)
-      (check-equal? (poo-clos-method-generic-function old) #f)
-      (check (eq? (poo-clos-find-method generic '(first second) (list any-specializer)) new) => #t)
-      (check (eq? (poo-clos-find-method generic '(second first) (list any-specializer)) reversed) => #t)
-      (check (eq? (poo-clos-find-method generic '(first second) (list other-specializer)) other-target) => #t)
-      (check-equal? (poo-clos-call generic 'item) 'new)
+      (clos-add-method generic old)
+      (check (eq? (clos-find-method generic '(first second) (list any-specializer)) old) => #t)
+      (check-equal? (clos-method-qualifiers old) '(first second))
+      (for-each (cut clos-add-method generic <>) (list reversed other-target new))
+      (check-equal? (clos-generic-generation generic) 4)
+      (check-equal? (length (clos-generic-methods generic)) 3)
+      (check-equal? (clos-method-generic-function old) #f)
+      (check (eq? (clos-find-method generic '(first second) (list any-specializer)) new) => #t)
+      (check (eq? (clos-find-method generic '(second first) (list any-specializer)) reversed) => #t)
+      (check (eq? (clos-find-method generic '(first second) (list other-specializer)) other-target) => #t)
+      (check-equal? (clos-call generic 'item) 'new)
       (def shorthand (make-method 'shorthand 'tag any-specializer))
       (def singleton (make-method 'singleton (list 'tag) any-specializer))
-      (poo-clos-add-method generic shorthand)
-      (poo-clos-add-method generic singleton)
-      (check-equal? (poo-clos-method-generic-function shorthand) #f)
-      (check (eq? (poo-clos-find-method generic '(tag) (list any-specializer)) singleton) => #t)
+      (clos-add-method generic shorthand)
+      (clos-add-method generic singleton)
+      (check-equal? (clos-method-generic-function shorthand) #f)
+      (check (eq? (clos-find-method generic '(tag) (list any-specializer)) singleton) => #t)
       (def primary (make-method 'primary 'primary any-specializer))
       (def qualified-primary (make-method 'qualified-primary (list 'primary) any-specializer))
-      (poo-clos-add-method generic primary)
-      (poo-clos-add-method generic qualified-primary)
-      (check (eq? (poo-clos-find-method generic '() (list any-specializer)) primary) => #t)
-      (check (eq? (poo-clos-find-method generic '(primary) (list any-specializer)) qualified-primary) => #t))
+      (clos-add-method generic primary)
+      (clos-add-method generic qualified-primary)
+      (check (eq? (clos-find-method generic '() (list any-specializer)) primary) => #t)
+      (check (eq? (clos-find-method generic '(primary) (list any-specializer)) qualified-primary) => #t))
     (test-case "projection preserves multiple values and unwinds a failed region"
       (check-exception
         (call-with-owned-read-projection '() (lambda () #t)
@@ -122,7 +122,7 @@
       (check (ormap (lambda (read) (eq? source (slot-read-receiver read))) reads) => #t)
       (check (ormap (lambda (read) (eq? guard-source (slot-read-receiver read))) reads) => #f))
     (test-case "repeated descriptor admission keeps public events and live refusal"
-      (def descriptor (poo-clos-lambda-list 1 0 #f #f '() #f))
+      (def descriptor (clos-lambda-list 1 0 #f #f '() #f))
       (def (check-shape) (element? ClosLambdaList descriptor))
       (defvalues (accepted reads)
         (%call-with-recorded-slot-reads
@@ -169,20 +169,20 @@
         (lambda (frame _value)
           (when (eq? axis 'runtime-mop) (set! exposed frame)) 'done))
       (def protocol
-        (poo-clos-generic-protocol 'open-projection
+        (clos-generic-protocol 'open-projection
           compute-effective-method:
           (and (eq? axis 'effective)
                (lambda (_generic _args _methods original)
                  (set! exposed original) original))))
       (when (eq? axis 'runtime-mop) (object-protocol-set! protocol (.o)))
       (def generic
-        (poo-clos-add-method
-          (poo-clos-generic-function 'hooked-projection 1 protocol: protocol)
-          (poo-clos-method 'check (list any-specializer) body)))
+        (clos-add-method
+          (clos-generic-function 'hooked-projection 1 protocol: protocol)
+          (clos-method 'check (list any-specializer) body)))
       (def result
         (.o answer:
           (call-with-owned-read-projection (list body) (clos-call-carrier-policy-guard)
-            (cut poo-clos-call generic dog))))
+            (cut clos-call generic dog))))
       (def root #f)
       (call-with-slot-read-observer
         (lambda (read) (when (eq? (slot-read-key read) 'answer) (set! root read)))
@@ -228,13 +228,13 @@
               (when (memq axis '(open-frame known-frame)) (set! escaped frame))
               (and (.ref policy 'allowed) (element? constraint value))))
           (def generic
-            (poo-clos-add-method (poo-clos-generic-function 'projected-reads 1)
-              (poo-clos-method 'check (list any-specializer) body)))
+            (clos-add-method (clos-generic-function 'projected-reads 1)
+              (clos-method 'check (list any-specializer) body)))
           (def known (if (eq? axis 'open-frame) '() (list body)))
           (def result
             (.o answer:
               (call-with-owned-read-projection known (clos-call-carrier-policy-guard)
-                (cut poo-clos-call generic dog))))
+                (cut clos-call generic dog))))
           (def root #f)
           (check-equal?
             (call-with-slot-read-observer
@@ -259,10 +259,10 @@
       (def keys (list 'example))
       (def qualifiers (list 'custom))
       (def generic
-        (poo-clos-generic-function 'owned-order 1 argument-precedence-order: precedence))
-      (def arguments (poo-clos-lambda-list 1 0 #f #t keys #f))
+        (clos-generic-function 'owned-order 1 argument-precedence-order: precedence))
+      (def arguments (clos-lambda-list 1 0 #f #t keys #f))
       (def method
-        (poo-clos-method 'owned-qualifiers (list any-specializer) void qualifier: qualifiers))
+        (clos-method 'owned-qualifiers (list any-specializer) void qualifier: qualifiers))
       (def witness (.o))
       (check (with-slot-dependencies witness
                (lambda () (element? ClosGenericFunction generic))) => #t)
@@ -352,23 +352,23 @@
     (test-case "ranking callback invalidates a previously checked child descriptor"
       (def ran? #f)
       (def ranked? #f)
-      (def arguments (poo-clos-lambda-list 1 0 #f #f '() #f))
+      (def arguments (clos-lambda-list 1 0 #f #f '() #f))
       (def (body _frame argument) (set! ran? #t) argument)
       (def protocol
-        (poo-clos-generic-protocol 'child-change
+        (clos-generic-protocol 'child-change
           compute-applicable-methods:
           (lambda (_generic _arguments methods)
             (set! ranked? #t)
             (.put! arguments 'optional 'invalid)
             methods)))
       (def generic
-        (poo-clos-add-method
-          (poo-clos-generic-function 'child-change 1 protocol: protocol)
-          (poo-clos-method 'primary (list any-specializer) body
+        (clos-add-method
+          (clos-generic-function 'child-change 1 protocol: protocol)
+          (clos-method 'primary (list any-specializer) body
             lambda-list: arguments)))
       (check-exception
         (call-with-owned-read-projection (list body) void
-          (lambda () (poo-clos-call generic dog)))
+          (lambda () (clos-call generic dog)))
         (failure-code? 'invalid-compute-applicable-methods-result))
       (check-equal? ranked? #t)
       (check-equal? ran? #f))
@@ -377,12 +377,12 @@
       ;; does not restore its runtime revision or re-certify the old policy.
       (def body (lambda (_frame _value) 'done))
       (def generic
-        (poo-clos-add-method (poo-clos-generic-function 'prototype-policy 1)
-          (poo-clos-method 'check (list any-specializer) body)))
+        (clos-add-method (clos-generic-function 'prototype-policy 1)
+          (clos-method 'check (list any-specializer) body)))
       (def projected
         (.o answer:
           (call-with-owned-read-projection (list body) (clos-call-carrier-policy-guard)
-            (cut poo-clos-call generic dog))))
+            (cut clos-call generic dog))))
       (def prototype (.ref ClosInvocationFrame 'proto))
       (def original-kind (.ref prototype 'kind))
       (def projected-root #f)
@@ -404,15 +404,15 @@
           (def constraint (.o (:: @ Type.) .element?: (lambda (_value) #t)))
           (def escaped #f)
           (def generic
-            (poo-clos-add-method
-              (poo-clos-generic-function 'semantic-reads 1)
-              (poo-clos-method 'check (list any-specializer)
+            (clos-add-method
+              (clos-generic-function 'semantic-reads 1)
+              (clos-method 'check (list any-specializer)
                 (lambda (frame value)
                   ;; A public method may retain its frame. Allocation identity
                   ;; or CLOS ancestry cannot certify a disposable dependency.
                   (set! escaped frame)
                   (and (.ref policy 'allowed) (element? constraint value))))))
-          (def result (.o answer: (poo-clos-call generic dog)))
+          (def result (.o answer: (clos-call generic dog)))
           (def reads (make-hash-table-eq))
           (check-equal?
             (call-with-slot-read-observer
@@ -431,7 +431,7 @@
             error?))
         '(policy contract generic frame)))
     (test-case "CLOS carriers capture values without constructor-wide lazy closures"
-      (def generic (poo-clos-generic-function 'carrier-values 1))
+      (def generic (clos-generic-function 'carrier-values 1))
       (def method (primary-method 'carrier-method (list any-specializer) 'done))
       (def args (list dog))
       (def primaries (list method))
@@ -507,43 +507,43 @@
         (replay-slot-reads! (list read) (lambda (_receiver _key) (void)))
         error?))
     (test-case "runtime prototype and any specializers participate in multi-argument dispatch"
-      (let* ((generic (poo-clos-generic-function 'meet 2))
+      (let* ((generic (clos-generic-function 'meet 2))
              (generic
-              (poo-clos-add-method
+              (clos-add-method
                generic
                (primary-method
                 'animal-animal
-                (list (poo-clos-prototype-specializer animal-class)
-                      (poo-clos-prototype-specializer animal-class))
+                (list (clos-prototype-specializer animal-class)
+                      (clos-prototype-specializer animal-class))
                 'animal-animal)))
              (generic
-              (poo-clos-add-method
+              (clos-add-method
                generic
                (primary-method
                 'dog-any
-                (list (poo-clos-prototype-specializer dog-class) any-specializer)
+                (list (clos-prototype-specializer dog-class) any-specializer)
                 'dog-any)))
              (generic
-              (poo-clos-add-method
+              (clos-add-method
                generic
                (primary-method
                 'animal-cat
-                (list (poo-clos-prototype-specializer animal-class)
-                      (poo-clos-prototype-specializer cat-class))
+                (list (clos-prototype-specializer animal-class)
+                      (clos-prototype-specializer cat-class))
                 'animal-cat))))
-        (check-equal? (poo-clos-call generic dog dog) 'dog-any)
-        (check-equal? (poo-clos-call generic dog cat) 'dog-any)
+        (check-equal? (clos-call generic dog dog) 'dog-any)
+        (check-equal? (clos-call generic dog cat) 'dog-any)
         (let (second-first
-              (poo-clos-generic-function
+              (clos-generic-function
                'meet-second-first 2 argument-precedence-order: '(1 0)))
           (let loop ((methods (.ref generic 'methods)) (result second-first))
             (if (null? methods)
-              (check-equal? (poo-clos-call result dog cat) 'animal-cat)
+              (check-equal? (clos-call result dog cat) 'animal-cat)
               (loop (cdr methods)
                     (let (method (car methods))
-                      (poo-clos-add-method
+                      (clos-add-method
                       result
-                       (poo-clos-method
+                       (clos-method
                         (.ref method 'identity) (.ref method 'specializers)
                         (.ref method 'body)
                         qualifier: (.ref method 'qualifier)
@@ -553,18 +553,18 @@
       (def root (.o))
       (def parent (.o (:: @ root)))
       (def argument (.o (:: @ parent)))
-      (def generic (poo-clos-generic-function 'wide-index 1))
+      (def generic (clos-generic-function 'wide-index 1))
       (for-each
         (lambda (ordinal)
-          (poo-clos-add-method generic
-            (primary-method 'unrelated (list (poo-clos-prototype-specializer (.o))) ordinal)))
+          (clos-add-method generic
+            (primary-method 'unrelated (list (clos-prototype-specializer (.o))) ordinal)))
         '(0 1 2 3 4 5 6 7))
-      (def fallback (primary-method 'root (list (poo-clos-prototype-specializer root)) 'root))
-      (def primary (primary-method 'parent (list (poo-clos-prototype-specializer parent)) 'parent))
-      (poo-clos-add-method generic fallback)
-      (poo-clos-add-method generic primary)
+      (def fallback (primary-method 'root (list (clos-prototype-specializer root)) 'root))
+      (def primary (primary-method 'parent (list (clos-prototype-specializer parent)) 'parent))
+      (clos-add-method generic fallback)
+      (clos-add-method generic primary)
       (def (applicable)
-        (map (cut .ref <> 'identity) (poo-clos-compute-applicable-methods generic argument)))
+        (map (cut .ref <> 'identity) (clos-compute-applicable-methods generic argument)))
       (check-equal? (applicable) '(parent root))
       (check-equal? (applicable) '(parent root))
       (def reads 0)
@@ -572,37 +572,37 @@
                        (lambda (_) (set! reads (1+ reads))) applicable)
                     '(parent root))
       (check-equal? (> reads 0) #t)
-      (poo-clos-add-method generic
-        (primary-method 'new-parent (list (poo-clos-prototype-specializer parent)) 'new-parent))
+      (clos-add-method generic
+        (primary-method 'new-parent (list (clos-prototype-specializer parent)) 'new-parent))
       (check-equal? (applicable) '(new-parent root))
       (object-supers-set! parent '())
       (check-equal? (applicable) '(new-parent))
       (check-equal? (applicable) '(new-parent)))
     (test-case "runtime prototypes cannot masquerade as CLOS classes"
       (check-exception
-       (poo-clos-class-specializer animal-class)
+       (clos-class-specializer animal-class)
        (failure-code? 'invalid-specializer)))
 
     (test-case "published positions do not override live ranks after a protocol callback"
       (def roots (map (lambda (_) (.o)) '(a b c d)))
       (def argument (.o inherit: roots))
       (def replacement
-        (primary-method 'new-root (list (poo-clos-prototype-specializer (car roots))) 'new-root))
+        (primary-method 'new-root (list (clos-prototype-specializer (car roots))) 'new-root))
       (def edit? #f)
       (def protocol
-        (poo-clos-generic-protocol 'reordering
+        (clos-generic-protocol 'reordering
           compute-applicable-methods:
           (lambda (generic _arguments ranked)
-            (when edit? (poo-clos-add-method generic replacement))
+            (when edit? (clos-add-method generic replacement))
             (reverse ranked))))
-      (def generic (poo-clos-generic-function 'position-test 1 protocol: protocol))
+      (def generic (clos-generic-function 'position-test 1 protocol: protocol))
       (for-each
         (lambda (root name)
-          (poo-clos-add-method generic
-            (primary-method name (list (poo-clos-prototype-specializer root)) name)))
+          (clos-add-method generic
+            (primary-method name (list (clos-prototype-specializer root)) name)))
         roots '(a b c d))
       (def (applicable)
-        (map (cut .ref <> 'identity) (poo-clos-compute-applicable-methods generic argument)))
+        (map (cut .ref <> 'identity) (clos-compute-applicable-methods generic argument)))
       (check-equal? (applicable) '(d c b a))
       (set! edit? #t)
       (check-equal? (applicable) '(d c b a))
@@ -610,11 +610,11 @@
       (check-equal? (applicable) '(d c b new-root))
       (def roster (.ref generic 'methods))
       (set-car! roster
-        (primary-method 'pair-write (list (poo-clos-prototype-specializer (car roots))) 'pair-write))
+        (primary-method 'pair-write (list (clos-prototype-specializer (car roots))) 'pair-write))
       (check-equal? (applicable) '(d c b new-root))
       (def original (list any-specializer))
       (def detached (primary-method 'detached original 'detached))
-      (set-car! original (poo-clos-eql-specializer 'unrelated))
+      (set-car! original (clos-eql-specializer 'unrelated))
       (set-car! (.ref detached 'specializers) (car original))
       (call-with-slot-read-observer
         (lambda (read)
@@ -628,23 +628,23 @@
       (check-equal? (.ref (car (.ref detached 'specializers)) 'target) 'unrelated))
 
     (test-case "eql specializers are more specific than class specializers"
-      (let* ((generic (poo-clos-generic-function 'feed 1))
+      (let* ((generic (clos-generic-function 'feed 1))
              (generic
-              (poo-clos-add-method
+              (clos-add-method
                generic
                (primary-method
-                'dog (list (poo-clos-prototype-specializer dog-class)) 'dog)))
-             (eql-dog (poo-clos-eql-specializer dog))
+                'dog (list (clos-prototype-specializer dog-class)) 'dog)))
+             (eql-dog (clos-eql-specializer dog))
              (generic
-              (poo-clos-add-method
+              (clos-add-method
                generic
                (primary-method 'this-dog (list eql-dog) 'this-dog))))
         (check-equal?
          (map (lambda (method) (.ref method 'identity))
-              (poo-clos-compute-applicable-methods generic dog))
+              (clos-compute-applicable-methods generic dog))
          '(this-dog dog))
-        (check-equal? (poo-clos-call generic dog) 'this-dog)
-        (check-equal? (poo-clos-call generic (.o (:: @ dog-class))) 'dog)
+        (check-equal? (clos-call generic dog) 'this-dog)
+        (check-equal? (clos-call generic (.o (:: @ dog-class))) 'dog)
         (def affected (.o))
         (def unrelated (.o))
         (depend-on-object! affected eql-dog)
@@ -654,65 +654,65 @@
         (def generation (.ref generic 'generation))
         (.put! eql-dog 'target cat)
         (check-equal? (.ref generic 'generation) generation)
-        (check-equal? (poo-clos-call generic dog) 'dog)
-        (check-equal? (poo-clos-call generic cat) 'this-dog)
+        (check-equal? (clos-call generic dog) 'dog)
+        (check-equal? (clos-call generic cat) 'this-dog)
         ;; Cell and adapter writes on either reflected snapshot stay local.
         (def revision (object-revision eql-dog))
         (for-each
           (lambda (store)
             (hash-put! store 'target dog)
             (check-equal? (hash-ref store 'target) dog)
-            (check-equal? (poo-clos-call generic dog) 'dog)
+            (check-equal? (clos-call generic dog) 'dog)
             (runtime.slot-set! store 'ref
               (lambda (_table _key . _default) 'snapshot-only))
             (check-equal? (hash-ref store 'target) 'snapshot-only)
             (check-equal? (object-revision eql-dog) revision)
-            (check-equal? (poo-clos-call generic dog) 'dog)
-            (check-equal? (poo-clos-call generic cat) 'this-dog))
+            (check-equal? (clos-call generic dog) 'dog)
+            (check-equal? (clos-call generic cat) 'this-dog))
           (list (object-instance eql-dog) (hash<-object eql-dog)))
         (check-equal? (object-revision affected) (1+ affected-before))
         (check-equal? (object-revision unrelated) unrelated-before)))
 
     (test-case "class precedence inspection cannot edit dispatch"
-      (def left (poo-clos-class 'left))
-      (def right (poo-clos-class 'right))
+      (def left (clos-class 'left))
+      (def right (clos-class 'right))
       (def child
-        (poo-clos-class 'child direct-superclasses: (list left)))
-      (def instance (poo-clos-make-instance child))
-      (def generic (poo-clos-generic-function 'inspect 1))
-      (poo-clos-add-method generic
-        (primary-method 'left (list (poo-clos-class-specializer left)) 'left))
-      (poo-clos-add-method generic
-        (primary-method 'right (list (poo-clos-class-specializer right)) 'right))
-      (check-equal? (poo-clos-call generic instance) 'left)
+        (clos-class 'child direct-superclasses: (list left)))
+      (def instance (clos-make-instance child))
+      (def generic (clos-generic-function 'inspect 1))
+      (clos-add-method generic
+        (primary-method 'left (list (clos-class-specializer left)) 'left))
+      (clos-add-method generic
+        (primary-method 'right (list (clos-class-specializer right)) 'right))
+      (check-equal? (clos-call generic instance) 'left)
       (def revision (object-revision child))
-      (def generation (poo-clos-class-generation child))
+      (def generation (clos-class-generation child))
       (def lookup (.ref child 'class-precedence-index))
       (check-equal? (lookup child) 0)
       (check-exception (hash-put! lookup right 0) true)
       (set-car! (.ref child 'class-precedence-list) right)
-      (set-car! (poo-clos-class-precedence-list child) right)
-      (check-equal? (car (poo-clos-class-precedence-list child)) child)
-      (check-equal? (poo-clos-class-subclass? child right) #f)
-      (check-equal? (poo-clos-call generic instance) 'left)
+      (set-car! (clos-class-precedence-list child) right)
+      (check-equal? (car (clos-class-precedence-list child)) child)
+      (check-equal? (clos-class-subclass? child right) #f)
+      (check-equal? (clos-call generic instance) 'left)
       (check-equal? (object-revision child) revision)
-      (check-equal? (poo-clos-class-generation child) generation)
-      (poo-clos-redefine-class child direct-superclasses: (list right))
+      (check-equal? (clos-class-generation child) generation)
+      (clos-redefine-class child direct-superclasses: (list right))
       (check-equal? (lookup right) #f)
-      (check-equal? (poo-clos-class-subclass? child right) #t)
-      (check-equal? (poo-clos-call generic instance) 'right))
+      (check-equal? (clos-class-subclass? child right) #t)
+      (check-equal? (clos-call generic instance) 'right))
 
     (test-case "standard qualifier order and lexical next are preserved"
       (let ((trace '())
-            (base-generic (poo-clos-generic-function 'render 1)))
+            (base-generic (clos-generic-function 'render 1)))
         (def (record value)
           (set! trace (append trace (list value))))
         (def (method identity specializer qualifier body)
-          (poo-clos-method identity (list specializer) body
+          (clos-method identity (list specializer) body
                            qualifier: qualifier))
         (def (around-dog frame _dog)
           (record 'around-dog-enter)
-          (let (value (poo-clos-call-next-method frame))
+          (let (value (clos-call-next-method frame))
             (record 'around-dog-exit)
             value))
         (def (before-animal _frame _animal) (record 'before-animal))
@@ -722,15 +722,15 @@
           'animal)
         (def (primary-dog frame replacement)
           (record 'primary-dog)
-          (poo-clos-call-next-method frame replacement))
+          (clos-call-next-method frame replacement))
         (def (after-animal _frame _animal) (record 'after-animal))
         (def (after-dog _frame _dog) (record 'after-dog))
-        (let* ((animal (poo-clos-prototype-specializer animal-class))
-               (dog-specializer (poo-clos-prototype-specializer dog-class))
+        (let* ((animal (clos-prototype-specializer animal-class))
+               (dog-specializer (clos-prototype-specializer dog-class))
                (generic
                 (foldl
                  (lambda (method generic)
-                   (poo-clos-add-method generic method))
+                   (clos-add-method generic method))
                  base-generic
                  (list
                   (method 'around-dog dog-specializer 'around around-dog)
@@ -740,7 +740,7 @@
                   (method 'primary-dog dog-specializer 'primary primary-dog)
                   (method 'after-animal animal 'after after-animal)
                   (method 'after-dog dog-specializer 'after after-dog)))))
-          (check-equal? (poo-clos-call generic dog) 'animal)
+          (check-equal? (clos-call generic dog) 'animal)
           (check-equal?
            trace
            '(around-dog-enter before-dog before-animal
@@ -749,179 +749,179 @@
 
     (test-case "replacement arguments retain the exact applicable method set"
       (def (delegate frame _value)
-        (poo-clos-call-next-method frame cat))
+        (clos-call-next-method frame cat))
       (def (terminal _frame _value) 'terminal)
-      (let* ((generic (poo-clos-generic-function 'replacement 1))
+      (let* ((generic (clos-generic-function 'replacement 1))
              (generic
-              (poo-clos-add-method
+              (clos-add-method
                generic
-               (poo-clos-method
-                'animal (list (poo-clos-prototype-specializer animal-class))
+               (clos-method
+                'animal (list (clos-prototype-specializer animal-class))
                 terminal)))
              (generic
-              (poo-clos-add-method
+              (clos-add-method
                generic
-               (poo-clos-method
-                'dog (list (poo-clos-prototype-specializer dog-class))
+               (clos-method
+                'dog (list (clos-prototype-specializer dog-class))
                 delegate))))
-        (check-exception (poo-clos-call generic dog)
+        (check-exception (clos-call generic dog)
                          (failure-code? 'changed-applicable-methods))))
 
     (test-case "replacement compares applicability before method combination"
       (def first-effective #f)
       (def combinations 0)
       (def protocol
-        (poo-clos-generic-protocol 'reuse-effective
+        (clos-generic-protocol 'reuse-effective
           compute-effective-method:
           (lambda (_generic _arguments _methods default)
             (set! combinations (1+ combinations))
             (unless first-effective (set! first-effective default))
             first-effective)))
-      (def generic (poo-clos-generic-function 'replace-with-eql 1 protocol: protocol))
-      (poo-clos-add-method generic (primary-method 'base (list any-specializer) 'base))
-      (poo-clos-add-method generic
-        (primary-method 'new (list (poo-clos-eql-specializer 'changed)) 'new))
-      (poo-clos-add-method generic
-        (poo-clos-method 'around (list any-specializer)
-          (lambda (frame _value) (poo-clos-call-next-method frame 'changed))
+      (def generic (clos-generic-function 'replace-with-eql 1 protocol: protocol))
+      (clos-add-method generic (primary-method 'base (list any-specializer) 'base))
+      (clos-add-method generic
+        (primary-method 'new (list (clos-eql-specializer 'changed)) 'new))
+      (clos-add-method generic
+        (clos-method 'around (list any-specializer)
+          (lambda (frame _value) (clos-call-next-method frame 'changed))
           qualifier: 'around))
-      (check-exception (poo-clos-call generic 'original)
+      (check-exception (clos-call generic 'original)
                        (failure-code? 'changed-applicable-methods))
       (check-equal? combinations 1))
 
     (test-case "replacement may reorder methods with agreeing specializers"
       (def (run specializer)
         (def protocol
-          (poo-clos-generic-protocol 'reverse-for-replacement
+          (clos-generic-protocol 'reverse-for-replacement
             compute-applicable-methods:
             (lambda (_generic arguments methods)
               (if (eq? (car arguments) dog) methods (reverse methods)))))
-        (def generic (poo-clos-generic-function 'reorder 1 protocol: protocol))
-        (poo-clos-add-method generic (primary-method 'primary (list specializer) 'terminal))
-        (poo-clos-add-method generic
-          (poo-clos-method 'around (list any-specializer)
-            (lambda (frame _value) (poo-clos-call-next-method frame cat))
+        (def generic (clos-generic-function 'reorder 1 protocol: protocol))
+        (clos-add-method generic (primary-method 'primary (list specializer) 'terminal))
+        (clos-add-method generic
+          (clos-method 'around (list any-specializer)
+            (lambda (frame _value) (clos-call-next-method frame cat))
             qualifier: 'around))
-        (poo-clos-call generic dog))
+        (clos-call generic dog))
       (check-equal? (run any-specializer) 'terminal)
-      (check-exception (run (poo-clos-prototype-specializer animal-class))
+      (check-exception (run (clos-prototype-specializer animal-class))
                        (failure-code? 'changed-applicable-methods)))
 
     (test-case "replacement rechecks applicable hooks before invoking the next method"
       (def (run replace?)
         (def foreign (primary-method 'foreign (list any-specializer) 'foreign))
         (def protocol
-          (poo-clos-generic-protocol 'open-ranking
+          (clos-generic-protocol 'open-ranking
             compute-applicable-methods:
             (lambda (generic arguments methods)
               (cond
                ((not (eq? (car arguments) 'changed)) methods)
-               (replace? (poo-clos-add-method generic foreign) methods)
+               (replace? (clos-add-method generic foreign) methods)
                (else (list foreign))))))
-        (def generic (poo-clos-generic-function 'recheck 1 protocol: protocol))
-        (poo-clos-add-method generic (primary-method 'base (list any-specializer) 'base))
-        (poo-clos-add-method generic
-          (poo-clos-method 'around (list any-specializer)
-            (lambda (frame _value) (poo-clos-call-next-method frame 'changed))
+        (def generic (clos-generic-function 'recheck 1 protocol: protocol))
+        (clos-add-method generic (primary-method 'base (list any-specializer) 'base))
+        (clos-add-method generic
+          (clos-method 'around (list any-specializer)
+            (lambda (frame _value) (clos-call-next-method frame 'changed))
             qualifier: 'around))
-        (poo-clos-call generic 'original))
+        (clos-call generic 'original))
       (check-exception (run #f) (failure-code? 'invalid-compute-applicable-methods-result))
       (check-exception (run #t) (failure-code? 'changed-applicable-methods)))
 
     (test-case "rest arguments and multiple values survive effective invocation"
       (def (many _frame _required . rest)
         (apply values rest))
-      (let* ((generic (poo-clos-generic-function 'many 1 rest?: #t))
+      (let* ((generic (clos-generic-function 'many 1 rest?: #t))
              (generic
-              (poo-clos-add-method
+              (clos-add-method
                generic
-               (poo-clos-method 'many (list any-specializer) many))))
+               (clos-method 'many (list any-specializer) many))))
         (check-equal?
-         (call-with-values (lambda () (poo-clos-call generic 'x 1 2 3)) list)
+         (call-with-values (lambda () (clos-call generic 'x 1 2 3)) list)
          '(1 2 3))))
 
     (test-case "same qualifier and specializers replace the prior method"
-      (let* ((generic (poo-clos-generic-function 'replace 1))
+      (let* ((generic (clos-generic-function 'replace 1))
              (specializers (list any-specializer))
              (old (primary-method 'old specializers 'old))
              (new (primary-method 'new specializers 'new))
-             (with-old (poo-clos-add-method generic old))
-             (with-new (poo-clos-add-method with-old new)))
+             (with-old (clos-add-method generic old))
+             (with-new (clos-add-method with-old new)))
         (check (eq? generic with-old) => #t)
         (check (eq? with-old with-new) => #t)
-        (check-equal? (poo-clos-call with-new 1) 'new)
+        (check-equal? (clos-call with-new 1) 'new)
         (check-equal? (.ref with-new 'generation) 2)
         (check-equal? (length (.ref with-new 'methods)) 1)
-        (let (without-new (poo-clos-remove-method with-new new))
+        (let (without-new (clos-remove-method with-new new))
           (check-equal? (.ref without-new 'generation) 3)
           (check-equal? (.ref without-new 'methods) '())
-          (check-exception (poo-clos-call without-new 1)
+          (check-exception (clos-call without-new 1)
                            (failure-code? 'no-applicable-method)))))
 
     (test-case "a method has one generic owner and find-method uses ANSI qualifiers"
       (let* ((specializers (list any-specializer))
              (method (primary-method 'owned specializers 'owned))
-             (first (poo-clos-generic-function 'first-owner 1))
-             (second (poo-clos-generic-function 'second-owner 1)))
-        (poo-clos-add-method first method)
-        (check (eq? (poo-clos-method-generic-function method) first) => #t)
-        (check-equal? (poo-clos-method-qualifiers method) '())
-        (check (eq? (poo-clos-find-method first '() specializers) method) => #t)
+             (first (clos-generic-function 'first-owner 1))
+             (second (clos-generic-function 'second-owner 1)))
+        (clos-add-method first method)
+        (check (eq? (clos-method-generic-function method) first) => #t)
+        (check-equal? (clos-method-qualifiers method) '())
+        (check (eq? (clos-find-method first '() specializers) method) => #t)
         (check-equal?
-         (poo-clos-find-method first '(before) specializers error?: #f) #f)
-        (check-exception (poo-clos-find-method first '() '() error?: #f)
+         (clos-find-method first '(before) specializers error?: #f) #f)
+        (check-exception (clos-find-method first '() '() error?: #f)
                          (failure-code? 'method-required-argument-mismatch))
-        (check-exception (poo-clos-find-method second '() '())
+        (check-exception (clos-find-method second '() '())
                          (failure-code? 'method-required-argument-mismatch))
-        (check-exception (poo-clos-find-method first '() '(any) error?: #f)
+        (check-exception (clos-find-method first '() '(any) error?: #f)
                          (failure-code? 'invalid-specializer))
-        (check-exception (poo-clos-find-method first 'before specializers error?: #f)
+        (check-exception (clos-find-method first 'before specializers error?: #f)
                          (failure-code? 'invalid-method-qualifier))
         (check-exception
-         (poo-clos-add-method second method)
+         (clos-add-method second method)
          (failure-code? 'method-owned-by-another-generic))
-        (poo-clos-remove-method first method)
-        (check-equal? (poo-clos-method-generic-function method) #f)
-        (check (eq? (poo-clos-add-method second method) second) => #t)))
+        (clos-remove-method first method)
+        (check-equal? (clos-method-generic-function method) #f)
+        (check (eq? (clos-add-method second method) second) => #t)))
 
     (test-case "applicable methods extend keyword admission"
       (let* ((method-list
-              (poo-clos-lambda-list 1 0 #f #t (list extra:) #f))
+              (clos-lambda-list 1 0 #f #t (list extra:) #f))
              (method
-              (poo-clos-method
+              (clos-method
                'method-key (list any-specializer)
                (lambda (_frame _required . tail) tail)
                lambda-list: method-list))
              (generic
-              (poo-clos-add-method
-               (poo-clos-generic-function 'method-keys 1 rest?: #t)
+              (clos-add-method
+               (clos-generic-function 'method-keys 1 rest?: #t)
                method)))
-        (check-equal? (poo-clos-call generic 'value extra: 9)
+        (check-equal? (clos-call generic 'value extra: 9)
                       (list extra: 9))
-        (check-exception (poo-clos-call generic 'value unknown: 9)
+        (check-exception (clos-call generic 'value unknown: 9)
                          (failure-code? 'invalid-keyword-argument))))
 
     (test-case "malformed keyword arguments refuse before the method body"
       (def called? #f)
       (def method
-        (poo-clos-method 'checked (list any-specializer)
+        (clos-method 'checked (list any-specializer)
                          (lambda (_frame . _arguments) (set! called? #t))))
       (def generic
-        (poo-clos-add-method
-          (poo-clos-generic-function 'keyword-order 1 key?: #t keys: '(known)) method))
-      (check-exception (poo-clos-call generic 'item 'unknown)
+        (clos-add-method
+          (clos-generic-function 'keyword-order 1 key?: #t keys: '(known)) method))
+      (check-exception (clos-call generic 'item 'unknown)
                        (failure-code? 'malformed-keyword-arguments))
-      (check-exception (poo-clos-call generic 'item 'unknown 1)
+      (check-exception (clos-call generic 'item 'unknown 1)
                        (failure-code? 'invalid-keyword-argument))
       (check-equal? called? #f)
-      (poo-clos-call generic 'item 'known 1)
+      (clos-call generic 'item 'known 1)
       (check-equal? called? #t))
 
     (test-case "no-applicable-method precedes keyword validation"
       (let* ((filtered '())
              (policy (.o allowed: #t))
              (protocol
-              (poo-clos-generic-protocol
+              (clos-generic-protocol
                'no-app-first
                compute-applicable-methods:
                (lambda (_generic _arguments methods)
@@ -932,26 +932,26 @@
                no-applicable-method:
                (lambda (_generic _arguments) 'no-applicable)))
              (generic
-              (poo-clos-add-method
-               (poo-clos-generic-function
+              (clos-add-method
+               (clos-generic-function
                 'no-app-first 1 key?: #t keys: '(known) protocol: protocol)
                (primary-method 'filtered (list any-specializer) 'primary))))
-        (check-equal? (poo-clos-call generic 'value unknown: 1)
+        (check-equal? (clos-call generic 'value unknown: 1)
                       'no-applicable)
         (check-equal? (map (lambda (method) (.ref method 'identity)) filtered)
                       '(filtered))
         (def method
-          (poo-clos-method
+          (clos-method
            'no-app-first/specialized
-           (list (poo-clos-eql-specializer generic))
+           (list (clos-eql-specializer generic))
            (lambda (_frame original . arguments)
              (values original arguments (.ref policy 'allowed)))
-           lambda-list: (poo-clos-lambda-list 1 0 #t #f '() #f)))
-        (poo-clos-add-method poo-clos-no-applicable-method-generic method)
+           lambda-list: (clos-lambda-list 1 0 #t #f '() #f)))
+        (clos-add-method clos-no-applicable-method-generic method)
         (try
           (let* ((result (.o answer:
                             (call-with-values
-                              (lambda () (poo-clos-call generic 'value unknown: 1))
+                              (lambda () (clos-call generic 'value unknown: 1))
                               list)))
                  (root #f))
             (check-equal?
@@ -968,74 +968,74 @@
             (check-exception
               (replay-slot-reads! (list root) (lambda (_receiver _key) (void))) error?))
           (finally
-            (poo-clos-remove-method poo-clos-no-applicable-method-generic method)))))
+            (clos-remove-method clos-no-applicable-method-generic method)))))
 
     (test-case "terminal protocol functions are ordinary mutable generics"
       (let* ((protocol
-              (poo-clos-generic-protocol 'local-terminal
+              (clos-generic-protocol 'local-terminal
                 no-next-method: (lambda (_generic _method arguments) (cons 'local arguments))))
-             (target (poo-clos-generic-function 'terminal-target 1 protocol: protocol))
+             (target (clos-generic-function 'terminal-target 1 protocol: protocol))
              (no-applicable
-              (poo-clos-method
+              (clos-method
                'terminal-target/no-applicable
-               (list (poo-clos-eql-specializer target))
+               (list (clos-eql-specializer target))
                (lambda (_frame generic . arguments)
                  (list (.ref generic 'identity) arguments))
-               lambda-list: (poo-clos-lambda-list 1 0 #t #f '() #f)))
+               lambda-list: (clos-lambda-list 1 0 #t #f '() #f)))
              (terminal
-              (poo-clos-method
+              (clos-method
                'terminal-target/primary (list any-specializer)
                (lambda (frame _value)
-                 (poo-clos-call-next-method frame))))
+                 (clos-call-next-method frame))))
              (no-next
-              (poo-clos-method
+              (clos-method
                'terminal-target/no-next
-               (list (poo-clos-eql-specializer target) any-specializer)
+               (list (clos-eql-specializer target) any-specializer)
                (lambda (_frame generic method . arguments)
                  (list (.ref generic 'identity)
                        (.ref method 'identity) arguments))
-               lambda-list: (poo-clos-lambda-list 2 0 #t #f '() #f))))
-        (poo-clos-add-method poo-clos-no-applicable-method-generic
+               lambda-list: (clos-lambda-list 2 0 #t #f '() #f))))
+        (clos-add-method clos-no-applicable-method-generic
                              no-applicable)
-        (check-equal? (poo-clos-call target 'absent)
+        (check-equal? (clos-call target 'absent)
                       '(terminal-target (absent)))
-        (poo-clos-add-method target terminal)
-        (check-equal? (poo-clos-call target 'present) '(local present))
-        (poo-clos-add-method poo-clos-no-next-method-generic no-next)
-        (check-equal? (poo-clos-call target 'present)
+        (clos-add-method target terminal)
+        (check-equal? (clos-call target 'present) '(local present))
+        (clos-add-method clos-no-next-method-generic no-next)
+        (check-equal? (clos-call target 'present)
                       '(terminal-target terminal-target/primary (present)))
-        (check (eq? (poo-clos-method-generic-function no-applicable)
-                    poo-clos-no-applicable-method-generic) => #t)
-        (poo-clos-remove-method poo-clos-no-applicable-method-generic
+        (check (eq? (clos-method-generic-function no-applicable)
+                    clos-no-applicable-method-generic) => #t)
+        (clos-remove-method clos-no-applicable-method-generic
                                 no-applicable)
-        (poo-clos-remove-method poo-clos-no-next-method-generic no-next)))
+        (clos-remove-method clos-no-next-method-generic no-next)))
 
     (test-case "typed failures close invalid and inapplicable calls"
       (check-exception
-       (poo-clos-generic-function
+       (clos-generic-function
         'bad-order 2 argument-precedence-order: '(0 0))
        (failure-code? 'invalid-argument-precedence-order))
-      (let (generic (poo-clos-generic-function 'missing 1))
-        (check-exception (poo-clos-call generic dog)
+      (let (generic (clos-generic-function 'missing 1))
+        (check-exception (clos-call generic dog)
                          (failure-code? 'no-applicable-method))
-        (check-exception (poo-clos-call generic)
+        (check-exception (clos-call generic)
                          (failure-code? 'argument-count-mismatch)))
-      (let* ((generic (poo-clos-generic-function 'only-before 1))
+      (let* ((generic (clos-generic-function 'only-before 1))
              (method
-              (poo-clos-method
+              (clos-method
                'before (list any-specializer)
                (lambda (_frame _value) (void)) qualifier: 'before)))
         (check-exception
-         (poo-clos-call (poo-clos-add-method generic method) 1)
+         (clos-call (clos-add-method generic method) 1)
          (failure-code? 'no-primary-method)))
-      (let* ((generic (poo-clos-generic-function 'no-next 1))
+      (let* ((generic (clos-generic-function 'no-next 1))
              (method
-              (poo-clos-method
+              (clos-method
                'terminal (list any-specializer)
                (lambda (frame _value)
-                 (poo-clos-call-next-method frame)))))
+                 (clos-call-next-method frame)))))
         (check-exception
-         (poo-clos-call (poo-clos-add-method generic method) 1)
+         (clos-call (clos-add-method generic method) 1)
          (failure-code? 'no-next-method))))
 
     (test-case "single primary still observes carrier policy refusals"
@@ -1048,7 +1048,7 @@
       (def (snapshot) (random-source-state-ref default-random-source))
       (def generic (.generic-object checked-primary))
       (def arguments (list dog))
-      (def methods (poo-clos-compute-applicable-methods generic dog))
+      (def methods (clos-compute-applicable-methods generic dog))
       (def before-effective (snapshot))
       (def effective (make-effective-method generic arguments '() '() methods '()))
       (def before-frame (snapshot))

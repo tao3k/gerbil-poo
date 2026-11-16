@@ -27,85 +27,85 @@
         ClosDirectSlotDefinition
         ClosEffectiveSlotDefinition ClosClass ClosInstanceState ClosSlotCell
         ClosMopProfile
-        poo-clos-any-specializer poo-clos-class-specializer
-        poo-clos-prototype-specializer
-        poo-clos-eql-specializer poo-clos-method poo-clos-generic-function
-        poo-clos-add-method poo-clos-remove-method poo-clos-failure?
-        poo-clos-unbound-slot? poo-clos-unbound-slot-instance
-        poo-clos-lambda-list poo-clos-lambda-lists-congruent?
-        poo-clos-standard-method-combination
-        poo-clos-built-in-method-combination
-        poo-clos-short-method-combination
-        poo-clos-method-group
-        poo-clos-long-method-combination
-        poo-clos-configure-method-combination
-        poo-clos-resolve-method-combination
-        poo-clos-method-combination-admits-qualifier?
-        poo-clos-generic-protocol poo-clos-default-generic-protocol
-        poo-clos-method-bundle poo-clos-compose-method-bundle
-        poo-clos-compose-method-bundles
-        poo-clos-generic-binding poo-clos-generic-binding-current
-        poo-clos-generic-binding-add-method!
-        poo-clos-register-generic-function! poo-clos-find-generic-function
-        poo-clos-ensure-generic-function
-        poo-clos-reinitialize-generic-function!
-        poo-clos-compute-applicable-methods poo-clos-call
-        poo-clos-compute-effective-method
-        poo-clos-no-applicable-method poo-clos-no-next-method
-        poo-clos-no-applicable-method-generic
-        poo-clos-no-next-method-generic
-        poo-clos-effective-method-group poo-clos-call-method
-        poo-clos-make-method
-        poo-clos-call-next-method poo-clos-next-method?
-        poo-clos-funcall poo-clos-setf
-        poo-clos-make-load-form poo-clos-make-load-form-generic
-        poo-clos-make-load-form-saving-slots
-        poo-clos-standard-object-class poo-clos-direct-slot-definition
-        poo-clos-class poo-clos-class-precedence-list
-        poo-clos-find-class poo-clos-set-find-class! poo-clos-resolve-class
-        poo-clos-class-effective-slots poo-clos-find-effective-slot
-        poo-clos-model-prototype poo-clos-model-validation-failure
-        poo-clos-model? poo-clos-check-model
-        poo-clos-class-subclass?
-        poo-clos-redefine-class poo-clos-make-instances-obsolete
-        poo-clos-instance? poo-clos-class-of
-        poo-clos-allocate-instance poo-clos-make-instance
-        poo-clos-initialize-instance poo-clos-shared-initialize
-        poo-clos-reinitialize-instance poo-clos-slot-value
-        poo-clos-set-slot-value! poo-clos-slot-bound? poo-clos-slot-exists?
-        poo-clos-slot-missing poo-clos-slot-unbound
-        poo-clos-slot-missing-generic poo-clos-slot-unbound-generic
-        poo-clos-slot-makunbound! poo-clos-slot-reader-method
-        poo-clos-slot-writer-method poo-clos-change-class
-        poo-clos-update-instance-for-redefined-class
-        poo-clos-update-instance-for-different-class
-        poo-clos-allocate-instance-generic poo-clos-make-instance-generic
-        poo-clos-initialize-instance-generic
-        poo-clos-shared-initialize-generic
-        poo-clos-reinitialize-instance-generic poo-clos-change-class-generic
-        poo-clos-update-instance-for-redefined-class-generic
-        poo-clos-update-instance-for-different-class-generic
-        poo-clos-class-name poo-clos-set-class-name!
-        poo-clos-class-name-generic poo-clos-set-class-name-generic
-        poo-clos-class-generation
-        poo-clos-class-direct-superclasses poo-clos-class-direct-subclasses
-        poo-clos-class-direct-slots poo-clos-class-default-initargs
-        poo-clos-class-documentation poo-clos-class-metaclass
-        poo-clos-instance-slot-names
-        poo-clos-slot-name poo-clos-slot-allocation poo-clos-slot-initargs
-        poo-clos-slot-readers poo-clos-slot-writers
-        poo-clos-slot-defining-classes poo-clos-slot-storage-class
-        poo-clos-specializer-kind poo-clos-specializer-object
-        poo-clos-method-name poo-clos-method-qualifiers
-        poo-clos-method-specializers poo-clos-method-lambda-list
-        poo-clos-method-generic-function poo-clos-find-method
-        poo-clos-function-keywords
-        poo-clos-generic-name poo-clos-generic-methods
-        poo-clos-generic-lambda-list poo-clos-generic-argument-precedence-order
-        poo-clos-generic-method-combination poo-clos-generic-generation
-        poo-clos-generic-documentation
-        poo-clos-generic-function-class poo-clos-generic-method-class
-        poo-clos-mop-extended-profile poo-clos-mop-profile-admits?
+        clos-any-specializer clos-class-specializer
+        clos-prototype-specializer
+        clos-eql-specializer clos-method clos-generic-function
+        clos-add-method clos-remove-method clos-failure?
+        clos-unbound-slot? clos-unbound-slot-instance
+        clos-lambda-list clos-lambda-lists-congruent?
+        clos-standard-method-combination
+        clos-built-in-method-combination
+        clos-short-method-combination
+        clos-method-group
+        clos-long-method-combination
+        clos-configure-method-combination
+        clos-resolve-method-combination
+        clos-method-combination-admits-qualifier?
+        clos-generic-protocol clos-default-generic-protocol
+        clos-method-bundle clos-compose-method-bundle
+        clos-compose-method-bundles
+        clos-generic-binding clos-generic-binding-current
+        clos-generic-binding-add-method!
+        clos-register-generic-function! clos-find-generic-function
+        clos-ensure-generic-function
+        clos-reinitialize-generic-function!
+        clos-compute-applicable-methods clos-call
+        clos-compute-effective-method
+        clos-no-applicable-method clos-no-next-method
+        clos-no-applicable-method-generic
+        clos-no-next-method-generic
+        clos-effective-method-group clos-call-method
+        clos-make-method
+        clos-call-next-method clos-next-method?
+        clos-funcall clos-setf
+        clos-make-load-form clos-make-load-form-generic
+        clos-make-load-form-saving-slots
+        clos-standard-object-class clos-direct-slot-definition
+        clos-class clos-class-precedence-list
+        clos-find-class clos-set-find-class! clos-resolve-class
+        clos-class-effective-slots clos-find-effective-slot
+        clos-model-prototype clos-model-validation-failure
+        clos-model? clos-check-model
+        clos-class-subclass?
+        clos-redefine-class clos-make-instances-obsolete
+        clos-instance? clos-class-of
+        clos-allocate-instance clos-make-instance
+        clos-initialize-instance clos-shared-initialize
+        clos-reinitialize-instance clos-slot-value
+        clos-set-slot-value! clos-slot-bound? clos-slot-exists?
+        clos-slot-missing clos-slot-unbound
+        clos-slot-missing-generic clos-slot-unbound-generic
+        clos-slot-makunbound! clos-slot-reader-method
+        clos-slot-writer-method clos-change-class
+        clos-update-instance-for-redefined-class
+        clos-update-instance-for-different-class
+        clos-allocate-instance-generic clos-make-instance-generic
+        clos-initialize-instance-generic
+        clos-shared-initialize-generic
+        clos-reinitialize-instance-generic clos-change-class-generic
+        clos-update-instance-for-redefined-class-generic
+        clos-update-instance-for-different-class-generic
+        clos-class-name clos-set-class-name!
+        clos-class-name-generic clos-set-class-name-generic
+        clos-class-generation
+        clos-class-direct-superclasses clos-class-direct-subclasses
+        clos-class-direct-slots clos-class-default-initargs
+        clos-class-documentation clos-class-metaclass
+        clos-instance-slot-names
+        clos-slot-name clos-slot-allocation clos-slot-initargs
+        clos-slot-readers clos-slot-writers
+        clos-slot-defining-classes clos-slot-storage-class
+        clos-specializer-kind clos-specializer-object
+        clos-method-name clos-method-qualifiers
+        clos-method-specializers clos-method-lambda-list
+        clos-method-generic-function clos-find-method
+        clos-function-keywords
+        clos-generic-name clos-generic-methods
+        clos-generic-lambda-list clos-generic-argument-precedence-order
+        clos-generic-method-combination clos-generic-generation
+        clos-generic-documentation
+        clos-generic-function-class clos-generic-method-class
+        clos-mop-extended-profile clos-mop-profile-admits?
         .defclass .defgeneric .defmethod .defmethod-bundle .generic-object
         .with-slots .with-accessors
         .define-method-combination)

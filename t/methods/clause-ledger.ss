@@ -3,17 +3,17 @@
 ;;;
 ;;; SPDX-License-Identifier: Apache-2.0 AND LGPL-2.1-or-later
 
-;;; Executable POO-CLOS and separately scoped MOP-EXTENDED clause inventory.
+;;; Executable CLOS and separately scoped MOP-EXTENDED clause inventory.
 
 (import (only-in :clan/poo/object .o .ref)
         (only-in :std/list/list find filter))
 
-(export poo-clos-clause-ledger poo-clos-operator-ledger
-        poo-clos-required-rows poo-clos-required-operators
-        poo-clos-open-required-rows poo-clos-ledger-row-valid?
-        poo-clos-operator-row-valid?
-        poo-clos-evidence-suites poo-clos-evidence-suite
-        poo-clos-evidence-id-resolves?)
+(export clos-clause-ledger clos-operator-ledger
+        clos-required-rows clos-required-operators
+        clos-open-required-rows clos-ledger-row-valid?
+        clos-operator-row-valid?
+        clos-evidence-suites clos-evidence-suite
+        clos-evidence-id-resolves?)
 
 (def (owner-evidence-id owner)
   (case owner
@@ -39,90 +39,90 @@
 (def (closed-clause row-id profile owner positive negative)
   (clause 'closed row-id profile owner positive negative))
 
-(def poo-clos-clause-ledger
+(def clos-clause-ledger
   (list
    ;; Class definition, inheritance, slots, and construction.
-   (closed-clause 'C43-class-metaobjects 'poo-clos 'classes
+   (closed-clause 'C43-class-metaobjects 'clos 'classes
            'runtime-class-metaobjects 'invalid-class)
-   (closed-clause 'C432-class-definition 'poo-clos 'syntax
+   (closed-clause 'C432-class-definition 'clos 'syntax
            'defclass-lowering 'duplicate-class-declarations)
-   (closed-clause 'C432-slot-options 'poo-clos 'classes
+   (closed-clause 'C432-slot-options 'clos 'classes
            'slot-option-projection 'invalid-slot-options)
-   (closed-clause 'C433-make-instance 'poo-clos 'lifecycle
+   (closed-clause 'C433-make-instance 'clos 'lifecycle
            'make-instance-initialization 'invalid-initargs)
-   (closed-clause 'C434-inheritance 'poo-clos 'classes
+   (closed-clause 'C434-inheritance 'clos 'classes
            'diamond-inheritance 'duplicate-direct-superclass)
-   (closed-clause 'C435-class-precedence 'poo-clos 'classes
+   (closed-clause 'C435-class-precedence 'clos 'classes
            'runtime-c4-order 'inconsistent-c4)
-   (closed-clause 'C436-class-redefinition 'poo-clos 'evolution
+   (closed-clause 'C436-class-redefinition 'clos 'evolution
            'identity-preserved-generation 'invalid-class-redefinition)
-   (closed-clause 'C436-dependent-propagation 'poo-clos 'evolution
+   (closed-clause 'C436-dependent-propagation 'clos 'evolution
            'dependent-generation-cascade 'stale-superclass-generation)
-   (closed-clause 'C436-lazy-instance-update 'poo-clos 'lifecycle
+   (closed-clause 'C436-lazy-instance-update 'clos 'lifecycle
            'lazy-instance-convergence 'discarded-slot-property-list)
-   (closed-clause 'C436-shared-slot-transition 'poo-clos 'evolution
+   (closed-clause 'C436-shared-slot-transition 'clos 'evolution
            'shared-slot-cell-preservation 'allocation-transition)
-   (closed-clause 'C436-make-instances-obsolete 'poo-clos 'evolution
+   (closed-clause 'C436-make-instances-obsolete 'clos 'evolution
            'explicit-layout-generation 'invalid-obsolescence-target)
-   (closed-clause 'C437-class-specialized-types 'poo-clos 'dispatch
+   (closed-clause 'C437-class-specialized-types 'clos 'dispatch
            'class-specializer-inheritance 'invalid-specializer)
 
    ;; Creation, reinitialization, class change, and slot protocols.
-   (closed-clause 'C71-allocation-initialization 'poo-clos 'lifecycle
+   (closed-clause 'C71-allocation-initialization 'clos 'lifecycle
            'allocate-initialize-shared 'malformed-initialization-arguments)
-   (closed-clause 'C71-default-initargs 'poo-clos 'lifecycle
+   (closed-clause 'C71-default-initargs 'clos 'lifecycle
            'leftmost-default-initargs 'unknown-initarg)
-   (closed-clause 'C72-change-class 'poo-clos 'lifecycle
+   (closed-clause 'C72-change-class 'clos 'lifecycle
            'identity-preserving-change-class 'invalid-target-class)
-   (closed-clause 'C72-update-different-class 'poo-clos 'lifecycle
+   (closed-clause 'C72-update-different-class 'clos 'lifecycle
            'previous-current-hook-views 'invalid-change-initargs)
-   (closed-clause 'C73-reinitialize-instance 'poo-clos 'lifecycle
+   (closed-clause 'C73-reinitialize-instance 'clos 'lifecycle
            'reinitialize-supplied-slots 'reinitialize-does-not-run-initforms)
-   (closed-clause 'C75-slot-value 'poo-clos 'lifecycle
+   (closed-clause 'C75-slot-value 'clos 'lifecycle
            'slot-read-write 'slot-missing)
-   (closed-clause 'C75-slot-boundp-makunbound 'poo-clos 'lifecycle
+   (closed-clause 'C75-slot-boundp-makunbound 'clos 'lifecycle
            'bound-and-makunbound 'slot-unbound)
-   (closed-clause 'C752-generated-accessors 'poo-clos 'syntax
+   (closed-clause 'C752-generated-accessors 'clos 'syntax
            'reader-writer-method-dispatch 'missing-accessor-slot)
-   (closed-clause 'C752-with-slots 'poo-clos 'syntax
+   (closed-clause 'C752-with-slots 'clos 'syntax
            'live-with-slots-read 'invalid-slot-name)
-   (closed-clause 'C752-with-accessors 'poo-clos 'syntax
+   (closed-clause 'C752-with-accessors 'clos 'syntax
            'live-with-accessors-dispatch 'missing-accessor-method)
-   (closed-clause 'C753-slot-inheritance 'poo-clos 'classes
+   (closed-clause 'C753-slot-inheritance 'clos 'classes
            'effective-slot-option-merge 'duplicate-direct-slot)
-   (closed-clause 'C753-class-allocation 'poo-clos 'classes
+   (closed-clause 'C753-class-allocation 'clos 'classes
            'shared-and-shadowed-slots 'invalid-slot-allocation)
 
    ;; Generic functions, methods, selection, and combination.
-   (closed-clause 'C761-generic-function 'poo-clos 'objects
+   (closed-clause 'C761-generic-function 'clos 'objects
            'generic-function-metaobject 'invalid-generic-function)
-   (closed-clause 'C762-method-metaobject 'poo-clos 'objects
+   (closed-clause 'C762-method-metaobject 'clos 'objects
            'method-metaobject 'invalid-method)
-   (closed-clause 'C763-specializer-qualifier-agreement 'poo-clos 'objects
+   (closed-clause 'C763-specializer-qualifier-agreement 'clos 'objects
            'method-replacement-agreement 'invalid-method-qualifier)
-   (closed-clause 'C764-lambda-list-congruence 'poo-clos 'objects
+   (closed-clause 'C764-lambda-list-congruence 'clos 'objects
            'congruent-lambda-lists 'incongruent-method-lambda-list)
-   (closed-clause 'C765-applicable-keyword-union 'poo-clos 'dispatch
+   (closed-clause 'C765-applicable-keyword-union 'clos 'dispatch
            'applicable-method-keyword-union 'invalid-keyword-argument)
-   (closed-clause 'C766-no-applicable-first 'poo-clos 'dispatch
+   (closed-clause 'C766-no-applicable-first 'clos 'dispatch
            'no-applicable-before-keywords 'no-applicable-method)
-   (closed-clause 'C766-applicable-methods 'poo-clos 'dispatch
+   (closed-clause 'C766-applicable-methods 'clos 'dispatch
            'multiple-dispatch-ranking 'changed-applicable-methods)
-   (closed-clause 'C766-argument-precedence-order 'poo-clos 'dispatch
+   (closed-clause 'C766-argument-precedence-order 'clos 'dispatch
            'argument-precedence-order 'invalid-argument-precedence-order)
-   (closed-clause 'C766-standard-combination 'poo-clos 'dispatch
+   (closed-clause 'C766-standard-combination 'clos 'dispatch
            'standard-method-combination 'no-primary-method)
-   (closed-clause 'C766-next-method 'poo-clos 'dispatch
+   (closed-clause 'C766-next-method 'clos 'dispatch
            'call-next-method 'no-next-method)
-   (closed-clause 'C7663-declarative-combination 'poo-clos 'method-combination
+   (closed-clause 'C7663-declarative-combination 'clos 'method-combination
            'short-and-long-combinations 'required-method-group-empty)
-   (closed-clause 'C7664-built-in-combinations 'poo-clos 'method-combination
+   (closed-clause 'C7664-built-in-combinations 'clos 'method-combination
            'all-nine-built-ins 'unsupported-combination-operator)
-   (closed-clause 'C767-method-inheritance 'poo-clos 'dispatch
+   (closed-clause 'C767-method-inheritance 'clos 'dispatch
            'superclass-method-applicability 'no-applicable-method)
-   (closed-clause 'D-ensure-generic-function 'poo-clos 'generic-evolution
+   (closed-clause 'D-ensure-generic-function 'clos 'generic-evolution
            'ensure-generic-binding 'generic-binding-identity-mismatch)
-   (closed-clause 'D-generic-reinitialization 'poo-clos 'generic-evolution
+   (closed-clause 'D-generic-reinitialization 'clos 'generic-evolution
            'atomic-generic-reconfiguration 'method-required-argument-mismatch)
 
    ;; This row is evidence but cannot satisfy or dilute a POO CLOS requirement.
@@ -136,39 +136,39 @@
   (.o id: id-value path: path-value binding: binding-value
       caseCount: case-count))
 
-(def poo-clos-evidence-suites
+(def clos-evidence-suites
   (list
-   (evidence-suite 'dispatch "t/methods/poo-clos-dispatch-test.ss"
-                   'poo-clos-dispatch-test 36)
-   (evidence-suite 'lifecycle "t/methods/poo-clos-lifecycle-test.ss"
-                   'poo-clos-lifecycle-test 15)
-   (evidence-suite 'syntax "t/methods/poo-clos-syntax-test.ss"
-                   'poo-clos-syntax-test 20)
+   (evidence-suite 'dispatch "t/methods/clos-dispatch-test.ss"
+                   'clos-dispatch-test 36)
+   (evidence-suite 'lifecycle "t/methods/clos-lifecycle-test.ss"
+                   'clos-lifecycle-test 16)
+   (evidence-suite 'syntax "t/methods/clos-syntax-test.ss"
+                   'clos-syntax-test 21)
    (evidence-suite 'method-combination
-                   "t/methods/poo-clos-method-combination-test.ss"
-                   'poo-clos-method-combination-test 16)
-   (evidence-suite 'evolution "t/methods/poo-clos-evolution-test.ss"
-                   'poo-clos-evolution-test 15)
+                   "t/methods/clos-method-combination-test.ss"
+                   'clos-method-combination-test 17)
+   (evidence-suite 'evolution "t/methods/clos-evolution-test.ss"
+                   'clos-evolution-test 15)
    (evidence-suite 'generic-evolution
-                   "t/methods/poo-clos-generic-evolution-test.ss"
-                   'poo-clos-generic-evolution-test 6)
-   (evidence-suite 'load-form "t/methods/poo-clos-load-form-test.ss"
-                   'poo-clos-load-form-test 5)))
+                   "t/methods/clos-generic-evolution-test.ss"
+                   'clos-generic-evolution-test 6)
+   (evidence-suite 'load-form "t/methods/clos-load-form-test.ss"
+                   'clos-load-form-test 5)))
 
-(def (poo-clos-evidence-suite id)
+(def (clos-evidence-suite id)
   (find (lambda (suite) (eq? (.ref suite 'id) id))
-        poo-clos-evidence-suites))
+        clos-evidence-suites))
 
-(def (poo-clos-evidence-id-resolves? id)
-  (and id (if (poo-clos-evidence-suite id) #t #f)))
+(def (clos-evidence-id-resolves? id)
+  (and id (if (clos-evidence-suite id) #t #f)))
 
 (def (operator name status-name evidence-name gap-name)
-  (.o id: name profile: 'poo-clos status: status-name
+  (.o id: name profile: 'clos status: status-name
       evidence-id: evidence-name gap-id: gap-name))
 (def (covered name evidence) (operator name 'closed evidence #f))
 (def (missing name gap) (operator name 'open #f gap))
 
-(def poo-clos-operator-ledger
+(def clos-operator-ledger
   (list
    (covered 'function-keywords 'dispatch)
    (covered 'ensure-generic-function 'generic-evolution)
@@ -212,36 +212,36 @@
    (covered 'unbound-slot 'lifecycle)
    (covered 'unbound-slot-instance 'lifecycle)))
 
-(def (poo-clos-required-operators) poo-clos-operator-ledger)
+(def (clos-required-operators) clos-operator-ledger)
 
 ;; : (-> [POOObject])
-(def (poo-clos-required-rows)
-  (filter (lambda (row) (eq? (.ref row 'profile) 'poo-clos))
-          poo-clos-clause-ledger))
+(def (clos-required-rows)
+  (filter (lambda (row) (eq? (.ref row 'profile) 'clos))
+          clos-clause-ledger))
 
 ;; : (-> [POOObject])
-(def (poo-clos-open-required-rows)
+(def (clos-open-required-rows)
   (filter (lambda (row) (not (eq? (.ref row 'status) 'closed)))
-          (append (poo-clos-required-rows)
-                  (poo-clos-required-operators))))
+          (append (clos-required-rows)
+                  (clos-required-operators))))
 
 ;; : (-> POOObject Boolean)
-(def (poo-clos-ledger-row-valid? row)
+(def (clos-ledger-row-valid? row)
   (and (memq (.ref row 'status) '(closed open))
-       (memq (.ref row 'profile) '(poo-clos mop-extended))
+       (memq (.ref row 'profile) '(clos mop-extended))
        (symbol? (.ref row 'id))
        (symbol? (.ref row 'owner))
-       (poo-clos-evidence-id-resolves? (.ref row 'evidence-id))
+       (clos-evidence-id-resolves? (.ref row 'evidence-id))
        (symbol? (.ref row 'positive-test))
        (symbol? (.ref row 'negative-test))))
 
-(def (poo-clos-operator-row-valid? row)
+(def (clos-operator-row-valid? row)
   (let ((status (.ref row 'status))
         (evidence (.ref row 'evidence-id))
         (gap (.ref row 'gap-id)))
-    (and (equal? (.ref row 'profile) 'poo-clos)
+    (and (equal? (.ref row 'profile) 'clos)
          (or (symbol? (.ref row 'id)) (pair? (.ref row 'id)))
          (case status
-           ((closed) (and (poo-clos-evidence-id-resolves? evidence) (not gap)))
+           ((closed) (and (clos-evidence-id-resolves? evidence) (not gap)))
            ((open) (and (not evidence) (symbol? gap)))
            (else #f)))))

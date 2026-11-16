@@ -66,7 +66,7 @@
            0 (vector->list datum)))
    (else 0)))
 
-(def (poo-clos-evidence-suite-valid? suite)
+(def (clos-evidence-suite-valid? suite)
   (let* ((path (.ref suite 'path))
          (binding (.ref suite 'binding))
          (forms (and (file-exists? path) (read-source-forms path)))
@@ -84,18 +84,18 @@
 (def clause-ledger-test
   (test-suite "POO CLOS executable clause ledger"
     (test-case "semantic clause rows remain explicit and structurally valid"
-      (let (required (poo-clos-required-rows))
+      (let (required (clos-required-rows))
         (check (> (length required) 30) => #t)
         (check-equal? (.ref (car required) 'id) 'C43-class-metaobjects)
-        (check (andmap poo-clos-ledger-row-valid? required) => #t)
+        (check (andmap clos-ledger-row-valid? required) => #t)
         (check (unique-symbols?
                 (map (lambda (row) (.ref row 'id)) required)) => #t)))
     (test-case "the CLHS Objects Dictionary is exhaustive and fail-closed"
-      (let* ((operators (poo-clos-required-operators))
+      (let* ((operators (clos-required-operators))
              (names (map (lambda (row) (.ref row 'id)) operators))
-             (open (poo-clos-open-required-rows)))
+             (open (clos-open-required-rows)))
         (check-equal? (length operators) 41)
-        (check (andmap poo-clos-operator-row-valid? operators) => #t)
+        (check (andmap clos-operator-row-valid? operators) => #t)
         (check-equal?
          names
          '(function-keywords ensure-generic-function allocate-instance
@@ -115,34 +115,34 @@
     (test-case "closed evidence resolves to executable source-owned suites"
       (check (unique-symbols?
               (map (lambda (suite) (.ref suite 'id))
-                   poo-clos-evidence-suites))
+                   clos-evidence-suites))
              => #t)
       (for-each
        (lambda (suite)
-         (check-equal? (list (.ref suite 'id) (poo-clos-evidence-suite-valid? suite))
+         (check-equal? (list (.ref suite 'id) (clos-evidence-suite-valid? suite))
                        (list (.ref suite 'id) #t)))
-       poo-clos-evidence-suites)
+       clos-evidence-suites)
       (check (andmap
               (lambda (row)
-                (poo-clos-evidence-id-resolves? (.ref row 'evidence-id)))
-              (poo-clos-required-rows))
+                (clos-evidence-id-resolves? (.ref row 'evidence-id)))
+              (clos-required-rows))
              => #t))
     (test-case "evidence binding fails closed on removed or emptied suites"
       (check
-       (poo-clos-evidence-suite-valid?
-        (.o id: 'removed path: "t/poo-clos-removed-test.ss"
-            binding: 'poo-clos-removed-test caseCount: 1))
+       (clos-evidence-suite-valid?
+        (.o id: 'removed path: "t/clos-removed-test.ss"
+            binding: 'clos-removed-test caseCount: 1))
        => #f)
-      (let (dispatch (poo-clos-evidence-suite 'dispatch))
+      (let (dispatch (clos-evidence-suite 'dispatch))
         (check
-         (poo-clos-evidence-suite-valid?
+         (clos-evidence-suite-valid?
           (.o id: 'dispatch path: (.ref dispatch 'path)
               binding: (.ref dispatch 'binding) caseCount: 0))
          => #f)))
     (test-case "MOP extensions are optional for CLOS conformance"
       (let (extended
             (filter (lambda (row) (eq? (.ref row 'profile) 'mop-extended))
-                    poo-clos-clause-ledger))
+                    clos-clause-ledger))
         (check-equal? (length extended) 1)
-        (check (not (memq (car extended) (poo-clos-required-rows)))
+        (check (not (memq (car extended) (clos-required-rows)))
                => #t)))))

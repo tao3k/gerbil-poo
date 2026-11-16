@@ -10,12 +10,12 @@
         (only-in :std/list/list filter-map)
         "types.ss" "objects.ss" "classes.ss")
 
-(export poo-clos-redefine-class poo-clos-make-instances-obsolete)
+(export clos-redefine-class clos-make-instances-obsolete)
 
 (extern namespace: clan/poo/object %with-slot-edit-protection %publish-slot-edits!)
 (extern namespace: clan/poo/slot-observation %make-owned-list)
 
-(def +poo-clos-unspecified+ (cons 'poo-clos 'unspecified))
+(def +clos-unspecified+ (cons 'clos 'unspecified))
 
 ;; : (-> ClosClass [ClosClass])
 (def (live-direct-subclasses class-value)
@@ -39,7 +39,7 @@
 
 ;; : (-> ClosClass Natural)
 (def (class-depth class-value)
-  (length (poo-clos-class-precedence-list class-value)))
+  (length (clos-class-precedence-list class-value)))
 
 ;; : (-> [ClosClass] [ClosClass])
 (def (sort-by-depth classes)
@@ -52,7 +52,7 @@
 
 ;; : (forall (a) (-> Boolean a a a))
 (def (redefinition-option root? supplied fallback)
-  (if (and root? (not (eq? supplied +poo-clos-unspecified+)))
+  (if (and root? (not (eq? supplied +clos-unspecified+)))
     supplied fallback))
 
 ;; Stage descendants against the new prototypes in superclass order.
@@ -67,14 +67,14 @@
        (def selected-slots (redefinition-option root? slots (.ref current 'direct-slots)))
        (hash-put! direct-slots current selected-slots)
        (def projection
-         (%poo-clos-project-class-redefinition
+         (%clos-project-class-redefinition
           current supers
           (lambda (owner)
             (or (hash-get prototypes owner) (.ref owner 'instance-prototype)))
           (lambda (owner)
             (or (hash-get direct-slots owner) (.ref owner 'direct-slots)))))
        (hash-put! prototypes current (.ref projection 'prototype))
-       (%poo-clos-class-redefinition-edits
+       (%clos-class-redefinition-edits
         current supers selected-slots
         (redefinition-option root? defaults (.ref current 'default-initargs))
         (redefinition-option root? slot-missing (.ref current 'slot-missing-handler))
@@ -104,7 +104,7 @@
     parents)))
 
 ;; | ClosClass = POOObject
-;; poo-clos-redefine-class
+;; clos-redefine-class
 ;;   : (-> ClosClass direct-superclasses: [ClosClass]
 ;;        direct-slots: [ClosDirectSlotDefinition] default-initargs: [Pair]
 ;;        slot-missing-handler: (Maybe Procedure)
@@ -114,31 +114,31 @@
 ;;   | contract: mutates the existing class metaobject in place, preserving the
 ;;     ANSI class identity while recomputing each dependent class projection.
 ;;   | doc m%
-;;       `poo-clos-redefine-class` preserves old slot layouts as inert evidence.
+;;       `clos-redefine-class` preserves old slot layouts as inert evidence.
 ;;
 ;;       # Examples
 ;;       ```scheme
-;;       (poo-clos-redefine-class class-value direct-slots: revised-slots)
+;;       (clos-redefine-class class-value direct-slots: revised-slots)
 ;;       ;; => revised-class-generation
 ;;       ```
 ;;
 ;;       result: the same class metaobject with an incremented layout generation.
 ;;     %
-(def (poo-clos-redefine-class
+(def (clos-redefine-class
       class-value
-      direct-superclasses: (supers +poo-clos-unspecified+)
-      direct-slots: (slots +poo-clos-unspecified+)
-      default-initargs: (defaults +poo-clos-unspecified+)
-      slot-missing-handler: (slot-missing +poo-clos-unspecified+)
-      slot-unbound-handler: (slot-unbound +poo-clos-unspecified+)
+      direct-superclasses: (supers +clos-unspecified+)
+      direct-slots: (slots +clos-unspecified+)
+      default-initargs: (defaults +clos-unspecified+)
+      slot-missing-handler: (slot-missing +clos-unspecified+)
+      slot-unbound-handler: (slot-unbound +clos-unspecified+)
       redefinition-update-handler: (redefinition-handler
-                                    +poo-clos-unspecified+)
+                                    +clos-unspecified+)
       different-class-update-handler: (different-handler
-                                       +poo-clos-unspecified+))
+                                       +clos-unspecified+))
   (unless (element? ClosClass class-value) (clos-fail 'invalid-class))
   (def classes (sort-by-depth (dependent-closure class-value)))
   (def previous (.ref class-value 'direct-superclasses))
-  (def parents (map poo-clos-resolve-class (redefinition-option #t supers previous)))
+  (def parents (map clos-resolve-class (redefinition-option #t supers previous)))
   (when (ormap (lambda (parent) (memq parent classes)) parents)
     (clos-fail 'inconsistent-class-precedence
                class: (.ref class-value 'identity)
@@ -155,5 +155,5 @@
   class-value)
 
 ;; : (-> ClosClass ClosClass)
-(def (poo-clos-make-instances-obsolete class-value)
-  (poo-clos-redefine-class class-value))
+(def (clos-make-instances-obsolete class-value)
+  (clos-redefine-class class-value))

@@ -38,6 +38,9 @@ checks operation-specific keyword admission, slot masks and method order.
 [HyperSpec initialization](https://www.lispworks.com/documentation/HyperSpec/Body/07_.htm) ·
 [Gerbil #1372](https://github.com/mighty-gerbils/gerbil/issues/1372)
 
+`clos-instance?` recognises lifecycle instances; `element?` checks membership
+in a declared POO Type. Prototype ancestry checks stay inside the implementation.
+
 `just test-source-file benchmarks/mop-lifecycle-test.ss` runs the lifecycle study.
 The benchmark saves the lifecycle and C4 measurements in `$GERBIL_PATH/benchs`.
 
@@ -52,7 +55,7 @@ POO ancestry. [POOF](https://namin.seas.harvard.edu/pubs/scheme-poof.pdf) ·
 POOF Appendix A.1.2 describes how the generic, its arguments' types and the
 specialized methods can come from separate libraries. A
 `.defmethod-bundle` defines methods for explicit installation with
-`poo-clos-compose-method-bundle`. Installation checks protocol identity,
+`clos-compose-method-bundle`. Installation checks protocol identity,
 method signatures and writable receivers before publishing. In the supported
 serial mutation model, refusal leaves the method table, method ownership and
 generation unchanged. Successful installation applies the normal replacement

@@ -16,17 +16,17 @@
 (extern namespace: clan/poo/slot-observation %make-owned-list)
 
 (export ClosDirectSlotDefinition ClosEffectiveSlotDefinition ClosClass
-        poo-clos-standard-object-class poo-clos-direct-slot-definition
-        poo-clos-class
-        poo-clos-find-class poo-clos-set-find-class! poo-clos-resolve-class
-        poo-clos-class-effective-slots poo-clos-find-effective-slot
-        poo-clos-class-subclass? poo-clos-class-specializer
-        poo-clos-class-slot-cell
+        clos-standard-object-class clos-direct-slot-definition
+        clos-class
+        clos-find-class clos-set-find-class! clos-resolve-class
+        clos-class-effective-slots clos-find-effective-slot
+        clos-class-subclass? clos-class-specializer
+        clos-class-slot-cell
         make-slot-cell
-        %poo-clos-make-class-generation %poo-clos-class-redefinition-edits
-        %poo-clos-project-class-redefinition
+        %clos-make-class-generation %clos-class-redefinition-edits
+        %clos-project-class-redefinition
         initialize-direct-class-slots!
-        %poo-clos-set-class-name!)
+        %clos-set-class-name!)
 
 ;; : POOObject
 (def ClosDirectSlotDefinition. (.ref ClosDirectSlotDefinition 'proto))
@@ -37,19 +37,19 @@
 ;; : POOObject
 (def ClosSlotCell. (.ref ClosSlotCell 'proto))
 
-(def +poo-clos-no-initform+ (cons 'poo-clos 'no-initform))
+(def +clos-no-initform+ (cons 'clos 'no-initform))
 
 ;;; The ANSI class-name namespace is process-local and identity keyed.  Lexical
 ;;; `.defclass` bindings remain ordinary POO values, while symbolic class
 ;;; designators resolve through this single registry.
-(def poo-clos-class-registry (make-hash-table-eq))
+(def clos-class-registry (make-hash-table-eq))
 
 ;; : (-> Symbol Boolean (Maybe ClosClass))
-(def (poo-clos-find-class name error?: (error-value #t)
+(def (clos-find-class name error?: (error-value #t)
                           environment: (_environment-value #f))
   (unless (symbol? name) (clos-fail 'invalid-class-name class: name))
   (let (class-value
-        (hash-ref/default poo-clos-class-registry name (lambda () #f)))
+        (hash-ref/default clos-class-registry name (lambda () #f)))
     (when (and (not class-value) error-value)
       (clos-fail 'class-not-found class: name operation: 'find-class))
     class-value))
@@ -58,18 +58,18 @@
 ;;; class object's name.  A false new value removes only that association.
 ;; : (-> (Maybe ClosClass) Symbol error?: Boolean environment: Any
 ;;        (Maybe ClosClass))
-(def (poo-clos-set-find-class! new-class name error?: (_error-value #t)
+(def (clos-set-find-class! new-class name error?: (_error-value #t)
                                environment: (_environment-value #f))
   (unless (symbol? name) (clos-fail 'invalid-class-name class: name))
   (unless (or (not new-class) (element? ClosClass new-class))
     (clos-fail 'invalid-class class: new-class operation: 'setf-find-class))
   (if new-class
-    (hash-put! poo-clos-class-registry name new-class)
-    (hash-remove! poo-clos-class-registry name))
+    (hash-put! clos-class-registry name new-class)
+    (hash-remove! clos-class-registry name))
   new-class)
 
 ;; : (-> Symbol ClosClass Symbol)
-(def (%poo-clos-set-class-name! new-name class-value)
+(def (%clos-set-class-name! new-name class-value)
   (unless (symbol? new-name)
     (clos-fail 'invalid-class-name operation: 'setf-class-name))
   (unless (element? ClosClass class-value) (clos-fail 'invalid-class))
@@ -77,10 +77,10 @@
   new-name)
 
 ;; : (-> (U Symbol ClosClass) ClosClass)
-(def (poo-clos-resolve-class value)
+(def (clos-resolve-class value)
   (cond
    ((element? ClosClass value) value)
-   ((symbol? value) (poo-clos-find-class value))
+   ((symbol? value) (clos-find-class value))
    (else (clos-fail 'invalid-class class: value))))
 
 ;; : (-> [SchemeValue] [SchemeValue])
@@ -95,7 +95,7 @@
   (= (length values) (length (unique/identity values))))
 
 ;; | ClosDirectSlotDefinition = POOObject
-;; poo-clos-direct-slot-definition
+;; clos-direct-slot-definition
 ;;   : (-> Symbol allocation: SlotAllocation initargs: [InitargName]
 ;;         initform: (Maybe Thunk) readers: [Symbol] writers: [Symbol]
 ;;         type-predicate: (Maybe Procedure) documentation: (Maybe String)
@@ -104,10 +104,10 @@
 ;;     optional initform thunk.
 ;;   | doc m%
 ;;   | result: an immutable POO direct-slot metaobject.
-(def (poo-clos-direct-slot-definition
+(def (clos-direct-slot-definition
       identity-value allocation: (allocation-value 'instance)
       initargs: (initarg-values '())
-      initform: (initform-value +poo-clos-no-initform+)
+      initform: (initform-value +clos-no-initform+)
       readers: (reader-values '()) writers: (writer-values '())
       type-predicate: (type-predicate-value #f)
       documentation: (documentation-value #f))
@@ -115,12 +115,12 @@
     (clos-fail 'invalid-slot-name slot: identity-value))
   (unless (memq allocation-value '(instance class))
     (clos-fail 'invalid-slot-allocation slot: identity-value))
-  (unless (poo-clos-initarg-name-list? initarg-values)
+  (unless (clos-initarg-name-list? initarg-values)
     (clos-fail 'invalid-slot-initargs slot: identity-value))
-  (unless (and (poo-clos-function-name-list? reader-values)
-               (poo-clos-function-name-list? writer-values))
+  (unless (and (clos-function-name-list? reader-values)
+               (clos-function-name-list? writer-values))
     (clos-fail 'invalid-slot-accessors slot: identity-value))
-  (unless (or (eq? initform-value +poo-clos-no-initform+)
+  (unless (or (eq? initform-value +clos-no-initform+)
               (procedure? initform-value))
     (clos-fail 'invalid-slot-initform slot: identity-value))
   (unless (or (not type-predicate-value) (procedure? type-predicate-value))
@@ -132,7 +132,7 @@
    (.o (:: @ ClosDirectSlotDefinition.)
        identity: identity-value allocation: allocation-value
        initargs: (unique/identity initarg-values)
-       initfunction: (if (eq? initform-value +poo-clos-no-initform+)
+       initfunction: (if (eq? initform-value +clos-no-initform+)
                        #f initform-value)
        readers: (unique/identity reader-values)
        writers: (unique/identity writer-values)
@@ -142,7 +142,7 @@
 
 ;; : (-> [SchemeValue] [Pair])
 (def (require-default-initargs values)
-  (unless (poo-clos-default-initargs? values)
+  (unless (clos-default-initargs? values)
     (clos-fail 'invalid-default-initargs))
   (unless (unique-identities? (map car values))
     (clos-fail 'duplicate-default-initarg))
@@ -175,7 +175,7 @@
 
 ;; : (-> ClosClass [POOObject] POOObject)
 (def (instance-prototype-value class-value superclass-prototypes)
-  (.o (:: @ superclass-prototypes) %poo-clos-class: class-value))
+  (.o (:: @ superclass-prototypes) %clos-class: class-value))
 
 ;; : (-> ClosClass POOObject)
 (def (class-instance-prototype class-value)
@@ -200,7 +200,7 @@
 (def (compute-class-precedence-list prototype identity-value)
   (with-catch
    (lambda (failure)
-     (if (poo-clos-failure? failure)
+     (if (clos-failure? failure)
        (raise failure)
        (clos-fail 'inconsistent-class-precedence
                   class: identity-value
@@ -208,8 +208,8 @@
    (lambda ()
      (filter-map
       (lambda (prototype)
-        (and (.slot? prototype '%poo-clos-class)
-             (.ref prototype '%poo-clos-class)))
+        (and (.slot? prototype '%clos-class)
+             (.ref prototype '%clos-class)))
       (compute-precedence-list! prototype)))))
 
 ;; Each owner index retains its first direct declaration for a slot name.  The
@@ -219,7 +219,7 @@
   (map
    (lambda (owner-class)
      (cons owner-class
-           (poo-clos-leftmost-index-by
+           (clos-leftmost-index-by
             (lambda (slot) (.ref slot 'identity))
             (direct-slots-for owner-class))))
    precedence))
@@ -290,7 +290,7 @@
          slot-names)))
 
 (def (effective-slot-lookup slots)
-  (let (index (poo-clos-leftmost-index-by (lambda (slot) (.ref slot 'identity)) slots))
+  (let (index (clos-leftmost-index-by (lambda (slot) (.ref slot 'identity)) slots))
     (lambda (name) (hash-get index name))))
 
 ;;; Initial construction and redefinition derive lookup from the same sequence.
@@ -312,7 +312,7 @@
            'invalid-slot-cell))
 
 ;; : (-> ClosClass Symbol ClosSlotCell)
-(def (poo-clos-class-slot-cell class-value slot-name)
+(def (clos-class-slot-cell class-value slot-name)
   (let* ((storage (.ref class-value 'class-storage))
          (existing (hash-ref/default storage slot-name (lambda () #f))))
     (or existing
@@ -326,7 +326,7 @@
    (lambda (slot)
      (when (and (eq? (.ref slot 'allocation) 'class)
                 (eq? (.ref slot 'storage-class) class-value))
-       (let ((cell (poo-clos-class-slot-cell
+       (let ((cell (clos-class-slot-cell
                     class-value (.ref slot 'identity)))
              (initfunction (.ref slot 'initfunction)))
          (when (and initfunction (not (.ref cell 'bound?)))
@@ -336,18 +336,18 @@
   class-value)
 
 ;; | ClosClass = POOObject
-;; %poo-clos-make-class-generation
+;; %clos-make-class-generation
 ;;   : (-> Symbol [ClosClass] [ClosDirectSlotDefinition] [Pair] Natural
 ;;        (Maybe Procedure) (Maybe Procedure)
 ;;        (Maybe Procedure) (Maybe Procedure) ClosClass)
 ;;   | contract: validates and finalizes one runtime-POO class generation before
 ;;     registering its direct dependency edges.
 ;;   | doc m%
-;;       `%poo-clos-make-class-generation` is the checked internal constructor.
+;;       `%clos-make-class-generation` is the checked internal constructor.
 ;;
 ;;       # Examples
 ;;       ```scheme
-;;       (%poo-clos-make-class-generation 'root '() '() '() 0
+;;       (%clos-make-class-generation 'root '() '() '() 0
 ;;                                        #f #f #f #f)
 ;;       ;; => class-generation
 ;;       ```
@@ -355,7 +355,7 @@
 ;;       result: a complete class generation whose class and slot precedence
 ;;       are projected from its POO prototype C4.
 ;;     %
-(def (%poo-clos-make-class-generation
+(def (%clos-make-class-generation
       identity-value superclass-values direct-slot-values
       default-initarg-values generation-value
       slot-missing-handler-value slot-unbound-handler-value
@@ -403,7 +403,7 @@
              (compute-class-precedence-list
               (.ref self 'instance-prototype) identity-value))
             class-precedence-index:
-            (poo-clos-position-lookup
+            (clos-position-lookup
              (%ref-owned-list self 'class-precedence-list))
             effective-slots: '()
             effective-slot-index: (lambda (_) #f))))
@@ -427,7 +427,7 @@
 ;;; layout evidence for lazy instance migration; they are not class objects and
 ;;; cannot participate in dispatch or inheritance.
 ;; : (-> ClosClass [ClosClass] Procedure Procedure POOObject)
-(def (%poo-clos-project-class-redefinition
+(def (%clos-project-class-redefinition
       class-value superclasses prototype-for direct-slots-for)
   ;; Project against a fresh POO prototype before touching the live
   ;; class or either parent's dependency edge.
@@ -441,13 +441,13 @@
           (compute-effective-slots precedence-value direct-slots-for)))
     (.o prototype: prototype-value
         precedence: precedence-value
-        precedence-index: (poo-clos-position-lookup precedence-value)
+        precedence-index: (clos-position-lookup precedence-value)
         effective-slots: effective-slots-value
         effective-slot-index: (effective-slot-lookup effective-slots-value))))
 
 ;; Retain the old immutable spine privately. A new history entry shares its
 ;; predecessors, and a query copies only the selected generation's list.
-(def (%poo-clos-class-redefinition-edits
+(def (%clos-class-redefinition-edits
       class-value superclass-values direct-slot-values default-initarg-values
       slot-missing-handler-value slot-unbound-handler-value
       redefinition-handler-value different-handler-value projection)
@@ -479,15 +479,15 @@
 
 ;;; The root class contributes no slots; all ordinary classes with an omitted
 ;;; superclass list inherit from this exact class and POO prototype.
-(def poo-clos-standard-object-class
-  (%poo-clos-make-class-generation
+(def clos-standard-object-class
+  (%clos-make-class-generation
    'standard-object '() '() '() 0 #f #f #f #f))
 
-(hash-put! poo-clos-class-registry 'standard-object
-           poo-clos-standard-object-class)
+(hash-put! clos-class-registry 'standard-object
+           clos-standard-object-class)
 
 ;; | ClosClass = POOObject
-;; poo-clos-class
+;; clos-class
 ;;   : (-> Symbol direct-superclasses: [ClosClass]
 ;;         direct-slots: [ClosDirectSlotDefinition]
 ;;         default-initargs: [Pair] slot-missing-handler: (Maybe Procedure)
@@ -496,7 +496,7 @@
 ;;     prototype is the single POO inheritance and precedence owner.
 ;;   | doc m%
 ;;   | result: a POO class metaobject with lazy effective slots.
-(def (poo-clos-class
+(def (clos-class
       identity-value direct-superclasses: (superclass-values #f)
       direct-slots: (direct-slot-values '())
       default-initargs: (default-initarg-values '())
@@ -509,30 +509,30 @@
   (unless (or (not documentation-value) (string? documentation-value))
     (clos-fail 'invalid-class-documentation class: identity-value))
   (let (class-value
-        (%poo-clos-make-class-generation
+        (%clos-make-class-generation
          identity-value
-         (map poo-clos-resolve-class
-              (or superclass-values (list poo-clos-standard-object-class)))
+         (map clos-resolve-class
+              (or superclass-values (list clos-standard-object-class)))
          direct-slot-values default-initarg-values 0
          slot-missing-handler-value slot-unbound-handler-value
          redefinition-handler-value different-handler-value))
     (.put! class-value 'documentation documentation-value)
     (.put! class-value 'metaclass metaclass-value)
-    (hash-put! poo-clos-class-registry identity-value class-value)
+    (hash-put! clos-class-registry identity-value class-value)
     class-value))
 
 ;; : (-> ClosClass [ClosEffectiveSlotDefinition])
-(def (poo-clos-class-effective-slots class-value)
+(def (clos-class-effective-slots class-value)
   (unless (element? ClosClass class-value) (clos-fail 'invalid-class))
   (.ref class-value 'effective-slots))
 
 ;; : (-> ClosClass Symbol (Maybe ClosEffectiveSlotDefinition))
-(def (poo-clos-find-effective-slot class-value slot-name)
+(def (clos-find-effective-slot class-value slot-name)
   (unless (element? ClosClass class-value) (clos-fail 'invalid-class))
   ((.ref class-value 'effective-slot-index) slot-name))
 
 ;; : (-> ClosClass ClosClass Boolean)
-(def (poo-clos-class-subclass? class-value superclass-value)
+(def (clos-class-subclass? class-value superclass-value)
   (and (element? ClosClass class-value)
        (element? ClosClass superclass-value)
        (if ((.ref class-value 'class-precedence-index) superclass-value)

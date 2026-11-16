@@ -14,18 +14,18 @@
                  call-with-output-string display-exception
                  with-exception-catcher)
         (only-in :clan/poo/clos/declaration-ir
-                 parse-poo-clos-class-declaration-ir
-                 parse-poo-clos-generic-declaration-ir
+                 parse-clos-class-declaration-ir
+                 parse-clos-generic-declaration-ir
                  clos-lambda-declaration-ir-required
                  clos-parameter-declaration-ir-kind)
         (only-in :clan/poo/clos/declaration-ir-core parse-clos-lambda-list)
         :clan/poo/mop)
 
-(export poo-clos-syntax-test)
+(export clos-syntax-test)
 
 (def (failure-code? code)
   (lambda (error)
-    (and (poo-clos-failure? error)
+    (and (clos-failure? error)
          (eq? (.ref error 'code) code))))
 
 (def (syntax-error-message thunk)
@@ -42,7 +42,7 @@
         (options (map (lambda (datum) (datum->syntax #f datum)) option-data)))
     (syntax-error-message
      (lambda ()
-       (parse-poo-clos-class-declaration-ir
+       (parse-clos-class-declaration-ir
         name supers slots options name)))))
 
 (def (generic-syntax-error lambda-list-data . option-data)
@@ -51,7 +51,7 @@
         (options (map (lambda (datum) (datum->syntax #f datum)) option-data)))
     (syntax-error-message
      (lambda ()
-       (parse-poo-clos-generic-declaration-ir
+       (parse-clos-generic-declaration-ir
         name lambda-list options name)))))
 
 (def (method-specializer-syntax-error specializer)
@@ -59,6 +59,11 @@
    (lambda ()
      (parse-clos-lambda-list
       (datum->syntax #f (list (list 'value specializer))) #t))))
+
+(.defgeneric syntax-listed-qualifiers (value))
+(.defmethod (syntax-listed-qualifiers value) (qualifier ()) 'primary)
+(.defmethod (syntax-listed-qualifiers value) (qualifier (around))
+  (list 'around (call-next-method)))
 
 (.defgeneric entity-name (object))
 (.defgeneric set-entity-name (new-value object))
@@ -116,7 +121,7 @@
 
 (.defgeneric (setf explicit-name) (new-value object))
 (.defmethod ((setf explicit-name) new-value (object SyntaxEntity))
-  (poo-clos-set-slot-value! object 'name new-value))
+  (clos-set-slot-value! object 'name new-value))
 
 (.def SyntaxPrototype.)
 (.def (SyntaxChildPrototype. @ SyntaxPrototype.))
@@ -169,7 +174,7 @@
                           SyntaxPrototype.))))
   'prototype-expression)
 
-(def syntax-protocol (poo-clos-generic-protocol 'syntax-inline))
+(def syntax-protocol (clos-generic-protocol 'syntax-inline))
 (.defgeneric protocol-inline (object)
   (protocol syntax-protocol)
   (method ((object (prototype SyntaxPrototype.))) 'protocol-inline))
@@ -182,8 +187,10 @@
 (.defgeneric empty-key-miss (value &key))
 (.defmethod (empty-key-miss (value (eql 'match)) &key) value)
 
-(def poo-clos-syntax-test
+(def clos-syntax-test
   (test-suite "hygienic POO CLOS declarations"
+    (test-case "declarations share runtime qualifier-list admission"
+      (check-equal? (syntax-listed-qualifiers 'item) '(around primary)))
     (test-case "empty key markers survive generic and method lowering"
       (check-equal? (empty-generic-key 'probe) '())
       (check-equal? (empty-generic-key 'known known: #f) #f)
@@ -195,10 +202,10 @@
          (def second (cadr names))
          (def accepted (list first #t second #f unknown: 1))
          (check-equal?
-          (apply poo-clos-call (.generic-object empty-method-key) 'probe accepted)
+          (apply clos-call (.generic-object empty-method-key) 'probe accepted)
           accepted)
          (check-exception
-          (apply poo-clos-call (.generic-object empty-method-key) 'probe
+          (apply clos-call (.generic-object empty-method-key) 'probe
             (list first #f second #t unknown: 1))
           (failure-code? 'invalid-keyword-argument)))
        (list (list 'allow-other-keys allow-other-keys:)
@@ -207,7 +214,7 @@
                        (failure-code? 'invalid-keyword-argument))
       (check-exception (empty-method-key 'probe unknown: 1)
                        (failure-code? 'invalid-keyword-argument))
-      (check-exception (poo-clos-call (.generic-object empty-generic-key) 'probe 'odd)
+      (check-exception (clos-call (.generic-object empty-generic-key) 'probe 'odd)
                        (failure-code? 'malformed-keyword-arguments))
       (check-exception (empty-key-miss 'probe unknown: 1)
                        (failure-code? 'no-applicable-method)))
@@ -220,7 +227,7 @@
     (test-case "generic protocol identity reaches inline method admission"
       (check (eq? (.ref (.generic-object protocol-inline) 'protocol)
                   syntax-protocol) => #t)
-      (check-equal? (poo-clos-generic-name (.generic-object (setf explicit-name)))
+      (check-equal? (clos-generic-name (.generic-object (setf explicit-name)))
                     '(setf explicit-name))
       (check-equal? (protocol-inline (.o (:: @ SyntaxChildPrototype.)))
                     'protocol-inline))
@@ -229,14 +236,14 @@
        (integer?
         (string-contains
          (generic-syntax-error '(value) '(protocol first) '(protocol second))
-         "poo-clos-duplicate-generic-option"))
+         "clos-duplicate-generic-option"))
        => #t)
       (for-each
        (lambda (option)
          (check
           (integer?
            (string-contains (generic-syntax-error '(value) option)
-                            "poo-clos-invalid-generic-option"))
+                            "clos-invalid-generic-option"))
           => #t))
        '((protocol) (protocol first second) (protocol . improper))))
     (test-case "prototype declarations preserve runtime ancestry and next methods"
@@ -248,8 +255,8 @@
       (check-equal?
        (map (lambda (method)
               (.ref (car (.ref method 'specializers)) 'kind))
-            (.ref (poo-clos-generic-binding-current
-                   describe-prototype$poo-clos-generic) 'methods))
+            (.ref (clos-generic-binding-current
+                   describe-prototype$clos-generic) 'methods))
        '(prototype prototype)))
 
     (test-case "prototype declarations dispatch across independently inherited axes"
@@ -262,18 +269,18 @@
     (test-case "private defrules frames preserve runtime prototype annotation hygiene"
       (check-equal? (framed-prototype (.o (:: @ SyntaxChildPrototype.)))
                     'framed-prototype)
-      (let* ((generic (poo-clos-generic-binding-current
-                       framed-prototype$poo-clos-generic))
+      (let* ((generic (clos-generic-binding-current
+                       framed-prototype$clos-generic))
              (method (car (.ref generic 'methods)))
              (specializer (car (.ref method 'specializers))))
         (check-equal? (.ref specializer 'kind) 'prototype)))
 
     (test-case "class eql and prototype declarations retain distinct specializers"
-      (check-equal? (mixed-specializers (poo-clos-make-instance SyntaxEntity)) 'class)
+      (check-equal? (mixed-specializers (clos-make-instance SyntaxEntity)) 'class)
       (check-equal? (mixed-specializers (.o (:: @ SyntaxChildPrototype.))) 'prototype)
       (check-equal? (mixed-specializers 'sentinel) 'eql)
       (check-equal? (shadowed-prototype-marker
-                     (poo-clos-make-instance SyntaxEntity))
+                     (clos-make-instance SyntaxEntity))
                     'shadowed-class)
       (check-equal?
        (clos-parameter-declaration-ir-kind
@@ -290,8 +297,8 @@
                     'prototype-expression)
       (check-equal? prototype-target-evaluations 1)
       (let (generation
-            (.ref (poo-clos-generic-binding-current
-                   prototype-expression$poo-clos-generic) 'generation))
+            (.ref (clos-generic-binding-current
+                   prototype-expression$clos-generic) 'generation))
         (check-exception
          (.defmethod (prototype-expression (object (prototype #f))) 'invalid)
          (failure-code? 'invalid-specializer))
@@ -299,8 +306,8 @@
          (.defmethod (prototype-expression (object SyntaxPrototype.)) 'invalid-class)
          (failure-code? 'invalid-specializer))
         (check-equal?
-         (.ref (poo-clos-generic-binding-current
-                prototype-expression$poo-clos-generic) 'generation)
+         (.ref (clos-generic-binding-current
+                prototype-expression$clos-generic) 'generation)
          generation)))
 
     (test-case "malformed prototype and eql annotations fail during parsing"
@@ -309,24 +316,24 @@
          (check
           (integer?
            (string-contains (method-specializer-syntax-error specializer)
-                            "poo-clos-invalid-specializer"))
+                            "clos-invalid-specializer"))
           => #t))
        '((prototype) (prototype First Second) (prototype . Target)
          (eql) (eql First Second))))
 
     (test-case "defclass lowers slots, defaults, and accessor methods"
-      (let (person (poo-clos-make-instance SyntaxPerson role: 'admin))
-        (check (poo-clos-instance? person) => #t)
+      (let (person (clos-make-instance SyntaxPerson role: 'admin))
+        (check (clos-instance? person) => #t)
         (check-equal? (entity-name person) 'default-person)
-        (check-equal? (poo-clos-slot-value person 'role) 'admin)
-        (check-equal? (poo-clos-class-documentation SyntaxPerson)
+        (check-equal? (clos-slot-value person 'role) 'admin)
+        (check-equal? (clos-class-documentation SyntaxPerson)
                       "Syntax person class")
-        (check-equal? (poo-clos-class-metaclass SyntaxPerson) 'standard-class)
+        (check-equal? (clos-class-metaclass SyntaxPerson) 'standard-class)
         (check-equal? (set-entity-name 'renamed person) 'renamed)
         (check-equal? (entity-name person) 'renamed)))
 
     (test-case "defmethod binds optional, key, supplied-p, aux, and lexical next"
-      (let (person (poo-clos-make-instance SyntaxPerson name: 'Ada))
+      (let (person (clos-make-instance SyntaxPerson name: 'Ada))
         (check-equal?
          (describe-syntax person)
          '(person ("entity" Ada "." #f #f) "person" "!" #f #f #t))
@@ -335,51 +342,51 @@
          '(person ("Dr" Ada "?" #t #t) "Dr" "?" #t #t #t))))
 
     (test-case "defgeneric installs inline methods"
-      (let (entity (poo-clos-make-instance SyntaxEntity name: 'inline-name))
+      (let (entity (clos-make-instance SyntaxEntity name: 'inline-name))
         (check-equal? (inline-described entity) '(inline inline-name))))
 
     (test-case "one-name accessors install ANSI reader and SETF writer"
-      (let (entity (poo-clos-make-instance StandardAccessorEntity))
+      (let (entity (clos-make-instance StandardAccessorEntity))
         (check-equal? (standard-value entity) 1)
-        (check-equal? (poo-clos-setf 'standard-value 2 entity) 2)
+        (check-equal? (clos-setf 'standard-value 2 entity) 2)
         (check-equal? (standard-value entity) 2)
-        (let ((reader (poo-clos-find-generic-function 'standard-value))
-              (writer (poo-clos-find-generic-function '(setf standard-value))))
+        (let ((reader (clos-find-generic-function 'standard-value))
+              (writer (clos-find-generic-function '(setf standard-value))))
           (check (eq? writer
-                      (poo-clos-find-generic-function (list 'setf 'standard-value) error?: #f))
+                      (clos-find-generic-function (list 'setf 'standard-value) error?: #f))
                  => #t)
           (check (eq? reader writer) => #f))))
 
     (test-case "SETF function names are valid generic declarations"
-      (let (entity (poo-clos-make-instance SyntaxEntity name: 'before))
-        (check-equal? (poo-clos-setf 'explicit-name 'after entity) 'after)
+      (let (entity (clos-make-instance SyntaxEntity name: 'before))
+        (check-equal? (clos-setf 'explicit-name 'after entity) 'after)
         (check-equal? (entity-name entity) 'after)))
 
     (test-case "generic binding preserves identity across generations"
       (check-equal?
-       (.ref (poo-clos-generic-binding-current
-              describe-syntax$poo-clos-generic)
+       (.ref (clos-generic-binding-current
+              describe-syntax$clos-generic)
              'generation)
        2)
       (check-equal?
        (length
-        (.ref (poo-clos-generic-binding-current
-               describe-syntax$poo-clos-generic)
+        (.ref (clos-generic-binding-current
+               describe-syntax$clos-generic)
               'methods))
        2)
-      (check-equal? (poo-clos-generic-documentation
-                     describe-syntax$poo-clos-generic)
+      (check-equal? (clos-generic-documentation
+                     describe-syntax$clos-generic)
                     "Describe syntax objects")
-      (check-equal? (poo-clos-generic-function-class
-                     describe-syntax$poo-clos-generic)
+      (check-equal? (clos-generic-function-class
+                     describe-syntax$clos-generic)
                     'standard-generic-function)
-      (check-equal? (poo-clos-generic-method-class
-                     describe-syntax$poo-clos-generic)
+      (check-equal? (clos-generic-method-class
+                     describe-syntax$clos-generic)
                     'standard-method))
 
     (test-case "with-slots and with-accessors are live mutable places"
-      (let ((person (poo-clos-make-instance SyntaxPerson name: 'first))
-            (standard (poo-clos-make-instance StandardAccessorEntity)))
+      (let ((person (clos-make-instance SyntaxPerson name: 'first))
+            (standard (clos-make-instance StandardAccessorEntity)))
         (check-equal?
          (.with-slots (name (role-value role)) person
            (let (before name)
@@ -403,26 +410,26 @@
 
     (test-case "runtime congruence rejects a method before binding mutation"
       (let* ((binding
-              (poo-clos-generic-binding
+              (clos-generic-binding
                'strict
-               (poo-clos-generic-function 'strict 1 optional: 1)))
+               (clos-generic-function 'strict 1 optional: 1)))
              (generation
-              (.ref (poo-clos-generic-binding-current binding) 'generation))
+              (.ref (clos-generic-binding-current binding) 'generation))
              (method
-              (poo-clos-method
-               'strict (list (poo-clos-any-specializer))
+              (clos-method
+               'strict (list (clos-any-specializer))
                (lambda (_frame _required) 'bad)
                lambda-list:
-               (poo-clos-lambda-list 1 0 #f #f '() #f))))
+               (clos-lambda-list 1 0 #f #f '() #f))))
         (check-exception
-         (poo-clos-generic-binding-add-method! binding method)
+         (clos-generic-binding-add-method! binding method)
          (failure-code? 'incongruent-method-lambda-list))
         (check-equal?
-         (.ref (poo-clos-generic-binding-current binding) 'generation)
+         (.ref (clos-generic-binding-current binding) 'generation)
          generation)))
 
     (test-case "unknown keyword calls fail before method execution"
-      (let (person (poo-clos-make-instance SyntaxPerson name: 'Ada))
+      (let (person (clos-make-instance SyntaxPerson name: 'Ada))
         (check-exception
          (describe-syntax person "Dr" unknown: 1)
          (failure-code? 'invalid-keyword-argument))
@@ -440,30 +447,30 @@
          (syntax-error-message
           (lambda ()
             (let (name (datum->syntax #f '(setf access extra)))
-              (parse-poo-clos-generic-declaration-ir name (datum->syntax #f '(x x)) '() name))))
-         "poo-clos-invalid-function-name"))
+              (parse-clos-generic-declaration-ir name (datum->syntax #f '(x x)) '() name))))
+         "clos-invalid-function-name"))
        => #t)
       (check
        (integer?
         (string-contains
          (class-syntax-error '((slot) (slot)))
-         "poo-clos-duplicate-slot"))
+         "clos-duplicate-slot"))
        => #t)
       (check
        (integer?
         (string-contains
          (class-syntax-error '((slot (mystery value))))
-         "poo-clos-unknown-slot-option"))
+         "clos-unknown-slot-option"))
        => #t)
       (check
        (integer?
         (string-contains
          (generic-syntax-error '(value &key key &optional late))
-         "poo-clos-invalid-lambda-list-order"))
+         "clos-invalid-lambda-list-order"))
        => #t)
       (check
        (integer?
         (string-contains
          (generic-syntax-error '(value value))
-         "poo-clos-duplicate-lambda-variable"))
+         "clos-duplicate-lambda-variable"))
        => #t))))

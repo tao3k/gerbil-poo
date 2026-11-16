@@ -11,62 +11,62 @@
         "types.ss" "objects.ss" "classes.ss" "dispatch.ss"
         "instance-state.ss" "funcs.ss")
 
-(export ClosInstanceState ClosSlotCell poo-clos-instance?
-        poo-clos-class-of poo-clos-allocate-instance poo-clos-make-instance
-        poo-clos-initialize-instance poo-clos-shared-initialize
-        poo-clos-reinitialize-instance poo-clos-slot-value
-        poo-clos-set-slot-value! poo-clos-slot-bound? poo-clos-slot-exists?
-        poo-clos-slot-makunbound! poo-clos-slot-reader-method
-        poo-clos-slot-missing poo-clos-slot-unbound
-        poo-clos-slot-missing-generic poo-clos-slot-unbound-generic
-        poo-clos-slot-writer-method poo-clos-change-class
-        poo-clos-update-instance-for-redefined-class
-        poo-clos-update-instance-for-different-class
-        poo-clos-allocate-instance-generic poo-clos-make-instance-generic
-        poo-clos-initialize-instance-generic
-        poo-clos-shared-initialize-generic
-        poo-clos-reinitialize-instance-generic poo-clos-change-class-generic
-        poo-clos-update-instance-for-redefined-class-generic
-        poo-clos-update-instance-for-different-class-generic)
+(export ClosInstanceState ClosSlotCell clos-instance?
+        clos-class-of clos-allocate-instance clos-make-instance
+        clos-initialize-instance clos-shared-initialize
+        clos-reinitialize-instance clos-slot-value
+        clos-set-slot-value! clos-slot-bound? clos-slot-exists?
+        clos-slot-makunbound! clos-slot-reader-method
+        clos-slot-missing clos-slot-unbound
+        clos-slot-missing-generic clos-slot-unbound-generic
+        clos-slot-writer-method clos-change-class
+        clos-update-instance-for-redefined-class
+        clos-update-instance-for-different-class
+        clos-allocate-instance-generic clos-make-instance-generic
+        clos-initialize-instance-generic
+        clos-shared-initialize-generic
+        clos-reinitialize-instance-generic clos-change-class-generic
+        clos-update-instance-for-redefined-class-generic
+        clos-update-instance-for-different-class-generic)
 
 (extern namespace: clan/poo/clos/dispatch %prospective-instance-methods)
 (extern namespace: clan/poo/object %publish-slot-edits!)
 
 ;; : (-> ClosInstance [Symbol] [Symbol] [SchemeValue] SchemeValue ... ClosInstance)
-(def (%poo-clos-update-instance-for-redefined-class
+(def (%clos-update-instance-for-redefined-class
       instance-value added discarded property-list . initargs)
-  (let* ((class-value (.ref (.ref instance-value '%poo-clos-state) 'class))
+  (let* ((class-value (.ref (.ref instance-value '%clos-state) 'class))
          (handler (class-handler class-value 'redefinition-update-handler)))
     (require-initialization-arguments
      class-value 'update-instance-for-redefined-class initargs
      (lambda ()
        (append
-        (apply poo-clos-compute-applicable-methods
-               poo-clos-update-instance-for-redefined-class-generic
+        (apply clos-compute-applicable-methods
+               clos-update-instance-for-redefined-class-generic
                instance-value added discarded property-list initargs)
-        (apply poo-clos-compute-applicable-methods
-               poo-clos-shared-initialize-generic instance-value added initargs))))
-    (apply poo-clos-shared-initialize instance-value added initargs)
+        (apply clos-compute-applicable-methods
+               clos-shared-initialize-generic instance-value added initargs))))
+    (apply clos-shared-initialize instance-value added initargs)
     (if handler
       (handler instance-value added discarded property-list)
       instance-value)))
 
 ;; : (-> ClosInstance ClosInstance SchemeValue ... ClosInstance)
-(def (%poo-clos-update-instance-for-different-class
+(def (%clos-update-instance-for-different-class
       previous-value instance-value . initargs)
-  (let ((previous-class (poo-clos-class-of previous-value))
-        (class-value (poo-clos-class-of instance-value)))
+  (let ((previous-class (clos-class-of previous-value))
+        (class-value (clos-class-of instance-value)))
     (let-values (((added _) (class-slot-difference previous-class class-value)))
       (require-initialization-arguments
        class-value 'update-instance-for-different-class initargs
        (lambda ()
          (append
-          (apply poo-clos-compute-applicable-methods
-                 poo-clos-update-instance-for-different-class-generic
+          (apply clos-compute-applicable-methods
+                 clos-update-instance-for-different-class-generic
                  previous-value instance-value initargs)
-          (apply poo-clos-compute-applicable-methods
-                 poo-clos-shared-initialize-generic instance-value added initargs))))
-      (apply poo-clos-shared-initialize instance-value added initargs)
+          (apply clos-compute-applicable-methods
+                 clos-shared-initialize-generic instance-value added initargs))))
+      (apply clos-shared-initialize instance-value added initargs)
       (let (handler (class-handler class-value 'different-class-update-handler))
         (if handler
           (apply handler previous-value instance-value initargs)
@@ -80,7 +80,7 @@
                 (effective-slot-difference
                  (class-effective-slots-at-generation
                   class-value (.ref state 'generation))
-                 (poo-clos-class-effective-slots class-value))))
+                 (clos-class-effective-slots class-value))))
     (let ((property-list (discarded-slot-property-list state discarded))
           (new-storage (migrated-instance-storage state class-value)))
       (%publish-slot-edits!
@@ -88,45 +88,45 @@
                    (cons 'class class-value)
                    (cons 'generation (.ref class-value 'generation))
                    (cons 'storage new-storage))))
-      (poo-clos-update-instance-for-redefined-class
+      (clos-update-instance-for-redefined-class
        instance-value added discarded property-list)
       state)))
 
 ;; : (-> ClosInstance ClosInstanceState)
 (def (ensure-current-instance-state! instance-value)
-  (unless (poo-clos-instance? instance-value) (clos-fail 'invalid-instance))
-  (let* ((state (.ref instance-value '%poo-clos-state))
+  (unless (clos-instance? instance-value) (clos-fail 'invalid-instance))
+  (let* ((state (.ref instance-value '%clos-state))
          (class-value (.ref state 'class)))
     (if (= (.ref state 'generation) (.ref class-value 'generation))
       state
       (migrate-instance-generation! instance-value state class-value))))
 
 ;; : (-> ClosInstance ClosClass)
-(def (poo-clos-class-of instance-value)
+(def (clos-class-of instance-value)
   (.ref (ensure-current-instance-state! instance-value) 'class))
 
 ;; : (-> ClosClass ClosInstance)
-(def (%poo-clos-allocate-instance class-value . _initargs)
-  (let (current-value (poo-clos-resolve-class class-value))
+(def (%clos-allocate-instance class-value . _initargs)
+  (let (current-value (clos-resolve-class class-value))
     (.o (:: @ (.ref current-value 'instance-prototype))
-        %poo-clos-state: (make-instance-state current-value))))
+        %clos-state: (make-instance-state current-value))))
 
 ;; : (-> ClosInstance Symbol (Maybe ClosSlotCell))
 (def (instance-slot-cell instance-value slot-name)
-  (let* ((class-value (poo-clos-class-of instance-value))
-         (slot (poo-clos-find-effective-slot class-value slot-name)))
+  (let* ((class-value (clos-class-of instance-value))
+         (slot (clos-find-effective-slot class-value slot-name)))
     (and slot
          (if (eq? (.ref slot 'allocation) 'class)
-           (poo-clos-class-slot-cell (.ref slot 'storage-class) slot-name)
+           (clos-class-slot-cell (.ref slot 'storage-class) slot-name)
            (hash-ref/default
-            (.ref (.ref instance-value '%poo-clos-state) 'storage)
+            (.ref (.ref instance-value '%clos-state) 'storage)
             slot-name (lambda () #f))))))
 
 ;; Initialization already traverses effective slot definitions.  Resolve the
 ;; cell directly instead of searching the full effective-slot list again.
 (def (effective-slot-cell state slot)
   (if (eq? (.ref slot 'allocation) 'class)
-    (poo-clos-class-slot-cell (.ref slot 'storage-class)
+    (clos-class-slot-cell (.ref slot 'storage-class)
                               (.ref slot 'identity))
     (hash-ref/default (.ref state 'storage) (.ref slot 'identity)
                       (lambda () #f))))
@@ -148,69 +148,69 @@
 
 ;; : (-> ClosClass ClosInstance Symbol Symbol [SchemeValue] SchemeValue)
 (def (call-slot-missing class-value instance-value slot-name operation args)
-  (apply poo-clos-slot-missing class-value instance-value slot-name operation
+  (apply clos-slot-missing class-value instance-value slot-name operation
          args))
 
 ;; : (-> ClosClass ClosInstance Symbol SchemeValue)
 (def (call-slot-unbound class-value instance-value slot-name)
-  (poo-clos-slot-unbound class-value instance-value slot-name))
+  (clos-slot-unbound class-value instance-value slot-name))
 
 ;;; The standard slot protocol is expressed as ordinary mutable generic
 ;;; functions.  Class-owned procedure handlers remain a compatibility bridge
 ;;; in the default methods, not the primary extension surface.
 ;; : (-> ClosClass ClosInstance Symbol Symbol SchemeValue ... SchemeValue)
-(def (poo-clos-slot-missing class-value instance-value slot-name operation
+(def (clos-slot-missing class-value instance-value slot-name operation
                             . values)
-  (apply poo-clos-call poo-clos-slot-missing-generic
+  (apply clos-call clos-slot-missing-generic
          class-value instance-value slot-name operation values))
 
 ;; : (-> ClosClass ClosInstance Symbol SchemeValue)
-(def (poo-clos-slot-unbound class-value instance-value slot-name)
-  (poo-clos-call poo-clos-slot-unbound-generic
+(def (clos-slot-unbound class-value instance-value slot-name)
+  (clos-call clos-slot-unbound-generic
                  class-value instance-value slot-name))
 
 ;; : ClosGenericFunction
-(def poo-clos-slot-missing-generic
-  (poo-clos-add-method
-   (poo-clos-generic-function 'slot-missing 4 optional: 1)
-   (poo-clos-method
+(def clos-slot-missing-generic
+  (clos-add-method
+   (clos-generic-function 'slot-missing 4 optional: 1)
+   (clos-method
     'slot-missing/default
-    (list (poo-clos-any-specializer) (poo-clos-any-specializer)
-          (poo-clos-any-specializer) (poo-clos-any-specializer))
+    (list (clos-any-specializer) (clos-any-specializer)
+          (clos-any-specializer) (clos-any-specializer))
     (lambda (_frame class-value instance-value slot-name operation . values)
       (let (handler (class-handler class-value 'slot-missing-handler))
         (if handler
           (apply handler class-value instance-value slot-name operation values)
           (clos-fail 'slot-missing class: (.ref class-value 'identity)
                      slot: slot-name operation: operation))))
-    lambda-list: (poo-clos-lambda-list 4 1 #f #f '() #f))))
+    lambda-list: (clos-lambda-list 4 1 #f #f '() #f))))
 
 ;; : ClosGenericFunction
-(def poo-clos-slot-unbound-generic
-  (poo-clos-add-method
-   (poo-clos-generic-function 'slot-unbound 3)
-   (poo-clos-method
+(def clos-slot-unbound-generic
+  (clos-add-method
+   (clos-generic-function 'slot-unbound 3)
+   (clos-method
     'slot-unbound/default
-    (list (poo-clos-any-specializer) (poo-clos-any-specializer)
-          (poo-clos-any-specializer))
+    (list (clos-any-specializer) (clos-any-specializer)
+          (clos-any-specializer))
     (lambda (_frame class-value instance-value slot-name)
   (let (handler (class-handler class-value 'slot-unbound-handler))
     (if handler
       (handler class-value instance-value slot-name)
           (clos-unbound-slot-fail (.ref class-value 'identity)
                                   instance-value slot-name 'slot-value))))
-    lambda-list: (poo-clos-lambda-list 3 0 #f #f '() #f))))
+    lambda-list: (clos-lambda-list 3 0 #f #f '() #f))))
 
 ;; | ClosInstance = POOObject
-;; poo-clos-slot-value
+;; clos-slot-value
 ;;   : (-> ClosInstance Symbol SchemeValue)
 ;;   | contract: delegates missing and unbound reads to their class hooks.
 ;;   | doc m%
 ;;   | result: the bound value or the primary value returned by a hook.
-(def (poo-clos-slot-value instance-value slot-name)
+(def (clos-slot-value instance-value slot-name)
   (unless (symbol? slot-name)
     (clos-fail 'invalid-slot-name slot: (failure-name slot-name)))
-  (let* ((class-value (poo-clos-class-of instance-value))
+  (let* ((class-value (clos-class-of instance-value))
          (cell (instance-slot-cell instance-value slot-name)))
     (cond
      ((not cell)
@@ -219,10 +219,10 @@
      (else (call-slot-unbound class-value instance-value slot-name)))))
 
 ;; : (-> ClosInstance Symbol SchemeValue SchemeValue)
-(def (poo-clos-set-slot-value! instance-value slot-name new-value)
+(def (clos-set-slot-value! instance-value slot-name new-value)
   (unless (symbol? slot-name)
     (clos-fail 'invalid-slot-name slot: (failure-name slot-name)))
-  (let* ((class-value (poo-clos-class-of instance-value))
+  (let* ((class-value (clos-class-of instance-value))
          (cell (instance-slot-cell instance-value slot-name)))
     (if cell
       (begin
@@ -233,10 +233,10 @@
     new-value))
 
 ;; : (-> ClosInstance Symbol Boolean)
-(def (poo-clos-slot-bound? instance-value slot-name)
+(def (clos-slot-bound? instance-value slot-name)
   (unless (symbol? slot-name)
     (clos-fail 'invalid-slot-name slot: (failure-name slot-name)))
-  (let* ((class-value (poo-clos-class-of instance-value))
+  (let* ((class-value (clos-class-of instance-value))
          (cell (instance-slot-cell instance-value slot-name)))
     (if cell
       (if (.ref cell 'bound?) #t #f)
@@ -244,17 +244,17 @@
                              'slot-boundp '()) #t #f))))
 
 ;; : (-> ClosInstance Symbol Boolean)
-(def (poo-clos-slot-exists? instance-value slot-name)
+(def (clos-slot-exists? instance-value slot-name)
   (unless (symbol? slot-name)
     (clos-fail 'invalid-slot-name slot: (failure-name slot-name)))
-  (if (poo-clos-find-effective-slot
-       (poo-clos-class-of instance-value) slot-name) #t #f))
+  (if (clos-find-effective-slot
+       (clos-class-of instance-value) slot-name) #t #f))
 
 ;; : (-> ClosInstance Symbol ClosInstance)
-(def (poo-clos-slot-makunbound! instance-value slot-name)
+(def (clos-slot-makunbound! instance-value slot-name)
   (unless (symbol? slot-name)
     (clos-fail 'invalid-slot-name slot: (failure-name slot-name)))
-  (let* ((class-value (poo-clos-class-of instance-value))
+  (let* ((class-value (clos-class-of instance-value))
          (cell (instance-slot-cell instance-value slot-name)))
     (if cell
       (begin
@@ -265,17 +265,17 @@
     instance-value))
 
 ;; : (-> [SchemeValue] Boolean)
-(def initialization-argument-list? poo-clos-initarg-list?)
+(def initialization-argument-list? clos-initarg-list?)
 
 ;; : (-> [SchemeValue] [SchemeValue])
-(def initialization-argument-names poo-clos-initarg-names)
+(def initialization-argument-names clos-initarg-names)
 
 ;; One ordered index replaces a full initarg scan for every effective slot.
 ;; Each entry retains the leftmost position because CLOS initarg lookup does.
-(def initialization-argument-index poo-clos-initarg-index)
+(def initialization-argument-index clos-initarg-index)
 
 ;; : (-> [SchemeValue] [SchemeValue] (values Boolean SchemeValue))
-(def slot-initialization-argument poo-clos-initarg-index-first-of)
+(def slot-initialization-argument clos-initarg-index-first-of)
 
 (def (slot-initarg-index class-value)
   (let (index (make-hash-table-eq))
@@ -283,7 +283,7 @@
      (lambda (slot)
        (for-each (lambda (name) (hash-put! index name #t))
                  (.ref slot 'initargs)))
-     (poo-clos-class-effective-slots class-value))
+     (clos-class-effective-slots class-value))
     index))
 
 ;; The caller supplies exactly the methods of the lifecycle operations it will
@@ -292,10 +292,10 @@
   (unless (initialization-argument-list? values)
     (clos-fail 'malformed-initialization-arguments
                class: (.ref class-value 'identity) operation: operation))
-  (unless (or (null? values) (poo-clos-allow-other-keys? values))
+  (unless (or (null? values) (clos-allow-other-keys? values))
     (let (index (slot-initarg-index class-value))
-      (when (poo-clos-first-invalid-initarg
-             values index poo-clos-allow-other-keys-name?)
+      (when (clos-first-invalid-initarg
+             values index clos-allow-other-keys-name?)
         (let (signatures (filter-map (lambda (method) (.ref method 'lambda-list))
                                      (methods)))
           (unless (find (lambda (signature) (.ref signature 'allow-other-keys?))
@@ -305,8 +305,8 @@
                (for-each (lambda (name) (hash-put! index name #t))
                          (.ref signature 'keys)))
              signatures)
-            (let (invalid-name (poo-clos-first-invalid-initarg
-                                values index poo-clos-allow-other-keys-name?))
+            (let (invalid-name (clos-first-invalid-initarg
+                                values index clos-allow-other-keys-name?))
               (when invalid-name
                 (clos-fail 'invalid-initialization-argument
                            class: (.ref class-value 'identity)
@@ -334,11 +334,11 @@
               defaults-rev
               (.ref owner-class 'default-initargs)))
            '()
-           (poo-clos-class-precedence-list class-value))))
+           (clos-class-precedence-list class-value))))
     (append supplied-values (reverse defaults-rev))))
 
 ;; : (-> ClosInstance (U Boolean [Symbol]) [SchemeValue] ClosInstance)
-(def (%poo-clos-shared-initialize instance-value slot-names . initargs)
+(def (%clos-shared-initialize instance-value slot-names . initargs)
   (unless (or (eq? slot-names #t)
               (and (list? slot-names) (andmap symbol? slot-names)))
     (clos-fail 'invalid-shared-initialize-slot-names))
@@ -346,7 +346,7 @@
          (class-value (.ref state 'class))
          (initarg-index (initialization-argument-index initargs))
          (slot-name-index
-          (and (list? slot-names) (poo-clos-identity-index slot-names))))
+          (and (list? slot-names) (clos-identity-index slot-names))))
     (for-each
      (lambda (slot)
        (let-values (((supplied? supplied-value)
@@ -360,33 +360,33 @@
                 (not (.ref (effective-slot-cell state slot) 'bound?))
                 (.ref slot 'initfunction))
            (bind-effective-slot! state slot ((.ref slot 'initfunction)))))))
-     (poo-clos-class-effective-slots class-value))
+     (clos-class-effective-slots class-value))
     instance-value))
 
 ;; : (-> ClosInstance SchemeValue ... ClosInstance)
-(def (%poo-clos-initialize-instance instance-value . initargs)
-  (apply poo-clos-shared-initialize instance-value #t initargs))
+(def (%clos-initialize-instance instance-value . initargs)
+  (apply clos-shared-initialize instance-value #t initargs))
 
 ;; : (-> ClosInstance SchemeValue ... ClosInstance)
-(def (%poo-clos-reinitialize-instance instance-value . initargs)
+(def (%clos-reinitialize-instance instance-value . initargs)
   (require-initialization-arguments
-   (poo-clos-class-of instance-value) 'reinitialize-instance initargs
+   (clos-class-of instance-value) 'reinitialize-instance initargs
    (lambda ()
      (append
-      (apply poo-clos-compute-applicable-methods
-             poo-clos-reinitialize-instance-generic instance-value initargs)
-      (apply poo-clos-compute-applicable-methods
-             poo-clos-shared-initialize-generic instance-value '() initargs))))
-  (apply poo-clos-shared-initialize instance-value '() initargs)
+      (apply clos-compute-applicable-methods
+             clos-reinitialize-instance-generic instance-value initargs)
+      (apply clos-compute-applicable-methods
+             clos-shared-initialize-generic instance-value '() initargs))))
+  (apply clos-shared-initialize instance-value '() initargs)
   instance-value)
 
 ;;; =change-class= preserves the original POO object identity.  A distinct
 ;;; snapshot object supplies the previous-class view expected by the hook.
 ;; : (-> ClosInstance ClosClass SchemeValue ... ClosInstance)
-(def (%poo-clos-change-class instance-value new-class-value . initargs)
+(def (%clos-change-class instance-value new-class-value . initargs)
   (let* ((state (ensure-current-instance-state! instance-value))
          (old-class (.ref state 'class))
-         (new-class (poo-clos-resolve-class new-class-value)))
+         (new-class (clos-resolve-class new-class-value)))
     (let-values (((added _discarded)
                   (class-slot-difference old-class new-class)))
       (let* ((previous-state
@@ -394,36 +394,36 @@
                                     (snapshot-instance-storage state)))
              (previous-value
               (.o (:: @ (.ref old-class 'instance-prototype))
-                  %poo-clos-state: previous-state))
+                  %clos-state: previous-state))
              (new-storage (migrated-instance-storage state new-class)))
         (require-initialization-arguments
          new-class 'change-class initargs
          (lambda ()
            (append
             (%prospective-instance-methods
-             poo-clos-update-instance-for-different-class-generic
+             clos-update-instance-for-different-class-generic
              (list previous-value instance-value) 1 new-class)
             (%prospective-instance-methods
-             poo-clos-shared-initialize-generic
+             clos-shared-initialize-generic
              (list instance-value added) 0 new-class))))
         (%publish-slot-edits!
          (list (list state
                      (cons 'class new-class)
                      (cons 'generation (.ref new-class 'generation))
                      (cons 'storage new-storage))))
-        (apply poo-clos-update-instance-for-different-class
+        (apply clos-update-instance-for-different-class
                previous-value instance-value initargs)
         instance-value))))
 
 ;; | ClosClass = POOObject
-;; poo-clos-make-instance
+;; clos-make-instance
 ;;   : (-> ClosClass SchemeValue ... ClosInstance)
 ;;   | contract: defaults and validates initargs before allocating an instance
 ;;     whose local slots begin unbound, then performs shared initialization.
 ;;   | doc m%
 ;;   | result: the initialized identity-bearing POO instance.
-(def (%poo-clos-make-instance class-value . supplied-initargs)
-  (let (current-value (poo-clos-resolve-class class-value))
+(def (%clos-make-instance class-value . supplied-initargs)
+  (let (current-value (clos-resolve-class class-value))
     (unless (initialization-argument-list? supplied-initargs)
       (clos-fail 'malformed-initialization-arguments
                  class: (.ref current-value 'identity)))
@@ -433,38 +433,38 @@
        current-value 'make-instance initargs
        (lambda ()
          (append
-          (apply poo-clos-compute-applicable-methods
-                 poo-clos-allocate-instance-generic current-value initargs)
+          (apply clos-compute-applicable-methods
+                 clos-allocate-instance-generic current-value initargs)
           (%prospective-instance-methods
-           poo-clos-initialize-instance-generic '(#f) 0 current-value)
+           clos-initialize-instance-generic '(#f) 0 current-value)
           (%prospective-instance-methods
-           poo-clos-shared-initialize-generic '(#f #t) 0 current-value))))
-      (let (instance-value (apply poo-clos-allocate-instance
+           clos-shared-initialize-generic '(#f #t) 0 current-value))))
+      (let (instance-value (apply clos-allocate-instance
                                   current-value initargs))
-        (apply poo-clos-initialize-instance instance-value initargs)
+        (apply clos-initialize-instance instance-value initargs)
         instance-value))))
 
 ;; : (-> ClosClass Symbol Symbol ClosMethod)
-(def (poo-clos-slot-reader-method class-value slot-name method-identity)
-  (unless (poo-clos-find-effective-slot class-value slot-name)
+(def (clos-slot-reader-method class-value slot-name method-identity)
+  (unless (clos-find-effective-slot class-value slot-name)
     (clos-fail 'slot-missing class: (.ref class-value 'identity)
                slot: slot-name operation: 'reader-method))
-  (poo-clos-method
-   method-identity (list (poo-clos-class-specializer class-value))
+  (clos-method
+   method-identity (list (clos-class-specializer class-value))
    (lambda (_frame instance-value)
-     (poo-clos-slot-value instance-value slot-name))))
+     (clos-slot-value instance-value slot-name))))
 
 ;; : (-> ClosClass Symbol Symbol ClosMethod)
-(def (poo-clos-slot-writer-method class-value slot-name method-identity)
-  (unless (poo-clos-find-effective-slot class-value slot-name)
+(def (clos-slot-writer-method class-value slot-name method-identity)
+  (unless (clos-find-effective-slot class-value slot-name)
     (clos-fail 'slot-missing class: (.ref class-value 'identity)
                slot: slot-name operation: 'writer-method))
-  (poo-clos-method
+  (clos-method
    method-identity
-   (list (poo-clos-any-specializer)
-         (poo-clos-class-specializer class-value))
+   (list (clos-any-specializer)
+         (clos-class-specializer class-value))
    (lambda (_frame new-value instance-value)
-     (poo-clos-set-slot-value! instance-value slot-name new-value))))
+     (clos-set-slot-value! instance-value slot-name new-value))))
 
 ;;; Standard lifecycle entry points are ordinary POO generic functions.
 ;;; The primary methods below own the default kernel behavior; callers may add
@@ -475,106 +475,106 @@
 (def (standard-lifecycle-generic identity-value required-value rest-value
                                  specializers body-value)
   (let ((generic-value
-         (poo-clos-generic-function identity-value required-value
+         (clos-generic-function identity-value required-value
                                     rest?: rest-value
                                     key?: rest-value
                                     allow-other-keys?: rest-value))
         (lambda-list-value
-         (poo-clos-lambda-list required-value 0 rest-value #f '() #f)))
-    (poo-clos-add-method
+         (clos-lambda-list required-value 0 rest-value #f '() #f)))
+    (clos-add-method
      generic-value
-     (poo-clos-method identity-value specializers body-value
+     (clos-method identity-value specializers body-value
                       lambda-list: lambda-list-value))
     generic-value))
 
 (def class-metaobject-specializer
-  (poo-clos-prototype-specializer (.ref ClosClass 'proto)))
+  (clos-prototype-specializer (.ref ClosClass 'proto)))
 (def standard-instance-specializer
-  (poo-clos-class-specializer poo-clos-standard-object-class))
+  (clos-class-specializer clos-standard-object-class))
 
-(def poo-clos-allocate-instance-generic
+(def clos-allocate-instance-generic
   (standard-lifecycle-generic
    'allocate-instance 1 #t (list class-metaobject-specializer)
    (lambda (_frame class-value . initargs)
-     (apply %poo-clos-allocate-instance class-value initargs))))
+     (apply %clos-allocate-instance class-value initargs))))
 
-(def poo-clos-shared-initialize-generic
+(def clos-shared-initialize-generic
   (standard-lifecycle-generic
    'shared-initialize 2 #t
-   (list standard-instance-specializer (poo-clos-any-specializer))
+   (list standard-instance-specializer (clos-any-specializer))
    (lambda (_frame instance-value slot-names . initargs)
-     (apply %poo-clos-shared-initialize instance-value slot-names initargs))))
+     (apply %clos-shared-initialize instance-value slot-names initargs))))
 
-(def poo-clos-initialize-instance-generic
+(def clos-initialize-instance-generic
   (standard-lifecycle-generic
    'initialize-instance 1 #t (list standard-instance-specializer)
    (lambda (_frame instance-value . initargs)
-     (apply %poo-clos-initialize-instance instance-value initargs))))
+     (apply %clos-initialize-instance instance-value initargs))))
 
-(def poo-clos-reinitialize-instance-generic
+(def clos-reinitialize-instance-generic
   (standard-lifecycle-generic
    'reinitialize-instance 1 #t (list standard-instance-specializer)
    (lambda (_frame instance-value . initargs)
-     (apply %poo-clos-reinitialize-instance instance-value initargs))))
+     (apply %clos-reinitialize-instance instance-value initargs))))
 
-(def poo-clos-update-instance-for-redefined-class-generic
+(def clos-update-instance-for-redefined-class-generic
   (standard-lifecycle-generic
    'update-instance-for-redefined-class 4 #t
-   (list standard-instance-specializer (poo-clos-any-specializer)
-         (poo-clos-any-specializer) (poo-clos-any-specializer))
+   (list standard-instance-specializer (clos-any-specializer)
+         (clos-any-specializer) (clos-any-specializer))
    (lambda (_frame instance-value added discarded property-list . initargs)
-     (apply %poo-clos-update-instance-for-redefined-class
+     (apply %clos-update-instance-for-redefined-class
             instance-value added discarded property-list initargs))))
 
-(def poo-clos-update-instance-for-different-class-generic
+(def clos-update-instance-for-different-class-generic
   (standard-lifecycle-generic
    'update-instance-for-different-class 2 #t
    (list standard-instance-specializer standard-instance-specializer)
    (lambda (_frame previous-value instance-value . initargs)
-     (apply %poo-clos-update-instance-for-different-class
+     (apply %clos-update-instance-for-different-class
             previous-value instance-value initargs))))
 
-(def poo-clos-change-class-generic
+(def clos-change-class-generic
   (standard-lifecycle-generic
    'change-class 2 #t
-   (list standard-instance-specializer (poo-clos-any-specializer))
+   (list standard-instance-specializer (clos-any-specializer))
    (lambda (_frame instance-value new-class-value . initargs)
-     (apply %poo-clos-change-class instance-value new-class-value initargs))))
+     (apply %clos-change-class instance-value new-class-value initargs))))
 
-(def poo-clos-make-instance-generic
+(def clos-make-instance-generic
   (standard-lifecycle-generic
-   'make-instance 1 #t (list (poo-clos-any-specializer))
+   'make-instance 1 #t (list (clos-any-specializer))
    (lambda (_frame class-value . initargs)
-     (apply %poo-clos-make-instance class-value initargs))))
+     (apply %clos-make-instance class-value initargs))))
 
-(def (poo-clos-allocate-instance . arguments)
-  (apply poo-clos-call poo-clos-allocate-instance-generic arguments))
-(def (poo-clos-shared-initialize . arguments)
-  (apply poo-clos-call poo-clos-shared-initialize-generic arguments))
-(def (poo-clos-initialize-instance . arguments)
-  (apply poo-clos-call poo-clos-initialize-instance-generic arguments))
-(def (poo-clos-reinitialize-instance . arguments)
-  (apply poo-clos-call poo-clos-reinitialize-instance-generic arguments))
-(def (poo-clos-update-instance-for-redefined-class . arguments)
-  (apply poo-clos-call
-         poo-clos-update-instance-for-redefined-class-generic arguments))
-(def (poo-clos-update-instance-for-different-class . arguments)
-  (apply poo-clos-call
-         poo-clos-update-instance-for-different-class-generic arguments))
-(def (poo-clos-change-class . arguments)
-  (apply poo-clos-call poo-clos-change-class-generic arguments))
-(def (poo-clos-make-instance . arguments)
+(def (clos-allocate-instance . arguments)
+  (apply clos-call clos-allocate-instance-generic arguments))
+(def (clos-shared-initialize . arguments)
+  (apply clos-call clos-shared-initialize-generic arguments))
+(def (clos-initialize-instance . arguments)
+  (apply clos-call clos-initialize-instance-generic arguments))
+(def (clos-reinitialize-instance . arguments)
+  (apply clos-call clos-reinitialize-instance-generic arguments))
+(def (clos-update-instance-for-redefined-class . arguments)
+  (apply clos-call
+         clos-update-instance-for-redefined-class-generic arguments))
+(def (clos-update-instance-for-different-class . arguments)
+  (apply clos-call
+         clos-update-instance-for-different-class-generic arguments))
+(def (clos-change-class . arguments)
+  (apply clos-call clos-change-class-generic arguments))
+(def (clos-make-instance . arguments)
   (when (and (pair? arguments)
              (not (initialization-argument-list? (cdr arguments))))
     (clos-fail 'malformed-initialization-arguments operation: 'make-instance))
-  (apply poo-clos-call poo-clos-make-instance-generic arguments))
+  (apply clos-call clos-make-instance-generic arguments))
 
-(for-each poo-clos-register-generic-function!
-          (list poo-clos-allocate-instance-generic
-                poo-clos-shared-initialize-generic
-                poo-clos-initialize-instance-generic
-                poo-clos-reinitialize-instance-generic
-                poo-clos-update-instance-for-redefined-class-generic
-                poo-clos-update-instance-for-different-class-generic
-                poo-clos-change-class-generic
-                poo-clos-make-instance-generic))
+(for-each clos-register-generic-function!
+          (list clos-allocate-instance-generic
+                clos-shared-initialize-generic
+                clos-initialize-instance-generic
+                clos-reinitialize-instance-generic
+                clos-update-instance-for-redefined-class-generic
+                clos-update-instance-for-different-class-generic
+                clos-change-class-generic
+                clos-make-instance-generic))
