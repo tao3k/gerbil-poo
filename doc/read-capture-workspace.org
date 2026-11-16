@@ -182,3 +182,49 @@ and source contain the tested change. Labels alone are not provenance.
 The next construction candidate must remove repeated effective Slot/store work
 rather than adding an empty-catalog branch. No Core fast path is removed and no
 cold-path improvement is claimed from this rejected experiment.
+
+* Index sizing: effect-boundary correction
+
+The next authentication-sharing audit found a concrete omitted boundary:
+=hash-length= invokes the Gerbil HashTable length delegate before the sweep.
+A changed delegate can edit a read after the selection/preflight check. The
+fixed-result path formerly skipped issuance inside that sweep and accepted a
+changed checker, even though =%issued-read?= returned #f after the operation.
+This was reproduced on the frozen baseline; it is not an inferred optimization.
+
+The correction qualifies the LIVE wrapper, length-field offset and exact
+=gc-table-length= delegate before sizing. That fixed Gerbil delegate reads
+native counts and calls no author code. Foreign length delegates are still
+invoked exactly once. Their successful return forces fresh issuance in original
+record order before key/route/live checks; exceptions retain their cause.
+An already-authenticating sweep needs no additional qualification. Return
+checks, source guards and all ordinary fallbacks remain independent.
+
+Four matched controls cover unchanged foreign sizing, changed issuance during
+sizing, original sizing exceptions and preflight refusal before sizing. The
+unmodified baseline passes three and fails the changed-issuance assertion. The
+correction passes all four plus the preceding 111 Graph/CLOS/issued-read controls
+and naturally exits. All mutations are fixture-local and restored in finally;
+the outer checkpoint retains the exact cached index during nested replay.
+
+This correctness correction is separate from a CPU speedup. It establishes the
+boundary required before another duplicate-authentication removal can be tried.
+
+The Lean model and Org/SysML contract are published in
+[[https://github.com/tao3k/lean-poo/commit/a2bfdace20a1706a7c3744a8ae32e653cd814608][a2bfdac]],
+=LeanPoo/Object/ReadSweepBoundary.lean=. The four-pair complete-capture comparison
+retains the same frozen CLOS/MOP cohort and compiler policy as above. CPU ms:
+
+| Pair | First base / correction | Later base / correction |
+|------+-------------------------+-------------------------|
+| B,C | 242.308 / 253.915 | 149.270 / 158.581 |
+| C,B | 277.671 / 262.814 | 212.967 / 158.029 |
+| B,C | 297.640 / 304.015 | 184.491 / 191.515 |
+| C,B | 291.402 / 273.405 | 181.920 / 184.883 |
+
+All intervals include GC, so whole-operation allocation remains #f. Maximum RSS
+ranges 493,223,936--498,171,904 vs 493,780,992--499,384,320 bytes. Mixed paired
+results do not establish a CPU win: first capture improves in two pairs and
+later capture in one. Lower unpaired medians must not be reported as a speedup.
+This patch fixes a demonstrated effect-boundary omission; reducing its ordinary
+route qualification cost is separate future work. No Core stock path is removed.

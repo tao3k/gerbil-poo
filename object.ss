@@ -10,7 +10,7 @@
                     object-deliver-value require-object-read-route! object-issued-read-current?
                     call-with-issued-reads active-read-replays issue-object-read %issue-read object-slot-names object-slot-present?
                     object-read-key object-read-dependencies object-read-value
-                    require-current-read-sweep! %projection-read-visit-index %pure-read-sweep?
+                    require-current-read-sweep! %projection-read-visit-index %pure-read-sweep? %read-index-size-effect-free?
                     record-key-field record-dependencies-field record-value-field
                     slot-spec-discards-super? compile-slot-specs prepare-declaration-specifications compute-object-precedence!
                     %prepared-vector-slot-ref %registered-field-reader %bind-current-slot-reads %prepared-slot-present?

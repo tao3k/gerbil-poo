@@ -41,7 +41,7 @@
                         (hash-ref (object-%instance self) key absent-value))))))))
 ;; Trusted implementation access to the one existing writer; it remains absent
 ;; from the read-route public exports. Ordinary consumers receive only checks.
-(extern namespace: clan/poo/read-route %issue-read %pure-read-sweep?)
+(extern namespace: clan/poo/read-route %issue-read %pure-read-sweep? %read-index-size-effect-free?)
 (extern namespace: clan/poo/read-route %admitted-vector-read-fields)
 (def issue-object-read %issue-read)
 (def object-read-issued? %issued-read?)
@@ -104,7 +104,10 @@
 (def (require-current-read-sweep! reads receivers positions current! authenticate?)
   (if (or (not positions) (not (%pure-read-sweep?)))
     (for-each current! reads)
-    (let (seen (make-vector (hash-length receivers) #f))
+    ;; Interface sizing may itself change a record after issuance preflight.
+    ;; Only the live stock delegate preserves that effect-free interval.
+    (let* ((authenticate? (or authenticate? (not (%read-index-size-effect-free? receivers))))
+           (seen (make-vector (hash-length receivers) #f)))
       (let loop ((rest reads) (position 0))
         (unless (null? rest)
           (let (read (car rest))

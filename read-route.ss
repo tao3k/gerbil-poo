@@ -8,16 +8,27 @@
   (prefix-in (only-in :gerbil/runtime/mop object? object-class make-class-slot-accessor
                       class-slot-offset slot-ref slot-set!) read-runtime.)
   (only-in :gerbil/runtime/table &raw-table-hash &raw-table-test &raw-table-lock
-           symbolic-table-set! symbolic-hash gc-table-ref gc-table-set!)
+           symbolic-table-set! symbolic-hash gc-table-ref gc-table-set! gc-table-length)
   (only-in :gerbil/runtime/hash HashTable::interface gc-hash-table::t)
   (only-in :gerbil/runtime/interface &interface-descriptor-type))
 
 ;; Share table checks within one replay pass when casting an existing
 ;; HashTable wrapper returns that wrapper. With a different descriptor, use
 ;; the per-record checker. Each receiver's tables still need their own checks.
-(def %pure-read-sweep?
-  (let (wrapper (read-runtime.object-class (make-hash-table)))
-    (lambda () (eq? wrapper (&interface-descriptor-type HashTable::interface)))))
+(defvalues (%pure-read-sweep? %read-index-size-effect-free?)
+  (let* ((wrapper (read-runtime.object-class (make-hash-table)))
+         (length-offset (read-runtime.class-slot-offset wrapper 'length))
+         (length-field (read-runtime.make-class-slot-accessor wrapper 'length)))
+    (values
+      (lambda () (eq? wrapper (&interface-descriptor-type HashTable::interface)))
+      ;; The fixed gc-table-length delegate invokes no author code. Qualify
+      ;; its live wrapper and field route BEFORE the interface operation.
+      (lambda (table)
+        (and (eq? wrapper (&interface-descriptor-type HashTable::interface))
+             (read-runtime.object? table)
+             (eq? (read-runtime.object-class table) wrapper)
+             (eqv? (read-runtime.class-slot-offset wrapper 'length) length-offset)
+             (eq? (length-field table) gc-table-length))))))
 
 ;; Use SlotRead's generated field accessors. Public inspectors copy some
 ;; fields, and reflective name lookup can be redirected by a class edit.
