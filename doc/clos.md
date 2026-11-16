@@ -47,6 +47,10 @@ Function-name metadata owns `(setf name)` lists at construction and returns
 detached names through reflection and read observation. Generic, binding, method
 and slot accessor metadata use the existing POO Slot ownership policy.
 
+Argument precedence is a finite permutation of the required positions. Creation
+and reconfiguration share admission; a rejected order leaves the current generic
+generation and its read evidence intact.
+
 `clos-instance?` recognises lifecycle instances; `element?` checks membership
 in a declared POO Type. Prototype ancestry checks stay inside the implementation.
 

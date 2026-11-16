@@ -8,6 +8,7 @@
 (import (only-in :std/test
                  test-suite test-case check-equal? check-exception check)
         (only-in :std/error Error? Error-message)
+        (only-in :std/sync/threads thread-join!/error)
         (only-in :clan/poo/object .o .ref depend-on-object! object-revision
                  object-read-current? seal-object! .put! replay-slot-reads!)
         (only-in :clan/poo/mop call-with-slot-read-observer slot-read-key slot-read-receiver)
@@ -42,6 +43,55 @@
 
 (def clos-generic-evolution-test
   (test-suite "POO CLOS generic evolution"
+    (test-case "argument precedence rejects malformed lists without publishing"
+      (def binding (clos-ensure-generic-function 'precedence-admission required: 2))
+      (def generic (clos-generic-binding-current binding))
+      (def method
+        (clos-method 'precedence-method
+          (list (clos-any-specializer) (clos-any-specializer))
+          (lambda (_frame left right) (list left right))))
+      (clos-generic-binding-add-method! binding method)
+      (def owners (list generic binding method))
+      (def revisions (map object-revision owners))
+      (def generation (clos-generic-generation binding))
+      (def reads '())
+      (call-with-slot-read-observer
+        (lambda (read)
+          (when (and (eq? (slot-read-receiver read) generic)
+                     (eq? (slot-read-key read) 'argument-precedence-order))
+            (set! reads (cons read reads))))
+        (lambda () (clos-generic-argument-precedence-order binding)))
+      (def cycle (list 0 1))
+      (set-cdr! (cdr cycle) cycle)
+      (for-each
+        (lambda (order)
+          (for-each
+            (lambda (operation)
+              (def worker (make-thread operation))
+              (thread-start! worker)
+              (check-exception
+                (try (thread-join!/error worker 2)
+                     (finally (with-catch void (lambda () (thread-terminate! worker)))))
+                (failure-code? 'invalid-argument-precedence-order)))
+            (list (lambda ()
+                    (clos-generic-function 'invalid-order 2 argument-precedence-order: order))
+                  (lambda ()
+                    (clos-reinitialize-generic-function! binding argument-precedence-order: order))))
+          (check-equal? (map object-revision owners) revisions)
+          (check-equal? (clos-generic-generation binding) generation)
+          (check-equal? (clos-generic-argument-precedence-order binding) '(0 1))
+          (check (clos-generic-binding-current binding) => generic)
+          (check (clos-method-generic-function method) => generic)
+          (replay-slot-reads! (reverse reads) void))
+        (list 'invalid (cons 0 1) cycle '#(0 1) '(0 0) '(0 2)))
+      (check-exception
+        (clos-generic-function 'invalid-count -1 argument-precedence-order: cycle)
+        (failure-code? 'invalid-required-argument-count))
+      (clos-reinitialize-generic-function! binding argument-precedence-order: '(1 0))
+      (check-equal? (clos-generic-generation binding) (1+ generation))
+      (check-equal? (clos-generic-argument-precedence-order binding) '(1 0))
+      (check-exception (replay-slot-reads! (reverse reads) void) (lambda (_) #t))
+      (check-equal? (clos-call binding 'left 'right) '(left right)))
     (test-case "list function names remain owned through reflection and observation"
       (def name (list 'setf 'owned-generic-name))
       (def method-name (list 'setf 'owned-method-name))

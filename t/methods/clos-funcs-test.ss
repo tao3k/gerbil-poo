@@ -59,6 +59,8 @@
         (check (positions a) => 0)
         (check (positions b) => 1)
         (check (positions (cons 'a '())) => #f)
+        (check (clos-natural-permutation? 'invalid 3) => #f)
+        (check (clos-natural-permutation? '(0 . 1) 2) => #f)
         (check (clos-natural-permutation? '(2 0 1) 3) => #t)
         (check (clos-natural-permutation? '(2 0 2) 3) => #f)
         (check (clos-natural-permutation? '(3 0 1) 3) => #f)))))

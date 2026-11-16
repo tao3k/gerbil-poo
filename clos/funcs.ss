@@ -133,7 +133,7 @@
 
 ;; One bounded vector pass proves that values are exactly 0..size-1.
 (def (clos-natural-permutation? values size)
-  (and (= (length values) size)
+  (and (list? values) (= (length values) size)
        (let (seen (make-vector size #f))
          (let loop ((rest values))
            (cond
