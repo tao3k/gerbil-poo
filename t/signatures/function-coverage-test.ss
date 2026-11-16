@@ -6,6 +6,7 @@
   :std/error
   :clan/poo/object
   :clan/poo/mop
+  (only-in :clan/poo/type Any Bool Object Function CaseFunction validate TypeError?)
   :clan/poo/types/relation
   :clan/poo/prototype-types
   :clan/poo/method-declaration
