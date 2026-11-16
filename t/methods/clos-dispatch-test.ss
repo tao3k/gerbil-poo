@@ -349,6 +349,32 @@
       (check (and frame-read (object-read-issued? frame-read)) => #t)
       (check (eq? (.ref (slot-read-receiver frame-read) 'effective-method)
                   (slot-read-receiver effective-read)) => #t))
+    (test-case "applicability hooks cannot run the same lifecycle extension twice"
+      (def writes 0)
+      (def class-value
+        (clos-class 'unique-applicable-initializer
+          direct-slots: (list (clos-direct-slot-definition 'value
+                               initform: (lambda () (set! writes (+ writes 1)) writes)))))
+      (def instance (clos-allocate-instance class-value))
+      (def repeat? #t)
+      (def protocol
+        (clos-generic-protocol 'selection-identity
+          compute-applicable-methods:
+          (lambda (_generic _arguments methods)
+            (if repeat? (cons (car methods) methods) methods))))
+      (def generic
+        (clos-add-method (clos-generic-function 'initialize-selected 1 protocol: protocol)
+          (clos-method 'initialize-selected/default (list (clos-class-specializer class-value))
+            (lambda (_frame instance) (clos-initialize-instance instance)))))
+      (def refused (failure-code? 'invalid-compute-applicable-methods-result))
+      (check-exception (clos-call generic instance) refused)
+      (check-equal? writes 0)
+      (check-equal? (clos-slot-bound? instance 'value) #f)
+      (check-exception (clos-compute-applicable-methods generic instance) refused)
+      (set! repeat? #f)
+      (check-equal? (length (clos-compute-applicable-methods generic instance)) 1)
+      (check (eq? (clos-call generic instance) instance) => #t)
+      (check-equal? writes 1))
     (test-case "ranking callback invalidates a previously checked child descriptor"
       (def ran? #f)
       (def ranked? #f)

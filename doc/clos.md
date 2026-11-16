@@ -134,6 +134,10 @@ POO Slot reads retain the stored spelling; `method-qualifiers` returns its list 
 [LeanPoo qualifier proof](https://github.com/tao3k/lean-poo/blob/a825417663af730aa4b562fe0015478644d770c9/LeanPoo/Object/ClosQualifiers.lean) ·
 [HyperSpec standard method combination](https://www.lispworks.com/documentation/HyperSpec/Body/07_ffb.htm)
 
+A `compute-applicable-methods` hook may filter or reorder eligible methods.
+Each method may appear only once. An invalid result is rejected before method
+combination or invocation. [Selection contract](https://github.com/tao3k/lean-poo/blob/c1d8057d5023b7029d67738da19b415d76b3ab53/LeanPoo/Object/ClosAdmission.lean).
+
 A bare `&key` enables keyword checks with an empty list of declared keys.
 Applicable methods may contribute keys, and `&allow-other-keys` permits
 additional ones. A supplied `allow-other-keys` or `allow-other-keys:` uses

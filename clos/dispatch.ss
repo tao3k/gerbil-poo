@@ -8,7 +8,7 @@
 (import :clan/poo/object
         (only-in :clan/poo/mop/prototype element?)
         (only-in :clan/poo/slot-observation slot-read-receiver)
-        (only-in :std/list/list filter filter-map find flatten1 length=?)
+        (only-in :std/list/list filter filter-map find flatten1 length=? duplicates)
         (only-in :std/hash/misc hash-remove!)
         "types.ss" "objects.ss" "method-combination.ss"
         "funcs.ss"
@@ -238,8 +238,8 @@
           (hash-lookup)))))))
 
 ;;; Protocol customization may filter or reorder the default applicable set,
-;;; but cannot inject a method outside the generic generation or one that is
-;;; inapplicable to the current required arguments.
+;;; but cannot repeat a method or inject one that the current arguments did
+;;; not select from this generic's method table.
 ;; : (-> ClosGenericFunction [SchemeValue]
 ;;        [(Pair ClosMethod [Natural])])
 (def (protocol-ranked-methods generic arguments)
@@ -256,7 +256,8 @@
                       (lambda (method)
                         (and (element? ClosMethod method)
                              (lookup-ranked method)))
-                      methods))
+                      methods)
+                     (null? (duplicates methods eq?)))
           (clos-fail 'invalid-compute-applicable-methods-result
                      generic: (.ref generic 'identity)))
         (map lookup-ranked methods)))))

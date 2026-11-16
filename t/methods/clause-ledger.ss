@@ -139,7 +139,7 @@
 (def clos-evidence-suites
   (list
    (evidence-suite 'dispatch "t/methods/clos-dispatch-test.ss"
-                   'clos-dispatch-test 36)
+                   'clos-dispatch-test 37)
    (evidence-suite 'lifecycle "t/methods/clos-lifecycle-test.ss"
                    'clos-lifecycle-test 26)
    (evidence-suite 'syntax "t/methods/clos-syntax-test.ss"
