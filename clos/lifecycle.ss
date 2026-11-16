@@ -545,7 +545,9 @@
   (standard-lifecycle-generic
    'make-instance 1 #t (list (clos-any-specializer))
    (lambda (_frame class-value . initargs)
-     (apply %clos-make-instance class-value initargs))))
+     (if (symbol? class-value)
+       (apply clos-make-instance (clos-resolve-class class-value) initargs)
+       (apply %clos-make-instance class-value initargs)))))
 
 (def (clos-allocate-instance . arguments)
   (apply clos-call clos-allocate-instance-generic arguments))

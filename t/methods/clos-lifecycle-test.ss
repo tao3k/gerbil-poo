@@ -149,6 +149,25 @@
           (check-equal? default-count 1)
           (check-equal? initform-count 0))))
 
+    (test-case "class names and aliases redispatch the make-instance generic"
+      (def pane (clos-class 'redispatch-pane))
+      (clos-set-find-class! pane 'redispatch-alias)
+      (def events '())
+      (def extension
+        (clos-method 'class-specific-construction
+          (list (clos-eql-specializer pane))
+          (lambda (_frame class-value . _args) (set! events (cons class-value events)))
+          qualifier: 'after lambda-list: (clos-lambda-list 1 0 #t #f '() #f)))
+      (dynamic-wind
+        (lambda () (clos-add-method clos-make-instance-generic extension))
+        (lambda ()
+          (for-each
+            (lambda (designator)
+              (check (clos-class-of (clos-make-instance designator)) => pane))
+            (list pane 'redispatch-pane 'redispatch-alias))
+          (check-equal? events (list pane pane pane)))
+        (lambda () (clos-remove-method clos-make-instance-generic extension))))
+
     (test-case "class names are registered ANSI class designators"
       (let* ((source (clos-class 'registered-source))
              (target (clos-class 'registered-target))
