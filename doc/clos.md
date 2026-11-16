@@ -67,16 +67,24 @@ and reconfiguration share admission; a rejected order leaves the current generic
 generation and its read evidence intact.
 
 Lifecycle classes implement the existing POO `Type` and `Class` contracts.
-Effective declarations use `Slot` validation; predicate constraints are
-normalized into its `type` field only when declared. An omitted type adds no
-value-type restriction and does not synthesize `Any`. All inherited constraints
-remain conjunctive; an untyped override cannot erase them. Pure models use the
-same Slot checker.
-Class schema maps and effective descriptors are read-only; redefinition
+Slot declarations accept existing POO Type objects directly. A single declaration
+retains that object; inherited declarations use the common `And` Type in C4
+precedence order. Slot validation runs each Type normalizer and checks the final
+intersection. An omitted type adds no value-type restriction and does not
+synthesize `Any`. All inherited constraints remain conjunctive; an untyped
+override cannot erase them. Pure models use the same Slot checker. `(type integer?)` and `type-predicate:` are not accepted;
+use an existing Type or define one through the ordinary `define-type` API.
+
+`(And A B)` from `:clan/poo/type` applies Type validators in declaration order,
+then checks every Type against the final value. It preserves original errors
+and rechecks native read evidence after callbacks. `(And A)` returns `A` itself.
+Direct declarations, schema maps and generation projections are read-only.
+Registering subclasses retains the same prototype and C4 index; redefinition
 publishes them through the existing generation and dependency index.
 
 ```scheme
-(.defclass Pane () ((width (initarg width:) (initform 80) (type integer?))))
+(import (only-in :clan/poo/number Integer))
+(.defclass Pane () ((width (initarg width:) (initform 80) (type Integer))))
 (def pane (clos-make-instance Pane width: 100))
 (element? Class Pane)     ; => #t
 (element? Pane pane)      ; => #t
@@ -88,12 +96,15 @@ or alias re-enters the same `make-instance` generic after resolution.
 The complete initializer method combination precedes the final Class check
 and POO read-currentness validation. Failed Slot validation preserves that
 cell; effects already performed by author methods are not rolled back.
+Validated mutable instances retain their identity and canonical cells; Type
+validation does not wrap their FUN fields again. Pure functional receivers
+retain ordinary Class rebinding.
 `clos-instance?` identifies lifecycle storage, while class membership alone
 does not imply completed initialization. Native `.get` reads require a current
 layout and reject `instance-update-required` before any migration effects.
 Lifecycle operations such as `clos-slot-value` perform lazy class updates;
 subsequent `.get` reads use those same cells. Ordinary `.new` retains lazy Slots.
-[Construction contracts](https://github.com/tao3k/lean-poo/blob/8c77d3c/LeanPoo/Object/ClosConstruction.lean).
+[Construction contracts](https://github.com/tao3k/lean-poo/blob/4062d57/LeanPoo/Object/ClosConstruction.lean) · [Class publication](https://github.com/tao3k/lean-poo/blob/4062d57/LeanPoo/Object/ClosClassPublication.lean).
 
 `just test-source-file benchmarks/mop-lifecycle-test.ss` runs the lifecycle study.
 The benchmark saves the lifecycle and C4 measurements in `$GERBIL_PATH/benchs`.

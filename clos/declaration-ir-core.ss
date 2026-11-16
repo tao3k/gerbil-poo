@@ -20,7 +20,7 @@
         clos-slot-declaration-ir-name clos-slot-declaration-ir-allocation
         clos-slot-declaration-ir-initargs clos-slot-declaration-ir-initform
         clos-slot-declaration-ir-readers clos-slot-declaration-ir-writers
-        clos-slot-declaration-ir-type-predicate
+        clos-slot-declaration-ir-type
         clos-slot-declaration-ir-documentation
         clos-generic-declaration-ir-name clos-generic-declaration-ir-lambda-list
         clos-generic-declaration-ir-argument-precedence-order
@@ -80,7 +80,7 @@
 ;;; Slot IRs preserve repeatable accessor options separately from singular
 ;;; allocation, initform, type, and documentation options.
 (defclass clos-slot-declaration-ir
-  (name allocation initargs initform readers writers type-predicate
+  (name allocation initargs initform readers writers type
         documentation source))
 ;;; Generic IRs separate lambda-list shape from dispatch precedence and
 ;;; method-combination selection.

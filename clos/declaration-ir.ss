@@ -23,7 +23,7 @@
         clos-slot-declaration-ir-name clos-slot-declaration-ir-allocation
         clos-slot-declaration-ir-initargs clos-slot-declaration-ir-initform
         clos-slot-declaration-ir-readers clos-slot-declaration-ir-writers
-        clos-slot-declaration-ir-type-predicate
+        clos-slot-declaration-ir-type
         clos-slot-declaration-ir-documentation
         clos-generic-declaration-ir-name clos-generic-declaration-ir-lambda-list
         clos-generic-declaration-ir-argument-precedence-order

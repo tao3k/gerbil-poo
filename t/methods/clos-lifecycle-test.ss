@@ -11,6 +11,8 @@
                  replay-slot-reads! object-read-issued?)
         (only-in :clan/poo/mop Type. Type define-type element? clos-instance?)
         (only-in :clan/poo/slot-observation call-with-slot-read-observer)
+        (only-in :clan/poo/number Integer)
+        (only-in :clan/poo/type Record)
         :std/error
         :clan/poo/mop)
 
@@ -61,7 +63,7 @@
         (clos-class 'native-slot-contract
           direct-slots:
           (list (clos-direct-slot-definition
-                 'value initargs: (list value:) type-predicate: integer?
+                 'value initargs: (list value:) type: Integer
                  initform: (lambda () (set! calls (+ calls 1)) 7)))))
       (check (element? Type class-value) => #t)
       (check (element? Class class-value) => #t)
@@ -98,7 +100,7 @@
       (def base
         (clos-class 'typed-parent
           direct-slots: (list (clos-direct-slot-definition
-                               'value initargs: (list value:) type-predicate: integer?))))
+                               'value initargs: (list value:) type: Integer))))
       (def child
         (clos-class 'untyped-child direct-superclasses: (list base)
           direct-slots: (list (clos-direct-slot-definition 'value))))
@@ -111,12 +113,118 @@
       (check-exception (clos-set-slot-value! instance 'value 'bad) TypeError?)
       (check (.get instance value) => 3))
 
+    (test-case "slot declarations retain native Type objects and their normalizers"
+      (def calls 0)
+      (define-type (Incremented @ Type.)
+        .element?: integer?
+        .validate: (lambda (value) (set! calls (+ calls 1)) (+ value 1)))
+      (def direct (clos-direct-slot-definition 'value initargs: (list value:) type: Incremented))
+      (def class-value (clos-class 'native-normalizer direct-slots: (list direct)))
+      (check (eq? (.get direct type) Incremented) => #t)
+      (set-car! (.get direct initargs) other:)
+      (check-equal? (.get direct initargs) (list value:))
+      (check-exception (.put! direct 'type Bool) Error?)
+      (check (eq? (.get (clos-find-effective-slot class-value 'value) type) Incremented) => #t)
+      (check-exception (clos-direct-slot-definition 'value type: integer?)
+                       (failure-code? 'invalid-slot-type))
+      (check-exception (clos-direct-slot-definition 'value type: #f)
+                       (failure-code? 'invalid-slot-type))
+      (def instance (clos-make-instance class-value value: 2))
+      (check (.get instance value) => 3)
+      (check calls => 1)
+      (check (eq? (validate class-value instance) instance) => #t)
+      (check calls => 1)
+      (clos-set-slot-value! instance 'value 4)
+      (check (.get instance value) => 5)
+      (check calls => 2)
+      (def order '())
+      (define-type (ParentValue @ Type.)
+        .element?: integer?
+        .validate: (lambda (n) (set! order (cons 'parent order)) (+ n 1)))
+      (define-type (ChildValue @ Type.)
+        .element?: integer?
+        .validate: (lambda (n) (set! order (cons 'child order)) (* n 2)))
+      (def parent
+        (clos-class 'normalization-parent
+          direct-slots: (list (clos-direct-slot-definition 'value initargs: (list value:) type: ParentValue))))
+      (def derived
+        (clos-class 'normalization-child direct-superclasses: (list parent)
+          direct-slots: (list (clos-direct-slot-definition 'value type: ChildValue))))
+      (check (.get (clos-make-instance derived value: 3) value) => 7)
+      (check-equal? (reverse order) '(child parent)))
+
+    (test-case "Class Record and FUN slot types share native validation and cells"
+      (def payload (Record count: [Integer]))
+      (def command (Fun Integer <- Integer))
+      (def child-class (clos-class 'contained-class))
+      (def child (clos-make-instance child-class))
+      (def prototype (.get child-class instance-prototype))
+      (def class-value
+        (clos-class 'native-compound-fields
+          direct-slots:
+          (list (clos-direct-slot-definition 'payload initargs: (list payload:) type: payload)
+                (clos-direct-slot-definition 'command initargs: (list command:) type: command)
+                (clos-direct-slot-definition 'child initargs: (list child:) type: child-class))))
+      (check (eq? (.get child-class instance-prototype) prototype) => #t)
+      (check-exception (.put! prototype '%clos-class class-value) Error?)
+      (def instance
+        (clos-make-instance class-value payload: (.o count: 3)
+                           command: (lambda (n) (+ n 1)) child: child))
+      (def wrapper (.get instance command))
+      (check (element? class-value (.o %clos-state: #f)) => #f)
+      (check-exception (validate class-value (.o %clos-state: #f)) TypeError?)
+      (check (.get instance payload count) => 3)
+      (check (eq? (.get instance child) child) => #t)
+      (check (wrapper 3) => 4)
+      (check-exception (wrapper 'bad) TypeError?)
+      (check (eq? (validate class-value instance) instance) => #t)
+      (check (eq? wrapper (.get instance command)) => #t)
+      (check (eq? wrapper (clos-slot-value instance 'command)) => #t)
+      (check-exception (clos-set-slot-value! instance 'payload (.o count: 'bad)) TypeError?))
+
+    (test-case "normalizer failure and edited Type evidence cannot publish a cell"
+      (def armed #f)
+      (define-type (Changing @ Type.)
+        .validate: identity
+        .element?: (lambda (_)
+                     (when armed (.put! Changing '.validate identity)) #t))
+      (def class-value
+        (clos-class 'normalizer-publication
+          direct-slots: (list (clos-direct-slot-definition
+                               'value initargs: (list value:) type: Changing))))
+      (def instance (clos-make-instance class-value value: 1))
+      (def cell (hash-get (.ref (.ref instance '%clos-state) 'storage) 'value))
+      (def revision (object-revision cell))
+      (set! armed #t)
+      (check-exception (clos-set-slot-value! instance 'value 2) Error?)
+      (check (object-revision cell) => revision)
+      (check (.ref cell 'value) => 1)
+      (set! armed #f)
+      (.put! Changing '.element? integer?)
+      (.put! Changing '.validate (lambda (_) 'invalid-result))
+      (check-exception (clos-set-slot-value! instance 'value 3) TypeError?)
+      (check (object-revision cell) => revision)
+      (check (.ref cell 'value) => 1)
+      (check-exception
+        (clos-class 'invalid-shared-normalizer
+          direct-slots: (list (clos-direct-slot-definition
+                               'value allocation: 'class type: Changing initform: (lambda () 1))))
+        TypeError?)
+      (check (clos-find-class 'invalid-shared-normalizer error?: #f) => #f)
+      (def cause (.o failure: 'native-type))
+      (.put! Changing '.validate (lambda (_) (raise cause)))
+      (check-exception (clos-set-slot-value! instance 'value 3)
+                       (lambda (failure) (eq? failure cause)))
+      (check (object-revision cell) => revision)
+      (check (.ref cell 'value) => 1))
+
     (test-case "Slot rejection leaves the bound cell and generation unchanged"
+
 
       (def class-value
         (clos-class 'checked-cell
           direct-slots: (list (clos-direct-slot-definition
-                               'value initargs: (list value:) type-predicate: integer?))))
+                               'value initargs: (list value:) type: Integer))))
       (def instance (clos-make-instance class-value value: 1))
       (def state (.ref instance '%clos-state))
       (def cell (hash-get (.ref state 'storage) 'value))
@@ -161,7 +269,7 @@
       (def class-value
         (clos-class 'complete-initialization
           direct-slots: (list (clos-direct-slot-definition
-                               'value initargs: (list value:) type-predicate: integer?))))
+                               'value initargs: (list value:) type: Integer))))
       (def corrupt
         (clos-method 'corrupt-initialized-value
           (list (clos-class-specializer class-value))
@@ -179,19 +287,18 @@
     (test-case "a final validator cannot publish evidence from before its callback edit"
       (def current-instance #f)
       (def effects 0)
+      (define-type (ObservedValue @ Type.)
+        .element?: (lambda (value)
+                     (when current-instance
+                       (set! effects (+ effects 1))
+                       (.put! (hash-get (.ref (.ref current-instance '%clos-state) 'storage)
+                                        'value)
+                              'value 'changed-during-check))
+                     (integer? value)))
       (def class-value
         (clos-class 'validation-effect-boundary
-          direct-slots:
-          (list (clos-direct-slot-definition
-                 'value initargs: (list value:)
-                 type-predicate:
-                 (lambda (value)
-                   (when current-instance
-                     (set! effects (+ effects 1))
-                     (.put! (hash-get (.ref (.ref current-instance '%clos-state) 'storage)
-                                      'value)
-                            'value 'changed-during-check))
-                   (integer? value))))))
+          direct-slots: (list (clos-direct-slot-definition
+                               'value initargs: (list value:) type: ObservedValue))))
       (def expose
         (clos-method 'expose-for-final-check
           (list (clos-class-specializer class-value))

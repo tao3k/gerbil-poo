@@ -1,7 +1,7 @@
 ;;-*- Gerbil -*-
 ;;; More types on top of POO and its MOP
 
-(export #t)
+(export (except-out #t %owned-list-slot-spec %ref-owned-list))
 
 (import
   (only-in :std/assert assert!)
@@ -22,7 +22,7 @@
   (only-in ./support/io u8vector<-<-marshal <-u8vector<-unmarshal write-u8vector*
            write-uint-u8vector read-uint-u8vector unmarshal-n-u8)
   (only-in ./support/json json-normalize string<-json json<-string)
-  (only-in ./object .@ .ref object<-alist .slot? .call .o)
+  (only-in ./object .@ .ref object<-alist .slot? .call .o .putslot! seal-object!)
   (only-in ./mop/prototype define-type Type Type. Class. Any
            raise-type-error validate element? :sexp sexp<- json<- <-json)
   (only-in ./number UInt UIntN Real Integer)
@@ -191,6 +191,30 @@
                 (def disc (read-uint-u8vector .discriminant-length-in-bytes port))
                 (unmarshal (vector-ref types@ disc) port)))
 (def (Or . types) {(:: @ Or.) (types) sexp: `(Or ,@(map (cut .@ <> sexp) types))})
+
+;; Intersection uses the same Type validators as Class and Slot. Its final
+;; check is necessary because a later normalizer can violate an earlier Type.
+(extern namespace: clan/poo/object %owned-list-slot-spec %ref-owned-list)
+(define-type (And. @ Type.)
+  .element?: (lambda (value)
+               (andmap (cut element? <> value) (%ref-owned-list @ 'types)))
+  .validate: (lambda (value)
+               (validate-intersection @ (%ref-owned-list @ 'types) value)))
+
+;; Empty conjunction is Top; a single Type retains its identity and validator.
+;; Keep repeated declarations: author validators need not be idempotent.
+(def (And . types)
+  (for-each (lambda (type)
+              (unless (element? Type type) (raise-type-error Type type))) types)
+  (cond ((null? types) Top)
+        ((null? (cdr types)) (car types))
+        (else
+         (let (descriptor
+               (.o (:: @ And.)
+                   sexp: (cons 'And (map (cut .ref <> 'sexp)
+                                        (%ref-owned-list @ 'types)))))
+           (.putslot! descriptor 'types (%owned-list-slot-spec types))
+           (seal-object! descriptor)))))
 
 ;; Bottom tells you everything about nothing
 (define-type (Bottom @ Type.)

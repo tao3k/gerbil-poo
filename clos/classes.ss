@@ -6,13 +6,15 @@
 ;;; POO CLOS classes and direct/effective slot projection.
 
 (import :clan/poo/object
-        (only-in :clan/poo/mop/prototype element? Type.)
+        (only-in :clan/poo/mop/prototype element? Type raise-type-error)
+        (only-in :clan/poo/type And)
+        (only-in :clan/poo/slot-observation %call-with-recorded-slot-reads %record-slot-reads!)
         (only-in :std/hash/misc hash-ref/default hash-remove!)
         (only-in :std/list/list delete-duplicates/hash)
         (only-in :std/list/list find filter filter-map flatten1)
         "types.ss" "objects.ss" "funcs.ss")
 
-(extern namespace: clan/poo/object %ref-owned-list %publish-slot-edits! %owned-list-slot-spec)
+(extern namespace: clan/poo/object %ref-owned-list %publish-slot-edits! %owned-list-slot-spec %with-slot-edit-protection)
 (extern namespace: clan/poo/slot-observation %make-owned-list)
 
 (export ClosDirectSlotDefinition ClosEffectiveSlotDefinition ClosClass
@@ -23,7 +25,7 @@
         clos-class-subclass? clos-class-specializer
         clos-class-slot-cell
         make-slot-cell
-        %clos-make-class-generation %clos-class-redefinition-edits
+        %clos-validate-slot-value %clos-make-class-generation %clos-class-redefinition-edits
         %clos-project-class-redefinition
         initialize-direct-class-slots!
         %clos-set-class-name!)
@@ -38,6 +40,7 @@
 (def ClosSlotCell. (.ref ClosSlotCell 'proto))
 
 (def +clos-no-initform+ (cons 'clos 'no-initform))
+(def +clos-no-slot-type+ (cons 'clos 'no-slot-type))
 
 ;;; The ANSI class-name namespace is process-local and identity keyed.  Lexical
 ;;; `.defclass` bindings remain ordinary POO values, while symbolic class
@@ -98,7 +101,7 @@
 ;; clos-direct-slot-definition
 ;;   : (-> Symbol allocation: SlotAllocation initargs: [InitargName]
 ;;         initform: (Maybe Thunk) readers: [Symbol] writers: [Symbol]
-;;         type-predicate: (Maybe Procedure) documentation: (Maybe String)
+;;         type: Type documentation: (Maybe String)
 ;;         ClosDirectSlotDefinition)
 ;;   | contract: captures one direct slot declaration without evaluating its
 ;;     optional initform thunk.
@@ -109,7 +112,7 @@
       initargs: (initarg-values '())
       initform: (initform-value +clos-no-initform+)
       readers: (reader-values '()) writers: (writer-values '())
-      type-predicate: (type-predicate-value #f)
+      type: (type-value +clos-no-slot-type+)
       documentation: (documentation-value #f))
   (unless (symbol? identity-value)
     (clos-fail 'invalid-slot-name slot: identity-value))
@@ -123,25 +126,27 @@
   (unless (or (eq? initform-value +clos-no-initform+)
               (procedure? initform-value))
     (clos-fail 'invalid-slot-initform slot: identity-value))
-  (unless (or (not type-predicate-value) (procedure? type-predicate-value))
-    (clos-fail 'invalid-slot-type-predicate slot: identity-value))
+  (unless (or (eq? type-value +clos-no-slot-type+) (element? Type type-value))
+    (clos-fail 'invalid-slot-type slot: identity-value))
   (unless (or (not documentation-value) (string? documentation-value))
     (clos-fail 'invalid-slot-documentation slot: identity-value))
-  (checked
+  (seal-object!
+   (checked
    ClosDirectSlotDefinition
    (let (slot (.o (:: @ ClosDirectSlotDefinition.)
                  identity: identity-value allocation: allocation-value
-                 initargs: (unique/identity initarg-values)
+                 initargs: (%make-owned-list (unique/identity initarg-values))
                  initfunction: (if (eq? initform-value +clos-no-initform+)
                                  #f initform-value)
-                 type-predicate: type-predicate-value
                  documentation: documentation-value))
+     (unless (eq? type-value +clos-no-slot-type+)
+       (.putslot! slot 'type ($constant-slot-spec type-value)))
      (.putslot! slot 'readers
        (%owned-list-slot-spec (unique/identity reader-values) clos-copy-function-names))
      (.putslot! slot 'writers
        (%owned-list-slot-spec (unique/identity writer-values) clos-copy-function-names))
      slot)
-   'invalid-direct-slot-definition))
+   'invalid-direct-slot-definition)))
 
 ;; : (-> [SchemeValue] [Pair])
 (def (require-default-initargs values)
@@ -178,22 +183,11 @@
 
 ;; : (-> ClosClass [POOObject] POOObject)
 (def (instance-prototype-value class-value superclass-prototypes)
-  (.o (:: @ superclass-prototypes) %clos-class: class-value))
+  (seal-object! (.o (:: @ superclass-prototypes) %clos-class: class-value)))
 
 ;; : (-> ClosClass POOObject)
 (def (class-instance-prototype class-value)
   (.ref class-value 'instance-prototype))
-
-;; : (-> ClosClass [ClosClass])
-(def (class-direct-superclasses class-value)
-  (.ref class-value 'direct-superclasses))
-
-;; : (-> ClosClass POOObject)
-(def (make-instance-prototype class-value)
-  (let (superclass-prototypes
-        (map class-instance-prototype
-             (class-direct-superclasses class-value)))
-    (instance-prototype-value class-value superclass-prototypes)))
 
 ;;; POO is the sole precedence owner. Every class generation owns one
 ;;; instance prototype, and each prototype points back to that exact class
@@ -258,8 +252,10 @@
           (first-slot-option descriptions 'initfunction))
          (documentation-value
           (first-slot-option descriptions 'documentation))
-         (type-predicate-values
-          (filter-map (lambda (entry) (.ref (cdr entry) 'type-predicate))
+         (type-values
+          (filter-map (lambda (entry)
+                        (let (slot (cdr entry))
+                          (and (.slot? slot 'type) (.ref slot 'type))))
                       descriptions)))
     (let (slot
           (.o (:: @ ClosEffectiveSlotDefinition.)
@@ -274,15 +270,8 @@
               storage-class: (car most-specific)))
       ;; Match Slot's optional type declaration. Omission is not a synthesized
       ;; Any contract; all explicit inherited constraints remain conjunctive.
-      (unless (null? type-predicate-values)
-        (.putslot! slot 'type
-          ($constant-slot-spec
-           (seal-object!
-            (.o (:: @ Type.)
-                sexp: (list 'slot-type slot-name)
-                .element?: (lambda (value)
-                             (andmap (lambda (predicate) (predicate value))
-                                     type-predicate-values)))))))
+      (unless (null? type-values)
+        (.putslot! slot 'type ($constant-slot-spec (apply And type-values))))
       (seal-object! (checked ClosEffectiveSlotDefinition slot
                              'invalid-effective-slot-definition)))))
 
@@ -306,17 +295,22 @@
   (let (index (clos-leftmost-index-by (lambda (slot) (.ref slot 'identity)) slots))
     (lambda (name) (hash-get index name))))
 
-;;; Initial construction and redefinition derive lookup from the same sequence.
-;; : (-> ClosClass ClosClass)
-(def (refresh-effective-slots! class-value)
-  (let (slots (compute-effective-slots
-              (.ref class-value 'class-precedence-list)
-              (lambda (owner) (.ref owner 'direct-slots))))
-    (%publish-slot-edits!
-     (list (list class-value
-                 (cons 'effective-slot-definitions (%make-owned-list slots))
-                 (cons 'effective-slot-index (effective-slot-lookup slots)))))
-    class-value))
+;; Initial creation and redefinition publish the same per-generation fields.
+;; Roster edits never recompute the prototype or retain parent getter evidence.
+(def (class-projection-fields projection)
+  (list (cons 'instance-prototype (.ref projection 'prototype))
+        (cons 'class-precedence-list (%make-owned-list (.ref projection 'precedence)))
+        (cons 'class-precedence-index (.ref projection 'precedence-index))
+        (cons 'effective-slot-definitions (%make-owned-list (.ref projection 'effective-slots)))
+        (cons 'effective-slot-index (.ref projection 'effective-slot-index))))
+
+(def (initialize-class-projection! class-value)
+  (def projection
+    (%clos-project-class-redefinition
+     class-value (.ref class-value 'direct-superclasses)
+     class-instance-prototype (lambda (owner) (.ref owner 'direct-slots))))
+  (%publish-slot-edits! (list (cons class-value (class-projection-fields projection))))
+  class-value)
 
 ;; : (-> ClosSlotCell)
 (def (make-slot-cell)
@@ -333,6 +327,22 @@
           (hash-put! storage slot-name cell)
           cell))))
 
+;; Prepare a canonical cell value through the actual Slot and Type protocols.
+;; Every author callback is followed by the native signed-evidence recheck.
+(def (%clos-validate-slot-value slot value receiver)
+  (defvalues (result reads)
+    (%call-with-recorded-slot-reads
+      (lambda ()
+        (def normalized
+          (.call (.ref slot '.type) .slot.validate slot (.ref slot 'identity) value receiver))
+        (when (.slot? slot 'type)
+          (unless (element? (.ref slot 'type) normalized)
+            (raise-type-error (.ref slot 'type) normalized)))
+        normalized)))
+  (replay-slot-reads! reads void)
+  (%record-slot-reads! reads)
+  result)
+
 ;; : (-> ClosClass ClosClass)
 (def (initialize-direct-class-slots! class-value)
   (for-each
@@ -343,8 +353,9 @@
                     class-value (.ref slot 'identity)))
              (initfunction (.ref slot 'initfunction)))
          (when (and initfunction (not (.ref cell 'bound?)))
-           (let (value (.call (.ref slot '.type) .slot.validate slot (.ref slot 'identity)
-                                    (initfunction) class-value))
+           (let (value
+                 (%with-slot-edit-protection (list class-value cell)
+                   (lambda () (%clos-validate-slot-value slot (initfunction) class-value))))
              (%publish-slot-edits!
               (list (list cell (cons 'value value) (cons 'bound? #t)))))))))
    (.ref class-value 'effective-slot-definitions))
@@ -412,14 +423,9 @@
             different-class-update-handler: different-handler-value
             documentation: #f metaclass: 'standard-class
             class-storage: class-storage-value
-            instance-prototype: (make-instance-prototype self)
-            class-precedence-list:
-            (%make-owned-list
-             (compute-class-precedence-list
-              (.ref self 'instance-prototype) identity-value))
-            class-precedence-index:
-            (clos-position-lookup
-             (%ref-owned-list self 'class-precedence-list))
+            instance-prototype: #f
+            class-precedence-list: (%make-owned-list '())
+            class-precedence-index: (lambda (_) #f)
             effective-slot-definitions: '()
             effective-slot-index: (lambda (_) #f))))
     (.putslot! candidate 'direct-slots (%owned-list-slot-spec direct-slot-values))
@@ -427,7 +433,7 @@
       (%owned-list-slot-spec default-initarg-values copy-default-initargs))
     (let (class-value
           (initialize-direct-class-slots!
-           (refresh-effective-slots!
+           (initialize-class-projection!
             (checked ClosClass candidate 'invalid-class))))
       (for-each
        (lambda (superclass)
@@ -454,11 +460,12 @@
            prototype-value (.ref class-value 'identity)))
          (effective-slots-value
           (compute-effective-slots precedence-value direct-slots-for)))
-    (.o prototype: prototype-value
-        precedence: precedence-value
+    (seal-object!
+     (.o prototype: prototype-value
+        precedence: (%make-owned-list precedence-value)
         precedence-index: (clos-position-lookup precedence-value)
-        effective-slots: effective-slots-value
-        effective-slot-index: (effective-slot-lookup effective-slots-value))))
+        effective-slots: (%make-owned-list effective-slots-value)
+        effective-slot-index: (effective-slot-lookup effective-slots-value)))))
 
 ;; Retain the old immutable spine privately. A new history entry shares its
 ;; predecessors, and a query copies only the selected generation's list.
@@ -473,7 +480,8 @@
   (def generation (.ref class-value 'generation))
   (def previous-slots (%ref-owned-list class-value 'effective-slot-definitions))
   (def history (.ref class-value 'layout-history))
-  (list class-value
+  (append
+   (list class-value
         (cons 'layout-history
               (lambda (requested)
                 (if (= requested generation) (list-copy previous-slots)
@@ -485,12 +493,8 @@
         (cons 'slot-unbound-handler slot-unbound-handler-value)
         (cons 'redefinition-update-handler redefinition-handler-value)
         (cons 'different-class-update-handler different-handler-value)
-        (cons 'generation (+ 1 generation))
-        (cons 'instance-prototype (.ref projection 'prototype))
-        (cons 'class-precedence-list (%make-owned-list (.ref projection 'precedence)))
-        (cons 'class-precedence-index (.ref projection 'precedence-index))
-        (cons 'effective-slot-definitions (%make-owned-list (.ref projection 'effective-slots)))
-        (cons 'effective-slot-index (.ref projection 'effective-slot-index))))
+        (cons 'generation (+ 1 generation)))
+   (class-projection-fields projection)))
 
 ;;; The root class contributes no slots; all ordinary classes with an omitted
 ;;; superclass list inherit from this exact class and POO prototype.

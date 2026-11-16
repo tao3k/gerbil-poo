@@ -42,7 +42,7 @@
            ((not (.slot? candidate name))
             (list 'missing-slot name))
            ((not (.call (.ref slot '.type) .slot.check slot name candidate))
-            (list 'type-predicate-failed name
+            (list 'slot-type-failed name
                   (clos-model-diagnostic-value (.ref candidate name))))
            (else (loop (cdr slots))))))))))
 

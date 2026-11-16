@@ -20,10 +20,10 @@
       ((rest (cdr (clos-syntax-list source "slot declaration must be a list")))
        (allocation 'instance) (allocation-source #f)
        (initargs '()) (initform #f) (readers '()) (writers '())
-       (type-predicate #f) (documentation #f))
+       (type #f) (documentation #f))
     (if (null? rest)
       (values allocation initform (reverse initargs) (reverse readers)
-              (reverse writers) type-predicate documentation)
+              (reverse writers) type documentation)
       (let* ((option (car rest))
              (items (clos-syntax-list option "slot option must be a list"))
              (head (and (pair? items) (car items)))
@@ -40,7 +40,7 @@
             (clos-syntax-error 'clos-duplicate-slot-option
                                "allocation can appear only once" option))
           (option-loop (cdr rest) (syntax->datum (car arguments)) option
-                       initargs initform readers writers type-predicate
+                       initargs initform readers writers type
                        documentation))
          ((and head (clos-literal=? head #'initarg))
           (unless (= (length arguments) 1)
@@ -48,7 +48,7 @@
                                "initarg expects one name" option))
           (option-loop (cdr rest) allocation allocation-source
                        (cons (car arguments) initargs) initform readers writers
-                       type-predicate documentation))
+                       type documentation))
          ((and head (clos-literal=? head #'initform))
           (unless (= (length arguments) 1)
             (clos-syntax-error 'clos-invalid-slot-option
@@ -57,7 +57,7 @@
             (clos-syntax-error 'clos-duplicate-slot-option
                                "initform can appear only once" option))
           (option-loop (cdr rest) allocation allocation-source initargs
-                       (car arguments) readers writers type-predicate
+                       (car arguments) readers writers type
                        documentation))
          ((and head (clos-literal=? head #'reader))
           (unless (and (= (length arguments) 1)
@@ -66,7 +66,7 @@
                                "reader expects one generic name" option))
           (option-loop (cdr rest) allocation allocation-source initargs
                        initform (cons (car arguments) readers) writers
-                       type-predicate documentation))
+                       type documentation))
          ((and head (clos-literal=? head #'writer))
           (unless (and (= (length arguments) 1)
                        (identifier? (car arguments)))
@@ -74,7 +74,7 @@
                                "writer expects one generic name" option))
           (option-loop (cdr rest) allocation allocation-source initargs
                        initform readers (cons (car arguments) writers)
-                       type-predicate documentation))
+                       type documentation))
          ((and head (clos-literal=? head #'accessor))
           (unless (and (memv (length arguments) '(1 2))
                        (identifier? (car arguments))
@@ -93,12 +93,12 @@
             (option-loop (cdr rest) allocation allocation-source initargs
                          initform (cons reader readers)
                          (cons writer writers)
-                         type-predicate documentation)))
+                         type documentation)))
          ((and head (clos-literal=? head #'type))
           (unless (= (length arguments) 1)
             (clos-syntax-error 'clos-invalid-slot-option
-                               "type expects one predicate" option))
-          (when type-predicate
+                               "type expects one Type expression" option))
+          (when type
             (clos-syntax-error 'clos-duplicate-slot-option
                                "type can appear only once" option))
           (option-loop (cdr rest) allocation allocation-source initargs
@@ -111,7 +111,7 @@
             (clos-syntax-error 'clos-duplicate-slot-option
                                "documentation can appear only once" option))
           (option-loop (cdr rest) allocation allocation-source initargs
-                       initform readers writers type-predicate (car arguments)))
+                       initform readers writers type (car arguments)))
          (else
           (clos-syntax-error 'clos-unknown-slot-option
                              "unknown CLOS slot option" option)))))))
@@ -125,12 +125,12 @@
     (unless name
       (clos-syntax-error 'clos-invalid-slot "slot name is required" source))
     (clos-identifier name "slot names must be identifiers")
-    (let-values (((allocation initform initargs readers writers type-predicate
+    (let-values (((allocation initform initargs readers writers type
                               documentation)
                   (parse-clos-slot-options source)))
       (clos-slot-declaration-ir
        name: name allocation: allocation initargs: initargs initform: initform
-       readers: readers writers: writers type-predicate: type-predicate
+       readers: readers writers: writers type: type
        documentation: documentation source: source))))
 
 ;;; Default-initarg entries are a pure ordered projection; handler clauses are

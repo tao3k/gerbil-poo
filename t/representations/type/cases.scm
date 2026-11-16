@@ -7,7 +7,65 @@
       (begin ;;let ((rep rep) (obj obj))
         (check-equal? (parse rep) obj)
         (check-equal? (unparse obj) rep)))
+    (test-case "And retains native Type identity and owns only its declaration spine"
+      (def exports
+        (parameterize ((current-expander-context (make-top-context)))
+          (map module-export-name
+               (module-context-export (core-import-module ':clan/poo/type)))))
+      (check (memq '%ref-owned-list exports) => #f)
+      (check (memq '%owned-list-slot-spec exports) => #f)
+      (def borrowed-reader
+        (parameterize ((current-expander-context (make-top-context)))
+          (eval-syntax '(import :gerbil/core :clan/poo/type))
+          (with-catch
+            (lambda (cause) (if (unbound-global-exception? cause) #f (raise cause)))
+            (lambda () (eval-syntax '%ref-owned-list)))))
+      (check borrowed-reader => #f)
+      (check (eq? (And Integer) Integer) => #t)
+      (check (eq? (And) Top) => #t)
+      (check-exception (And integer?) TypeError?)
+      (def descriptor (And Integer Bool))
+      (set-car! (.get descriptor types) #f)
+      (check (eq? (car (.get descriptor types)) Integer) => #t)
+      (check-exception (.put! descriptor 'types '()) Error?))
+    (test-case "And runs ordered normalizers then checks every final membership"
+      (def events '())
+      (def first (.cc Type. .element?: integer?
+        .validate: (lambda (value)
+                     (set! events (cons 'first events))
+                     (if (string? value) (string->number value) value))))
+      (def second (.cc Type. .element?: (lambda (value) (and (integer? value) (> value 0)))
+        .validate: (lambda (value) (set! events (cons 'second events)) (+ value 1))))
+      (check (validate (And first second) "3") => 4)
+      (check-equal? (reverse events) '(first second))
+      (def zero (.cc Type. .element?: zero? .validate: (lambda (_) 0)))
+      (def one (.cc Type. .element?: (lambda (n) (= n 1)) .validate: (lambda (_) 1)))
+      (check-exception (validate (And zero one) 3) TypeError?)
+      (def failure (.o cause: 'first-validator))
+      (def reject (.cc Type. .element?: integer? .validate: (lambda (_) (raise failure))))
+      (set! events '())
+      (check-exception (validate (And reject second) 3) (lambda (cause) (eq? cause failure)))
+      (check-equal? events '()))
+    (test-case "And rechecks original read evidence after membership callbacks"
+      (def first (.cc Type. .element?: integer? .validate: identity))
+      (def second (.cc Type. .validate: identity
+        .element?: (lambda (_)
+                     (.put! first '.element? (lambda (_) #f)) #t)))
+      (check-exception (validate (And first second) 3)
+        (lambda (cause)
+          (and (Error? cause) (equal? (Error-message cause) "stale slot dependency"))))
+      ;; An enclosing composition must retain the inner Type's original reads.
+      (.put! first '.element? integer?)
+      (def inner (And first Integer))
+      (def edit-after-inner
+        (.cc Type. .element?: integer?
+          .validate: (lambda (value)
+                       (.put! first '.validate (lambda (n) (+ n 1))) value)))
+      (check-exception (validate (And inner edit-after-inner) 3)
+        (lambda (cause)
+          (and (Error? cause) (equal? (Error-message cause) "stale slot dependency")))))
     (test-case "simple tests"
+
       (def MyRange (IntegerRange min: 100 max: 200))
       (map (λ-match ([type element] (assert! (element? type element))))
            [[MyRange 123]

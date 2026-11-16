@@ -1,9 +1,11 @@
 ;;; Shared structural traversal and persistent validation for existing Types.
-(export list-shape tuple-shape validate-container validate-list validate-tuple)
+(export list-shape tuple-shape validate-container validate-list validate-tuple validate-intersection)
 (import (only-in :std/list/list-builder with-list-builder) :std/iter
-        (only-in :std/list/list map-in-order)
+        (only-in :std/list/list map-in-order foldl)
         (only-in :std/vector/vector vector-for-each/index)
         ../value-diagnostics
+        (only-in ../slot-observation %call-with-recorded-slot-reads %record-slot-reads!)
+        (only-in ../object replay-slot-reads!)
         (only-in ../object .o .slot? .get)
         (only-in ../mop/prototype element? validate raise-type-error))
 
@@ -60,3 +62,16 @@
           (unless (eq? value normalized) (set! changed? #t))
           (vector-set! checked index normalized)) source)
       (if changed? checked source))))
+
+;; Compose actual Type normalizers left-to-right, then check every Type against
+;; the final value. Native read evidence rejects changes across author callbacks.
+(def (validate-intersection descriptor types candidate)
+  (defvalues (checked reads)
+    (%call-with-recorded-slot-reads
+      (lambda ()
+        (def result (foldl (lambda (type value) (validate type value)) candidate types))
+        (unless (element? descriptor result) (raise-type-error descriptor result))
+        result)))
+  (replay-slot-reads! reads void)
+  (%record-slot-reads! reads)
+  checked)

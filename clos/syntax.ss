@@ -29,7 +29,7 @@
           (initform (clos-slot-declaration-ir-initform slot))
           (readers (clos-slot-declaration-ir-readers slot))
           (writers (clos-slot-declaration-ir-writers slot))
-          (type-predicate (clos-slot-declaration-ir-type-predicate slot))
+          (type (clos-slot-declaration-ir-type slot))
           (documentation (clos-slot-declaration-ir-documentation slot)))
       (with-syntax
           ((name name)
@@ -37,7 +37,7 @@
            ((initarg ...) (map syntax->datum initargs))
            ((reader ...) (map syntax->datum readers))
            ((writer ...) (map syntax->datum writers))
-           (type-predicate (or type-predicate #'#f))
+           ((type-option ...) (if type (list #'type: type) '()))
            (documentation (or documentation #'#f)))
         (if initform
           (with-syntax ((initform initform))
@@ -45,13 +45,13 @@
                'name allocation: 'allocation
                initargs: (list 'initarg ...) initform: (lambda () initform)
                readers: (list 'reader ...) writers: (list 'writer ...)
-               type-predicate: type-predicate
+               type-option ...
                documentation: documentation))
           #'(clos-direct-slot-definition
              'name allocation: 'allocation
              initargs: (list 'initarg ...)
              readers: (list 'reader ...) writers: (list 'writer ...)
-             type-predicate: type-predicate documentation: documentation)))))
+             type-option ... documentation: documentation)))))
 
   ;; : (-> ClosSlotDeclarationIR [Syntax])
   (def (lower-standard-accessor-definitions slot)

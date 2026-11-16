@@ -12,7 +12,7 @@
         :clan/poo/read-projection
         (only-in :clan/poo/class-validation required-slots?)
         (only-in :clan/poo/mop/prototype prototype-instance?)
-        (only-in :clan/poo/mop/prototype define-type Type. Class. Slot element?)
+        (only-in :clan/poo/mop/prototype define-type Type. Class. Slot element? raise-type-error)
         (only-in "funcs.ss"
                  clos-function-name? clos-function-name-list? clos-qualifier?
                  clos-initarg-name-list? clos-default-initargs?))
@@ -377,6 +377,7 @@
 
 (def (clos-direct-slot-definition-element? candidate)
   (and (prototype-instance? (.ref ClosDirectSlotDefinition 'proto) candidate)
+       (element? Slot candidate)
        (required-slots? candidate
          (identity symbol?)
          (allocation allocation?)
@@ -384,7 +385,6 @@
          (initfunction procedure-or-false?)
          (readers clos-function-name-list?)
          (writers clos-function-name-list?)
-         (type-predicate procedure-or-false?)
          (documentation string-or-false?))))
 
 ;;; A direct slot is an inert declaration value.  Captured initforms are
@@ -458,14 +458,26 @@
           (.for-each! slots (lambda (_name slot) (seal-object! slot)))
           (seal-object! slots)))
       proto: (.ref self 'instance-prototype)
+      (.validate (inherited)
+        (lambda (candidate)
+          (if (and (object? candidate) (.slot? candidate '%clos-state))
+            ;; Canonical cells were normalized on write. Rechecking a mutable
+            ;; instance must not wrap FUN fields again or create a second store.
+            (with-slot-dependencies candidate
+              (lambda ()
+                (unless (.call self .element? candidate)
+                  (raise-type-error self candidate))
+                candidate))
+            ((inherited) candidate))))
       (.element? (inherited)
         (lambda (candidate)
           (and (object? candidate)
                (if (.slot? candidate '%clos-state)
-                 (let* ((state (.ref candidate '%clos-state))
-                        (current-class (.ref state 'class)))
-                   (and (= (.ref state 'generation) (.ref current-class 'generation))
-                        (memq self (.ref current-class 'class-precedence-list))))
+                 (let (state (.ref candidate '%clos-state))
+                   (and (element? ClosInstanceState state)
+                        (let (current-class (.ref state 'class))
+                          (and (= (.ref state 'generation) (.ref current-class 'generation))
+                               (memq self (.ref current-class 'class-precedence-list))))))
                  (prototype-instance? (.ref self 'instance-prototype) candidate))
                ((inherited) candidate)))))
   .element?: clos-class-element?)

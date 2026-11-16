@@ -5,19 +5,21 @@
 
 (import (only-in :clan/poo/object .o .ref)
         :clan/poo/mop
+        (only-in :clan/poo/number Integer)
         :std/test :std/error)
 (export clos-model-test)
 
 (def Base
   (clos-class 'model-test/base
     direct-slots: (list (clos-direct-slot-definition
-                         'value type-predicate: integer?))))
+                         'value type: Integer))))
+(define-type (PositiveValue @ Type.)
+  .element?: (lambda (v) (and (number? v) (> v 0))))
 (def Positive
   (clos-class 'model-test/positive direct-superclasses: (list Base)
     direct-slots: (list (clos-direct-slot-definition
                          'value
-                         type-predicate:
-                         (lambda (v) (and (number? v) (> v 0)))))))
+                         type: PositiveValue))))
 (def good (.o (:: @ (clos-model-prototype Positive)) value: 2))
 (def Shared
   (clos-class 'model-test/shared
@@ -35,7 +37,7 @@
       (check-equal?
        (clos-model-validation-failure
         Positive (.o (:: @ good) value: 'bad))
-       '(type-predicate-failed value bad))
+       '(slot-type-failed value bad))
       (check-equal?
        (clos-model-validation-failure
         Positive (.o (:: @ (clos-model-prototype Positive))))

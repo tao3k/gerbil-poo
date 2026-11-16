@@ -165,7 +165,7 @@
           (%with-slot-edit-protection
            (list instance-value state (.ref state 'class) cell)
            (lambda ()
-             (.call (.ref slot '.type) .slot.validate slot (.ref slot 'identity) value instance-value))))
+             (%clos-validate-slot-value slot value instance-value))))
       (%publish-slot-edits!
        (list (list cell (cons 'value checked) (cons 'bound? #t)))))))
 

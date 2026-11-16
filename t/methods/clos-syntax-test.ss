@@ -19,6 +19,7 @@
                  clos-lambda-declaration-ir-required
                  clos-parameter-declaration-ir-kind)
         (only-in :clan/poo/clos/declaration-ir-core parse-clos-lambda-list)
+        (only-in :clan/poo/number Integer)
         :clan/poo/mop)
 
 (export clos-syntax-test)
@@ -189,6 +190,15 @@
 
 (def clos-syntax-test
   (test-suite "hygienic POO CLOS declarations"
+    (test-case "type clauses accept native Type values and reject predicate-only declarations"
+      (.defclass TypedPane () ((width (type Integer) (initarg width:) (initform 80))))
+      (def pane (clos-make-instance TypedPane width: 100))
+      (check (eq? (.get (clos-find-effective-slot TypedPane 'width) type) Integer) => #t)
+      (check (.get pane width) => 100)
+      (check-exception (clos-make-instance TypedPane width: 'bad) TypeError?)
+      (check-exception
+        (let () (.defclass PredicatePane () ((width (type integer?)))) (void))
+        (failure-code? 'invalid-slot-type)))
     (test-case "declarations share runtime qualifier-list admission"
       (check-equal? (syntax-listed-qualifiers 'item) '(around primary)))
     (test-case "empty key markers survive generic and method lowering"
