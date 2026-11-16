@@ -1,0 +1,129 @@
+#+title: POO PR #17 performance delivery Goal
+#+date: 2026-11-16
+#+startup: overview
+
+* Objective and ownership
+
+Deliver a proved and reproducible improvement to POO's existing read capture
+and CLOS call paths in PR #17. Production changes belong in gerbil-poo;
+consumer workloads qualify them. Do not build another evaluator, loader,
+cache, compatibility interface or test runner. Keep the Goal active until
+proof, Scheme, original-workload evidence and the exact published revision
+agree. A CI pass alone is not a performance result.
+
+* Delivery gates
+
+| Stage | Required result | Stop condition |
+|-------+-----------------+----------------|
+| 1. Freeze | Public/local HEAD, dirty ownership, toolchain, compiled modules, consumer pin and original workload recorded | Mismatched API, ABI or artifacts |
+| 2. Attribute | Complete-call CPU, GC and allocation; nested phases and diagnostic overhead identified | Probe-only benefit or overlapping costs added together |
+| 3. Prove | Lean equivalence for the actual proposed sharing boundary and its mutations | Changed first refusal, visible reads, RNG or effect boundary |
+| 4. Implement | Existing POO ownership, Slot, hash and dependency mechanisms reused | Additional independent authentication/cache mechanism |
+| 5. Compare | Same records and original complete call, alternating arms, all samples retained | Mixed paired CPU direction or increased memory without justification |
+| 6. Qualify | Native negative controls and natural exit; original consumer acceptance when the upstream gate passes | Success marker without exit, substituted workload or hidden failure |
+| 7. Publish | Owned changes, proof and report pushed to existing PRs; exact-HEAD CI inspected | Unpublished dirty changes described as green |
+
+Proof obligations include owner identity, dependency invalidation, missing
+values, rejection order, observation order/multiplicity, seed advancement,
+replacement arguments, and independent revalidation after open callbacks.
+No verdict may outlive the effect-free interval proved for it.
+
+Keep preparation, first capture, later capture, warm demand and incremental
+updates separate. Compare performance on the same platform and toolchain.
+A watchdog bounds hangs; it does not prove absence of regression. Do not
+change budgets as part of demonstrating a speedup.
+
+* Current evidence
+
+** Published correctness boundary
+
+PR #17 commit =647fbf0= repairs foreign HashTable sizing effects between
+preflight and replay. Its 115 controls passed; the corresponding matched
+baseline fails the changed-issuance control. Lean =a2bfdac= supplies the model.
+This is a correctness fix, not a demonstrated CPU improvement.
+
+** Actual SourceRole path
+
+The frozen Core =207524f= workload is compiled with the latest MOP names;
+the frozen common POO call overlay is =c481e3f=. Only API spelling and the
+benchmark wrapper are adapted. Core itself is not edited.
+
+The original stock arm admits three datums in a batch; the generic arm
+makes three CLOS calls. Preserve that workload, but do not describe their
+difference as dispatch overhead alone or infer API equivalence from timing.
+
+A diagnostic complete-call run records 768 generic calls and 768 direct
+invocations, with zero direct-path rejections. The frameless path already
+runs. Profiling indicates first Generic admission and group preparation
+still deserve attention. Nested group time is included in direct preparation;
+instrumented samples include both CPU and allocation sampler work and
+cannot be added to uninstrumented complete-call timings.
+
+The 152-record diagnostic corpus does not identify the issuance registry
+lookup as the dominant cost. Do not redesign record authority on that basis.
+
+** Rejected single-call route-layout sharing
+
+A Lean trace model builds and four runtime controls pass. The candidate
+shares global descriptor/layout checks only inside one callback-free route
+operation; table-local delegate/backend checks remain independent.
+
+The same-process comparison exercises both route implementations through
+the original complete SourceRole call (315 route calls in each untimed
+smoke check). Each arm retains the original 128-admission CPU sampler.
+Pair values below are medians of the two generic samples within that arm.
+
+| Pair order | Reference CPU ms | Candidate CPU ms | Outcome |
+|------------+------------------+------------------+---------|
+| R,C        |          85.6995 |          75.8135 | faster  |
+| C,R        |          71.5240 |          76.9870 | slower  |
+| R,C        |          77.0110 |          79.8590 | slower  |
+| C,R        |          73.8960 |          74.5820 | slower  |
+
+All generic samples allocate 30,204,928 bytes with zero collections.
+Natural exit succeeds. Mixed paired directions establish no stable gain;
+withdraw the production candidate rather than publish its lower pooled
+median as an optimization. Keep proof, source and failed/successful logs in
+=.build/graph-capture/= for audit. New candidate-only tests remain there.
+
+** Preparation limitation
+
+A whole frozen native build exceeded the 4 GiB guard in
+=testing/property/generator= (peak 4,829,503,648 bytes) and failed.
+The selected 26-target existing std/make closure completed in 87.823 s,
+peak 3,701,751,808 bytes. This supports the focused comparisons, not a claim
+that the whole native build or clean package installation passed.
+
+** Current complete-call result (2026-11-16)
+
+The SourceRole per-call count is 61 distinct issuance checks in admission and
+152 in the group; neither phase repeats a record. Three independent calls
+must not be mistaken for redundant work in one call. The 61 cross-phase
+checks are not proved reusable across intervening getters and policy checks.
+
+Two native Slot-currentness reuse variants passed 117 controls but regressed
+first capture in both execution orders. Both are withdrawn. See
+[[file:performance/currentness-query-study.org][complete protocol, samples and decision]]. The next production target remains
+cold SlotSpec/value-store preparation. The Goal is active; no stock deletion
+or consumer pin promotion is justified by these findings.
+
+* Next decision
+
+Work on the measured first-Generic admission and group replay paths.
+Identify an actual duplicate proof obligation within one effect-free
+interval, establish its ownership and mutation contract in Lean, and only
+then change Scheme. Retain the original complete SourceRole control.
+
+Do not delete Core stock until upstream complete-call CPU reaches it and
+consumer semantic acceptance passes. Do not repeatedly run ten-thousand
+module consumers before a repeatable representative upstream gain.
+Cold first-capture performance and the full SourceRole stock gap remain open.
+
+* Local evidence
+
+- =.build/graph-capture/route-window-paired.log=: all paired samples and natural exit.
+- =.build/graph-capture/route-window-focused.log=: four focused boundary cases.
+- =.build/graph-capture/source-role-phases.log=: overlapping diagnostic phases.
+- =.build/graph-capture/source-role-signatures.log=: same-record diagnostic corpus.
+- =.build/graph-capture/route-window-source/=: withdrawn candidate source and tests.
+- =LeanPoo/Object/ReadRouteWindow.lean= in the existing Lean checkout: experimental proof.
