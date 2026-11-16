@@ -51,6 +51,7 @@
         clos-reinitialize-generic-function!
         clos-compute-applicable-methods clos-call
         clos-compute-effective-method
+        clos-call-carrier-policy-guard
         clos-no-applicable-method clos-no-next-method
         clos-no-applicable-method-generic
         clos-no-next-method-generic

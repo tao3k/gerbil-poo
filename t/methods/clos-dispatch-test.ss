@@ -18,8 +18,7 @@
         (only-in :clan/poo/slot-observation call-with-slot-read-observer
                  slot-read-key slot-read-receiver slot-read-dependencies slot-read-value
                  %call-with-recorded-slot-reads)
-        (only-in :clan/poo/clos/objects make-effective-method make-invocation-frame
-                 clos-call-carrier-policy-guard)
+        (only-in :clan/poo/clos/objects make-effective-method make-invocation-frame)
         (only-in :clan/poo/read-projection call-with-owned-read-projection
                  current-owned-read-open-guard owned-read-value! owned-read-open!)
         :clan/poo/mop)
