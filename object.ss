@@ -420,6 +420,17 @@
 (def (require-object-instance-route! self key)
   (require-read-route! key #f (object-%instance self)))
 
+;; Qualify both routes of a warm observed read without delivering evidence.
+;; The caller separately qualifies the dynamic observation scope.
+(def (object-prepared-read? self (name :~ symbol?))
+  (and (object? self) (not (bootstrap-anchor self name))
+       (let ((instance (object-%instance self)) (reads (object-%reads self)))
+         (and instance reads
+              (begin (require-read-route! name reads instance)
+                     (let (read (hash-get reads name))
+                       (and read (object-read-issued? read)
+                            (not (eq? absent-value (hash-ref instance name absent-value))))))))))
+
 ;; Inspect a prepared value without instantiating the receiver, delivering an
 ;; observation, or invoking a default procedure. A cached #f remains a value.
 ;; Callers that need a SlotRead use .ref/cached at the actual demand boundary.

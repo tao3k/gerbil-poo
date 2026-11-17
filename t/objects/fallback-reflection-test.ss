@@ -1,9 +1,23 @@
 ;;; SPDX-License-Identifier: Apache-2.0 AND LGPL-2.1-or-later
-(import :std/test :clan/poo/object (only-in :clan/poo/slot-observation %call-with-recorded-slot-reads))
+(import :std/test :clan/poo/object (only-in :clan/poo/slot-observation %call-with-recorded-slot-reads call-with-slot-read-observer))
 (export fallback-reflection-test)
 
 (def fallback-reflection-test
   (test-suite "Lazy fallback reflection"
+    (test-case "prepared read presence neither forces a slot nor delivers a read"
+      (def forced 0)
+      (def delivered 0)
+      (def source (.o value: (begin (set! forced (1+ forced)) #f)))
+      (def (ready?)
+        (call-with-slot-read-observer
+          (lambda (_) (set! delivered (1+ delivered)))
+          (lambda () (object-prepared-read? source 'value))))
+      (check-equal? (ready?) #f)
+      (check-equal? forced 0)
+      (check-equal? (.ref source 'value) #f)
+      (check-equal? (ready?) #t)
+      (check-equal? forced 1)
+      (check-equal? delivered 0))
     (test-case "local and reserved slots keep the delegate cold"
       (def constructions 0)
       (def value
