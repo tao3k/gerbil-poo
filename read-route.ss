@@ -6,9 +6,9 @@
         %issued-read? %read-issuance)
 (import (only-in ./slot-layout slot-value-storage make-slot-values) :std/error ./slot-observation
   (prefix-in (only-in :gerbil/runtime/mop object? object-class make-class-slot-accessor
-                      class-slot-offset slot-ref slot-set!) read-runtime.)
-  (only-in :gerbil/runtime/table &raw-table-hash &raw-table-test &raw-table-lock
-           symbolic-table-set! symbolic-hash gc-table-ref gc-table-set! gc-table-length)
+                      class-slot-offset &class-type-slot-table slot-ref slot-set!) read-runtime.)
+  (only-in :gerbil/runtime/table raw-table? &raw-table-table &raw-table-hash &raw-table-test &raw-table-lock
+           symbolic-table-ref symbolic-table-set! symbolic-hash gc-table-ref gc-table-set! gc-table-length)
   (only-in :gerbil/runtime/hash HashTable::interface gc-hash-table::t)
   (only-in :gerbil/runtime/interface &interface-descriptor-type))
 
@@ -71,7 +71,7 @@
 ;; This only checks the LIVE route. The owner must separately retain native
 ;; origin and retire it before any operation crosses an unknown route.
 ;; No sample table/adapter is constructed or warmed by this guard.
-(def gc-table-route-current?
+(def %gc-table-route-backend
   (let* ((wrapper (&interface-descriptor-type HashTable::interface))
          (object-offset (read-runtime.class-slot-offset wrapper 'object))
          (ref-offset (read-runtime.class-slot-offset wrapper 'ref))
@@ -90,7 +90,11 @@
            (eq? (set-field table) gc-table-set!)
            (let (backend (object-field table))
              (and (read-runtime.object? backend)
-                  (eq? (read-runtime.object-class backend) gc-hash-table::t)))))))
+                  (eq? (read-runtime.object-class backend) gc-hash-table::t)
+                  backend))))))
+
+(def (gc-table-route-current? table)
+  (and (%gc-table-route-backend table) #t))
 
 ;; Expected wrapper class, offsets and methods for hash-ref.
 (defstruct route (wrapper ref backend hash test object-field ref-field object-offset ref-offset) final: #t)
@@ -99,7 +103,8 @@
 ;; KEY is the slot name or a structural query such as '(presence port).
 ;; READS maps keys to SlotRead records. INSTANCE holds cached slot values.
 ;; Either table may be #f. A bootstrap read checks its constant directly.
-(defvalues (require-read-route! %standard-symbol-table-lookup? %admitted-vector-read-fields)
+(defvalues (require-read-route! %standard-symbol-table-lookup? %admitted-vector-read-fields
+            %prepared-vector-values)
   (let ()
     ;; Pin the standard wrapper, primitive lookup and hash/test identities once.
     (def (capture table)
@@ -126,54 +131,66 @@
             (read-runtime.make-class-slot-accessor backend-class 'missing)
             (read-runtime.make-class-slot-accessor backend-class 'shape)
             (read-runtime.make-class-slot-accessor shape-class 'indices)))))
-    ;; Check the wrapper before using its saved field accessors.
-    (def (check-wrapper table expected)
-      (unless (eq? (read-runtime.object-class table) (route-wrapper expected))
-        (error "foreign metadata wrapper"))
-      ;; hash-ref casts through the live descriptor before reading the wrapper.
-      (unless (eq? (&interface-descriptor-type HashTable::interface) (route-wrapper expected))
-        (error "changed HashTable interface"))
-      ;; Class identity alone does not freeze Gerbil's mutable field map.
-      ;; Authenticate the live layout before invoking a pinned field accessor.
-      (unless (= (read-runtime.class-slot-offset (route-wrapper expected) 'object)
-                 (route-object-offset expected))
-        (error "changed metadata object layout")))
-    (def (check-ref table expected ref)
-      (unless (= (read-runtime.class-slot-offset (route-wrapper expected) 'ref)
-                 (route-ref-offset expected))
-        (error "changed metadata ref"))
-      (unless (eq? ((route-ref-field expected) table) ref)
-        (error "changed metadata ref")))
-    (def (check-backend backend expected)
-      (unless (eq? (read-runtime.object-class backend) (route-backend expected))
-        (error "foreign metadata backend"))
-      (unless (and (eq? (&raw-table-hash backend) (route-hash expected))
-                   (eq? (&raw-table-test backend) (route-test expected))
-                   (not (&raw-table-lock backend)))
-        (error "changed metadata hash/test")))
+    ;; Both strict replay and the optional probe check the same live routes.
+    (def (wrapper-refusal table expected)
+      (cond
+       ((not (and (read-runtime.object? table)
+                  (eq? (read-runtime.object-class table) (route-wrapper expected))))
+        "foreign metadata wrapper")
+       ((not (eq? (&interface-descriptor-type HashTable::interface) (route-wrapper expected)))
+        "changed HashTable interface")
+       ((not (and (raw-table? (read-runtime.&class-type-slot-table (route-wrapper expected)))
+                  (eqv? (read-runtime.class-slot-offset (route-wrapper expected) 'object)
+                        (route-object-offset expected))))
+        "changed metadata object layout")
+       (else #f)))
+    (def (ref-refusal table expected ref)
+      (and (not (and (eqv? (read-runtime.class-slot-offset (route-wrapper expected) 'ref)
+                           (route-ref-offset expected))
+                     (eq? ((route-ref-field expected) table) ref)))
+           "changed metadata ref"))
+    (def (backend-refusal backend expected)
+      (cond
+       ((not (and (read-runtime.object? backend)
+                  (eq? (read-runtime.object-class backend) (route-backend expected))))
+        "foreign metadata backend")
+       ((not (and (vector? (&raw-table-table backend))
+                  (eq? (&raw-table-hash backend) (route-hash expected))
+                  (eq? (&raw-table-test backend) (route-test expected))
+                  (not (&raw-table-lock backend))))
+        "changed metadata hash/test")
+       (else #f)))
+    (def (table-refusal table expected)
+      (or (wrapper-refusal table expected)
+          (ref-refusal table expected (route-ref expected))
+          (backend-refusal ((route-object-field expected) table) expected)))
     (def (check table expected)
-      (check-wrapper table expected)
-      (check-ref table expected (route-ref expected))
-      (check-backend ((route-object-field expected) table) expected))
-    ;; Vector lookup uses the shape's symbolic index to find a value cell.
-    ;; Check that index as well as the outer table before hash-ref can use it.
-    (def (check-instance table)
-      (check-wrapper table instance-route)
-      (let (backend ((route-object-field instance-route) table))
-        (if (eq? (read-runtime.object-class backend) (value-route-backend vector-route))
-          (begin
-            (check-ref table instance-route (value-route-ref vector-route))
-            (unless (and (vector? ((value-route-cells-field vector-route) backend))
+      (let (refused (table-refusal table expected))
+        (when refused (error refused))))
+
+    (def (vector-backend? backend)
+      (and (read-runtime.object? backend)
+           (eq? (read-runtime.object-class backend) (value-route-backend vector-route))))
+    (def (vector-refusal table backend)
+      (or (ref-refusal table instance-route (value-route-ref vector-route))
+          (and (not (and (vector? ((value-route-cells-field vector-route) backend))
                          (eq? ((value-route-missing-field vector-route) backend)
-                              (value-route-missing vector-route)))
-              (error "changed value cells"))
-            (let (shape ((value-route-shape-field vector-route) backend))
-              (unless (eq? (read-runtime.object-class shape) (value-route-shape vector-route))
-                (error "foreign vector shape"))
-              (check ((value-route-indices-field vector-route) shape) instance-route)))
-          (begin
-            (check-ref table instance-route (route-ref instance-route))
-            (check-backend backend instance-route)))))
+                              (value-route-missing vector-route))))
+               "changed value cells")
+          (let (shape ((value-route-shape-field vector-route) backend))
+            (if (and (read-runtime.object? shape)
+                     (eq? (read-runtime.object-class shape) (value-route-shape vector-route)))
+              (table-refusal ((value-route-indices-field vector-route) shape) instance-route)
+              "foreign vector shape"))))
+    (def (check-instance table)
+      (let (refused
+            (or (wrapper-refusal table instance-route)
+                (let (backend ((route-object-field instance-route) table))
+                  (if (vector-backend? backend)
+                    (vector-refusal table backend)
+                    (or (ref-refusal table instance-route (route-ref instance-route))
+                        (backend-refusal backend instance-route))))))
+        (when refused (error refused))))
     (def (require-route! key reads instance)
       (unless (or (symbol? key)
                   (and (pair? key)
@@ -213,7 +230,33 @@
                     ((value-route-cells-field vector-route) backend)
                     (value-route-missing vector-route)))
           (values #f #f #f #f))))
-    (values require-route! standard-lookup? admitted-vector-read-fields)))
+    ;; Borrow the authenticated symbolic directory only for these three reads.
+    ;; No HashTable cast, observer, getter, or exception handler runs here.
+    (def (prepared-vector-values table first second third)
+      (def (absent) (values absent-value absent-value absent-value))
+      (if (wrapper-refusal table instance-route)
+        (absent)
+        (let (backend ((route-object-field instance-route) table))
+          (if (and (vector-backend? backend) (not (vector-refusal table backend)))
+            (let* ((shape ((value-route-shape-field vector-route) backend))
+                   (directory ((value-route-indices-field vector-route) shape))
+                   (indices ((route-object-field instance-route) directory))
+                   (cells ((value-route-cells-field vector-route) backend))
+                   (missing (value-route-missing vector-route))
+                   (one (symbolic-table-ref indices first #f))
+                   (two (symbolic-table-ref indices second #f))
+                   (three (symbolic-table-ref indices third #f)))
+              (def (usable? offset)
+                (or (not offset) (and (fixnum? offset) (<= 0 offset) (< offset (vector-length cells)))))
+              (def (read offset)
+                (if offset
+                  (let (value (vector-ref cells offset)) (if (eq? value missing) absent-value value))
+                  absent-value))
+              (if (and (usable? one) (usable? two) (usable? three))
+                (values (read one) (read two) (read three))
+                (absent)))
+            (absent)))))
+    (values require-route! standard-lookup? admitted-vector-read-fields prepared-vector-values)))
 
 
 ;; Each issuer keeps a weak table of the records it created and their original

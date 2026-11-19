@@ -13,7 +13,8 @@
                     require-current-read-sweep! %projection-read-visit-index %pure-read-sweep? %read-index-size-effect-free?
                     record-key-field record-dependencies-field record-value-field
                     slot-spec-discards-super? compile-slot-specs prepare-declaration-specifications compute-object-precedence!
-                    %prepared-vector-slot-ref %registered-field-reader %bind-current-slot-reads %prepared-slot-present?
+                    %prepared-vector-slot-ref %prepared-vector-slots-ref %registered-field-reader
+                    %bind-current-slot-reads %prepared-slot-present?
                     %register-slot-dependencies!
                     %with-slot-edit-protection %publish-slot-edits!
                     %owned-list-slot-spec %ref-owned-list define-slot-ref
@@ -563,6 +564,17 @@
           (require-read-route! slot #f instance)
           (hash-ref instance slot absent-value)))
       absent-value)))
+
+;; One uninterrupted inspection of the receiver's existing symbolic vector
+;; store. Author hooks and bootstrap reads remain with ordinary demand.
+(extern namespace: clan/poo/read-route %prepared-vector-values)
+(def (%prepared-vector-slots-ref self first second third)
+  (let (instance (and (object? self) (object-%instance self)))
+    (if (and instance (object-%precedence-list self)
+             (not (object-protocol self)) (not (object-%bootstrap self))
+             (symbol? first) (symbol? second) (symbol? third))
+      (%prepared-vector-values instance first second third)
+      (values absent-value absent-value absent-value))))
 
 (extern namespace: clan/poo/slot-observation %first-registered-read?)
 

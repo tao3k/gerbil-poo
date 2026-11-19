@@ -12,7 +12,7 @@
         :clan/poo/read-projection
         (only-in :clan/poo/class-validation required-slots?)
         (only-in :clan/poo/mop/prototype prototype-instance?)
-        (only-in :clan/poo/mop/prototype define-type Type. Class. Slot element? raise-type-error)
+        (only-in :clan/poo/mop/prototype define-type Type. Class. Slot Bool Type element? raise-type-error)
         (only-in "funcs.ss"
                  clos-function-name? clos-function-name-list? clos-qualifier?
                  clos-initarg-name-list? clos-default-initargs?))
@@ -27,7 +27,12 @@
 
 (def ClosType. Type.)
 
-(extern namespace: clan/poo/object %ref-owned-list %registered-field-reader)
+(extern namespace: clan/poo/object %ref-owned-list %registered-field-reader
+  %prepared-vector-slots-ref object-read-value %register-slot-dependencies!
+  object-construction-current?)
+(import (only-in :clan/poo/slot-observation %slot-read-active?
+          slot-read-observers-compatible? %call-with-recorded-slot-reads
+          slot-read-key slot-read-receiver))
 (extern namespace: clan/poo/slot-observation %borrow-owned-list)
 (extern namespace: clan/poo/read-projection %owned-closed-registration?)
 
@@ -427,12 +432,82 @@
   (and (list? value)
        (andmap (cut element? ClosDirectSlotDefinition <>) value)))
 
+;; Only the successful stock direct-slot subcheck moves to publication.
+;; The proof owner holds no lookup table; the existing weak POO source
+;; edges advance its revision when the validation support changes.
+(defstruct direct-slot-proof (class generation slots owner) final: #t)
+
+(def stock-slot-policies
+  (and (andmap (lambda (type) (zero? (object-revision type)))
+               (list ClosDirectSlotDefinition Slot Bool Type))
+       (list (list ClosDirectSlotDefinition '.element? clos-direct-slot-definition-element?)
+             (list Slot '.element? (.ref Slot '.element?))
+             (list Slot '.slot.check (.ref Slot '.slot.check))
+             (list Bool '.element? (.ref Bool '.element?))
+             (list Type '.element? (.ref Type '.element?)))))
+
+(def (%quiet-direct-slot-check?)
+  (and (not (%slot-read-active?)) (slot-read-observers-compatible? '())))
+
+(extern namespace: clan/poo/clos/classes %class-publication-direct-proof)
+
+(def (%capture-direct-slot-proof slots action)
+  (if (and stock-slot-policies (%quiet-direct-slot-check?)
+           (object-construction-current?)
+           (andmap (lambda (policy) (zero? (object-revision (car policy))))
+                   stock-slot-policies)
+           (list? slots)
+           (andmap (lambda (slot)
+                     (and (object-precedence-ready? slot) (not (object-protocol slot))))
+                   slots))
+    (let-values (((valid roots) (%call-with-recorded-slot-reads action unique-roots?: #t)))
+      (values valid
+        (and valid
+             (with-catch (lambda (_) #f)
+               (lambda ()
+                 (and (andmap stock-direct-slot-read? roots)
+                      (let (owner (make-object))
+                        (%register-slot-dependencies! owner roots)
+                        owner)))))))
+    (values (action) #f)))
+
+(def (stock-direct-slot-read? read)
+  (def key (slot-read-key read))
+  (def receiver (slot-read-receiver read))
+  (def value (object-read-value read))
+  (and (not (object-protocol receiver))
+       (cond ((memq key '(.element? .slot.check))
+              (ormap (lambda (policy)
+                       (and (eq? receiver (car policy))
+                            (eq? key (cadr policy))
+                            (eq? value (caddr policy))))
+                     stock-slot-policies))
+             ((pair? key)
+              (not (eq? (car key) 'bootstrap)))
+             ;; List-shaped field data must have an owned spine.
+             (else (not (pair? value))))))
+
+(def (published-direct-slots? class-value)
+  (and (%quiet-direct-slot-check?)
+       (let (revision (object-revision class-value))
+         (defvalues (publication slots generation)
+           (%prepared-vector-slots-ref class-value '%effective-slot-initargs 'direct-slots 'generation))
+         (def proof (%class-publication-direct-proof publication))
+         (and (direct-slot-proof? proof)
+              (eq? class-value (direct-slot-proof-class proof))
+              (eq? (direct-slot-proof-slots proof) slots)
+              (eqv? (direct-slot-proof-generation proof) generation)
+              (zero? (object-revision (direct-slot-proof-owner proof)))
+              (= revision (object-revision class-value))))))
+
 (def (clos-class-element? candidate)
   (and (prototype-instance? (.ref ClosClass 'proto) candidate)
        (required-slots? candidate
          (identity symbol?)
-         (direct-superclasses class-references?)
-         (direct-slots direct-slot-definitions?)
+         (direct-superclasses class-references?))
+       (or (published-direct-slots? candidate)
+           (required-slots? candidate (direct-slots direct-slot-definitions?)))
+       (required-slots? candidate
          (default-initargs clos-default-initargs?)
          (generation natural?)
          (slot-missing-handler procedure-or-false?)

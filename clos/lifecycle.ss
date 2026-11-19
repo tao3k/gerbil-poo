@@ -31,6 +31,7 @@
         clos-update-instance-for-different-class-generic)
 
 (extern namespace: clan/poo/clos/dispatch %prospective-instance-methods)
+(extern namespace: clan/poo/clos/classes %clos-initialize-supplied-slots!)
 (extern namespace: clan/poo/object %publish-slot-edits! %with-slot-edit-protection)
 
 ;; : (-> ClosInstance [Symbol] [Symbol] [SchemeValue] SchemeValue ... ClosInstance)
@@ -383,20 +384,21 @@
          (initarg-index (initialization-argument-index initargs))
          (slot-name-index
           (and (list? slot-names) (clos-identity-index slot-names))))
-    (for-each
-     (lambda (slot)
-       (let-values (((supplied? supplied-value)
-                     (slot-initialization-argument
-                      initarg-index (.ref slot 'initargs))))
-         (cond
-          (supplied?
-           (bind-effective-slot! instance-value state slot supplied-value))
-          ((and (or (eq? slot-names #t)
-                    (hash-key? slot-name-index (.ref slot 'identity)))
-                (not (.ref (effective-slot-cell state slot) 'bound?))
-                (.ref slot 'initfunction))
-           (bind-effective-slot! instance-value state slot ((.ref slot 'initfunction)))))))
-     (clos-class-effective-slots class-value))
+    (def (apply-slot! slot)
+      (let-values (((supplied? supplied-value)
+                    (slot-initialization-argument
+                     initarg-index (.ref slot 'initargs))))
+        (cond
+         (supplied? (bind-effective-slot! instance-value state slot supplied-value))
+         ((and (or (eq? slot-names #t)
+                   (hash-key? slot-name-index (.ref slot 'identity)))
+               (not (.ref (effective-slot-cell state slot) 'bound?))
+               (.ref slot 'initfunction))
+          (bind-effective-slot! instance-value state slot ((.ref slot 'initfunction)))))))
+    (def (scan! slots) (for-each apply-slot! slots))
+    (if (null? slot-names)
+      (%clos-initialize-supplied-slots! class-value initarg-index apply-slot! scan!)
+      (scan! (clos-class-effective-slots class-value)))
     instance-value))
 
 ;; : (-> ClosInstance SchemeValue ... ClosInstance)

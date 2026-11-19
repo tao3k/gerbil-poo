@@ -8,14 +8,19 @@
 (import :clan/poo/object
         (only-in :clan/poo/mop/prototype element? Type raise-type-error)
         (only-in :clan/poo/type And)
-        (only-in :clan/poo/slot-observation %call-with-recorded-slot-reads %record-slot-reads!)
+        (only-in :clan/poo/slot-observation %call-with-recorded-slot-reads %record-slot-reads!
+                 %slot-read-active?)
         (only-in :std/hash/misc hash-ref/default hash-remove!)
         (only-in :std/list/list delete-duplicates/hash)
-        (only-in :std/list/list find filter filter-map flatten1)
+        (only-in :std/list/list find filter filter-map flatten1 map-in-order length=?)
+        (only-in :gerbil/runtime/table gc-table-ref gc-table-set! gc-table-for-each)
         "types.ss" "objects.ss" "funcs.ss")
 
-(extern namespace: clan/poo/object %ref-owned-list %publish-slot-edits! %owned-list-slot-spec %with-slot-edit-protection)
-(extern namespace: clan/poo/slot-observation %make-owned-list)
+(extern namespace: clan/poo/object %ref-owned-list %publish-slot-edits! %owned-list-slot-spec
+        %with-slot-edit-protection object-construction-current?)
+(extern namespace: clan/poo/slot-observation %make-owned-list %borrow-owned-list)
+(extern namespace: clan/poo/read-route %gc-table-route-backend)
+(extern namespace: clan/poo/clos/types %capture-direct-slot-proof make-direct-slot-proof)
 
 (export ClosDirectSlotDefinition ClosEffectiveSlotDefinition ClosClass
         clos-standard-object-class clos-direct-slot-definition
@@ -34,6 +39,7 @@
 (def ClosDirectSlotDefinition. (.ref ClosDirectSlotDefinition 'proto))
 ;; : POOObject
 (def ClosEffectiveSlotDefinition. (.ref ClosEffectiveSlotDefinition 'proto))
+(def effective-slot-prototype-revision (object-revision ClosEffectiveSlotDefinition.))
 ;; : POOObject
 (def ClosClass. (.ref ClosClass 'proto))
 ;; : POOObject
@@ -162,15 +168,27 @@
   (map (lambda (entry) (cons (car entry) (cdr entry))) entries))
 
 ;; : (-> [ClosDirectSlotDefinition] [ClosDirectSlotDefinition])
-(def (require-direct-slots values)
-  (unless (and (list? values)
-               (andmap (lambda (value)
-                         (element? ClosDirectSlotDefinition value))
-                       values))
-    (clos-fail 'invalid-direct-slots))
-  (unless (unique-identities? (map (lambda (slot) (.ref slot 'identity)) values))
-    (clos-fail 'duplicate-direct-slot))
-  values)
+(def (require-direct-slots slots)
+  (def visited '())
+  (defvalues (_ owner)
+    (%capture-direct-slot-proof slots
+      (lambda ()
+        (unless (and (list? slots)
+                     (andmap (lambda (slot)
+                               (set! visited (cons slot visited))
+                               (element? ClosDirectSlotDefinition slot))
+                             slots))
+          (clos-fail 'invalid-direct-slots))
+        (unless (unique-identities? (map (lambda (slot) (.ref slot 'identity)) slots))
+          (clos-fail 'duplicate-direct-slot))
+        #t)))
+  (values owner (and owner (reverse visited))))
+
+(def (admit-direct-slots class-value generation owned proof-owner validated)
+  (and proof-owner
+       (let (slots (%borrow-owned-list owned))
+         (and (length=? slots validated) (andmap eq? slots validated)))
+       (make-direct-slot-proof class-value generation owned proof-owner)))
 
 ;; : (-> [ClosClass] [ClosClass])
 (def (require-direct-superclasses values)
@@ -242,8 +260,8 @@
     (map (lambda (entry) (.ref (cdr entry) option))
          descriptions))))
 
-;; : (-> [Pair] Symbol ClosEffectiveSlotDefinition)
-(def (compute-effective-slot owner-indexes slot-name)
+;; : (-> [Pair] Symbol Natural (Maybe Backend) ClosEffectiveSlotDefinition)
+(def (compute-effective-slot owner-indexes slot-name position initarg-backend)
   (let* ((descriptions (slot-descriptions owner-indexes slot-name))
          (most-specific (car descriptions))
          (most-specific-slot (cdr most-specific))
@@ -256,11 +274,12 @@
           (filter-map (lambda (entry)
                         (let (slot (cdr entry))
                           (and (.slot? slot 'type) (.ref slot 'type))))
-                      descriptions)))
+                      descriptions))
+         (initargs-value (merged-slot-list descriptions 'initargs)))
     (let (slot
           (.o (:: @ ClosEffectiveSlotDefinition.)
               identity: slot-name allocation: allocation-value
-              initargs: (%make-owned-list (merged-slot-list descriptions 'initargs))
+              initargs: (%make-owned-list initargs-value)
               initfunction: initfunction-value
               readers: (%make-owned-list (merged-slot-list descriptions 'readers) clos-copy-function-names)
               writers: (%make-owned-list (merged-slot-list descriptions 'writers) clos-copy-function-names)
@@ -272,12 +291,19 @@
       ;; Any contract; all explicit inherited constraints remain conjunctive.
       (unless (null? type-values)
         (.putslot! slot 'type ($constant-slot-spec (apply And type-values))))
-      (seal-object! (checked ClosEffectiveSlotDefinition slot
-                             'invalid-effective-slot-definition)))))
+      (let (entry (cons position
+                        (seal-object! (checked ClosEffectiveSlotDefinition slot
+                                              'invalid-effective-slot-definition))))
+        (when initarg-backend
+          (for-each
+           (lambda (name)
+             (gc-table-set! initarg-backend name
+               (cons entry (gc-table-ref initarg-backend name '()))))
+           initargs-value))
+        (cdr entry)))))
 
-;; : (-> [ClosClass] Procedure
-;;        [ClosEffectiveSlotDefinition])
-(def (compute-effective-slots precedence direct-slots-for)
+;; : (-> [ClosClass] Procedure (Maybe Backend) [ClosEffectiveSlotDefinition])
+(def (compute-effective-slots precedence direct-slots-for initarg-backend)
   (let* ((owner-indexes
           (class-direct-slot-indexes precedence direct-slots-for))
          (slot-names
@@ -287,9 +313,13 @@
                    (map (lambda (slot) (.ref slot 'identity))
                         (direct-slots-for owner-class)))
                  precedence)))))
-    (map (lambda (slot-name)
-           (compute-effective-slot owner-indexes slot-name))
-         slot-names)))
+    (let (position 0)
+      (map-in-order
+       (lambda (slot-name)
+         (let (slot (compute-effective-slot owner-indexes slot-name position initarg-backend))
+           (set! position (+ position 1))
+           slot))
+       slot-names))))
 
 (def (effective-slot-lookup slots)
   (let (index (clos-leftmost-index-by (lambda (slot) (.ref slot 'identity)) slots))
@@ -297,19 +327,31 @@
 
 ;; Initial creation and redefinition publish the same per-generation fields.
 ;; Roster edits never recompute the prototype or retain parent getter evidence.
-(def (class-projection-fields projection)
-  (list (cons 'instance-prototype (.ref projection 'prototype))
-        (cons 'class-precedence-list (%make-owned-list (.ref projection 'precedence)))
-        (cons 'class-precedence-index (.ref projection 'precedence-index))
-        (cons 'effective-slot-definitions (%make-owned-list (.ref projection 'effective-slots)))
+(defstruct class-slot-publication (slots initargs backend direct-proof) final: #t)
+(def (%class-publication-direct-proof value)
+  (and (class-slot-publication? value) (class-slot-publication-direct-proof value)))
+
+(def (class-projection-fields projection direct-proof)
+  (def prototype (.ref projection 'prototype))
+  (def precedence (%make-owned-list (.ref projection 'precedence)))
+  (def precedence-index (.ref projection 'precedence-index))
+  (def slots (.ref projection 'effective-slots))
+  (list (cons 'instance-prototype prototype)
+        (cons 'class-precedence-list precedence)
+        (cons 'class-precedence-index precedence-index)
+        (cons 'effective-slot-definitions (class-slot-publication-slots slots))
+        (cons '%effective-slot-initargs
+            (make-class-slot-publication (class-slot-publication-slots slots)
+              (class-slot-publication-initargs slots) (class-slot-publication-backend slots)
+              direct-proof))
         (cons 'effective-slot-index (.ref projection 'effective-slot-index))))
 
-(def (initialize-class-projection! class-value)
+(def (initialize-class-projection! class-value direct-proof)
   (def projection
     (%clos-project-class-redefinition
      class-value (.ref class-value 'direct-superclasses)
      class-instance-prototype (lambda (owner) (.ref owner 'direct-slots))))
-  (%publish-slot-edits! (list (cons class-value (class-projection-fields projection))))
+  (%publish-slot-edits! (list (cons class-value (class-projection-fields projection direct-proof))))
   class-value)
 
 ;; : (-> ClosSlotCell)
@@ -388,10 +430,9 @@
       redefinition-handler-value different-handler-value)
   (unless (symbol? identity-value)
     (clos-fail 'invalid-class-name class: identity-value))
-  (let ((superclass-values (require-direct-superclasses superclass-values))
-        (direct-slot-values (require-direct-slots direct-slot-values))
-        (default-initarg-values
-         (require-default-initargs default-initarg-values)))
+  (let (superclass-values (require-direct-superclasses superclass-values))
+  (defvalues (proof-owner validated) (require-direct-slots direct-slot-values))
+  (def default-initargs (require-default-initargs default-initarg-values))
   (unless (and (exact-integer? generation-value) (>= generation-value 0))
     (clos-fail 'invalid-class-generation class: identity-value))
   (unless (or (not slot-missing-handler-value)
@@ -428,13 +469,15 @@
             class-precedence-index: (lambda (_) #f)
             effective-slot-definitions: '()
             effective-slot-index: (lambda (_) #f))))
-    (.putslot! candidate 'direct-slots (%owned-list-slot-spec direct-slot-values))
+    (def direct-slots (%make-owned-list direct-slot-values))
+    (.putslot! candidate 'direct-slots ($constant-slot-spec direct-slots))
     (.putslot! candidate 'default-initargs
-      (%owned-list-slot-spec default-initarg-values copy-default-initargs))
+      (%owned-list-slot-spec default-initargs copy-default-initargs))
     (let (class-value
           (initialize-direct-class-slots!
            (initialize-class-projection!
-            (checked ClosClass candidate 'invalid-class))))
+            (checked ClosClass candidate 'invalid-class)
+            (admit-direct-slots candidate generation-value direct-slots proof-owner validated))))
       (for-each
        (lambda (superclass)
          (.put! superclass 'direct-subclasses
@@ -458,13 +501,16 @@
          (precedence-value
           (compute-class-precedence-list
            prototype-value (.ref class-value 'identity)))
+         (initarg-index (make-hash-table-eq))
+         (initarg-backend (%gc-table-route-backend initarg-index))
          (effective-slots-value
-          (compute-effective-slots precedence-value direct-slots-for)))
+          (compute-effective-slots precedence-value direct-slots-for initarg-backend)))
     (seal-object!
      (.o prototype: prototype-value
         precedence: (%make-owned-list precedence-value)
         precedence-index: (clos-position-lookup precedence-value)
-        effective-slots: (%make-owned-list effective-slots-value)
+        effective-slots: (make-class-slot-publication
+                          (%make-owned-list effective-slots-value) initarg-index initarg-backend #f)
         effective-slot-index: (effective-slot-lookup effective-slots-value)))))
 
 ;; Retain the old immutable spine privately. A new history entry shares its
@@ -475,11 +521,12 @@
       redefinition-handler-value different-handler-value projection)
   (unless (element? ClosClass class-value) (clos-fail 'invalid-class))
   (def parents (require-direct-superclasses superclass-values))
-  (def slots (require-direct-slots direct-slot-values))
+  (defvalues (proof-owner validated) (require-direct-slots direct-slot-values))
   (def defaults (require-default-initargs default-initarg-values))
   (def generation (.ref class-value 'generation))
   (def previous-slots (%ref-owned-list class-value 'effective-slot-definitions))
   (def history (.ref class-value 'layout-history))
+  (def direct-slots (%make-owned-list direct-slot-values))
   (append
    (list class-value
         (cons 'layout-history
@@ -487,14 +534,15 @@
                 (if (= requested generation) (list-copy previous-slots)
                     (history requested))))
         (cons 'direct-superclasses (%make-owned-list parents))
-        (cons 'direct-slots (%make-owned-list slots))
+        (cons 'direct-slots direct-slots)
         (cons 'default-initargs (%make-owned-list defaults copy-default-initargs))
         (cons 'slot-missing-handler slot-missing-handler-value)
         (cons 'slot-unbound-handler slot-unbound-handler-value)
         (cons 'redefinition-update-handler redefinition-handler-value)
         (cons 'different-class-update-handler different-handler-value)
         (cons 'generation (+ 1 generation)))
-   (class-projection-fields projection)))
+   (class-projection-fields projection
+     (admit-direct-slots class-value (+ 1 generation) direct-slots proof-owner validated))))
 
 ;;; The root class contributes no slots; all ordinary classes with an omitted
 ;;; superclass list inherit from this exact class and POO prototype.
@@ -544,6 +592,72 @@
 (def (clos-class-effective-slots class-value)
   (unless (element? ClosClass class-value) (clos-fail 'invalid-class))
   (.ref class-value 'effective-slot-definitions))
+
+;; Match the exact owned slot spine and receiver revision. Capture and
+;; prechecks must retain the original list read and all later Slot reads.
+(def (%clos-read-slot-publication class-value)
+  (unless (element? ClosClass class-value) (clos-fail 'invalid-class))
+  (if (or (%slot-read-active?)
+          (not (object-slot-assigned? class-value '%effective-slot-initargs)))
+    (values (.ref class-value 'effective-slot-definitions) #f #f)
+    (let* ((revision (object-revision class-value))
+           (publication (.ref class-value '%effective-slot-initargs))
+           (slots (%ref-owned-list class-value 'effective-slot-definitions)))
+      (values slots
+              (and (class-slot-publication? publication)
+                   (eq? (%borrow-owned-list (class-slot-publication-slots publication)) slots)
+                   (= revision (object-revision class-value))
+                   publication)
+              revision))))
+
+;; Only membership comes from the published index. The ordinary Slot path
+;; still chooses the leftmost argument, including aliases and explicit #f.
+(def (supplied-slot-targets buckets supplied)
+  (def first #f)
+  (def many #f)
+  (gc-table-for-each supplied
+    (lambda (key _)
+      (for-each
+        (lambda (target)
+          (cond
+           (many (table-set! many target #t))
+           ((not first) (set! first target))
+           ((not (eq? first target))
+            (set! many (make-table test: eq?))
+            (table-set! many first #t)
+            (table-set! many target #t))))
+        (gc-table-ref buckets key '()))))
+  (if many
+    (list-sort (lambda (left right) (< (car left) (car right))) (map car (table->list many)))
+    first))
+
+(def (%clos-initialize-supplied-slots! class-value supplied apply-slot! scan!)
+  (let-values (((slots publication revision) (%clos-read-slot-publication class-value)))
+    (def buckets (and publication (class-slot-publication-backend publication)))
+    (def supplied-backend (and buckets (%gc-table-route-backend supplied)))
+    (def (current?)
+      (and supplied-backend
+           (not (%slot-read-active?))
+           (= revision (object-revision class-value))
+           (= effective-slot-prototype-revision (object-revision ClosEffectiveSlotDefinition.))
+           (object-construction-current?)
+           (eq? buckets (%gc-table-route-backend (class-slot-publication-initargs publication)))
+           (eq? supplied-backend (%gc-table-route-backend supplied))))
+    (if (current?)
+      (let (targets (supplied-slot-targets buckets supplied-backend))
+        (if (current?)
+          (let ((target (and targets (if (pair? (car targets)) (car targets) targets)))
+                (remaining (if (and targets (pair? (car targets))) (cdr targets) '())))
+            (let write ((target target) (remaining remaining))
+              (when target
+                (apply-slot! (cdr target))
+                ;; A validator can edit the route. Retain completed writes
+                ;; and run the original loop on the unread captured suffix.
+                (if (current?)
+                  (when (pair? remaining) (write (car remaining) (cdr remaining)))
+                  (scan! (list-tail slots (+ 1 (car target))))))))
+          (scan! slots)))
+      (scan! slots))))
 
 ;; : (-> ClosClass Symbol (Maybe ClosEffectiveSlotDefinition))
 (def (clos-find-effective-slot class-value slot-name)
