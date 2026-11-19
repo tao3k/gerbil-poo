@@ -38,6 +38,14 @@
 (def (capture-entry entry)
   (unless (and (pair? entry) (symbol? (car entry))) (error "symbolic specification required"))
   (cons (car entry) (cdr entry)))
+(def (capture-compact-map entries)
+  (let* ((count (length entries))
+         (rows (make-vector count #f)))
+    (let fill ((rest entries) (index 0))
+      (unless (null? rest)
+        (vector-set! rows index (capture-entry (car rest)))
+        (fill (cdr rest) (1+ index))))
+    (make-specifications rows #f count count #t)))
 ;; Observe the selected policy, independent of the current physical backend.
 ;; A promoted compact snapshot retains its policy for subsequent removal/demotion.
 (def (prototype-map-policy source)
@@ -65,7 +73,7 @@
         (cond
           ((null? entries) (if (eq? policy 'compact) empty-compact empty-tree))
           ((and (eq? policy 'compact) (length<=n? entries small-map-limit))
-            (make-specifications (list->vector (map capture-entry entries)) #f (length entries) (length entries) #t))
+            (capture-compact-map entries))
           (else (tree-map entries (eq? policy 'compact)))))))))
 ;; The official RBTree supplies construction and persistent update. Capturing
 ;; each entry also makes promotion independent of private vector entry handles.
