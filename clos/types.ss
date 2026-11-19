@@ -10,7 +10,7 @@
 
 (import :clan/poo/object
         :clan/poo/read-projection
-        (only-in :clan/poo/class-validation required-slots?)
+        (only-in :clan/poo/class-validation required-slots? with-present-slot)
         (only-in :clan/poo/mop/prototype prototype-instance?)
         (only-in :clan/poo/mop/prototype define-type Type. Class. Slot Bool Type element? raise-type-error)
         (only-in "funcs.ss"
@@ -452,7 +452,7 @@
 (extern namespace: clan/poo/clos/classes %class-publication-direct-proof)
 
 (def (%capture-direct-slot-proof slots action)
-  (if (and stock-slot-policies (%quiet-direct-slot-check?)
+  (if (and (pair? slots) stock-slot-policies (%quiet-direct-slot-check?)
            (object-construction-current?)
            (andmap (lambda (policy) (zero? (object-revision (car policy))))
                    stock-slot-policies)
@@ -500,13 +500,23 @@
               (zero? (object-revision (direct-slot-proof-owner proof)))
               (= revision (object-revision class-value))))))
 
+(def (clos-direct-slots-element? candidate)
+  (if (%quiet-direct-slot-check?)
+    ;; Class owns this list spine. Test emptiness before asking for evidence;
+    ;; the inherited standard Class is checked for every Class specializer.
+    (with-present-slot (slots candidate 'direct-slots read: %ref-owned-list)
+      (or (null? slots)
+          (and (pair? slots) (published-direct-slots? candidate))
+          (direct-slot-definitions? slots))
+      #f)
+    (required-slots? candidate (direct-slots direct-slot-definitions?))))
+
 (def (clos-class-element? candidate)
   (and (prototype-instance? (.ref ClosClass 'proto) candidate)
        (required-slots? candidate
          (identity symbol?)
          (direct-superclasses class-references?))
-       (or (published-direct-slots? candidate)
-           (required-slots? candidate (direct-slots direct-slot-definitions?)))
+       (clos-direct-slots-element? candidate)
        (required-slots? candidate
          (default-initargs clos-default-initargs?)
          (generation natural?)
