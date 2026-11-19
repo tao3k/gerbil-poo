@@ -149,7 +149,7 @@
         (append (prepare-class-edits classes class-value parents slots defaults
                                     slot-missing slot-unbound redefinition-handler different-handler)
                 (subclass-link-edits class-value previous parents)))))
-  (%publish-slot-edits! edits)
+  (%publish-slot-edits! edits #t)
   ;; Initializers may run user code. All class layouts are visible by then.
   (for-each initialize-direct-class-slots! classes)
   class-value)

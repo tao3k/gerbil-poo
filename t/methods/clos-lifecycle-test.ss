@@ -17,6 +17,7 @@
         :clan/poo/mop)
 
 (export clos-lifecycle-test)
+(extern namespace: clan/poo/clos/objects %published-dispatch)
 
 (define-type (LifecycleInstance @ Type.) .element?: clos-instance?)
 
@@ -35,6 +36,31 @@
 
 (def clos-lifecycle-test
   (test-suite "POO CLOS class and instance lifecycle"
+    (test-case "new subclasses retain both lifecycle dispatch publications"
+      (def dispatch %published-dispatch)
+      (def outer clos-reinitialize-instance-generic)
+      (def inner clos-shared-initialize-generic)
+      (def outer-plan (dispatch outer))
+      (def inner-plan (dispatch inner))
+      (check (and outer-plan inner-plan #t) => #t)
+      (.defclass PublishedPane () ((width (initarg width:) (initform 80))))
+      (def pane (clos-make-instance PublishedPane))
+      (def hits '())
+      (dynamic-wind
+        (lambda ()
+          (set! %published-dispatch
+            (lambda (generic)
+              (def result (dispatch generic))
+              (when (or (and (eq? generic outer) (eq? result outer-plan))
+                        (and (eq? generic inner) (eq? result inner-plan)))
+                (set! hits (cons generic hits)))
+              result)))
+        (lambda ()
+          (check (eq? pane (clos-reinitialize-instance pane width: 91)) => #t))
+        (lambda () (set! %published-dispatch dispatch)))
+      (check (and (memq outer hits) (memq inner hits) #t) => #t)
+      (check-equal? (clos-slot-value pane 'width) 91))
+
     (test-case "the public lifecycle predicate composes with the existing Type API"
       (def class-value (clos-class 'instance-predicate))
       (def instance (clos-make-instance class-value))

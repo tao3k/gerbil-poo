@@ -17,6 +17,7 @@
                     %bind-current-slot-reads %prepared-slot-present?
                     %register-slot-dependencies!
                     %with-slot-edit-protection %publish-slot-edits!
+                    %put-assigned-slot! %depend-on-object-except-slot!
                     %owned-list-slot-spec %ref-owned-list define-slot-ref
                     instance-storage-info instance-native-table
                     %live-object-instance %live-object-layout) @object? @make-object)
@@ -132,6 +133,10 @@
 (def (depend-on-object! self source)
   (unless (object? source) (error "object dependency required"))
   (depend-on-state! (object-%state source) self (object-%state self)))
+;; The caller must have captured a materialized assignment independent of
+;; this slot. Ordinary reads and unclassified edits keep whole-owner edges.
+(def (%depend-on-object-except-slot! self source slot)
+  (depend-on-state! (object-%state source) self (object-%state self) slot))
 ;; Read-only revision identity for source-bound external caches.
 (def (object-revision self) (object-state-revision (object-%state self)))
 ;; SOURCES is an ordered list of POO objects. REVISIONS is the list captured
@@ -171,9 +176,10 @@
 (def (uninstantiate-object! self)
   (invalidate-state! self (object-%state self) check-object-edit clear-object-cache!))
 ;; Sealed sources reject all supported writes; invalidation alone remains allowed.
-(def (before-object-edit! self)
-  (when (object-state-sealed? (object-%state self)) (error "sealed prototype"))
-  (uninstantiate-object! self))
+(def (before-object-edit! self (edited-slot #f))
+  (def state (object-%state self))
+  (when (object-state-sealed? state) (error "sealed prototype"))
+  (invalidate-state! self state check-object-edit clear-object-cache! edited-slot))
 ;; Seal the current receiver's specifications and explicit instance assignments.
 ;; Ancestors can still change through the invalidation protocol unless sealed too.
 (def (seal-object! self)
@@ -1036,14 +1042,17 @@
 ;; Bad keys retain all source/cache generations; argument evaluation is not undone.
 ;; Assumes the top-object-proto was used.
 ;; : Unit <- (Object A) s:Symbol (A s)
-(def (.put! self slot value)
+(defrule (put-object-slot! self slot value edited-slot)
   (using (slot :~ symbol?)
     (set! value (own-assigned-slot-value self slot value))
-    (before-object-edit! self)
+    (before-object-edit! self edited-slot)
     (unless (object-%overrides self)
       (set! (object-%overrides self) (make-hash-table test: eq? hash: symbolic-hash seed: (%graph-table-seed))))
     (hash-put! (object-%overrides self) slot value)
     (hash-put! (%live-object-instance self) slot value)))
+
+(def (.put! self slot value) (put-object-slot! self slot value #f))
+(def (%put-assigned-slot! self slot value) (put-object-slot! self slot value slot))
 
 ;; Protect the selected receivers while checking an edit that may run hooks.
 (def (%with-slot-edit-protection owners action)
@@ -1055,7 +1064,7 @@
 ;; Each row is (receiver . ((slot . value) ...)), with distinct receivers.
 ;; Prepare replacement overrides and check the entire invalidation closure
 ;; before advancing any revision. Reconstruct value stores on demand.
-(def (%publish-slot-edits! edits)
+(def (%publish-slot-edits! edits (scope-direct-assignments? #f))
   (def replacements
     (%with-slot-edit-protection (map car edits)
       (lambda ()
@@ -1075,7 +1084,17 @@
            (when (object-state-sealed? state) (error "sealed prototype"))
            (cons owner state))
          replacements))
-  (def invalidate! (prepare-invalidation roots check-object-edit clear-object-cache!))
+  (def edited-slot
+    (and scope-direct-assignments?
+         (let (single-slots (make-hash-table-eq))
+           (for-each
+             (lambda (edit)
+               (when (and (pair? (cdr edit)) (null? (cddr edit)))
+                 (hash-put! single-slots (car edit) (caadr edit))))
+             edits)
+           (lambda (owner) (hash-get single-slots owner)))))
+  (def invalidate!
+    (prepare-invalidation roots check-object-edit clear-object-cache! edited-slot))
   (invalidate!)
   (for-each (lambda (entry) (set! (object-%overrides (car entry)) (cdr entry)))
             replacements))

@@ -77,6 +77,21 @@
       (check-equal? (map car (project right-first)) (list right-method left-method))
       (check-equal? (clos-call generic left-first) 'exact)
       (check-equal? (clos-call generic right-first) 'right)
+      (def left-index (.ref left 'class-precedence-index))
+      (def left-prototype (.ref left 'instance-prototype))
+      (def left-generation (clos-class-generation left))
+      (defvalues (_children roster-reads)
+        (%call-with-recorded-slot-reads (lambda () (.ref left 'direct-subclasses))))
+      (def child (clos-class 'published-child direct-superclasses: (list left)))
+      (check-equal? (clos-class-generation left) left-generation)
+      (check (eq? (.ref left 'class-precedence-index) left-index) => #t)
+      (check (eq? (.ref left 'instance-prototype) left-prototype) => #t)
+      (check (and (memq child (clos-class-direct-subclasses left)) #t) => #t)
+      (check-exception (replay-slot-reads! roster-reads void) error?)
+      (check (eq? (%published-dispatch generic) plan) => #t)
+      (clos-redefine-class child direct-superclasses: (list right))
+      (check (eq? (%published-dispatch generic) plan) => #t)
+      (check (and (memq child (clos-class-direct-subclasses right)) #t) => #t)
       ;; A publication probe must not call a replacement metadata getter.
       (def overrides (object-%overrides generic))
       (def stock-ref (runtime.slot-ref overrides 'ref))
@@ -99,7 +114,10 @@
       ;; A removed method can remain live without remaining a dependency.
       (.put! left-method 'body void)
       (check (eq? (%published-dispatch generic) replacement) => #t)
-      (check-equal? (clos-call generic left-first) 'exact))
+      (check-equal? (clos-call generic left-first) 'exact)
+      (.put! (car (clos-method-specializers right-method)) 'target left)
+      (check-equal? (%published-dispatch generic) #f)
+      (check (eq? (%published-dispatch other) other-plan) => #t))
 
     (test-case "a directly edited duplicate roster keeps ordinary applicability"
       (def generic (clos-generic-function 'duplicate-roster 1))

@@ -17,7 +17,7 @@
         "types.ss" "objects.ss" "funcs.ss")
 
 (extern namespace: clan/poo/object %ref-owned-list %publish-slot-edits! %owned-list-slot-spec
-        %with-slot-edit-protection object-construction-current?)
+        %with-slot-edit-protection object-construction-current? %put-assigned-slot!)
 (extern namespace: clan/poo/slot-observation %make-owned-list %borrow-owned-list)
 (extern namespace: clan/poo/read-route %gc-table-route-backend)
 (extern namespace: clan/poo/clos/types %capture-direct-slot-proof make-direct-slot-proof)
@@ -480,7 +480,7 @@
             (admit-direct-slots candidate generation-value direct-slots proof-owner validated))))
       (for-each
        (lambda (superclass)
-         (.put! superclass 'direct-subclasses
+         (%put-assigned-slot! superclass 'direct-subclasses
                 (%make-owned-list
                  (cons class-value (.ref superclass 'direct-subclasses)))))
        superclass-values)

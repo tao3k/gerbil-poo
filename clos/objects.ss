@@ -42,8 +42,8 @@
         %prepare-effective-method)
 
 (extern namespace: clan/poo/object %with-slot-edit-protection %publish-slot-edits!
-        %prepared-vector-slot-ref %owned-list-slot-spec)
-(extern namespace: clan/poo/slot-observation %make-owned-list %borrow-owned-list)
+        %prepared-vector-slot-ref %owned-list-slot-spec %depend-on-object-except-slot!)
+(extern namespace: clan/poo/slot-observation %make-owned-list %borrow-owned-list owned-list?)
 (extern namespace: clan/poo/clos/funcs clos-distances-before?)
 (extern namespace: clan/poo/read-route %standard-symbol-table-lookup?)
 
@@ -80,6 +80,21 @@
 (def (%method-position index method)
   ((method-positions-lookup index) method))
 
+;; The Class publisher assigns an owned CPL to this generation. Updating
+;; the direct-subclass roster leaves that assignment intact. Foreign or
+;; computed projections keep whole-owner invalidation.
+(def (class-publication-distance owner target)
+  (def overrides (object-%overrides target))
+  (def cpl (and overrides (%standard-symbol-table-lookup? overrides)
+                (hash-get overrides 'class-precedence-list)))
+  (if (owned-list? cpl)
+    (begin
+      (%depend-on-object-except-slot! owner target 'direct-subclasses)
+      (- (length (%borrow-owned-list cpl))))
+    (begin
+      (depend-on-object! owner target)
+      #f)))
+
 ;; A deeper target comes before its ancestors. Incomparable C4 targets can
 ;; have a different relative order on different receivers. Dispatch certifies
 ;; the projection against this call's actual rank vectors before using it.
@@ -90,15 +105,15 @@
   (case kind
     ((eql) -inf.0)
     ((any) +inf.0)
-    ((class prototype)
+    ((class)
+     (let (target (%prepared-vector-slot-ref specializer 'target))
+       (and (object? target) (class-publication-distance owner target))))
+    ((prototype)
      (let (target (%prepared-vector-slot-ref specializer 'target))
        (and (object? target)
             (begin
               (depend-on-object! owner target)
-              (let (cpl (if (eq? kind 'class)
-                          (%borrow-owned-list
-                            (%prepared-vector-slot-ref target 'class-precedence-list))
-                          (object-%precedence-list target)))
+              (let (cpl (object-%precedence-list target))
                 (and (list? cpl) (- (length cpl))))))))
     (else #f)))
 
