@@ -2,7 +2,7 @@
 (export make-object-state object-state-revision object-state-sealed?
         object-state-sealed?-set! depend-on-state! invalidate-state!
         prepare-invalidation)
-(import :std/iter (only-in :gerbil/runtime/hash HashTable))
+(import (only-in :gerbil/runtime/hash HashTable))
 ;; Weak child keys prevent a retained prototype from keeping abandoned instances alive.
 (defstruct object-state (revision sealed? dependents) constructor: :init!)
 ;; Allocate dependency storage lazily; leaf objects need no weak table.
@@ -60,9 +60,12 @@
     (def (walk state edited-slot)
       (let (index (object-state-dependents state))
         (when index
-          (for (([child . edge] index))
-            (let (child-state (admitted-state edge edited-slot))
-              (when child-state (visit child child-state #f)))))))
+          ;; Weak tables already expose key and edge to the visitor.
+          (hash-for-each
+            (lambda (child edge)
+              (let (child-state (admitted-state edge edited-slot))
+                (when child-state (visit child child-state #f))))
+            index))))
     (def (visit owner state edited-slot)
       (let (prior (hash-get seen owner))
         (cond
