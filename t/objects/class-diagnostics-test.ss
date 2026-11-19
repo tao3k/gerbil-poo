@@ -21,7 +21,7 @@
                    (set! seen (cons name seen)) '())))
       (check-equal? (shape descriptor) '())
       (check-equal? (reverse seen) (.all-slots (.get descriptor effective-slots))))
-    (test-case "mixed groups retain diagnostic identity and locked internal order"
+    (test-case "mixed groups retain diagnostic identity and author order"
       (def a1 (.o kind: 'a1 path: '())) (def a2 (.o kind: 'a2 path: '()))
       (def c1 (.o kind: 'c1 path: '())) (def c2 (.o kind: 'c2 path: '()))
       (def seen '())
@@ -33,7 +33,7 @@
       (def actual (shape descriptor))
       (check-equal? (length actual) 4)
       (for-each (lambda (item expected) (check-eq? item expected))
-                actual (list a2 a1 c2 c1))
+                actual (list a1 a2 c1 c2))
       (check-equal? (reverse seen) (.all-slots (.get descriptor effective-slots))))
     (test-case "false groups retain the locked append-map behavior and every callback"
       (def seen '())
