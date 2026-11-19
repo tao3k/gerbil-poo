@@ -28,8 +28,8 @@
 (extern namespace: clan/poo/clos/objects
         %published-method-positions %method-position method-positions-size %frameless-method-body
         %published-dispatch dispatch-publication-methods dispatch-publication-precedence
-        dispatch-publication-positions dispatch-publication-order dispatch-publication-qualifiers
-        dispatch-publication-after dispatch-publication-after-execution %dispatch-publication-current?)
+        dispatch-publication-positions dispatch-publication-order
+        dispatch-publication-after dispatch-publication-after-execution)
 (extern namespace: clan/poo/clos/funcs clos-distances-before?)
 (extern namespace: clan/poo/clos/types %carrier-declarations-current? %stock-call-validator?)
 (extern namespace: clan/poo/slot-observation
@@ -275,19 +275,11 @@
                      generic: (.ref generic 'identity)))
         (map lookup-ranked methods)))))
 
-;; Each of the four grouping passes still observes each qualifier in
-;; specificity order. A changed qualifier or publication is handled at
-;; that read, without replaying earlier reads or the applicability hook.
-(def (published-qualifier-reader generic)
-  (def plan (%published-dispatch generic))
-  (if (not plan) (lambda (_ value) (clos-normalize-qualifier value))
-    (lambda (method value)
-      (let* ((index (and (%dispatch-publication-current? plan)
-                         (%method-position (dispatch-publication-positions plan) method)))
-             (entry (and index (vector-ref (dispatch-publication-qualifiers plan) index))))
-        (if (and entry (equal? (car entry) value))
-          (cdr entry)
-          (clos-normalize-qualifier value))))))
+;; Each group reads the qualifier anew. An observer may edit the method
+;; between groups. The four standard role names are normalized symbols.
+(def (singleton-standard-group method role)
+  (if (eq? (clos-normalize-qualifier (.ref method 'qualifier)) role)
+    (list method) '()))
 
 ;;; Prepare one private admission continuation for standard/short/long carriers.
 ;;; A short combination uses the primary field for methods bearing its name.
@@ -297,13 +289,18 @@
   (let (combination (.ref generic 'method-combination))
     (case (.ref combination 'kind)
       ((standard)
-       (let (qualifier-key (published-qualifier-reader generic))
-         (%prepare-effective-method
-          generic arguments
-          (clos-methods-with-qualifier ranked 'around qualifier-key)
-          (clos-methods-with-qualifier ranked 'before qualifier-key)
-          (clos-methods-with-qualifier ranked 'primary qualifier-key)
-          (clos-methods-with-qualifier ranked 'after qualifier-key))))
+       (if (and (pair? ranked) (null? (cdr ranked)))
+         (let* ((method (caar ranked))
+                (around (singleton-standard-group method 'around))
+                (before (singleton-standard-group method 'before))
+                (primary (singleton-standard-group method 'primary))
+                (after (singleton-standard-group method 'after)))
+           (%prepare-effective-method generic arguments around before primary after))
+         (let* ((around (clos-methods-with-qualifier ranked 'around))
+                (before (clos-methods-with-qualifier ranked 'before))
+                (primary (clos-methods-with-qualifier ranked 'primary))
+                (after (clos-methods-with-qualifier ranked 'after)))
+           (%prepare-effective-method generic arguments around before primary after))))
       ((short)
        (owned-read-open!)
        (%prepare-effective-method
@@ -707,11 +704,12 @@
 ;; A reflected carrier owns its public method spines. Check the live
 ;; after group at the original read boundary before using published order.
 (def (standard-after-execution generic after)
-  (let* ((plan (%published-dispatch generic))
-         (published (and plan (dispatch-publication-after plan))))
-    (if (and published (length=? published after) (andmap eq? published after))
-      (dispatch-publication-after-execution plan)
-      (reverse after))))
+  (if (null? after) '()
+    (let* ((plan (%published-dispatch generic))
+           (published (and plan (dispatch-publication-after plan))))
+      (if (and published (length=? published after) (andmap eq? published after))
+        (dispatch-publication-after-execution plan)
+        (reverse after)))))
 
 ;; Before runs most-specific first. After runs least-specific first.
 ;; Preserve all values from the primary method across the auxiliary calls.

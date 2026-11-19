@@ -54,7 +54,7 @@
 ;; The generation owns this projection in the same edit as the method roster.
 ;; POO's reverse index advances the private revision if any input changes.
 (defstruct dispatch-publication (generic owner methods precedence positions order
-                                 qualifiers after after-execution) final: #t)
+                                 after after-execution) final: #t)
 
 (def (%dispatch-publication-current? plan)
   (= (object-revision (dispatch-publication-owner plan)) 1))
@@ -136,27 +136,18 @@
          (map car (list-sort
                    (lambda (a b) (clos-distances-before? (cdr a) (cdr b) precedence))
                    rows))))
-  (def qualifiers
-    (list->vector
-     (map (lambda (method)
-            (let (raw (%borrow-owned-list (%prepared-vector-slot-ref method 'qualifier)))
-              (cond ((and (list? raw) (clos-qualifier? raw))
-                      (let (owned (list-copy raw))
-                        (cons owned (clos-normalize-qualifier owned))))
-                    ((symbol? raw) (cons raw (clos-normalize-qualifier raw)))
-                    (else #f))))
-          methods)))
   (def after
     (and order
          (filter (lambda (method)
-                   (let (entry (vector-ref qualifiers (%method-position index method)))
-                     (and entry (eq? (cdr entry) 'after))))
+                   (eq? (clos-normalize-qualifier
+                         (%borrow-owned-list (%prepared-vector-slot-ref method 'qualifier)))
+                        'after))
                  order)))
   ;; The atomic edit invalidates its generic root and advances this owner
   ;; once, including when a method is also an edit root.
   (and (= (object-revision owner) 0)
        (make-dispatch-publication generic owner methods (list-copy precedence)
-                                  index order qualifiers after (and after (reverse after)))))
+                                  index order after (and after (reverse after)))))
 
 (def (%dispatch-generation-field generic methods precedence)
   (def size (length methods))

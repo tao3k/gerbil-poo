@@ -169,6 +169,34 @@
       (check-equal? calls 1)
       (check-equal? (%published-dispatch generic) #f))
 
+    (test-case "singleton grouping reads the live qualifier in every role"
+      (def readings '())
+      (def ready? #f)
+      (def method
+        (clos-method 'changed-qualifier (list any-specializer)
+          (lambda (_frame _value) 'primary-called) qualifier: 'before))
+      (def generic
+        (clos-add-method
+         (clos-generic-function 'singleton-grouping 1
+           protocol: (clos-generic-protocol 'grouping-qualifier
+             compute-applicable-methods:
+             (lambda (_generic _arguments methods)
+               (set! ready? #t)
+               methods)))
+         method))
+      (check-equal?
+        (call-with-slot-read-observer
+         (lambda (read)
+           (when (and ready? (eq? method (slot-read-receiver read))
+                      (eq? 'qualifier (slot-read-key read))
+                      (< (length readings) 4))
+             (set! readings (cons (slot-read-value read) readings))
+             (when (null? (cdr readings))
+               (.put! method 'qualifier 'primary))))
+         (lambda () (clos-call generic 'item)))
+        'primary-called)
+      (check-equal? (reverse readings) '(before primary primary primary)))
+
     (test-case "ordered qualifier values determine long-form replacement and lookup"
       (def group (clos-method-group 'ordered '((first second))))
       (def other (clos-method-group 'other '((second first) (tag) () (primary))))

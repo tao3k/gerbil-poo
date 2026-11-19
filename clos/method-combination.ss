@@ -20,12 +20,12 @@
 ;;; Qualifier partitioning happens after one shared specificity sort, so every
 ;;; group observes the same class/eql precedence decision.
 ;; : (-> [(Pair ClosMethod [Natural])] MethodQualifier [ClosMethod])
-(def (clos-methods-with-qualifier ranked qualifier
-                                 (key (lambda (_ value) (clos-normalize-qualifier value))))
+(def (clos-methods-with-qualifier ranked qualifier)
   (def expected (clos-normalize-qualifier qualifier))
   (filter-map (lambda (entry)
                 (let (method (car entry))
-                  (and (equal? (key method (.ref method 'qualifier)) expected) method)))
+                  (and (equal? (clos-normalize-qualifier (.ref method 'qualifier)) expected)
+                       method)))
               ranked))
 
 ;;; A proper pattern matches length exactly.  A dotted tail =*= accepts any
