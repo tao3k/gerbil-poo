@@ -43,26 +43,125 @@
 
 (extern namespace: clan/poo/object %with-slot-edit-protection %publish-slot-edits!
         %prepared-vector-slot-ref %owned-list-slot-spec)
-(extern namespace: clan/poo/slot-observation %make-owned-list)
+(extern namespace: clan/poo/slot-observation %make-owned-list %borrow-owned-list)
+(extern namespace: clan/poo/clos/funcs clos-distances-before?)
+(extern namespace: clan/poo/read-route %standard-symbol-table-lookup?)
 
 ;; A position only addresses an already applicable row. Index membership
 ;; never authorizes a method or replaces its original reads.
 (defstruct method-positions (lookup size) final: #t)
 
+;; The generation owns this projection in the same edit as the method roster.
+;; POO's reverse index advances the private revision if any input changes.
+(defstruct dispatch-publication (generic owner methods precedence positions order
+                                 qualifiers after after-execution) final: #t)
+
+(def (%dispatch-publication-current? plan)
+  (= (object-revision (dispatch-publication-owner plan)) 1))
+
+(def (%published-dispatch generic)
+  (def overrides (object-%overrides generic))
+  (def plan
+    (and overrides (%standard-symbol-table-lookup? overrides)
+         (hash-get overrides '%method-positions)))
+  (and (dispatch-publication? plan)
+       (eq? generic (dispatch-publication-generic plan))
+       (%dispatch-publication-current? plan)
+       plan))
+
 (def (%published-method-positions generic)
-  (let (index (%prepared-vector-slot-ref generic '%method-positions))
-    (and (method-positions? index) index)))
+  (let (value (%prepared-vector-slot-ref generic '%method-positions))
+    (cond ((method-positions? value) value)
+          ((and (dispatch-publication? value)
+                (eq? generic (dispatch-publication-generic value)))
+           (dispatch-publication-positions value))
+          (else #f))))
 
 (def (%method-position index method)
   ((method-positions-lookup index) method))
 
-(def (method-generation-fields methods generation)
+;; A deeper target comes before its ancestors. Incomparable C4 targets can
+;; have a different relative order on different receivers. Dispatch certifies
+;; the projection against this call's actual rank vectors before using it.
+(def (publication-distance owner specializer)
+  (def kind (and (object? specializer)
+                   (begin (depend-on-object! owner specializer)
+                          (%prepared-vector-slot-ref specializer 'kind))))
+  (case kind
+    ((eql) -inf.0)
+    ((any) +inf.0)
+    ((class prototype)
+     (let (target (%prepared-vector-slot-ref specializer 'target))
+       (and (object? target)
+            (begin
+              (depend-on-object! owner target)
+              (let (cpl (if (eq? kind 'class)
+                          (%borrow-owned-list
+                            (%prepared-vector-slot-ref target 'class-precedence-list))
+                          (object-%precedence-list target)))
+                (and (list? cpl) (- (length cpl))))))))
+    (else #f)))
+
+(def (build-dispatch-publication generic methods precedence index)
+  (def owner (make-object))
+  (depend-on-object! owner generic)
+  (def rows
+    (map-in-order
+      (lambda (method)
+        (depend-on-object! owner method)
+        (let* ((specializers (%borrow-owned-list
+                               (%prepared-vector-slot-ref method 'specializers)))
+               (ranks (and (list? specializers)
+                           (map (cut publication-distance owner <>) specializers))))
+          (and ranks (= (length ranks) (length precedence))
+               (andmap number? ranks) (cons method (list->vector ranks)))))
+      methods))
+  (def order
+    (and (andmap pair? rows)
+         (map car (list-sort
+                   (lambda (a b) (clos-distances-before? (cdr a) (cdr b) precedence))
+                   rows))))
+  (def qualifiers
+    (list->vector
+     (map (lambda (method)
+            (let (raw (%borrow-owned-list (%prepared-vector-slot-ref method 'qualifier)))
+              (cond ((and (list? raw) (clos-qualifier? raw))
+                      (let (owned (list-copy raw))
+                        (cons owned (clos-normalize-qualifier owned))))
+                    ((symbol? raw) (cons raw (clos-normalize-qualifier raw)))
+                    (else #f))))
+          methods)))
+  (def after
+    (and order
+         (filter (lambda (method)
+                   (let (entry (vector-ref qualifiers (%method-position index method)))
+                     (and entry (eq? (cdr entry) 'after))))
+                 order)))
+  ;; The atomic edit invalidates its generic root and advances this owner
+  ;; once, including when a method is also an edit root.
+  (and (= (object-revision owner) 0)
+       (make-dispatch-publication generic owner methods (list-copy precedence)
+                                  index order qualifiers after (and after (reverse after)))))
+
+(def (%dispatch-generation-field generic methods precedence)
   (def size (length methods))
-  (def index
-    (and (>= size 4)
-         (make-method-positions (clos-position-lookup methods) size)))
-  (list (cons 'methods (%make-owned-list methods)) (cons 'generation generation)
-        (cons '%method-positions index)))
+  (def index (and (positive? size)
+                  (make-method-positions (clos-position-lookup methods) size)))
+  ;; A position can address a whole roster only if each method occurs once.
+  ;; A directly edited roster still uses ordinary dispatch on duplicates.
+  (cons '%method-positions
+        (if (and index (list? precedence)
+                 (clos-natural-permutation? precedence (length precedence))
+                 (andmap (lambda (method position)
+                           (eqv? position (%method-position index method)))
+                         methods (iota size)))
+          (or (build-dispatch-publication generic methods precedence index) index)
+          index)))
+
+(def (method-generation-fields generic methods generation precedence)
+  (list (cons 'methods (%make-owned-list methods))
+        (cons 'generation generation)
+        (%dispatch-generation-field generic methods precedence)))
 
 ;;; Cached owner-local prototype avoids repeated descriptor demand in constructors.
 ;; : POOObject
@@ -697,8 +796,9 @@
       (def retained (make-hash-table-eq))
       (for-each (lambda (method) (hash-put! retained method #t)) installed)
       (cons (cons generic
-              (method-generation-fields installed
-                (+ (.ref generic 'generation) (length methods))))
+              (method-generation-fields generic installed
+                (+ (.ref generic 'generation) (length methods))
+                (%borrow-owned-list (%prepared-vector-slot-ref generic 'argument-precedence-order))))
         (map (lambda (method)
                (list method (cons 'generic-function
                                   (and (hash-key? retained method) generic))))
@@ -736,9 +836,11 @@
         (let (installed (.ref generic-value 'methods))
           (and (memq method-value installed)
                (list (cons generic-value
-                       (method-generation-fields
+                       (method-generation-fields generic-value
                          (filter (lambda (method) (not (eq? method method-value))) installed)
-                         (+ 1 (.ref generic-value 'generation))))
+                         (+ 1 (.ref generic-value 'generation))
+                         (%borrow-owned-list (%prepared-vector-slot-ref
+                                               generic-value 'argument-precedence-order))))
                      (list method-value (cons 'generic-function #f))))))))
   (when edits (%publish-slot-edits! edits))
   generic-value)

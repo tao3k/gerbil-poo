@@ -26,7 +26,11 @@
         clos-funcall clos-setf)
 
 (extern namespace: clan/poo/clos/objects
-        %published-method-positions %method-position method-positions-size %frameless-method-body)
+        %published-method-positions %method-position method-positions-size %frameless-method-body
+        %published-dispatch dispatch-publication-methods dispatch-publication-precedence
+        dispatch-publication-positions dispatch-publication-order dispatch-publication-qualifiers
+        dispatch-publication-after dispatch-publication-after-execution %dispatch-publication-current?)
+(extern namespace: clan/poo/clos/funcs clos-distances-before?)
 (extern namespace: clan/poo/clos/types %carrier-declarations-current? %stock-call-validator?)
 (extern namespace: clan/poo/slot-observation
         slot-read-key slot-read-value %call-with-private-slot-read-prefix)
@@ -110,25 +114,6 @@
     (and (andmap (lambda (distance) (if distance #t #f)) distances)
          (list->vector distances))))
 
-;;; Ranked method entries keep distances in required-argument order; lookup is
-;;; bounded by the generic's admitted arity.
-;; : (-> (Vector Natural) Natural Natural)
-(def (distance-at distances index)
-  (vector-ref distances index))
-
-;;; Argument precedence is a generic-owned permutation.  The first unequal
-;;; distance is the complete lexicographic method-order decision.
-;; : (-> (Vector Natural) (Vector Natural) [Natural] Boolean)
-(def (distances-before? left right precedence-order)
-  (let loop ((remaining precedence-order))
-    (and (pair? remaining)
-         (let ((left-distance (distance-at left (car remaining)))
-               (right-distance (distance-at right (car remaining))))
-           (cond
-            ((< left-distance right-distance) #t)
-            ((> left-distance right-distance) #f)
-            (else (loop (cdr remaining))))))))
-
 ;;; Gerbil std owns the stable O(n log n) merge sort. Equal method distances
 ;;; retain source-generation order without the former insertion-sort O(n²).
 ;; : (forall (a) (-> [(Pair a (Vector Natural))] [Natural]
@@ -136,22 +121,50 @@
 (def (sort-ranked ranked precedence-order)
   (list-sort
    (lambda (left right)
-     (distances-before? (cdr left) (cdr right) precedence-order))
+     (clos-distances-before? (cdr left) (cdr right) precedence-order))
    ranked))
 
-;;; Applicability is a pure projection from one immutable generic generation;
-;;; no cache or registry can change the method set during this computation.
-;; : (-> ClosGenericFunction [SchemeValue]
-;;        [(Pair ClosMethod (Vector Natural))])
-(def (applicable-ranked-methods generic arguments)
-  (sort-ranked
-   (filter-map
-    (lambda (method)
-      (let (distances (method-distances method arguments))
-        (and distances (cons method distances))))
-    (%ref-owned-list generic 'methods))
-   (%ref-owned-list generic 'argument-precedence-order)))
+;; The publication orders the admitted roster. The live scan keeps original
+;; source order for every read, even for candidates that fail an eql test.
+;; Check adjacent live ranks and source ordinals before consuming that order.
+;; Different receiver C4 linearizations can disagree with the proposed order.
+(def (project-published-order plan methods ranked precedence)
+  (and plan (dispatch-publication-order plan)
+       (equal? (dispatch-publication-precedence plan) precedence)
+       (let (source (dispatch-publication-methods plan))
+         (or (eq? source methods)
+             (and (length=? source methods) (andmap eq? source methods))))
+       (let* ((index (dispatch-publication-positions plan))
+              (rows (make-vector (method-positions-size index) #f)))
+         (for-each (lambda (entry)
+                     (vector-set! rows (%method-position index (car entry)) entry))
+                   ranked)
+         (let loop ((order (dispatch-publication-order plan))
+                    (previous #f) (previous-position #f) (result '()))
+           (if (null? order)
+             (reverse! result)
+             (let* ((position (%method-position index (car order)))
+                    (entry (vector-ref rows position)))
+               (cond
+                ((not entry) (loop (cdr order) previous previous-position result))
+                ((or (not previous)
+                     (if (< previous-position position)
+                       (not (clos-distances-before? (cdr entry) (cdr previous) precedence))
+                       (clos-distances-before? (cdr previous) (cdr entry) precedence)))
+                 (loop (cdr order) entry position (cons entry result)))
+                (else #f))))))))
 
+(def (applicable-ranked-methods generic arguments)
+  (def methods (%ref-owned-list generic 'methods))
+  (def ranked
+    (filter-map (lambda (method)
+                  (let (distances (method-distances method arguments))
+                    (and distances (cons method distances))))
+                methods))
+  (def precedence (%ref-owned-list generic 'argument-precedence-order))
+  (if (or (null? ranked) (null? (cdr ranked))) ranked
+    (or (project-published-order (%published-dispatch generic) methods ranked precedence)
+        (sort-ranked ranked precedence))))
 
 ;;; Arity admission precedes applicability and every method body, including an
 ;;; around method that would otherwise short circuit.
@@ -262,6 +275,20 @@
                      generic: (.ref generic 'identity)))
         (map lookup-ranked methods)))))
 
+;; Each of the four grouping passes still observes each qualifier in
+;; specificity order. A changed qualifier or publication is handled at
+;; that read, without replaying earlier reads or the applicability hook.
+(def (published-qualifier-reader generic)
+  (def plan (%published-dispatch generic))
+  (if (not plan) (lambda (_ value) (clos-normalize-qualifier value))
+    (lambda (method value)
+      (let* ((index (and (%dispatch-publication-current? plan)
+                         (%method-position (dispatch-publication-positions plan) method)))
+             (entry (and index (vector-ref (dispatch-publication-qualifiers plan) index))))
+        (if (and entry (equal? (car entry) value))
+          (cdr entry)
+          (clos-normalize-qualifier value))))))
+
 ;;; Prepare one private admission continuation for standard/short/long carriers.
 ;;; A short combination uses the primary field for methods bearing its name.
 ;; : (-> ClosGenericFunction [SchemeValue]
@@ -270,12 +297,13 @@
   (let (combination (.ref generic 'method-combination))
     (case (.ref combination 'kind)
       ((standard)
-       (%prepare-effective-method
-        generic arguments
-        (clos-methods-with-qualifier ranked 'around)
-        (clos-methods-with-qualifier ranked 'before)
-        (clos-methods-with-qualifier ranked 'primary)
-        (clos-methods-with-qualifier ranked 'after)))
+       (let (qualifier-key (published-qualifier-reader generic))
+         (%prepare-effective-method
+          generic arguments
+          (clos-methods-with-qualifier ranked 'around qualifier-key)
+          (clos-methods-with-qualifier ranked 'before qualifier-key)
+          (clos-methods-with-qualifier ranked 'primary qualifier-key)
+          (clos-methods-with-qualifier ranked 'after qualifier-key))))
       ((short)
        (owned-read-open!)
        (%prepare-effective-method
@@ -676,15 +704,23 @@
                 'around)))
     (run-around (.ref effective-method 'around) arguments)))
 
-;;; The specialized execution branch preserves Scheme multiple values.  Before
-;;; is most-specific-first; after is reversed only after effective-method construction.
-;; : (-> ClosEffectiveMethod SchemeValue)
-(def (execute-standard-effective-method effective-method)
+;; A reflected carrier owns its public method spines. Check the live
+;; after group at the original read boundary before using published order.
+(def (standard-after-execution generic after)
+  (let* ((plan (%published-dispatch generic))
+         (published (and plan (dispatch-publication-after plan))))
+    (if (and published (length=? published after) (andmap eq? published after))
+      (dispatch-publication-after-execution plan)
+      (reverse after))))
+
+;; Before runs most-specific first. After runs least-specific first.
+;; Preserve all values from the primary method across the auxiliary calls.
+(def (execute-standard-effective-method effective-method owner)
   (let ((arguments (.ref effective-method 'arguments))
         (around (.ref effective-method 'around))
         (before (.ref effective-method 'before))
         (primary (.ref effective-method 'primary))
-        (after (reverse (.ref effective-method 'after)))
+        (after (standard-after-execution owner (.ref effective-method 'after)))
         (generic (.ref effective-method 'generic)))
     (when (null? primary)
       (clos-fail 'no-primary-method generic: (.ref generic 'identity)))
@@ -759,7 +795,7 @@
             ((.ref effective-method 'executor) effective-method)
             (case (.ref (.ref generic-value 'method-combination) 'kind)
               ((short) (execute-short-effective-method effective-method))
-              (else (execute-standard-effective-method effective-method)))))))))
+              (else (execute-standard-effective-method effective-method generic-value)))))))))
 
 ;; : (-> FunctionName SchemeValue ... SchemeValue)
 (def (clos-funcall function-name . arguments)

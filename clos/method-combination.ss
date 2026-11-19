@@ -9,7 +9,7 @@
 ;;; invocation and effective-method ownership remain in dispatch.ss.
 
 (import :clan/poo/object
-        (only-in :std/list/list find)
+        (only-in :std/list/list find filter-map)
         "types.ss" "objects.ss"
         (only-in "funcs.ss" clos-normalize-qualifier))
 
@@ -20,13 +20,13 @@
 ;;; Qualifier partitioning happens after one shared specificity sort, so every
 ;;; group observes the same class/eql precedence decision.
 ;; : (-> [(Pair ClosMethod [Natural])] MethodQualifier [ClosMethod])
-(def (clos-methods-with-qualifier ranked qualifier)
+(def (clos-methods-with-qualifier ranked qualifier
+                                 (key (lambda (_ value) (clos-normalize-qualifier value))))
   (def expected (clos-normalize-qualifier qualifier))
-  (map car
-       (filter (lambda (entry)
-                 (equal? (clos-normalize-qualifier (.ref (car entry) 'qualifier))
-                         expected))
-               ranked)))
+  (filter-map (lambda (entry)
+                (let (method (car entry))
+                  (and (equal? (key method (.ref method 'qualifier)) expected) method)))
+              ranked))
 
 ;;; A proper pattern matches length exactly.  A dotted tail =*= accepts any
 ;;; number of remaining qualifiers, while an element =*= matches one position.

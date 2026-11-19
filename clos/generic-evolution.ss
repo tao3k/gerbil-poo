@@ -15,7 +15,8 @@
         clos-reinitialize-generic-function!)
 
 (extern namespace: clan/poo/object %with-slot-edit-protection %publish-slot-edits!)
-(extern namespace: clan/poo/slot-observation %make-owned-list)
+(extern namespace: clan/poo/slot-observation %make-owned-list %borrow-owned-list)
+(extern namespace: clan/poo/clos/objects %dispatch-generation-field)
 
 (def +clos-unspecified-generic-option+
   (cons 'clos 'unspecified-generic-option))
@@ -72,8 +73,10 @@
                             (cons field (if (eq? field 'argument-precedence-order)
                                           (%make-owned-list value) value)))
               '(required rest? argument-precedence-order method-combination lambda-list protocol)))
-          (cons current-value
-            (cons (cons 'generation (1+ (.ref current-value 'generation))) fields)))))))
+          (cons* current-value
+               (%dispatch-generation-field current-value methods
+                 (%borrow-owned-list (cdr (assq 'argument-precedence-order fields))))
+               (cons 'generation (1+ (.ref current-value 'generation))) fields))))))
 
 ;; clos-reinitialize-generic-function!
 ;;   : (-> ClosGenericBinding required: (Maybe Natural)

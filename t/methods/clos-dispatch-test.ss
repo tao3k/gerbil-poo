@@ -9,7 +9,7 @@
                  test-suite test-case check-equal? check-exception check)
         :std/error
         (only-in :clan/poo/object .o .ref .put! .all-slots object-slots $constant-slot-spec $constant-slot-spec?
-                 .putslot! object-slots-set! object-supers-set! object-protocol-set!
+                 .putslot! object-slots-set! object-supers-set! object-protocol-set! object-%overrides
                  replay-slot-reads! object-read-issued? object-instance object-revision hash<-object
                  depend-on-object! object-%precedence-list with-slot-dependencies)
         (prefix-in (only-in :gerbil/runtime/mop slot-ref slot-set!) runtime.)
@@ -27,7 +27,9 @@
 (extern namespace: clan/poo/slot-observation
         %with-slot-read-registration-interval %first-registered-read?
         %call-with-private-slot-read-prefix)
-(extern namespace: clan/poo/clos/objects %frameless-method-body)
+(extern namespace: clan/poo/clos/objects %frameless-method-body
+        %published-dispatch dispatch-publication-order)
+(extern namespace: clan/poo/clos/dispatch applicable-ranked-methods project-published-order)
 
 (def any-specializer (clos-any-specializer))
 (def animal-class (.o))
@@ -47,6 +49,108 @@
 
 (def clos-dispatch-test
   (test-suite "POO CLOS multi-dispatch conformance"
+    (test-case "published C4 order follows the receiver and invalidates only dependent generics"
+      (def left (clos-class 'published-left))
+      (def right (clos-class 'published-right))
+      (def left-first
+        (clos-make-instance (clos-class 'published-left-first
+                             direct-superclasses: (list left right))))
+      (def right-first
+        (clos-make-instance (clos-class 'published-right-first
+                             direct-superclasses: (list right left))))
+      (def generic (clos-generic-function 'published-c4 1))
+      (def left-method (primary-method 'left (list (clos-class-specializer left)) 'left))
+      (def right-method (primary-method 'right (list (clos-class-specializer right)) 'right))
+      (def exact (primary-method 'exact (list (clos-eql-specializer left-first)) 'exact))
+      (for-each (cut clos-add-method generic <>) (list left-method right-method exact))
+      (def plan (%published-dispatch generic))
+      (check-equal? (dispatch-publication-order plan) (list exact right-method left-method))
+      (check-equal? (clos-compute-applicable-methods generic left-first)
+                    (list exact left-method right-method))
+      (check-equal? (clos-compute-applicable-methods generic right-first)
+                    (list right-method left-method))
+      (def (project instance)
+        (project-published-order plan (.ref generic 'methods)
+          (applicable-ranked-methods generic (list instance))
+          (.ref generic 'argument-precedence-order)))
+      (check-equal? (project left-first) #f)
+      (check-equal? (map car (project right-first)) (list right-method left-method))
+      (check-equal? (clos-call generic left-first) 'exact)
+      (check-equal? (clos-call generic right-first) 'right)
+      ;; A publication probe must not call a replacement metadata getter.
+      (def overrides (object-%overrides generic))
+      (def stock-ref (runtime.slot-ref overrides 'ref))
+      (dynamic-wind
+        (lambda ()
+          (runtime.slot-set! overrides 'ref (lambda _ (error "unexpected publication getter"))))
+        (lambda () (check-equal? (%published-dispatch generic) #f))
+        (lambda () (runtime.slot-set! overrides 'ref stock-ref)))
+      (def other
+        (clos-add-method (clos-generic-function 'independent-publication 1)
+          (primary-method 'other (list (clos-any-specializer)) 'other)))
+      (def other-plan (%published-dispatch other))
+      (check (and other-plan #t) => #t)
+      (clos-redefine-class left)
+      (check-equal? (%published-dispatch generic) #f)
+      (check (eq? (%published-dispatch other) other-plan) => #t)
+      (clos-remove-method generic left-method)
+      (def replacement (%published-dispatch generic))
+      (check (and replacement (not (eq? plan replacement))) => #t)
+      ;; A removed method can remain live without remaining a dependency.
+      (.put! left-method 'body void)
+      (check (eq? (%published-dispatch generic) replacement) => #t)
+      (check-equal? (clos-call generic left-first) 'exact))
+
+    (test-case "a directly edited duplicate roster keeps ordinary applicability"
+      (def generic (clos-generic-function 'duplicate-roster 1))
+      (def method (primary-method 'repeated (list any-specializer) 'result))
+      (clos-add-method generic method)
+      (.put! generic 'methods (list method method))
+      (def auxiliary (clos-method 'after (list any-specializer) void qualifier: 'after))
+      (clos-add-method generic auxiliary)
+      (check-equal? (%published-dispatch generic) #f)
+      (check-equal? (clos-compute-applicable-methods generic 'item)
+                    (list auxiliary method method)))
+
+    (test-case "a qualifier edit resumes grouping after ordered observation"
+      (def events '())
+      (def qualifiers '())
+      (def calls 0)
+      (def specializers (list any-specializer))
+      (def auxiliary
+        (clos-method 'auxiliary specializers
+          (lambda (_frame _value) (set! events (cons 'auxiliary events)))
+          qualifier: '(before)))
+      (def primary
+        (clos-method 'published-primary specializers
+          (lambda (_frame _value)
+            (set! events (cons 'primary events))
+            (values 'first 'second))))
+      (def generic
+        (clos-generic-function 'published-callback 1
+          protocol: (clos-generic-protocol 'edit-qualifier
+                      compute-applicable-methods:
+                      (lambda (_generic _arguments methods)
+                        (set! calls (+ calls 1))
+                        (reverse methods)))))
+      (clos-add-method generic auxiliary)
+      (clos-add-method generic primary)
+      (check (and (%published-dispatch generic) #t) => #t)
+      (check-equal?
+        (call-with-slot-read-observer
+          (lambda (read)
+            (when (and (= calls 1) (eq? auxiliary (slot-read-receiver read))
+                       (eq? 'qualifier (slot-read-key read)) (< (length qualifiers) 4))
+              (set! qualifiers (cons (slot-read-value read) qualifiers))
+              (when (null? (cdr qualifiers))
+                (.put! auxiliary 'qualifier '(after)))))
+          (lambda () (call-with-values (cut clos-call generic 'item) list)))
+        '(first second))
+      (check-equal? (reverse qualifiers) '((before) (after) (after) (after)))
+      (check-equal? (reverse events) '(primary auxiliary))
+      (check-equal? calls 1)
+      (check-equal? (%published-dispatch generic) #f))
+
     (test-case "ordered qualifier values determine long-form replacement and lookup"
       (def group (clos-method-group 'ordered '((first second))))
       (def other (clos-method-group 'other '((second first) (tag) () (primary))))
