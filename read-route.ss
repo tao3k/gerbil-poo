@@ -104,7 +104,7 @@
 ;; READS maps keys to SlotRead records. INSTANCE holds cached slot values.
 ;; Either table may be #f. A bootstrap read checks its constant directly.
 ;; An owner recording fresh reads also qualifies the read table's writer.
-(defvalues (require-read-route! %standard-symbol-table-lookup? %admitted-vector-read-fields
+(defvalues (require-read-route! %standard-symbol-table-lookup? %admitted-vector-read-fields!
             %prepared-vector-values)
   (let ()
     ;; Pin the standard wrapper, primitive lookup and hash/test identities once.
@@ -230,17 +230,16 @@
     ;; The caller has just admitted both tables with require-route!. Borrow
     ;; their native backends for this closed sweep only. Hash-backed receivers
     ;; keep their ordinary lookup, and nothing is retained past the sweep.
-    (def (admitted-vector-read-fields reads instance)
+    (def (admitted-vector-read-fields! reads instance fields offset)
       (let (backend (and instance ((route-object-field instance-route) instance)))
-        (if (and reads backend
-                 (eq? (read-runtime.object-class backend) (value-route-backend vector-route)))
-          (let* ((shape ((value-route-shape-field vector-route) backend))
-                 (index ((value-route-indices-field vector-route) shape)))
-            (values ((route-object-field reads-route) reads)
-                    ((route-object-field instance-route) index)
-                    ((value-route-cells-field vector-route) backend)
-                    (value-route-missing vector-route)))
-          (values #f #f #f #f))))
+        (and reads backend
+             (eq? (read-runtime.object-class backend) (value-route-backend vector-route))
+             (let* ((shape ((value-route-shape-field vector-route) backend))
+                    (index ((value-route-indices-field vector-route) shape)))
+               (##vector-set! fields (##fx+ offset 1) ((route-object-field instance-route) index))
+               (##vector-set! fields (##fx+ offset 2) ((value-route-cells-field vector-route) backend))
+               (##vector-set! fields (##fx+ offset 3) (value-route-missing vector-route))
+               ((route-object-field reads-route) reads)))))
     ;; Borrow the authenticated symbolic directory only for these three reads.
     ;; No HashTable cast, observer, getter, or exception handler runs here.
     (def (prepared-vector-values table first second third)
@@ -267,7 +266,7 @@
                 (values (read one) (read two) (read three))
                 (absent)))
             (absent)))))
-    (values require-route! standard-lookup? admitted-vector-read-fields prepared-vector-values)))
+    (values require-route! standard-lookup? admitted-vector-read-fields! prepared-vector-values)))
 
 
 ;; Each issuer keeps a weak table of the records it created and their original

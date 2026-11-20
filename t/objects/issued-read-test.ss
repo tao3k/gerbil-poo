@@ -1,6 +1,7 @@
 ;;; Replay runtime-issued Slot reads and reject fabricated or stale records.
 (export issued-read-test test-cleanup!)
-(import (only-in :clan/poo/slot-layout make-slot-cache slot-cache-layout slot-layout-put!)
+(import (only-in :clan/poo/slot-layout make-slot-cache slot-cache-layout slot-layout-put!
+                 slot-value-storage slot-values-layout)
         :std/iter :std/test :clan/poo/object :clan/poo/slot-observation
         (only-in :clan/poo/examples/representation-service replay-workflow)
         (only-in :clan/poo/examples/inherited-services read-key-workflow)
@@ -685,6 +686,15 @@
     (set! classification-order [])
     (check-equal? (published) #t)
     (check-equal? classification-order [])
+    (def hash-root (.o flag: #f))
+    (def hash-roots
+      (parameterize ((slot-value-storage 'hash))
+        (recorded (cut .get hash-root flag))))
+    (check-equal? (slot-values-layout (object-%instance hash-root)) #f)
+    (def mixed (%register-slot-dependencies! (.o) (append roots hash-roots) (lambda (_) #t)))
+    (check-equal? (mixed) #t)
+    (.put! hash-root 'flag #t)
+    (refuses "stale slot dependency" mixed)
     (let (saved (runtime.slot-ref b 'dependencies))
       (try
         (runtime.slot-set! b 'dependencies '())

@@ -6,7 +6,7 @@
 
 ;; Reexport renamed version of core things we shadow
 (export (except-out #t object-record-read object-read-query object-read-bootstrap
-                    %call-with-fresh-slot-read-group %admitted-vector-read-fields
+                    %call-with-fresh-slot-read-group %admitted-vector-read-fields!
                     object-deliver-value require-object-read-route! object-issued-read-current?
                     call-with-issued-reads active-read-replays issue-object-read %issue-read object-slot-names object-slot-present?
                     object-read-key object-read-dependencies object-read-value
