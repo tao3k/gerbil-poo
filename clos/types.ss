@@ -23,7 +23,9 @@
         ClosInvocationFrame ClosFailure ClosUnboundSlotFailure
         ClosDirectSlotDefinition
         ClosEffectiveSlotDefinition ClosClass ClosInstanceState ClosSlotCell
-        ClosMopProfile clos-carrier-policy-guard)
+        ClosMopProfile clos-carrier-policy-guard
+        make-class-slot-publication class-slot-publication? class-slot-publication-slots
+        class-slot-publication-initargs class-slot-publication-backend)
 
 (def ClosType. Type.)
 
@@ -437,6 +439,7 @@
 ;; The proof owner holds no lookup table; the existing weak POO source
 ;; edges advance its revision when the validation support changes.
 (defstruct direct-slot-proof (class generation slots owner) final: #t)
+(defstruct class-slot-publication (slots initargs backend direct-proof) final: #t)
 
 (def stock-slot-policies
   (and (andmap (lambda (type) (zero? (object-revision type)))
@@ -449,8 +452,6 @@
 
 (def (%quiet-direct-slot-check?)
   (and (not (%slot-read-active?)) (slot-read-observers-compatible? '())))
-
-(extern namespace: clan/poo/clos/classes %class-publication-direct-proof)
 
 (def (%capture-direct-slot-proof slots action)
   (if (and (pair? slots) stock-slot-policies (%quiet-direct-slot-check?)
@@ -493,7 +494,9 @@
        (let (revision (object-revision class-value))
          (defvalues (publication slots generation)
            (%prepared-vector-slots-ref class-value '%effective-slot-initargs 'direct-slots 'generation))
-         (def proof (%class-publication-direct-proof publication))
+         (def proof
+           (and (class-slot-publication? publication)
+                (class-slot-publication-direct-proof publication)))
          (and (direct-slot-proof? proof)
               (eq? class-value (direct-slot-proof-class proof))
               (eq? (direct-slot-proof-slots proof) slots)

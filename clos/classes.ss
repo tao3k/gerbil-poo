@@ -326,11 +326,6 @@
   (let (index (clos-leftmost-index-by (lambda (slot) (.ref slot 'identity)) slots))
     (lambda (name) (hash-get index name))))
 
-;; Initial creation and redefinition publish the same per-generation fields.
-;; Roster edits never recompute the prototype or retain parent getter evidence.
-(defstruct class-slot-publication (slots initargs backend direct-proof) final: #t)
-(def (%class-publication-direct-proof value)
-  (and (class-slot-publication? value) (class-slot-publication-direct-proof value)))
 
 (def (class-projection-fields projection direct-proof)
   (def prototype (.ref projection 'prototype))

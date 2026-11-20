@@ -122,7 +122,7 @@ _test +targets:
     grep -q '^CASE-OK ' "$log"
     grep -q '^HARNESS-OK ' "$log"
     grep -qx 'OK' "$log"
-    if grep -Eq '^ERROR |\*\*\* ERROR|Heap overflow|Stack overflow' "$log"; then exit 1; fi
+    if grep -Eq '^ERROR |\*\*\* ERROR|Heap overflow|Stack overflow|^\*\*\* WARNING -- Variable .* is undefined' "$log"; then exit 1; fi
     printf 'TEST-PROCESS-EXIT\n'
 
 test-source-file file: build-core
