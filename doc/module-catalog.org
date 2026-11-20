@@ -8,7 +8,7 @@
 | Demand | Read dependencies of the one resolved source when requested | Read any source on a miss or conflict |
 | Gerbil package manager | Source installation and dependency entry points | Derive a Yuanxu Catalog from the benchmark |
 
-[[file:module-catalog.lean][Lean]] proves equality of cold lookup and the
+[[https://github.com/tao3k/lean-poo/blob/3873112390c525fe05d63b6c03ed3dd33b849534/LeanPoo/Proof/Gerbil/ModuleCatalog.lean][Lean]] proves equality of cold lookup and the
 edited overlay for every name, retention of untouched buckets, and exactly
 one dependency read after a successful exact selection. Missing and ambiguous
 exact versions read nothing. Version order is input order, not semantic
