@@ -7,7 +7,7 @@
 (import (only-in ./slot-layout slot-value-storage make-slot-values) :std/error ./slot-observation
   (prefix-in (only-in :gerbil/runtime/mop object? object-class make-class-slot-accessor
                       class-slot-offset &class-type-slot-table slot-ref slot-set!) read-runtime.)
-  (only-in :gerbil/runtime/table raw-table? &raw-table-table &raw-table-hash &raw-table-test &raw-table-lock
+  (only-in :gerbil/runtime/table raw-table? &raw-table-table &raw-table-hash &raw-table-test &raw-table-lock &raw-table-seed
            symbolic-table-ref symbolic-table-set! symbolic-hash gc-table-ref gc-table-set! gc-table-length)
   (only-in :gerbil/runtime/hash HashTable::interface gc-hash-table::t)
   (only-in :gerbil/runtime/interface &interface-descriptor-type))
