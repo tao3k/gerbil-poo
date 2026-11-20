@@ -48,28 +48,31 @@
 (def partition-work %partition-work)
 (def (owned-active-owner owned key)
   (%index-ref (owned-partition-owner owned) key #f))
-;; The existing representative index stores (cardinality . members). The owner
-;; index is the same table already captured by partition-owner, not a second cache.
-(def (member-entry part representative)
-  (let (owned (%partition-owned part))
-    (if owned (and (symbol? representative) (%index-ref (owned-partition-members owned) representative #f))
-      (let (members (%partition-members part))
-        (if (procedure? members) (members representative) (hash-get members representative))))))
-(def (public-members part entry)
-  (and entry (if (%partition-owned part) (list-copy (cdr entry)) (cdr entry))))
+(def (observe-member part representative size?)
+  (def owned (%partition-owned part))
+  (def members (%partition-members part))
+  (if (and (not owned) (procedure? members))
+    (members representative size?)
+    (let (entry (if owned
+                  (and (symbol? representative) (%index-ref (owned-partition-members owned) representative #f))
+                  (hash-get members representative)))
+      (and entry
+           (cond (size? (car entry))
+                 (owned (list-copy (cdr entry)))
+                 (else (cdr entry)))))))
 (def (partition-members part representative)
-  (public-members part (member-entry part representative)))
-(def (group-entry part node)
+  (observe-member part representative #f))
+(def (observe-group part node size?)
   (def owned (%partition-owned part))
   (def representative
     (if owned (and (symbol? node) (%index-ref (owned-partition-owner owned) node #f))
       (let (owners (%partition-owners part))
         (if (procedure? owners) (owners node #t) (hash-get owners node)))))
-  (and representative (member-entry part representative)))
+  (and representative (observe-member part representative size?)))
 (def (partition-group-of part node)
-  (public-members part (group-entry part node)))
+  (observe-group part node #f))
 (def (partition-group-size part node)
-  (let (entry (group-entry part node)) (and entry (car entry))))
+  (observe-group part node #t))
 (def (work-receipt owner-count input-edges discoveries-count edges-count finish-count
                    pop-count normalized-count group-count span-buckets span-edges quotient-count
                    singleton-count reverse-count ranked-count rank-edge-count)
@@ -218,33 +221,45 @@
 ;; Restore the accepted prefix into the original table adapter. Its backend
 ;; has never escaped or received a write. Populate the native backend without
 ;; replaying an author or calling a replaced interface delegate for past rows.
-(def (restore-ordinal-rows! keys rows end backend)
+(def (restore-ordinal-rows! keys backend row-at)
   (def restored (make-gc-table (vector-length keys) gc-hash-table::t))
-  (for (i (in-range end))
-    (gc-table-set! restored (vector-ref keys i) (vector-ref rows i)))
+  (for (i (in-range (vector-length keys)))
+    (gc-table-set! restored (vector-ref keys i) (row-at i)))
   (&gc-table-gcht-set! backend (&gc-table-gcht restored)))
 
-(def (ordinal-row-reader keys buckets table backend rows (lookup #f))
+(def (ordinal-row-reader keys buckets table backend rows (decode #f))
   (def retirement (make-mutex 'captured-rows))
+  (def (row-at i)
+    (or (vector-ref rows i)
+        (let (row (decode i))
+          (vector-set! rows i row)
+          row)))
+  (def (lookup key empty-default?)
+    (if empty-default? (hash-ref table key []) (hash-ref table key)))
   (lambda (key (empty-default? #f))
     (def current rows)
-    (def stock? (and current (gc-table-route-current? table)))
-    (def i (and stock? (symbol? key) (%ordinal-bucket-ref buckets key)))
+    (def i (and current (gc-table-route-current? table) (symbol? key)
+                 (%ordinal-bucket-ref buckets key)))
     (cond
-     (i (vector-ref current i))
-     ;; hash-get has a stock absent result. The strict adjacency query must
-     ;; provide its actual table with an unbound-key error.
-     ((and stock? lookup) #f)
+     (i (or (vector-ref current i)
+            (let (row (with-lock retirement (lambda () (and rows (row-at i)))))
+              (or row (lookup key empty-default?)))))
      (else
       (when current
         (with-lock retirement
           (lambda ()
             (when rows
-              (restore-ordinal-rows! keys rows (vector-length rows) backend)
-              (set! rows #f)))))
-      (cond (lookup (lookup table key))
-            (empty-default? (hash-ref table key []))
-            (else (hash-ref table key)))))))
+              (restore-ordinal-rows! keys backend row-at)
+              (set! rows #f)
+              (set! decode #f)))))
+      (lookup key empty-default?)))))
+
+(def (compact-symbolic-row keys offsets targets owner)
+  (def lo (u32vector-ref offsets owner))
+  (let decode ((hi (u32vector-ref offsets (fx+ owner 1))) (row []))
+    (if (fx= hi lo) row
+      (let (at (fx- hi 1))
+        (decode at (cons (vector-ref keys (u32vector-ref targets at)) row))))))
 
 (def (capture-graph keys read-owner (symbolic-rows? #t) (edge-word-ceiling 4294967295)
                     (ordered-rows? 'adjacent) (stable-rows? #f) (compact-rows? #f))
@@ -478,17 +493,18 @@
             (if deferred-rows? (make-ordinal-capture buckets reads) positions) offsets targets direction)))))
   (def published
     (if deferred-rows?
-      (let ((targets (compact-graph-targets index))
-            (rows (make-vector count [])))
-        ;; Admit all authors before constructing symbolic spines. Each final
-        ;; row is owned once and retains its identity across lookups or misses.
-        (for (owner (in-range count))
-          (def lo (u32vector-ref offsets owner))
-          (let decode ((hi (u32vector-ref offsets (fx+ owner 1))) (row []))
-            (if (fx= hi lo) (vector-set! rows owner row)
-              (let (at (fx- hi 1))
-                (decode at (cons (vector-ref keys (u32vector-ref targets at)) row))))))
-        (ordinal-row-reader keys buckets reads row-backend rows))
+      (let* ((targets (compact-graph-targets index))
+             (decode (cut compact-symbolic-row keys offsets targets <>))
+             (rows (make-vector count #f)))
+        ;; Singleton certification reads the same packed edges. Build each
+        ;; symbolic row only when its list is requested. General SCC uses
+        ;; every row, so it can receive its symbolic rows directly.
+        (if (zero? direction)
+          (begin
+            (for (owner (in-range count))
+              (vector-set! rows owner (decode owner)))
+            (ordinal-row-reader keys buckets reads row-backend rows))
+          (ordinal-row-reader keys buckets reads row-backend rows decode)))
       reads))
   (values published index declared edges))
 
@@ -920,18 +936,38 @@
                 (set! pending? #f))))))
       (if optional? (hash-get table key) (hash-ref table key))))))
 
+(def (ordinal-singleton-members keys buckets table groups)
+  (def backend (interface-instance-object table))
+  (def retirement (make-mutex 'partition-members))
+  (lambda (key size?)
+    (def current groups)
+    (cond
+     ((and current (gc-table-route-current? table))
+      (let (i (and (symbol? key) (%ordinal-bucket-ref buckets key)))
+        (and i (if size? 1 (vector-ref current i)))))
+     (else
+      (when current
+        (with-lock retirement
+          (lambda ()
+            (when groups
+              (restore-ordinal-rows! keys backend (lambda (i) (cons 1 (vector-ref groups i))))
+              (set! groups #f)))))
+      (let (entry (hash-get table key))
+        (and entry (if size? (car entry) (cdr entry))))))))
+
 (def (publish-ordinal-singletons keys reads buckets owners members validation-owners declared-edges quotient-edges complete)
   (def count (vector-length keys))
   (def rows (make-vector count))
   (def groups
-    (for/collect ((key (in-vector keys)) (owner (in-range count)))
-      (def group (list key))
-      (vector-set! rows owner (cons 1 group))
-      group))
+    (let build ((end count) (groups []))
+      (if (zero? end) groups
+        (let* ((owner (fx- end 1)) (group (list (vector-ref keys owner))))
+          (vector-set! rows owner group)
+          (build owner (cons group groups))))))
   (def find-owner (ordinal-owner-reader keys buckets owners))
   (complete
     (make-%partition groups (cut find-owner <>) (cut reads <>)
-      (ordinal-row-reader keys buckets members (interface-instance-object members) rows hash-get)
+      (ordinal-singleton-members keys buckets members rows)
       (work-receipt validation-owners declared-edges 0 0 0 0 count count
         0 0 quotient-edges count 0 count quotient-edges) find-owner #f)))
 

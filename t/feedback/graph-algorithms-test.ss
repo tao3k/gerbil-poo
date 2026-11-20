@@ -470,6 +470,7 @@
       (check (scc.partition-members result 'missing) => #f)
       (def group (car (scc.partition-groups result)))
       (set-car! group 'changed)
+      (set-cdr! group '(extra))
       (check-eq? group (scc.partition-group-of result 'a))
       (check-equal? (scc.partition-group-size result 'a) 1)
       (def descriptor (runtime.slot-ref HashTable::interface 'type))
@@ -479,6 +480,7 @@
           (check-eq? (scc.partition-members result 'a) group))
         (lambda () (runtime.slot-set! HashTable::interface 'type descriptor)))
       (check-eq? (scc.partition-members result 'a) group)
+      (check-equal? (scc.partition-group-size result 'a) 1)
       (def owner (scc.partition-owner result))
       (def (missing-table key)
         (with-catch
@@ -534,7 +536,13 @@
       (defvalues (compact _graph _declared _edges)
         (capture-graph keys read #t 4294967295 'adjacent #f #t))
       (check (procedure? compact) => #t)
-      (def stored (compact 'first))
+      (def demands
+        (for/collect (_ (in-range 2))
+          (def task (make-thread (lambda () (compact 'first))))
+          (thread-start! task)
+          task))
+      (def stored (thread-join! (car demands)))
+      (check-eq? (thread-join! (cadr demands)) stored)
       (check-equal? stored '(first second))
       (def misses
         (for/collect (key '(outside other))
