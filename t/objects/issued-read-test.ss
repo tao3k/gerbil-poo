@@ -645,7 +645,7 @@
           (cut reobserve-slot-reads! (list genuine)))))
     (check-equal? calls 0)
     (set! completed (+ completed 1)))
-  (test-case "private native projection reuses preorder and rebuilds changed root order"
+  (test-case "published replay reuses the classified preorder and checks live reads"
     (.def First port: 5432 unused: (error "unselected"))
     (.def Second port: 5433)
     (def a (selected (recorded (cut .get First port)) 'port))
@@ -654,14 +654,14 @@
     (def first (captured-order roots))
     (check-equal? (car first) a)
     (check-equal? (length (filter (cut eq? <> a) first)) 1)
-    (def replay-order [])
+    (def classification-order [])
     (def published
       (%register-slot-dependencies! (.o) roots
         (lambda (read)
-          (set! replay-order (cons read replay-order))
+          (set! classification-order (cons read classification-order))
           #t)))
-    (check-equal? (published) #t)
-    (check-equal? (reverse replay-order) first)
+    (check-equal? (reverse classification-order) first)
+    (check-equal? (%register-slot-dependencies! (.o) roots (lambda (read) (not (eq? read b)))) #f)
     ;; Weak eviction is allowed. Check actual reuse in a no-GC interval rather
     ;; than asserting that a weak value survives an arbitrary collection.
     (def reused 0)
@@ -682,9 +682,9 @@
     (check-equal? (car reordered) b)
     (check-equal? (eq? first reordered) #f)
     (check-equal? (car first) a)
-    (set! replay-order [])
+    (set! classification-order [])
     (check-equal? (published) #t)
-    (check-equal? (reverse replay-order) first)
+    (check-equal? classification-order [])
     (let (saved (runtime.slot-ref b 'dependencies))
       (try
         (runtime.slot-set! b 'dependencies '())

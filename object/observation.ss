@@ -157,7 +157,7 @@
     (def (require-current! read)
       (require-issued! read)
       (require-live! read))
-    (def (group-read-current? read allow-read? receiver-route position)
+    (def (require-group-read-current! read receiver-route position)
       (require-issued! read)
       (def key (object-read-key read))
       (unless (symbol? key) (require-read-route! key #f #f))
@@ -165,15 +165,15 @@
         (and (not (and (pair? key) (eq? (car key) 'bootstrap)))
              (receiver-route read (slot-read-receiver read) position)))
       (unless (if (procedure? route) (route read key) (object-issued-read-current? read))
-        (error "stale slot dependency" key))
-      (allow-read? read))
+        (error "stale slot dependency" key)))
     (def (open-receiver-route read receiver)
       (require-object-read-route! read)
       (or (admitted-vector-currentness receiver) #t))
-    ;; Keep the issued preorder and dense receiver positions. Every sweep
-    ;; starts with empty routes so a callback cannot carry a live guard over.
-    (def (bind-group reads receivers positions allow-read?)
+    ;; Classify only the signed receiver, key and value facts before binding.
+    ;; The replay still authenticates those facts and opens fresh routes.
+    (def (bind-group reads receivers positions static-read?)
       (and positions (%read-index-size-effect-free? receivers)
+           (without-observation (cut andmap static-read? reads))
            (let (count (hash-length receivers))
              (lambda ()
                (without-observation
@@ -187,9 +187,10 @@
                                     (vector-set! routes index route)
                                     route))))
                           (let loop ((rest reads) (position 0))
-                            (or (null? rest)
-                                (and (group-read-current? (car rest) allow-read? receiver-route position)
-                                     (loop (cdr rest) (fx1+ position)))))))))))))
+                            (if (null? rest) #t
+                              (begin
+                                (require-group-read-current! (car rest) receiver-route position)
+                                (loop (cdr rest) (fx1+ position)))))))))))))
     (def (same-roots? roots saved)
       (if (null? saved) (null? roots)
         (and (pair? roots) (eq? (car roots) (car saved))
@@ -327,22 +328,23 @@
                      (or (table-ref seen read #f)
                          (begin
                            (table-set! seen read #t)
-                           (and (group-read-current? read allow-read? receiver-route #f)
+                           (require-group-read-current! read receiver-route #f)
+                           (and (allow-read? read)
                                 (andmap admit (object-read-dependencies read))))))
                    (andmap admit roots))))))
       ;; The initial admission uses the projection's receiver positions once
       ;; across the whole graph. Edge registration remains inside the native
       ;; write guard and the independent return sweep, including foreign routes.
       ;; The publisher may keep the traversal already built for registration.
-      ;; This binds signed identities and ordinals, never an approval.
-      (lambda (self roots (allow-read? #f))
+      ;; The optional classifier is private and depends only on signed facts.
+      (lambda (self roots (static-read? #f))
         (unless (null? roots)
           (with-projection roots
             (lambda (reads current! receivers positions)
               (require-current-read-sweep! reads receivers positions current! #t)
               (for (([source . _] receivers))
                 (unless (eq? source self) (depend-on-object! self source)))
-              (if allow-read? (bind-group reads receivers positions allow-read?) (void)))
+              (if static-read? (bind-group reads receivers positions static-read?) (void)))
             #f #f))))))
 (def (with-slot-dependencies self action)
   (using ((self :~ object?) (action :~ procedure?))
