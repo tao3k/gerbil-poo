@@ -21,7 +21,10 @@
                     %put-assigned-slot! %depend-on-object-except-slot!
                     %owned-list-slot-spec %ref-owned-list define-slot-ref
                     instance-storage-info instance-native-table
-                    %live-object-instance %live-object-layout) @object? @make-object)
+                    %live-object-instance %live-object-layout
+                    instantiate-for-demand! compile-slot-funs-for-demand!
+                    current-constant-method? instantiate-with-preparation!
+                    prepare-slot-values publish-preparation! compile-slot-funs-with!) @object? @make-object)
 
 (import
   (prefix-in (only-in Runtime object? make-object) @) ;; Rename them before we shadow them
@@ -236,25 +239,49 @@
 ;; Instantiate atomically with respect to Gerbil exceptions. Mutating callbacks and
 ;; concurrent reads/writes are outside the sequential protocol, and are rejected
 ;; for actively evaluated receivers rather than returning a partially built value.
+(defrule (instantiate-with-preparation! self (result dependencies) prepare finish)
+  (begin
+    (unless (object? self) (error "Not an object"))
+    (unless (object-%instance self)
+      (when (memq self (active-object-constructions)) (error "recursive object construction"))
+      (parameterize ((active-object-constructions (cons self (active-object-constructions))))
+        (try
+          (defvalues (result dependencies)
+            (%call-with-recorded-slot-reads
+              (lambda ()
+                (compute-object-precedence! self)
+                prepare)))
+          finish
+          (catch (cause) (clear-object-cache! self) (raise cause)))))))
+
+(defrule (prepare-slot-values self previous)
+  (make-slot-values (hash-keys (object-%slot-funs self)) (object-%overrides self)
+    (if (eq? (object-%protocol self) self) (or (object-%bootstrap self) []) [])
+    absent-value previous: previous state: (object-%state self)))
+
+(defrule (publish-preparation! self instance dependencies)
+  (begin
+    (set! (object-%instance self) instance)
+    (hash-put! (object-read-table self) '(preparation)
+      (object-record-read self '(preparation) instance dependencies))))
+
 (def (instantiate-object! self previous: (previous #f))
-  (unless (object? self) (error "Not an object"))
-  (unless (object-%instance self)
-    (when (memq self (active-object-constructions)) (error "recursive object construction"))
-    (parameterize ((active-object-constructions (cons self (active-object-constructions))))
-      (try
-        (defvalues (instance dependencies)
-          (%call-with-recorded-slot-reads
-            (lambda ()
-              (compute-object-precedence! self)
-              (compute-slot-funs! self)
-              (make-slot-values (hash-keys (object-%slot-funs self))
-                (object-%overrides self)
-                (if (eq? (object-%protocol self) self) (or (object-%bootstrap self) []) [])
-                absent-value previous: previous state: (object-%state self)))))
-        (set! (object-%instance self) instance)
-        (hash-put! (object-read-table self) '(preparation)
-          (object-record-read self '(preparation) instance dependencies))
-        (catch (cause) (clear-object-cache! self) (raise cause))))))
+  (instantiate-with-preparation! self (instance dependencies)
+    (begin
+      (compute-slot-funs! self)
+      (prepare-slot-values self previous))
+    (publish-preparation! self instance dependencies)))
+
+;; Only first demand carries a compiled method across instance preparation.
+;; An ordinary HashTable result needs no pair or extra recording state.
+(def (instantiate-for-demand! self previous requested)
+  (instantiate-with-preparation! self (prepared dependencies)
+    (let* ((constant (compile-slot-funs-for-demand! self requested))
+           (instance (prepare-slot-values self previous)))
+      (if constant (cons instance constant) instance))
+    (let (instance (if (pair? prepared) (car prepared) prepared))
+      (publish-preparation! self instance dependencies)
+      (and (pair? prepared) (cdr prepared)))))
 
 (defclass (InvalidObject Exception) (slots) transparent: #t)
 (def (invalid-object-summary self)
@@ -353,19 +380,32 @@
                     (and (or ($constant-slot-spec? spec) ($self-slot-spec? spec))
                          (loop (1+ index))))))))))
 
+(defrule (compile-slot-funs-with! self (table entries) compile-direct)
+  ;; support/base.ss binds the private graph seed. Ordinary preparation uses
+  ;; Gerbil's default random seed and retains the same symbolic table order.
+  (let* ((table (make-hash-table test: eq? hash: symbolic-hash seed: (%graph-table-seed)))
+         (entries (plain-root-slot-entries self))
+         (result (if (and entries (%fixed-symbol-table-order? table (vector-length entries)))
+                   compile-direct
+                   (begin (assemble-slot-funs! self table) #f))))
+    (set! (object-%slot-funs self) table)
+    result))
+
 (def (compute-slot-funs! self)
-  ;; support/base.ss binds seed 0 for private graph tables so preparation does
-  ;; not consume the application's random sequence. The default #f lets Gerbil
-  ;; draw its usual seed. Component callbacks run with that default.
-  (def h (make-hash-table test: eq? hash: symbolic-hash seed: (%graph-table-seed)))
-  (def direct (plain-root-slot-entries self))
-  (if (and direct (%fixed-symbol-table-order? h (vector-length direct)))
-    ;; These independent specs compile to procedures without invoking them.
-    ;; Keep initial write order and the same final hash layout.
-    (for (entry (in-vector direct))
-      (hash-put! h (car entry) (apply-slot-spec self (cdr entry) #f)))
-    (assemble-slot-funs! self h))
-  (set! (object-%slot-funs self) h))
+  (compile-slot-funs-with! self (table entries)
+    (for (entry (in-vector entries))
+      (hash-put! table (car entry) (apply-slot-spec self (cdr entry) #f))))
+  (void))
+
+(def (compile-slot-funs-for-demand! self requested)
+  (compile-slot-funs-with! self (table entries)
+    (for/fold (constant #f) (entry (in-vector entries))
+      (let* ((name (car entry))
+             (spec (cdr entry))
+             (thunk (apply-slot-spec self spec #f)))
+        (hash-put! table name thunk)
+        (if (and (eq? name requested) ($constant-slot-spec? spec))
+          thunk constant)))))
 
 ;; Capture the whole C3 family first, then define each source in its original order.
 ;; Incremental scratch visibility remains local to each catalog; nothing pending
@@ -531,6 +571,15 @@
 ;; Receiver-bound observations share this module's object/Slot authority.
 (include "object/observation.ss")
 
+;; The demand precheck and instance lookup may have changed methods. Check
+;; the stored closure through the current native table before skipping the
+;; child's empty recording frame. The caller still issues its original read.
+(def (current-constant-method? self slot constant)
+  (and constant (null? (active-slot-computations))
+       (let (methods (object-%slot-funs self))
+         (and (%standard-symbol-table-lookup? methods)
+              (eq? constant (symbolic-table-ref (interface-instance-object methods) slot #f))))))
+
 ;; Admit runtime names before recording reads, bootstrap lookup or preparation.
 ;; Read a cached slot or compute it through the original cycle-aware protocol.
 (defrule (define-slot-ref name project)
@@ -538,16 +587,20 @@
     (%slot-read-demand! self slot)
     (def anchor (bootstrap-anchor self slot))
     (if anchor (object-read-bootstrap self slot anchor)
-      (let* ((instance (%live-object-instance self))
+      (let* ((prepared (and (object? self) (object-%instance self)))
+             (constant (and (not prepared) (instantiate-for-demand! self #f slot)))
+             (instance (or prepared (object-%instance self)))
              (value (hash-ref instance slot absent-value)))
         (if (eq? value absent-value)
           (let (revision (object-revision self))
             (defvalues (value dependencies)
-              (%call-with-recorded-slot-reads
-                (lambda ()
-                  (compute-slot-value self slot
-                    (hash-ref/default (object-%slot-funs self) slot
-                      (cut cut no-applicable-method self slot))))))
+              (if (current-constant-method? self slot constant)
+                (values (constant) [])
+                (%call-with-recorded-slot-reads
+                  (lambda ()
+                    (compute-slot-value self slot
+                      (hash-ref/default (object-%slot-funs self) slot
+                        (cut cut no-applicable-method self slot)))))))
             (unless (and (= revision (object-revision self)) (eq? instance (object-%instance self)))
               (error "object changed during slot computation" slot))
             (def read (object-record-read self slot value dependencies))

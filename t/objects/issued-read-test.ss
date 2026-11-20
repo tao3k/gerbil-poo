@@ -23,7 +23,8 @@
 ;; Ordinary consumers use the public replay and protected checkpoint entries.
 (extern namespace: clan/poo/object call-with-issued-reads object-read-key
         object-read-dependencies object-read-value require-current-read-sweep!
-        %call-with-fresh-slot-read-group %register-slot-dependencies! %prepared-vector-slot-ref)
+        %call-with-fresh-slot-read-group %register-slot-dependencies! %prepared-vector-slot-ref
+        instantiate-for-demand! current-constant-method?)
 (def (admit-group roots (visit-capacity 0))
   (%call-with-fresh-slot-read-group roots (lambda (_) #t) visit-capacity))
 (def (captured-order roots)
@@ -69,7 +70,7 @@
 (def issued-read-test
  (test-suite "Read issuance with transient tokens and guarded replay"
   (test-case "pinned key access preserves live symbolic and structural fields"
-    (.def Owner value: #f)
+    (.def Owner (value := #f))
     (def reads (recorded (lambda () (.get Owner value) (.all-slots Owner)
                              (.ref/cached Owner 'missing (lambda () #f)))))
     (for (read reads)
@@ -78,6 +79,14 @@
       (check-eq? (object-read-dependencies read) (runtime.slot-ref read 'dependencies))
       (check-eq? (object-read-value read) (runtime.slot-ref read 'value)))
     (def read (selected reads 'value))
+    (check-equal? (map slot-read-key (slot-read-dependencies read)) '((preparation)))
+    (check-eq? (car (recorded (cut .ref Owner 'value))) read)
+    (def cold (.o (value := #f)))
+    (def constant (instantiate-for-demand! cold #f 'value))
+    (check (current-constant-method? cold 'value constant) => #t)
+    (hash-put! (object-%slot-funs cold) 'value (lambda () 7))
+    (check (current-constant-method? cold 'value constant) => #f)
+    (check-equal? (.get cold value) 7)
     ;; Every access sees the live field. No captured key may survive a
     ;; mutated record, even if a previous currentness check accepted it.
     (check-equal? (object-read-current? read) #t)
