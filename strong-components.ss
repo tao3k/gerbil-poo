@@ -42,7 +42,8 @@
           (%roster-for-each (lambda (key)
             (when (eq? key (owned-active-owner owned key))
               (add (partition-members part key)))) (owned-partition-roster owned))))
-      (%partition-groups part))))
+      (let (groups (%partition-groups part))
+        (if (procedure? groups) (groups) groups)))))
 (def partition-owner %partition-owner)
 (def partition-reads %partition-reads)
 (def partition-work %partition-work)
@@ -230,6 +231,7 @@
 (def (ordinal-row-reader keys buckets table backend rows (decode #f))
   (def retirement (make-mutex 'captured-rows))
   (def (row-at i)
+    (when (eq? rows #t) (set! rows (make-vector (vector-length keys) #f)))
     (or (vector-ref rows i)
         (let (row (decode i))
           (vector-set! rows i row)
@@ -241,7 +243,7 @@
     (def i (and current (gc-table-route-current? table) (symbol? key)
                  (%ordinal-bucket-ref buckets key)))
     (cond
-     (i (or (vector-ref current i)
+     (i (or (and (vector? current) (vector-ref current i))
             (let (row (with-lock retirement (lambda () (and rows (row-at i)))))
               (or row (lookup key empty-default?)))))
      (else
@@ -249,7 +251,7 @@
         (with-lock retirement
           (lambda ()
             (when rows
-              (restore-ordinal-rows! keys backend row-at)
+              (restore-ordinal-rows! keys backend (if (eq? rows #t) decode row-at))
               (set! rows #f)
               (set! decode #f)))))
       (lookup key empty-default?)))))
@@ -494,17 +496,15 @@
   (def published
     (if deferred-rows?
       (let* ((targets (compact-graph-targets index))
-             (decode (cut compact-symbolic-row keys offsets targets <>))
-             (rows (make-vector count #f)))
-        ;; Singleton certification reads the same packed edges. Build each
-        ;; symbolic row only when its list is requested. General SCC uses
-        ;; every row, so it can receive its symbolic rows directly.
+             (decode (cut compact-symbolic-row keys offsets targets <>)))
+        ;; Singleton certification reads the packed edges. Its existing
+        ;; row projection allocates symbolic storage at first demand.
         (if (zero? direction)
-          (begin
+          (let (rows (make-vector count #f))
             (for (owner (in-range count))
               (vector-set! rows owner (decode owner)))
             (ordinal-row-reader keys buckets reads row-backend rows))
-          (ordinal-row-reader keys buckets reads row-backend rows decode)))
+          (ordinal-row-reader keys buckets reads row-backend #t decode)))
       reads))
   (values published index declared edges))
 
@@ -936,38 +936,60 @@
                 (set! pending? #f))))))
       (if optional? (hash-get table key) (hash-ref table key))))))
 
-(def (ordinal-singleton-members keys buckets table groups)
+(def (ordinal-singleton-members keys buckets table)
   (def backend (interface-instance-object table))
+  (def count (vector-length keys))
+  (def cells #f)
+  (def ordered #f)
+  (def pending? #t)
   (def retirement (make-mutex 'partition-members))
-  (lambda (key size?)
-    (def current groups)
+  (def (group-at i)
+    (unless cells (set! cells (make-vector count #f)))
+    (or (vector-ref cells i)
+        (let (group (list (vector-ref keys i)))
+          (vector-set! cells i group)
+          group)))
+  (def (table-member key size?)
+    (let (entry (hash-get table key))
+      (and entry (if size? (car entry) (cdr entry)))))
+  (def (member key size?)
     (cond
-     ((and current (gc-table-route-current? table))
+     ((and pending? (gc-table-route-current? table))
       (let (i (and (symbol? key) (%ordinal-bucket-ref buckets key)))
-        (and i (if size? 1 (vector-ref current i)))))
+        (and i (if size? 1
+                 (let (group (with-lock retirement
+                               (lambda () (and pending? (group-at i)))))
+                   (or group (table-member key #f)))))))
      (else
-      (when current
+      (with-lock retirement
+        (lambda ()
+          (when pending?
+            (restore-ordinal-rows! keys backend (lambda (i) (cons 1 (group-at i))))
+            (set! pending? #f)
+            (when ordered (set! cells #f)))))
+      (table-member key size?))))
+  (def (groups)
+    (or ordered
         (with-lock retirement
           (lambda ()
-            (when groups
-              (restore-ordinal-rows! keys backend (lambda (i) (cons 1 (vector-ref groups i))))
-              (set! groups #f)))))
-      (let (entry (hash-get table key))
-        (and entry (if size? (car entry) (cdr entry))))))))
+            (unless ordered
+              (set! ordered
+                (let build ((end count) (groups []))
+                  (if (zero? end) groups
+                    (let (i (fx- end 1))
+                      (build i (cons (group-at i) groups))))))
+              ;; Keep the ordered publication independent of later edits
+              ;; made through the original member table.
+              (unless pending? (set! cells #f)))
+            ordered))))
+  (values member groups))
 
 (def (publish-ordinal-singletons keys reads buckets owners members validation-owners declared-edges quotient-edges complete)
   (def count (vector-length keys))
-  (def rows (make-vector count))
-  (def groups
-    (let build ((end count) (groups []))
-      (if (zero? end) groups
-        (let* ((owner (fx- end 1)) (group (list (vector-ref keys owner))))
-          (vector-set! rows owner group)
-          (build owner (cons group groups))))))
+  (defvalues (find-member groups) (ordinal-singleton-members keys buckets members))
   (def find-owner (ordinal-owner-reader keys buckets owners))
   (complete
-    (make-%partition groups (cut find-owner <>) (cut reads <>)
-      (ordinal-singleton-members keys buckets members rows)
+    (make-%partition groups (cut find-owner <>) (cut reads <>) find-member
       (work-receipt validation-owners declared-edges 0 0 0 0 count count
         0 0 quotient-edges count 0 count quotient-edges) find-owner #f)))
 
