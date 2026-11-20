@@ -384,6 +384,13 @@
                 (set! used (fx+ used take))
                 (copy stop))))))
       (set! edges after)))
+  (defrule (capture-target! key owner deps id)
+    (begin
+      (unless id (error "unsupported component read" key deps))
+      (cond ((fx< id owner) (set! direction (fxand direction 1)))
+            ((fx> id owner) (set! direction (fxand direction 2))))
+      (append-target owner id)
+      (set! edges (1+ edges))))
   (for ((key keys) (owner (in-range count)))
     (when packed? (u32vector-set! offsets owner edges))
     (def deps (read-owner key))
@@ -401,14 +408,29 @@
              ;; later rows through the existing general normalization.
              (unless end (set! ordered-trial? #f))
              end)))
-    (if end
+    (cond
+     (end
       (let ((first (u32vector-ref chunk used)) (last (u32vector-ref chunk (fx- end 1)))
             (size (fx- end used)))
         (when (fx< (fxmin first last) owner) (set! direction (fxand direction 1)))
         (when (fx> (fxmax first last) owner) (set! direction (fxand direction 2)))
         (set! edges (fx+ edges size))
         (set! declared (+ declared size))
-        (set! used end))
+        (set! used end)))
+     ((and deferred-rows? (pair? deps) (null? (cdr deps)))
+      ;; The admitted roster owns unique symbols. An adjacent identity hit
+      ;; identifies the same ordinal as the bucket lookup. A miss still uses
+      ;; the bucket index and preserves the original refusal.
+      (def dep (car deps))
+      (def next (fx+ owner 1))
+      (def id (and (symbol? dep)
+        (cond ((and (fx< next count) (eq? dep (vector-ref keys next))) next)
+              ((and (fx> owner 0) (eq? dep (vector-ref keys (fx- owner 1)))) (fx- owner 1))
+              (else (position dep)))))
+      (capture-target! key owner deps id)
+      (store-row! key owner (list dep))
+      (set! declared (1+ declared)))
+     (else
       (let ()
         ;; Keep the finite/proper-list guard before any length or hash primitive.
         ;; Symbol admission shares the subsequent ID pass; this pure interval
@@ -473,14 +495,10 @@
                               (else (delete-duplicates/hash deps))))
               (for (dep unique)
                 (let (id (position dep))
-                  (unless id (error "unsupported component read" key deps))
-                  (cond ((fx< id owner) (set! direction (fxand direction 1)))
-                        ((fx> id owner) (set! direction (fxand direction 2))))
-                  (append-target owner id))
-                (set! edges (1+ edges)))
+                  (capture-target! key owner deps id)))
               (store-row! key owner (if (and (pair? unique) (null? (cdr unique)))
                                     (list (car unique)) unique)))))
-        (set! declared (+ declared row-length)))))
+        (set! declared (+ declared row-length))))))
   (def index
     (and packed?
       (begin
