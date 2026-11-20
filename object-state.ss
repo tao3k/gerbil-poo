@@ -14,6 +14,8 @@
 ;; A filtered edge ignores only one direct assignment. Its payload never
 ;; holds the weak key. A second registration can widen the edge.
 (defstruct slot-excluded-edge (state slot) final: #t)
+;; An excluded edge is distinct from an unverified child state such as #f.
+(def excluded-edge (cons #f #f))
 
 (def (depend-on-state! parent child child-state (excluded-slot #f))
   (unless (object-state-dependents parent)
@@ -54,8 +56,9 @@
   (let ((seen (make-hash-table-eq)) (affected '()))
     (def (admitted-state edge edited-slot)
       (if (slot-excluded-edge? edge)
-        (and (not (eq? edited-slot (slot-excluded-edge-slot edge)))
-             (slot-excluded-edge-state edge))
+        (if (eq? edited-slot (slot-excluded-edge-slot edge))
+          excluded-edge
+          (slot-excluded-edge-state edge))
         edge))
     (def (walk state edited-slot)
       (let (index (object-state-dependents state))
@@ -64,7 +67,8 @@
           (hash-for-each
             (lambda (child edge)
               (let (child-state (admitted-state edge edited-slot))
-                (when child-state (visit child child-state #f))))
+                (unless (eq? child-state excluded-edge)
+                  (visit child child-state #f))))
             index))))
     (def (visit owner state edited-slot)
       (let (prior (hash-get seen owner))
@@ -89,8 +93,10 @@
     (def checked-slot #f)
     (def (check-edge! child edge)
       (let (child-state (admitted-state edge checked-slot))
-        (when (and child-state (not (eq? (hash-get seen child) child-state)))
-          (error "dependency graph changed during invalidation"))))
+        (unless (eq? child-state excluded-edge)
+          (let (prepared (hash-get seen child))
+            (unless (and prepared (eq? prepared child-state))
+              (error "dependency graph changed during invalidation"))))))
     (for-each (lambda (entry)
                 (let ((index (object-state-dependents (cdr entry)))
                       (visited (hash-get seen (car entry))))
