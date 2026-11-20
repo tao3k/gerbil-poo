@@ -11,8 +11,9 @@
         (only-in :std/error raise-unbound-key)
         (only-in :gerbil/runtime/interface interface-instance-object)
         (only-in :gerbil/runtime/hash symbol-hash-table? gc-hash-table::t)
-        (only-in :gerbil/runtime/table symbolic-table-ref symbolic-table-set!
-                 make-gc-table gc-table-set! &gc-table-gcht &gc-table-gcht-set!)
+        (only-in :gerbil/runtime/table symbolic-table-ref symbolic-table-set! raw-table-new
+                 &raw-table-table &raw-table-table-set! &raw-table-count &raw-table-count-set!
+                 &raw-table-free &raw-table-free-set! make-gc-table gc-table-set! &gc-table-gcht &gc-table-gcht-set!)
         (only-in :gerbil/runtime/thread with-lock)
         (only-in :std/list/list delete-duplicates/hash foldl)
         (only-in :std/list/list-builder with-list-builder)
@@ -62,7 +63,8 @@
   (def owned (%partition-owned part))
   (def representative
     (if owned (and (symbol? node) (%index-ref (owned-partition-owner owned) node #f))
-      (hash-get (%partition-owners part) node)))
+      (let (owners (%partition-owners part))
+        (if (procedure? owners) (owners node #t) (hash-get owners node)))))
   (and representative (member-entry part representative)))
 (def (partition-group-of part node)
   (public-members part (group-entry part node)))
@@ -838,14 +840,18 @@
                           (%ordinal-index-routes-current?)
                           (gc-table-route-current? (ordinal-capture-adapter capture)))))
       (if ordinal?
-        (let* ((owners (make-hash-table-symbolic size: count seed: (%graph-table-seed)))
+        (let* ((owners (make-hash-table-symbolic seed: (%graph-table-seed)))
+               (backend (interface-instance-object owners))
                (members (make-hash-table-eq)))
           (if (and (standard-symbol-table-writes? owners) (%standard-symbol-table-lookup? owners)
                    (gc-table-route-current? members))
             (publish-ordinal-singletons keys reads (ordinal-capture-buckets capture)
               owners members validation-owners declared-edges (certify-ordinal-singletons index) complete)
-            (finish-compact-public keys reads index owners validation-owners declared-edges
-              complete retain-inverse?)))
+            (begin
+              (unless (symbol-hash-table? backend) (error "compact owner index representation"))
+              (install-owner-storage! backend (raw-table-new backend count))
+              (finish-compact-public keys reads index owners validation-owners declared-edges
+                complete retain-inverse?))))
         (finish-compact-public keys reads index #f validation-owners declared-edges
           complete retain-inverse?)))
     (let-values (((owners next component examined-edges finished popped) (discover keys reads captured-edges index)))
@@ -886,21 +892,48 @@
           (visit (fx+ at 1) end)))))
   (u32vector-length targets))
 
+(def (install-owner-storage! backend prepared)
+  (&raw-table-table-set! backend (&raw-table-table prepared))
+  (&raw-table-count-set! backend (&raw-table-count prepared))
+  (&raw-table-free-set! backend (&raw-table-free prepared)))
+
+(def (ordinal-owner-reader keys buckets table)
+  (def backend (interface-instance-object table))
+  (def pending? #t)
+  (def retirement (make-mutex 'partition-owners))
+  (lambda (key (optional? #f))
+    (def stock? (and pending? (%standard-symbol-table-lookup? table)))
+    (def ordinal (and stock? (symbol? key) (%ordinal-bucket-ref buckets key)))
+    (cond
+     (ordinal (vector-ref keys ordinal))
+     ((and stock? optional?) #f)
+     (else
+      ;; A strict miss can expose the table. Populate the original adapter
+      ;; with the original seed and source insertion order before delegation.
+      (when pending?
+        (with-lock retirement
+          (lambda ()
+            (when pending?
+              (let (prepared (raw-table-new backend (vector-length keys)))
+                (for (owner (in-vector keys)) (symbolic-table-set! prepared owner owner))
+                (install-owner-storage! backend prepared)
+                (set! pending? #f))))))
+      (if optional? (hash-get table key) (hash-ref table key))))))
+
 (def (publish-ordinal-singletons keys reads buckets owners members validation-owners declared-edges quotient-edges complete)
   (def count (vector-length keys))
   (def rows (make-vector count))
-  (def owner-backend (interface-instance-object owners))
   (def groups
     (for/collect ((key (in-vector keys)) (owner (in-range count)))
       (def group (list key))
-      (symbolic-table-set! owner-backend key key)
       (vector-set! rows owner (cons 1 group))
       group))
+  (def find-owner (ordinal-owner-reader keys buckets owners))
   (complete
-    (make-%partition groups (cut hash-ref owners <>) (cut reads <>)
+    (make-%partition groups (cut find-owner <>) (cut reads <>)
       (ordinal-row-reader keys buckets members (interface-instance-object members) rows hash-get)
       (work-receipt validation-owners declared-edges 0 0 0 0 count count
-        0 0 quotient-edges count 0 count quotient-edges) owners #f)))
+        0 0 quotient-edges count 0 count quotient-edges) find-owner #f)))
 
 (def (finish-partition keys reads validation-owners declared-edges
                        owners next component examined-edges finished popped (owned? #f) (complete values)
