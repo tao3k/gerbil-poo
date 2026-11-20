@@ -17,7 +17,8 @@
         "types.ss" "objects.ss" "funcs.ss")
 
 (extern namespace: clan/poo/object %ref-owned-list %publish-slot-edits! %owned-list-slot-spec
-        %with-slot-edit-protection object-construction-current? %put-assigned-slot!)
+        %with-slot-edit-protection object-construction-current? %put-assigned-slot!
+        %replay-fresh-slot-reads!)
 (extern namespace: clan/poo/slot-observation %make-owned-list %borrow-owned-list)
 (extern namespace: clan/poo/read-route %gc-table-route-backend)
 (extern namespace: clan/poo/clos/types %capture-direct-slot-proof make-direct-slot-proof)
@@ -381,7 +382,7 @@
           (unless (element? (.ref slot 'type) normalized)
             (raise-type-error (.ref slot 'type) normalized)))
         normalized)))
-  (replay-slot-reads! reads void)
+  (%replay-fresh-slot-reads! reads)
   (%record-slot-reads! reads)
   result)
 

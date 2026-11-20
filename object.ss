@@ -8,7 +8,8 @@
 (export (except-out #t object-record-read object-read-query object-read-bootstrap
                     %call-with-fresh-slot-read-group %admitted-vector-read-fields!
                     object-deliver-value require-object-read-route! object-issued-read-current?
-                    call-with-issued-reads active-read-replays issue-object-read %issue-read object-slot-names object-slot-present?
+                    call-with-issued-reads %call-with-current-slot-reads %replay-fresh-slot-reads! replay-read-list!
+                    active-read-replays issue-object-read %issue-read object-slot-names object-slot-present?
                     object-read-key object-read-dependencies object-read-value
                     require-current-read-sweep! %projection-read-visit-index %pure-read-sweep? %read-index-size-effect-free?
                     record-key-field record-dependencies-field record-value-field

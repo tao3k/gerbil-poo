@@ -144,7 +144,7 @@
            (eq? state-init (read-runtime.find-method state-class #f ':init!))))))
 ;; Share authenticated finite traversal structure; each call owns fresh source guards.
 (extern namespace: clan/poo/slot-observation %projection-read-visit-index)
-(defvalues (call-with-issued-reads call-with-current-slot-reads %bind-current-slot-reads
+(defvalues (call-with-issued-reads %call-with-current-slot-reads %bind-current-slot-reads
             %call-with-fresh-slot-read-group
             %register-slot-dependencies!)
   (let ()
@@ -290,7 +290,7 @@
         (with-projection roots
           (lambda (reads current! receivers _positions) (consume reads current! receivers))
           retain? fixed-result?))
-      (lambda (roots action)
+      (lambda (roots action retain?)
         (unless (procedure? action) (error "expected a slot-read checkpoint procedure"))
         (def fixed? (or (eq? action values) (eq? action void)))
         (without-observation
@@ -298,7 +298,7 @@
             (with-projection roots
               (lambda (reads current! receivers positions)
                 (require-current-read-sweep! reads receivers positions current! (not fixed?))
-                (action (length reads))) #t fixed?))))
+                (action (length reads))) retain? fixed?))))
       ;; The captured program owns the exact traversal directly, without a
       ;; synthetic POO receiver. Every call still admits the live evidence.
       (lambda (roots)
@@ -369,9 +369,19 @@
     value))
 
 ;; Replay authenticated reads under the same guarded source set and final check.
+(def (call-with-current-slot-reads roots action)
+  (%call-with-current-slot-reads roots action #t))
+
 (def (replay-slot-reads! roots observe)
+  (replay-read-list! roots observe #t))
+
+;; The native sweep rechecks a fresh root spine without a retained owner.
+(def (%replay-fresh-slot-reads! roots)
+  (replay-read-list! roots void #f))
+
+(def (replay-read-list! roots observe retain?)
   (if (and (eq? observe void) (%pure-read-sweep?))
-    (begin (call-with-current-slot-reads roots void) (void))
+    (begin (%call-with-current-slot-reads roots void retain?) (void))
     (call-with-issued-reads roots
       (lambda (reads current! _receivers)
         (without-observation
