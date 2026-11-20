@@ -478,6 +478,9 @@ Each entry in `slot-definitions` specifies how to compute a given named slot:
      ```scheme
      slot-name
      ```
+     To capture an explicit expression, write `(slot-name := expression)`.
+     It is evaluated once during construction in the surrounding lexical scope.
+     The resulting value is available to descendants through ordinary inheritance.
 
   6. You can also define a default value for a slot.
      This value cannot depend on either `self` or `super` arguments;

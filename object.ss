@@ -847,13 +847,14 @@
          (when (or (bound-identifier=? name #'self)
                    (and (identifier? #'super) (bound-identifier=? name #'super)))
            (raise-syntax-error #f "slot binding conflicts with self or super" stx name))) selected)
-       ;; Preserve lexical shorthand capture; only actual computed formulas need
+       ;; Preserve lexical slot capture; only actual computed formulas need
        ;; the inherited computation alias. Explicit per-slot names keep working.
        (def transformed (if (eq? (syntax-e #'super) #f) methods
          (map (lambda (spec)
            (with-syntax ((super #'super))
-             (syntax-case spec (=> =>.+)
+             (syntax-case spec (:= => =>.+)
                ((name) spec)
+               ((name := form) spec)
                ((name => form args ...) #'(name (super) (form (super) args ...)))
                ((name =>.+ args ...) #'(name (super) (.+ (super) args ...)))
                ((name (next) form) #'(name (next) (let ((super next)) form)))

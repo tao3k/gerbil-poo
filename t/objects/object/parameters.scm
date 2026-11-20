@@ -125,6 +125,11 @@
       (check (rejects? (.o self: same super: same x: 2)) => #t)
       (check (rejects? (.o self: x x: 2)) => #t)
       (check (rejects? (.o bind-these: #f bind-these: #t x: 2)) => #t))
+    (test-case "constant slot syntax rejects malformed and duplicate declarations"
+      (check (rejects? (.o (identity :=))) => #t)
+      (check (rejects? (.o (identity := 1 2))) => #t)
+      (check (rejects? (.o (identity := 1) identity: 2)) => #t)
+      (check (rejects? (match (.o identity: 1) ({(identity := 1)} #t))) => #t))
     (test-case "keyword syntax preserves C3 inherited-thunk and final-self behavior"
       (let* ((partial (parameters.specialize service.Service 10))
              (closed (parameters.specialize partial 3))
@@ -158,6 +163,32 @@
         (check-equal? (.get value fallback) 7)
         (check-equal? (.get value self) 'data)
         (check-equal? (.get value super) 'slot)))
+    (test-case "explicit constant slots capture values before the receiver exists"
+      (def captures 0)
+      (def computations 0)
+      (def identity 'lexical)
+      (def prior 'outer)
+      (def parent (.o n: 3))
+      (def prototype
+        (.o self: receiver super: prior inherit: (list parent)
+          (identity := (begin
+                         (set! captures (1+ captures))
+                         (vector identity prior)))
+          (generation := #f)
+          (n (+ (prior) 2))
+          observed: (begin
+                      (set! computations (1+ computations))
+                      (.get receiver n))))
+      (check-equal? captures 1)
+      (check-equal? computations 0)
+      (def child (.o (:: @ prototype) (n => + 2)))
+      (check-equal? (.get prototype identity) '#(lexical outer))
+      (check (eq? (.get prototype identity) (.get child identity)) => #t)
+      (check-equal? (.get child generation) #f)
+      (check-equal? (.get prototype observed) 5)
+      (check-equal? (.get child observed) 7)
+      (check-equal? captures 1)
+      (check-equal? computations 2))
     (test-case "optional keyword rest and from:type forwarding retain exact values"
       (let* ((self (.o collect: (lambda (required optional tag: tag . rest)
                      (list required optional tag rest))))

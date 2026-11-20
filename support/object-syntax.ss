@@ -48,18 +48,21 @@
       table: (make-bound-identifier-table)
       from-end?: #t))
 
-  ;; Capture lexical shorthand once before slot-binding syntax is introduced.
+  ;; Evaluate constant slots once, before installing receiver bindings.
   (def (prepare-shared-slot-specs specs)
     (let loop ((rest specs) (bindings []) (result []))
       (match rest
         ([] [(reverse bindings) (reverse result)])
         ([spec . tail]
-         (syntax-case spec ()
-           ((slot)
-            (with-syntax ((value (genident 'slot-value)))
-              (loop tail
-                    [#'(value slot) . bindings]
-                    [#'(slot lexical-slot-value value) . result])))
+         (def (capture slot expression)
+           (with-syntax ((slot slot) (expression expression)
+                         (value (genident 'slot-value)))
+             (loop tail
+                   [#'(value expression) . bindings]
+                   [#'(slot lexical-slot-value value) . result])))
+         (syntax-case spec (:=)
+           ((slot := expression) (capture #'slot #'expression))
+           ((slot) (capture #'slot #'slot))
            (_ (loop tail bindings [spec . result]))))))))
 
 
@@ -74,6 +77,7 @@
   ;;  - (slot-name value-expr)                           ; ignore parent, override
   ;;  - (slot-name => function-expr extra-arg-expr ...)  ; invoke parent, pass into function
   ;;  - (slot-name (inherited-computation) value-expr)   ; lazy reference to parent
+  ;;  - (slot-name := value-expr)                        ; capture in lexical scope
   ;;  - (slot-name)                                      ; same-named var from surrounding scope
   ;;  - (slot-name =>.+ object-expr)                     ; override parent with a mixin
   ;;  - (slot-name ?: default-expr)                      ; default for the slot
@@ -119,7 +123,9 @@
         (raise-syntax-error #f "Multiple slot defaults specified" name ctx)
         (hash-put! defaults sym #f))
       (d [name value]))
-    (syntax-case spec (?)
+    (syntax-case spec (:= ?)
+      ((name := value) (do-method #'name #'(:= value)))
+      ((name := . more) (raise-syntax-error #f "Expected one constant slot expression" ctx spec))
       ((name value) (do-method #'name #'(value)))
       ((name ? value) (do-defaults #'name #'value))
       ((name ? . more) (raise-syntax-error #f "Invalid slot default specified" ctx #'name))
@@ -143,9 +149,10 @@
     (with ([slot-methods defaults] (normalize-slot-specs ctx specs))
       (unless (null? defaults) (raise-syntax-error #f "? not allowed in patterns" ctx))
       (for/collect ((s slot-methods))
-        (syntax-case s (=> =>.+ ?)
+        (syntax-case s (:= => =>.+ ?)
           ((slot form) #'(slot form))
           ((slot) #'(slot slot))
+          ((slot := . _) (raise-syntax-error #f ":= not allowed in patterns" ctx))
           ((slot ? . _) (raise-syntax-error #f "? not allowed in patterns" ctx))
           ((slot => . _) (raise-syntax-error #f "=> not allowed in patterns" ctx))
           ((slot =>.+ . _) (raise-syntax-error #f "=>.+ not allowed in patterns" ctx))
