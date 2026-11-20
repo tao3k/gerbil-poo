@@ -59,6 +59,9 @@ package GraphColdIndex {
                while the captured row table uses the stock native route.
                Before a changed delegate or a wide fallback, restore accepted
                rows to the original table. Preserve the missing-key error
-               and the identity of rows returned before restoration. */
+               and the identity of rows returned before restoration.
+               While packed, a point read adds only its requested entry to
+               the original table. Enumeration preserves earlier group
+               identities and their source order. */
     }
 }

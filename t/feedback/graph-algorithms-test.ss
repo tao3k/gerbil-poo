@@ -501,6 +501,16 @@
       (hash-put! visible 'a 'd)
       (check-eq? (owner 'a) 'd)
       (check-eq? (scc.partition-group-of result 'a) (scc.partition-members result 'd))
+      ;; Retiring before the first enumeration must also retain issued tokens.
+      (def retired (partition-captured names rows edges 4 declared index))
+      (def prior-group (scc.partition-members retired 'b))
+      (set-car! prior-group 'prior)
+      (dynamic-wind void
+        (lambda ()
+          (runtime.slot-set! HashTable::interface 'type (##structure-copy descriptor))
+          (check-eq? (scc.partition-members retired 'b) prior-group))
+        (lambda () (runtime.slot-set! HashTable::interface 'type descriptor)))
+      (check-eq? (cadr (scc.partition-groups retired)) prior-group)
       (def mismatched (make-compact-graph names (compact-graph-positions index)
                        (compact-graph-offsets index) (compact-graph-targets index) 1))
       (check-exception (partition-captured names rows edges 4 declared mismatched)

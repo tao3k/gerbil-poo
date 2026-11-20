@@ -13,7 +13,8 @@
         (only-in :gerbil/runtime/hash symbol-hash-table? gc-hash-table::t)
         (only-in :gerbil/runtime/table symbolic-table-ref symbolic-table-set! raw-table-new
                  &raw-table-table &raw-table-table-set! &raw-table-count &raw-table-count-set!
-                 &raw-table-free &raw-table-free-set! make-gc-table gc-table-set! &gc-table-gcht &gc-table-gcht-set!)
+                 &raw-table-free &raw-table-free-set! make-gc-table gc-table-ref gc-table-set! gc-table-for-each
+                 &gc-table-gcht &gc-table-gcht-set!)
         (only-in :gerbil/runtime/thread with-lock)
         (only-in :std/list/list delete-duplicates/hash foldl)
         (only-in :std/list/list-builder with-list-builder)
@@ -25,7 +26,7 @@
         (only-in ./read-route gc-table-route-current? standard-symbol-table-writes?)
         ./object)
 (extern namespace: clan/poo/read-route %ordinal-index-routes-current?
-  %standard-symbol-table-lookup? %gc-scratch-routes-current?)
+  %standard-symbol-table-lookup? %gc-scratch-routes-current? %gc-table-route-backend)
 ;; Public groups/representatives retain source order, independently of DFS order.
 (defstruct %partition (groups owner reads members work owners owned) final: #t)
 (defstruct owned-partition (roster forward backward owner members shape retired?) final: #t)
@@ -219,9 +220,8 @@
                            (write (cdr rest) (fx+ at 1) id)))))
                  (else #f))))))
 
-;; Restore the accepted prefix into the original table adapter. Its backend
-;; has never escaped or received a write. Populate the native backend without
-;; replaying an author or calling a replaced interface delegate for past rows.
+;; Restore the accepted rows into the original table adapter. Preserve any
+;; projected tokens without replaying authors or calling a replaced delegate.
 (def (restore-ordinal-rows! keys backend row-at)
   (def restored (make-gc-table (vector-length keys) gc-hash-table::t))
   (for (i (in-range (vector-length keys)))
@@ -230,31 +230,38 @@
 
 (def (ordinal-row-reader keys buckets table backend rows (decode #f))
   (def retirement (make-mutex 'captured-rows))
-  (def (row-at i)
-    (when (eq? rows #t) (set! rows (make-vector (vector-length keys) #f)))
-    (or (vector-ref rows i)
-        (let (row (decode i))
-          (vector-set! rows i row)
-          row)))
+  (def (sparse-row i)
+    (gc-table-ref backend (vector-ref keys i) #f))
+  (def (retire!)
+    (restore-ordinal-rows! keys backend
+      (if (eq? rows #t)
+        (lambda (i) (or (sparse-row i) (decode i)))
+        (cut vector-ref rows <>)))
+    (set! rows #f)
+    (set! decode #f))
   (def (lookup key empty-default?)
     (if empty-default? (hash-ref table key []) (hash-ref table key)))
   (lambda (key (empty-default? #f))
+    (def (position)
+      (and (symbol? key) (eq? backend (%gc-table-route-backend table))
+           (%ordinal-bucket-ref buckets key)))
     (def current rows)
-    (def i (and current (gc-table-route-current? table) (symbol? key)
-                 (%ordinal-bucket-ref buckets key)))
-    (cond
-     (i (or (and (vector? current) (vector-ref current i))
-            (let (row (with-lock retirement (lambda () (and rows (row-at i)))))
-              (or row (lookup key empty-default?)))))
-     (else
-      (when current
-        (with-lock retirement
-          (lambda ()
-            (when rows
-              (restore-ordinal-rows! keys backend (if (eq? rows #t) decode row-at))
-              (set! rows #f)
-              (set! decode #f)))))
-      (lookup key empty-default?)))))
+    (def dense (and (vector? current) (let (i (position)) (and i (vector-ref current i)))))
+    (or dense
+        (and current
+          (with-lock retirement
+            (lambda ()
+              (and rows
+                (let (i (position))
+                  (cond
+                   ((not i) (retire!) #f)
+                   ((eq? rows #t)
+                    (or (sparse-row i)
+                        (let (row (decode i))
+                          (gc-table-set! backend key row)
+                          row)))
+                   (else (vector-ref rows i))))))))
+        (lookup key empty-default?))))
 
 (def (compact-symbolic-row keys offsets targets owner)
   (def lo (u32vector-ref offsets owner))
@@ -961,36 +968,57 @@
   (def ordered #f)
   (def pending? #t)
   (def retirement (make-mutex 'partition-members))
+  (def absent-member (gensym 'absent-member))
+  (def (ensure-cells!)
+    (unless cells
+      (let (prepared (make-vector count #f))
+        (gc-table-for-each backend
+          (lambda (key entry)
+            (vector-set! prepared (%ordinal-bucket-ref buckets key) (cdr entry))))
+        (set! cells prepared))))
   (def (group-at i)
-    (unless cells (set! cells (make-vector count #f)))
     (or (vector-ref cells i)
         (let (group (list (vector-ref keys i)))
           (vector-set! cells i group)
           group)))
+  (def (sparse-group key)
+    (let (entry (gc-table-ref backend key #f))
+      (if entry (cdr entry)
+        (let (group (list key))
+          (gc-table-set! backend key (cons 1 group))
+          group))))
   (def (table-member key size?)
     (let (entry (hash-get table key))
       (and entry (if size? (car entry) (cdr entry)))))
   (def (member key size?)
-    (cond
-     ((and pending? (gc-table-route-current? table))
-      (let (i (and (symbol? key) (%ordinal-bucket-ref buckets key)))
-        (and i (if size? 1
-                 (let (group (with-lock retirement
-                               (lambda () (and pending? (group-at i)))))
-                   (or group (table-member key #f)))))))
-     (else
-      (with-lock retirement
-        (lambda ()
-          (when pending?
-            (restore-ordinal-rows! keys backend (lambda (i) (cons 1 (group-at i))))
-            (set! pending? #f)
-            (when ordered (set! cells #f)))))
-      (table-member key size?))))
+    (if (not pending?) (table-member key size?)
+      (let (decision
+            (with-lock retirement
+              (lambda ()
+                (cond
+                 ((not pending?) #f)
+                 ((eq? backend (%gc-table-route-backend table))
+                  ;; A stock miss stays private, including when size is asked.
+                  (let (i (and (symbol? key) (%ordinal-bucket-ref buckets key)))
+                    (cond ((not i) absent-member)
+                          (size? 1)
+                          (cells (group-at i))
+                          (else (sparse-group key)))))
+                 (else
+                  (ensure-cells!)
+                  (restore-ordinal-rows! keys backend (lambda (i) (cons 1 (group-at i))))
+                  (set! pending? #f)
+                  (when ordered (set! cells #f))
+                  #f)))))
+        (cond ((eq? decision absent-member) #f)
+              (decision decision)
+              (else (table-member key size?))))))
   (def (groups)
     (or ordered
         (with-lock retirement
           (lambda ()
             (unless ordered
+              (ensure-cells!)
               (set! ordered
                 (let build ((end count) (groups []))
                   (if (zero? end) groups
