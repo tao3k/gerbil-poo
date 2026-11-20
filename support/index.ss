@@ -2,11 +2,13 @@
 (export %index %index-project %index-ref %index-fork %index-write! %index-retire!
         %index? %index-base %index-changes %index-overridden?
         %roster %roster-width %roster-position %roster-keys %roster-for-each
-        %roster-project %roster-append %roster-retire)
+        %roster-project %roster-append %roster-retire
+        %make-ordinal-buckets %ordinal-bucket-ref)
 (import (only-in :std/struct/rbtree RBTree rbtree-copy rbtree-ref rbtree-put!
                  rbtree-remove! rbtree-for-each)
         (only-in :std/error raise-unbound-key)
         (only-in :std/list/list-builder with-list-builder)
+        (only-in :gerbil/runtime/table symbolic-hash)
         (only-in ./base %compare-symbol-identity))
 
 ;; The cold owner retains its admitted table or projection. Forking shares that
@@ -17,6 +19,58 @@
 (defalias %index-base index-base)
 (defalias %index-changes index-changes)
 (def missing-index-entry (gensym 'missing-index-entry))
+
+;; The existing owner vector supplies identity. Buckets hold only u32
+;; positions and boundaries. Excessive collisions select the ordinary table
+;; before any owner callback. No ranges or values are published during build.
+(defstruct ordinal-buckets (keys offsets positions mask) final: #t)
+(def (ordinal-bucket key mask) (fxand (symbolic-hash key) mask))
+
+(def (%make-ordinal-buckets keys)
+  (def count (vector-length keys))
+  (def width (arithmetic-shift 1 (integer-length (fxquotient count 4))))
+  (def mask (fx- width 1))
+  (def offsets (make-u32vector (fx+ width 1) 0))
+  (def (scan i)
+    (or (fx= i count)
+        (let (key (vector-ref keys i))
+          (and (symbol? key)
+               (let* ((id (ordinal-bucket key mask))
+                      (size (u32vector-ref offsets id)))
+                 (and (fx< size 24)
+                      (begin
+                        (u32vector-set! offsets id (fx+ size 1))
+                        (scan (fx+ i 1)))))))))
+  (and (scan 0)
+    (let (positions (make-u32vector count 0))
+      (let prefix ((id 0) (end 0))
+        (if (fx= id width) (u32vector-set! offsets width end)
+          (let (end (fx+ end (u32vector-ref offsets id)))
+            (u32vector-set! offsets id end)
+            (prefix (fx+ id 1) end))))
+      ;; Scatter backwards so decrementing each end preserves roster order.
+      (let scatter ((i (fx- count 1)))
+        (unless (fx< i 0)
+          (let* ((id (ordinal-bucket (vector-ref keys i) mask))
+                 (at (fx- (u32vector-ref offsets id) 1)))
+            (u32vector-set! offsets id at)
+            (u32vector-set! positions at i)
+            (scatter (fx- i 1)))))
+      (let (index (make-ordinal-buckets keys offsets positions mask))
+        (let distinct ((i 0))
+          (if (fx= i count) index
+            (and (eqv? i (%ordinal-bucket-ref index (vector-ref keys i)))
+                 (distinct (fx+ i 1)))))))))
+
+(def (%ordinal-bucket-ref index key)
+  (using (index :- ordinal-buckets)
+    (let* ((id (ordinal-bucket key index.mask))
+           (end (u32vector-ref index.offsets (fx+ id 1))))
+      (let scan ((at (u32vector-ref index.offsets id)))
+        (and (fx< at end)
+             (let (i (u32vector-ref index.positions at))
+               (if (eq? (vector-ref index.keys i) key) i
+                 (scan (fx+ at 1)))))))))
 
 (def (%index base) (make-index base #f))
 (def (%index-fork source)

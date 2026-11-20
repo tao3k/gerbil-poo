@@ -8,6 +8,7 @@
         (only-in :gerbil/runtime/table symbolic-table-ref symbolic-table-set!)
         :clan/poo/type :clan/poo/number (prefix-in :clan/poo/testing/type typed.)
         (only-in :clan/poo/support/testing require-property-passed)
+        (only-in :clan/poo/support/index %make-ordinal-buckets %ordinal-bucket-ref)
         (rename-in (only-in :clan/poo/benchmarks/closure-measure measure qualified-metrics) (measure raw-measure))
         (only-in :std/list/list filter foldl find take append-map delete-duplicates/hash)
         (prefix-in :clan/poo/generalized-graph graph.)
@@ -420,6 +421,31 @@
           (check-exception (kernel '(a b) (lambda (_) bad) #f) error-object?)))))
 
 (def (check-graph-projection)
+    (test-case "packed owner buckets preserve symbol identity and refusal order"
+      (def left (string->uninterned-symbol "owner"))
+      (def right (string->uninterned-symbol "owner"))
+      (def absent (string->uninterned-symbol "owner"))
+      (def names (vector left right))
+      (def buckets (%make-ordinal-buckets names))
+      ;; Both ordinals occupy one bucket, including the valid ordinal zero.
+      (check-equal? (%ordinal-bucket-ref buckets left) 0)
+      (check-equal? (%ordinal-bucket-ref buckets right) 1)
+      (check-eq? (%ordinal-bucket-ref buckets absent) #f)
+      (check-eq? (%make-ordinal-buckets (vector left left)) #f)
+      (check-eq? (%make-ordinal-buckets (make-vector 25 left)) #f)
+      (make-hash-table-symbolic seed: 0)
+      (def calls [])
+      (def (read key) (set! calls (cons key calls)) (if (eq? key left) (list right) []))
+      (defvalues (rows index declared edges) (capture-graph names read))
+      (check-eq? (compact-graph-positions index) #f)
+      (check-equal? (reverse calls) (list left right))
+      (check-equal? (hash-ref rows left) (list right))
+      (check-equal? (list declared edges) '(1 1))
+      (set! calls [])
+      (check-exception (capture-graph (vector left left 7 right) read)
+        (lambda (failure) (and (Error? failure)
+          (equal? (Error-message failure) "symbolic captured owner required"))))
+      (check-equal? calls []))
     (test-case "query row projection restores completed rows at the word boundary"
       ;; Reduced PRIVATE word ceilings cover first-row fallback, empty rows,
       ;; rightmost duplicates, chunk crossings and the singleton append route.

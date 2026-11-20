@@ -47,4 +47,11 @@ package GraphColdIndex {
                refusal order, callback count and the original list-based
                fallback outside the packed word domain. */
     }
+    requirement def OrdinalOwnerBuckets {
+        doc /* Before any owner callback, bucket the admitted names by their
+               Gerbil symbol hash. Store only ordinals and prefix bounds.
+               Compare the original symbols by identity. Long buckets,
+               non-symbols, duplicates and changed table routes enter the
+               ordinary admission path with the original seed transition. */
+    }
 }

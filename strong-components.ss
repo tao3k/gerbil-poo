@@ -15,9 +15,11 @@
         (only-in :std/list/list-builder with-list-builder)
         (only-in ./support/base %graph-table-seed)
         (only-in ./support/index %roster %roster-width %roster-position %roster-keys %roster-for-each %roster-project
-                 %index %index-ref %index-fork %index-write! %index-retire! %index-overridden?)
+                 %index %index-ref %index-fork %index-write! %index-retire! %index-overridden?
+                 %make-ordinal-buckets %ordinal-bucket-ref)
         (only-in ./generalized-graph %reverse-bucket-remove %reverse-bucket-add %for-each-reverse-bucket)
         ./object)
+(extern namespace: clan/poo/read-route %ordinal-index-routes-current?)
 ;; Public groups/representatives retain source order, independently of DFS order.
 (defstruct %partition (groups owner reads members work owners owned) final: #t)
 (defstruct owned-partition (roster forward backward owner members shape retired?) final: #t)
@@ -211,21 +213,33 @@
   (unless (and (exact-integer? edge-word-ceiling) (<= 0 edge-word-ceiling 4294967295))
     (error "captured edge word ceiling" edge-word-ceiling))
   (def count (capture-roster-length keys))
-  (def positions (make-hash-table-symbolic size: count seed: (%graph-table-seed)))
-  (def raw (interface-instance-object positions))
-  (unless (symbol-hash-table? raw) (error "captured owner index representation"))
+  (def word-support? (and (fixnum? (* 2 count)) (<= (* 2 count) 4294967295)))
+  (def buckets (and word-support? symbolic-rows? (not stable-rows?) (vector? keys)
+                    (%ordinal-index-routes-current?) (%make-ordinal-buckets keys)))
+  (def positions
+    (if buckets
+      (begin
+        ;; Preserve the native constructor's seed transition. Discovery
+        ;; does not need a separate key table when capture used buckets.
+        (make-hash-table-symbolic seed: (%graph-table-seed))
+        #f)
+      (make-hash-table-symbolic size: count seed: (%graph-table-seed))))
+  (def raw (and positions (interface-instance-object positions)))
   (def (assign! key at)
     (unless (symbol? key) (error "symbolic captured owner required" key))
     (symbolic-table-set! raw key at))
-  (if (vector? keys)
-    (for ((key (in-vector keys)) (at (in-range count)))
-      (assign! key at))
-    (let assign ((rest keys) (at 0))
-      (unless (null? rest)
-        (assign! (car rest) at)
-        (assign (cdr rest) (1+ at)))))
-  (unless (= count (hash-length positions)) (error "distinct captured owners required"))
-  (def word-support? (and (fixnum? (* 2 count)) (<= (* 2 count) 4294967295)))
+  (when positions
+    (unless (symbol-hash-table? raw) (error "captured owner index representation"))
+    (if (vector? keys)
+      (for ((key (in-vector keys)) (at (in-range count)))
+        (assign! key at))
+      (let assign ((rest keys) (at 0))
+        (unless (null? rest)
+          (assign! (car rest) at)
+          (assign (cdr rest) (1+ at)))))
+    (unless (= count (hash-length positions)) (error "distinct captured owners required")))
+  (def (position key)
+    (if buckets (%ordinal-bucket-ref buckets key) (symbolic-table-ref raw key #f)))
   (def packed? word-support?)
   ;; Per-invocation duplicate membership, allocated only for a multi-key row.
   ;; It never stores source/currentness approvals. Two fresh stamps per owner
@@ -344,7 +358,7 @@
             (def repeated?
               (let fill ((pending deps) (at 0) (repeated? (or (and reads #t) (fx< fresh-streak 2))))
                 (if (null? pending) repeated?
-                  (let* ((dep (car pending)) (id (and (symbol? dep) (symbolic-table-ref raw dep #f))))
+                  (let* ((dep (car pending)) (id (and (symbol? dep) (position dep))))
                     (unless id (error "unsupported component read" key deps))
                     (cond ((fx< id owner) (set! direction (fxand direction 1)))
                           ((fx> id owner) (set! direction (fxand direction 2))))
@@ -385,7 +399,7 @@
             (let (unique (cond ((null? deps) []) ((null? (cdr deps)) deps)
                               (else (delete-duplicates/hash deps))))
               (for (dep unique)
-                (let (id (symbolic-table-ref raw dep #f))
+                (let (id (position dep))
                   (unless id (error "unsupported component read" key deps))
                   (cond ((fx< id owner) (set! direction (fxand direction 1)))
                         ((fx> id owner) (set! direction (fxand direction 2))))
@@ -716,7 +730,11 @@
   ;; The public cold path can use the same private ordered vector for owner
   ;; admission, CSR naming and certificate traversal. The published revision
   ;; path still gives own-partition its original list.
-  (set! keys (if owned? (append keys []) (list->vector keys)))
+  ;; Below this width Gerbil's symbolic table reserves less than 256 MiB.
+  ;; Keep the ordinary hot path until a packed roster pays for itself.
+  (set! keys (if (and (not owned?) (>= (length keys) 4194304))
+               (list->vector keys)
+               (append keys [])))
   (let-values (((reads index declared-edges captured-edges)
                  (capture-graph keys read-owner #t 4294967295 'adjacent owned?)))
     ;; Retain only the ownership fields across discovery/certification. Keeping
