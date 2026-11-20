@@ -41,4 +41,10 @@ package GraphColdIndex {
                not replace membership/admission or infer rank bounds. Native
                constructor seed effects, point reads and snapshot forks stay. */
     }
+    requirement def PrivateColdRoster {
+        doc /* Snapshot the public cold owner's sequence once. Use the ordered
+               vector for admission, CSR naming and certification. Preserve
+               refusal order, callback count and the original list-based
+               fallback outside the packed word domain. */
+    }
 }

@@ -129,6 +129,9 @@
 
 (defstruct compact-graph (names positions offsets targets direction) final: #t)
 
+(def (capture-roster-length keys)
+  (if (vector? keys) (vector-length keys) (length keys)))
+
 (def (capture-compact keys reads edges)
   (def count (length keys))
   (unless (and (fixnum? count) (fixnum? (1+ count)) (fixnum? edges) (<= 0 count 4294967295)
@@ -207,15 +210,20 @@
   ;; bounded tests. Production always uses the full u32 range; it cannot expand.
   (unless (and (exact-integer? edge-word-ceiling) (<= 0 edge-word-ceiling 4294967295))
     (error "captured edge word ceiling" edge-word-ceiling))
-  (def count (length keys))
+  (def count (capture-roster-length keys))
   (def positions (make-hash-table-symbolic size: count seed: (%graph-table-seed)))
   (def raw (interface-instance-object positions))
   (unless (symbol-hash-table? raw) (error "captured owner index representation"))
-  (let assign ((rest keys) (at 0))
-    (unless (null? rest)
-      (unless (symbol? (car rest)) (error "symbolic captured owner required" (car rest)))
-      (symbolic-table-set! raw (car rest) at)
-      (assign (cdr rest) (1+ at))))
+  (def (assign! key at)
+    (unless (symbol? key) (error "symbolic captured owner required" key))
+    (symbolic-table-set! raw key at))
+  (if (vector? keys)
+    (for ((key (in-vector keys)) (at (in-range count)))
+      (assign! key at))
+    (let assign ((rest keys) (at 0))
+      (unless (null? rest)
+        (assign! (car rest) at)
+        (assign (cdr rest) (1+ at)))))
   (unless (= count (hash-length positions)) (error "distinct captured owners required"))
   (def word-support? (and (fixnum? (* 2 count)) (<= (* 2 count) 4294967295)))
   (def packed? word-support?)
@@ -227,7 +235,7 @@
   ;; the next two unique multi-target rows through the ordinary reverse scan.
   (def fresh-streak 2)
   (def ordered-trial? (and ordered-rows? (not symbolic-rows?)))
-  (def row-buffer #f) (def owner-names #f)
+  (def row-buffer #f) (def owner-names (and (vector? keys) keys))
   (def offsets (and packed? (make-u32vector (1+ count) 0)))
   (def reads (and (or symbolic-rows? (not packed?))
                    (if stable-rows? (make-hash-table-symbolic size: count seed: (%graph-table-seed))
@@ -662,14 +670,16 @@
 ;; representation or Module identity changes, no shared traversal workspace.
 ;; Word-domain dispatch preserves the original wide representation outside u32.
 (def (discover keys reads (captured-edges #f) (captured-index #f))
-  (def count (length keys))
-  (def edges (or captured-edges (foldl (lambda (key n) (+ n (length (hash-ref reads key)))) 0 keys)))
+  (def count (capture-roster-length keys))
+  (def (list-keys) (if (vector? keys) (vector->list keys) keys))
+  (def edges (or captured-edges
+                 (foldl (lambda (key n) (+ n (length (hash-ref reads key)))) 0 (list-keys))))
   (if (and (fixnum? (* 2 count)) (<= (* 2 count) 4294967295)
            (fixnum? edges) (<= edges 4294967295))
-    (let (result (compact-discovery-result (or captured-index (capture-compact keys reads edges))))
+    (let (result (compact-discovery-result (or captured-index (capture-compact (list-keys) reads edges))))
       (values (vector-ref result 0) (vector-ref result 1) (vector-ref result 2)
               (vector-ref result 3) (vector-ref result 4) (vector-ref result 5)))
-    (discover-wide keys reads)))
+    (discover-wide (list-keys) reads)))
 
 ;; The component-ID map is transient: normalization returns only final indices.
 (def (normalize keys owners (owned? #f))
@@ -703,7 +713,10 @@
   ;; second duplicate table (empty_owner_index_admits_exactly_nodup).
   (unless (list? keys) (error "distinct finite component keys required"))
   ;; Own the admitted roster before the first independent author callback.
-  (set! keys (append keys []))
+  ;; The public cold path can use the same private ordered vector for owner
+  ;; admission, CSR naming and certificate traversal. The published revision
+  ;; path still gives own-partition its original list.
+  (set! keys (if owned? (append keys []) (list->vector keys)))
   (let-values (((reads index declared-edges captured-edges)
                  (capture-graph keys read-owner #t 4294967295 'adjacent owned?)))
     ;; Retain only the ownership fields across discovery/certification. Keeping
@@ -715,7 +728,8 @@
           (lambda (part inverse cycle?)
             (own-partition keys reads positions direction part inverse cycle?)))
         values))
-    (partition-captured keys reads captured-edges (length keys) declared-edges index owned? complete owned?)))
+    (partition-captured keys reads captured-edges (capture-roster-length keys)
+      declared-edges index owned? complete owned?)))
 
 ;; Compute SCCs from KEYS and validated READS. VALIDATION-OWNERS and
 ;; DECLARED-EDGES report the work already spent capturing those rows.
