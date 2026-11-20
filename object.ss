@@ -277,13 +277,22 @@
 ;; Internal construction borrows the private result without per-call snapshot copies.
 (def (compute-precedence-list! self (heads '()))
   (list-copy (compute-object-precedence! self heads)))
+(extern namespace: clan/poo/read-route %gc-scratch-routes-current?)
 ;; Delegate ordering to core C4. Hook continuations receive independent snapshots;
 ;; compare against the private canonical order and retain only that canonical order.
 ;; Hook errors and changed/improper orders clear the candidate cache before escape.
 (def (compute-object-precedence! self (heads '()))
   ;; Default warm queries need neither traversal state nor a second admission.
   ;; Explicit diagnostic heads retain their original preparation and error order.
-  (or (and (null? heads) (object-%precedence-list self)) (let ()
+  (or (and (null? heads) (object-%precedence-list self))
+      ;; C4 returns the head itself when there are no parents. Skip the
+      ;; temporary active set only when none of its delegates can call out.
+      (and (null? heads) (null? (object-%supers self)) (not (object-%protocol self))
+           (%gc-scratch-routes-current?)
+           (let (order (list self))
+             (set! (object-%precedence-list self) order)
+             order))
+      (let ()
       (def active (make-hash-table-eq))
       (for-each (lambda (head) (hash-put! active head #t)) heads)
       (let compute ((object self) (heads heads))

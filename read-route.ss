@@ -6,13 +6,15 @@
         %issued-read? %read-issuance)
 (import (only-in ./slot-layout slot-value-storage make-slot-values) :std/error ./slot-observation
   (prefix-in (only-in :gerbil/runtime/mop object? object-class make-class-slot-accessor
-                      class-slot-offset &class-type-slot-table slot-ref slot-set!) read-runtime.)
+                      class-slot-offset &class-type-slot-table &class-type-interface slot-ref slot-set!) read-runtime.)
   (only-in :gerbil/runtime/table raw-table? &raw-table-table &raw-table-hash &raw-table-test &raw-table-lock &raw-table-seed
            &raw-table-count
            &raw-table-free raw-table-for-each
-           symbolic-table-ref symbolic-table-set! symbolic-hash gc-table-ref gc-table-set! gc-table-length)
+           symbolic-table-ref symbolic-table-set! symbolic-hash gc-table-ref gc-table-set!
+           gc-table-delete! gc-table-length)
   (only-in :gerbil/runtime/hash HashTable::interface gc-hash-table::t)
-  (only-in :gerbil/runtime/interface &interface-descriptor-type interface-instance-object))
+  (only-in :gerbil/runtime/interface &interface-descriptor-type &interface-descriptor-index
+           interface-instance-object interface-subclass? prototype-table? prototype-table-table))
 (extern namespace: clan/poo/slot-layout scalar-shape-routes-current?)
 
 ;; The ordinary capture uses the symbolic writer and calls HashTable.length
@@ -105,27 +107,58 @@
 ;; This only checks the LIVE route. The owner must separately retain native
 ;; origin and retire it before any operation crosses an unknown route.
 ;; No sample table/adapter is constructed or warmed by this guard.
-(def %gc-table-route-backend
+(defvalues (%gc-table-route-backend %gc-scratch-routes-current?)
   (let* ((wrapper (&interface-descriptor-type HashTable::interface))
+         (wrapper-id (##type-id wrapper))
+         (backend-id (##type-id gc-hash-table::t))
          (object-offset (read-runtime.class-slot-offset wrapper 'object))
          (ref-offset (read-runtime.class-slot-offset wrapper 'ref))
          (set-offset (read-runtime.class-slot-offset wrapper 'set!))
+         (delete-offset (read-runtime.class-slot-offset wrapper 'delete!))
+         (last-offset (max object-offset ref-offset set-offset delete-offset))
          (object-field (read-runtime.make-class-slot-accessor wrapper 'object))
          (ref-field (read-runtime.make-class-slot-accessor wrapper 'ref))
-         (set-field (read-runtime.make-class-slot-accessor wrapper 'set!)))
-    (lambda (table)
-      (and (eq? wrapper (&interface-descriptor-type HashTable::interface))
-           (read-runtime.object? table)
-           (eq? (read-runtime.object-class table) wrapper)
-           (eqv? (read-runtime.class-slot-offset wrapper 'object) object-offset)
-           (eqv? (read-runtime.class-slot-offset wrapper 'ref) ref-offset)
-           (eqv? (read-runtime.class-slot-offset wrapper 'set!) set-offset)
-           (eq? (ref-field table) gc-table-ref)
-           (eq? (set-field table) gc-table-set!)
-           (let (backend (object-field table))
-             (and (read-runtime.object? backend)
-                  (eq? (read-runtime.object-class backend) gc-hash-table::t)
-                  backend))))))
+         (set-field (read-runtime.make-class-slot-accessor wrapper 'set!))
+         (delete-field (read-runtime.make-class-slot-accessor wrapper 'delete!)))
+    (values
+      (lambda (table)
+        (and (eq? wrapper (&interface-descriptor-type HashTable::interface))
+             (read-runtime.object? table)
+             (eq? (read-runtime.object-class table) wrapper)
+             (eqv? (read-runtime.class-slot-offset wrapper 'object) object-offset)
+             (eqv? (read-runtime.class-slot-offset wrapper 'ref) ref-offset)
+             (eqv? (read-runtime.class-slot-offset wrapper 'set!) set-offset)
+             (eq? (ref-field table) gc-table-ref)
+             (eq? (set-field table) gc-table-set!)
+             (let (backend (object-field table))
+               (and (read-runtime.object? backend)
+                    (eq? (read-runtime.object-class backend) gc-hash-table::t)
+                    backend))))
+      ;; A new make-hash-table-eq would copy this cached adapter. A cold
+      ;; or changed adapter still uses the full precedence traversal.
+      (lambda ()
+        (and (eq? wrapper (&interface-descriptor-type HashTable::interface))
+             (eq? wrapper-id (##type-id wrapper))
+             (eq? backend-id (##type-id gc-hash-table::t))
+             (not (interface-subclass? gc-hash-table::t))
+             (let (slots (read-runtime.&class-type-slot-table wrapper))
+               (and (raw-table? slots)
+                    (eqv? (symbolic-table-ref slots 'object #f) object-offset)
+                    (eqv? (symbolic-table-ref slots 'ref #f) ref-offset)
+                    (eqv? (symbolic-table-ref slots 'set! #f) set-offset)
+                    (eqv? (symbolic-table-ref slots 'delete! #f) delete-offset)))
+             (let ((table (read-runtime.&class-type-interface gc-hash-table::t))
+                   (index (&interface-descriptor-index HashTable::interface)))
+               (and (prototype-table? table) (fixnum? index) (fx>= index 0)
+                    (let (entries (prototype-table-table table))
+                      (and (vector? entries) (fx< index (vector-length entries))
+                           (let (prototype (vector-ref entries index))
+                             (and (read-runtime.object? prototype)
+                                  (eq? (read-runtime.object-class prototype) wrapper)
+                                  (> (##structure-length prototype) last-offset)
+                                  (eq? (ref-field prototype) gc-table-ref)
+                                  (eq? (set-field prototype) gc-table-set!)
+                                  (eq? (delete-field prototype) gc-table-delete!))))))))))))
 
 (def (gc-table-route-current? table)
   (and (%gc-table-route-backend table) #t))

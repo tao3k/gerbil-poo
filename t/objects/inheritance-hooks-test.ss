@@ -4,13 +4,16 @@
         (only-in :clan/poo/class-validation required-slots?)
         (only-in :clan/poo/read-route standard-symbol-table-writes?)
         (only-in :gerbil/runtime/hash HashTable::interface)
+        (only-in :gerbil/runtime/interface &interface-descriptor-index prototype-table-table)
         (prefix-in (only-in :gerbil/runtime/mop slot-ref slot-set! object-class
-                            find-method bind-method! class-slot-offset &class-type-slot-table) runtime.)
+                            find-method bind-method! class-slot-offset &class-type-slot-table
+                            &class-type-interface) runtime.)
         (only-in :gerbil/runtime/table symbolic-table-set!)
         (only-in :clan/poo/slot-layout make-slot-cache)
         (only-in :clan/poo/examples/representation-service topology-workflow)
         :std/test :std/iter :clan/poo/object :clan/poo/mop :clan/poo/brace :clan/poo/number (only-in :clan/poo/type String define-type) :clan/poo/reflection
         (prefix-in :clan/poo/examples/inherited-services services.))
+(extern namespace: clan/poo/read-route %gc-scratch-routes-current?)
 ;; Exercise inheritance protocol composition through actual objects and hooks.
 (def inheritance-hooks-test
   (test-suite "inherited hooks mutation and declared reflection"
@@ -101,6 +104,30 @@
           (finally (runtime.slot-set! table 'ref original))))
       (check-equal? result #f)
       (check-equal? callbacks 1))
+    (test-case "parentless precedence preserves changed active-table delegates"
+      (def sample (make-hash-table-eq))
+      (def backend (runtime.slot-ref sample 'object))
+      (def adapter (vector-ref
+        (prototype-table-table (runtime.&class-type-interface (runtime.object-class backend)))
+        (&interface-descriptor-index HashTable::interface)))
+      (check-eq? (%gc-scratch-routes-current?) #t)
+      (for (method '(ref set! delete!))
+        (def owner (.o marker: method))
+        (def original (runtime.slot-ref adapter method))
+        (def calls 0)
+        (def order
+          (dynamic-wind
+            (lambda ()
+              (runtime.slot-set! adapter method
+                (lambda (table key . args)
+                  (when (eq? key owner) (set! calls (1+ calls)))
+                  (apply original table key args))))
+            (lambda () (compute-precedence-list! owner))
+            (lambda () (runtime.slot-set! adapter method original))))
+        (check-equal? calls 1)
+        (check-equal? order (list owner))
+        (set-car! order #f)
+        (check-equal? (compute-precedence-list! owner) (list owner))))
     (test-case "shared protocol selection requires the standard HashTable writer"
       (def table (make-hash-table-symbolic))
       (def backend (runtime.slot-ref table 'object))
