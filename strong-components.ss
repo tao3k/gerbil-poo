@@ -21,9 +21,10 @@
                  %index %index-ref %index-fork %index-write! %index-retire! %index-overridden?
                  %make-ordinal-buckets %ordinal-bucket-ref)
         (only-in ./generalized-graph %reverse-bucket-remove %reverse-bucket-add %for-each-reverse-bucket)
-        (only-in ./read-route gc-table-route-current?)
+        (only-in ./read-route gc-table-route-current? standard-symbol-table-writes?)
         ./object)
-(extern namespace: clan/poo/read-route %ordinal-index-routes-current?)
+(extern namespace: clan/poo/read-route %ordinal-index-routes-current?
+  %standard-symbol-table-lookup? %gc-scratch-routes-current?)
 ;; Public groups/representatives retain source order, independently of DFS order.
 (defstruct %partition (groups owner reads members work owners owned) final: #t)
 (defstruct owned-partition (roster forward backward owner members shape retired?) final: #t)
@@ -693,17 +694,20 @@
                         (walk parent arc (u32vector-ref offsets (fx+ parent 1)) parent-arc
                           (if (fx< child-low parent-low) (fxior child-low 1) parent-low))))))))))))))
 
-(def (compact-component-owners graph result)
+(def (compact-rank state count node)
+  (let (retired (u32vector-ref state node))
+    (unless (fx> retired count) (error "compact SCC unretired owner" node retired))
+    (fx- (fx- retired count) 1)))
+
+(def (compact-component-owners graph result (table #f))
   (def names (compact-graph-names graph))
   (def count (vector-length names))
   (def state (vector-ref result 0))
-  (def owners (make-hash-table-symbolic size: count seed: (%graph-table-seed)))
+  (def owners (or table (make-hash-table-symbolic size: count seed: (%graph-table-seed))))
   (def raw-owners (interface-instance-object owners))
   (unless (symbol-hash-table? raw-owners) (error "compact owner index representation"))
   (for (node (in-range count))
-    (let (retired (u32vector-ref state node))
-      (unless (fx> retired count) (error "compact SCC unretired owner" node retired))
-      (symbolic-table-set! raw-owners (vector-ref names node) (fx- (fx- retired count) 1))))
+    (symbolic-table-set! raw-owners (vector-ref names node) (compact-rank state count node)))
   owners)
 
 ;; A verified source rank already proves every SCC is a singleton. Assign only
@@ -745,11 +749,11 @@
     (discover-wide (list-keys) reads)))
 
 ;; The component-ID map is transient: normalization returns only final indices.
-(def (normalize keys owners (owned? #f))
+(def (normalize keys owners (owned? #f) (state #f))
   (def representatives (make-hash-table-eq))
   (def members (if owned? (make-hash-table-symbolic seed: (%graph-table-seed)) (make-hash-table-eq))) (def ranks (make-hash-table-eq)) (def order [])
-  (for (key keys)
-    (let* ((id (hash-ref owners key)) (prior (hash-get representatives id))
+  (defrule (add-owner key id)
+    (let* ((prior (hash-get representatives id))
            (representative (or prior key)))
       (unless prior
         (hash-put! representatives id key)
@@ -758,6 +762,13 @@
         (set! order (cons key order)))
       (hash-put! members representative (cons key (hash-ref members representative)))
       (hash-put! owners key representative)))
+  (if state
+    (let (count (vector-length keys))
+      (for ((key (in-vector keys)) (node (in-range count)))
+        (let (id (fx- (fx- (u32vector-ref state node) count) 1))
+          (add-owner key id))))
+    (for (key keys)
+      (let (id (hash-ref owners key)) (add-owner key id))))
   (let (groups (for/collect (representative (reverse order))
                 (let (group (reverse (hash-ref members representative)))
                   (hash-put! members representative (cons (length group) group)) group)))
@@ -802,18 +813,33 @@
 ;; DECLARED-EDGES report the work already spent capturing those rows.
 (def (partition-captured keys reads captured-edges validation-owners declared-edges
                          (index #f) (owned? #f) (complete values) (retain-inverse? #f))
-  (let-values (((owners next component examined-edges finished popped) (discover keys reads captured-edges index)))
-    ;; A tail handoff carries NO packed input or capture construction buffers.
-    ;; Keep those roots out of normalization/certificate closure environments.
-    (finish-partition keys reads validation-owners declared-edges
-      owners next component examined-edges finished popped owned? complete retain-inverse?)))
+  (if (and (not owned?) index (vector? keys) (eq? keys (compact-graph-names index)))
+    (let* ((result (compact-selected-discover index))
+           (count (vector-length keys))
+           (owners (make-hash-table-symbolic size: count seed: (%graph-table-seed)))
+           (state (and (standard-symbol-table-writes? owners)
+                       (%standard-symbol-table-lookup? owners)
+                       (%gc-scratch-routes-current?)
+                       (vector-ref result 0))))
+      ;; A public miss exposes this same table through Gerbil's error. Keep its
+      ;; identity and seed. With stock routes, write only final representatives.
+      (if state
+        (for (node (in-range count)) (compact-rank state count node))
+        (compact-component-owners index result owners))
+      (finish-partition keys reads validation-owners declared-edges
+        owners (vector-ref result 1) (vector-ref result 2) (vector-ref result 3)
+        (vector-ref result 4) (vector-ref result 5) owned? complete retain-inverse? state))
+    (let-values (((owners next component examined-edges finished popped) (discover keys reads captured-edges index)))
+      ;; Normalization and certification do not retain packed capture buffers.
+      (finish-partition keys reads validation-owners declared-edges
+        owners next component examined-edges finished popped owned? complete retain-inverse?))))
 
 (def (finish-partition keys reads validation-owners declared-edges
                        owners next component examined-edges finished popped (owned? #f) (complete values)
-                       (retain-inverse? #f))
+                       (retain-inverse? #f) (rank-state #f))
     (def read-row (if (procedure? reads) (cut reads <>) (cut hash-ref reads <>)))
     (def forward-row (if (procedure? reads) (cut reads <> #t) (cut hash-ref reads <> [])))
-    (let-values (((groups members ranks) (normalize keys owners owned?)))
+    (let-values (((groups members ranks) (normalize keys owners owned? rank-state)))
       ;; Independent ComponentWitness certificate: all quotient edges, and two
       ;; within-group spanning walks. Singleton paths are reflexive. Reverse
       ;; rows retain only internal edges of nontrivial groups (Lean pruning law).

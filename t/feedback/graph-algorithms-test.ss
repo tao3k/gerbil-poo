@@ -228,7 +228,7 @@
         (write (list kind size (cons 'captured-partition-preparation preparation)
                      (cons 'indexed-comparison comparison))) (newline)))))
 
-(extern namespace: clan/poo/strong-components finish-partition)
+(extern namespace: clan/poo/strong-components partition-captured finish-partition)
 
 (def (check-certificate-refusal)
   (test-case "independent SCC certificate reports the first bad owner"
@@ -421,7 +421,40 @@
                                      (set-cdr! (cdr cycle) cycle) cycle)))
           (check-exception (kernel '(a b) (lambda (_) bad) #f) error-object?)))))
 
+(extern namespace: clan/poo/read-route %gc-scratch-routes-current? %standard-symbol-table-lookup?)
+
 (def (check-graph-projection)
+    (test-case "packed rank normalization preserves public owner and group identities"
+      (def names (vector 'c 'b 'a 'd))
+      (def (row key)
+        (case key ((a) '(b c)) ((b) '(a)) (else [])))
+      (def (partition keys)
+        (defvalues (rows index declared edges) (capture-graph keys row))
+        (partition-captured keys rows edges (vector-length names) declared index))
+      (make-hash-table-eq)
+      (check (%gc-scratch-routes-current?) => #t)
+      (check (%standard-symbol-table-lookup? (make-hash-table-symbolic)) => #t)
+      (def packed (partition names))
+      (def ordinary (partition (vector->list names)))
+      (check-equal? (scc.partition-groups packed) '((c) (b a) (d)))
+      (for (key (in-vector names))
+        (check-eq? ((scc.partition-owner packed) key) ((scc.partition-owner ordinary) key))
+        (check-equal? (scc.partition-group-of packed key) (scc.partition-group-of ordinary key))
+        (check-equal? ((scc.partition-reads packed) key) ((scc.partition-reads ordinary) key)))
+      (def owner (scc.partition-owner packed))
+      (def owners
+        (with-catch
+          (lambda (err)
+            (if (UnboundKeyError? err) (cadr (memq hash: (Error-irritants err))) (raise err)))
+          (lambda () (owner 'missing))))
+      (def members (scc.partition-members packed 'b))
+      (set-car! members 'changed)
+      (check-eq? (owner 'a) 'b)
+      (check-eq? (scc.partition-group-of packed 'a) members)
+      (check-equal? (scc.partition-group-size packed 'a) 2)
+      (hash-put! owners 'a 'd)
+      (check-eq? (owner 'a) 'd)
+      (check-eq? (scc.partition-group-of packed 'a) (scc.partition-members packed 'd)))
     (test-case "packed owner buckets preserve symbol identity and refusal order"
       (def left (string->uninterned-symbol "owner"))
       (def right (string->uninterned-symbol "owner"))
