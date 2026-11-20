@@ -346,13 +346,14 @@
   (andmap (lambda (owner revision) (= (object-revision owner) revision))
     carrier-declaration-owners carrier-declaration-revisions))
 
-;; Direct admission may share only the four stock recursive validators.
-(def (%stock-call-validator? type procedure)
+;; Reuse only these exact procedures, never an override with the same Type.
+(def (%stock-call-validator? type procedure (class? #f))
   (cond
    ((eq? type ClosGenericFunction) (eq? procedure clos-generic-function-element?))
    ((eq? type ClosMethod) (eq? procedure clos-method-element?))
    ((eq? type ClosSpecializer) (eq? procedure clos-specializer-element?))
    ((eq? type ClosLambdaList) (eq? procedure clos-lambda-list-element?))
+   ((and class? (eq? type ClosClass)) (eq? procedure clos-class-element?))
    (else #f)))
 
 ;; Certify only our two original, hook-free carrier predicates/prototypes for

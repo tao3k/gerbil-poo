@@ -8,16 +8,21 @@
 (import (only-in :std/test
                  test-suite test-case check-equal? check-exception check)
         (only-in :clan/poo/object .ref .o .get .put! .putslot! $thunk-slot-spec .slot? object? object-revision
-                 replay-slot-reads! object-read-issued?)
+                 replay-slot-reads! object-read-issued? object-%instance)
         (only-in :clan/poo/mop clos-instance?)
-        (only-in :clan/poo/slot-observation call-with-slot-read-observer)
+        (only-in :clan/poo/slot-observation
+          call-with-slot-read-observer without-observation %slot-read-active?)
+        (prefix-in (only-in :gerbil/runtime/mop slot-ref slot-set!) runtime.)
+        (only-in :clan/poo/clos/objects make-invocation-frame)
         (only-in :clan/poo/number Integer)
         (only-in :clan/poo/type Record Type. Type define-type element? Any validate TypeError? Bool Fun)
         :std/error
         :clan/poo/mop)
 
 (export clos-lifecycle-test)
-(extern namespace: clan/poo/clos/objects %published-dispatch)
+(extern namespace: clan/poo/clos/types %carrier-declarations-current?)
+(extern namespace: clan/poo/clos/objects %published-dispatch
+  %published-dispatch-admission %dispatch-admission-current?)
 
 (define-type (LifecycleInstance @ Type.) .element?: clos-instance?)
 
@@ -54,12 +59,76 @@
                 (set! lookups (cons generic lookups)))
               (dispatch generic))))
         (lambda ()
-          (check (eq? pane (clos-reinitialize-instance pane width: 91)) => #t))
+          (check (eq? pane (call-with-slot-read-observer void
+                             (lambda () (clos-reinitialize-instance pane width: 91)))) => #t))
         (lambda () (set! %published-dispatch dispatch)))
       (check-equal? lookups '())
       (check (eq? (dispatch outer) outer-plan) => #t)
       (check (eq? (dispatch inner) inner-plan) => #t)
       (check-equal? (clos-slot-value pane 'width) 91))
+
+    (test-case "the default lifecycle primaries use separate committed admissions"
+      (def outer clos-reinitialize-instance-generic)
+      (def inner clos-shared-initialize-generic)
+      (.defclass AdmissionPane () ((width (initarg width:) (initform 10))))
+      (def pane (clos-make-instance AdmissionPane))
+      (clos-reinitialize-instance pane width: 11)
+      (def outer-receipt (%published-dispatch-admission outer))
+      (def inner-receipt (%published-dispatch-admission inner))
+      (check (%dispatch-admission-current? outer outer-receipt) => #t)
+      (check (%dispatch-admission-current? inner inner-receipt) => #t)
+      (check (%dispatch-admission-current? inner outer-receipt) => #f)
+      (check (%dispatch-admission-current? outer inner-receipt) => #f)
+      (def outer-order (%published-dispatch outer))
+      (def inner-order (%published-dispatch inner))
+      ;; A different suite can have revised the shared carrier declarations.
+      ;; In that world the ordinary Frame path must remain in use.
+      (def carriers-current? (%carrier-declarations-current?))
+      (def frame make-invocation-frame)
+      (def framed '())
+      (dynamic-wind
+        (lambda ()
+          (set! make-invocation-frame
+            (lambda (effective arguments next qualifier method)
+              (without-observation
+                (lambda () (set! framed (cons (.ref effective 'generic) framed))))
+              (frame effective arguments next qualifier method))))
+        (lambda ()
+          (check (eq? pane (clos-reinitialize-instance pane width: 12)) => #t)
+          (check-equal? framed (if carriers-current? '() (list inner outer)))
+          (set! framed '())
+          (check (eq? pane (call-with-slot-read-observer void
+                             (lambda () (clos-reinitialize-instance pane width: 13)))) => #t)
+          (check-equal? framed (list inner outer))
+          (set! framed '())
+          ;; Applicability reads this argument after Generic qualification.
+          ;; Changing the Class roster here keeps ranking valid, but must
+          ;; disqualify the outer admission before either carrier is skipped.
+          (.ref pane '%clos-state)
+          (let* ((store (object-%instance pane))
+                 (ref (runtime.slot-ref store 'ref))
+                 (edited? #f))
+            (dynamic-wind
+              (lambda ()
+                (runtime.slot-set! store 'ref
+                  (lambda (backend key default)
+                    (let (value (ref backend key default))
+                      (when (and (eq? key '%clos-state) (not edited?))
+                        (set! edited? #t)
+                        (check (%slot-read-active?) => #f)
+                        (check (%dispatch-admission-current? outer outer-receipt) => #t)
+                        (clos-class 'admission-sibling))
+                      value))))
+              (lambda () (check (eq? pane (clos-reinitialize-instance pane width: 14)) => #t))
+              (lambda () (runtime.slot-set! store 'ref ref)))
+            (check edited? => #t)
+            (check (and (memq outer framed) #t) => #t)))
+        (lambda () (set! make-invocation-frame frame)))
+      (check-equal? (clos-slot-value pane 'width) 14)
+      (check (%dispatch-admission-current? outer outer-receipt) => #f)
+      (check (%dispatch-admission-current? inner inner-receipt) => #f)
+      (check (eq? (%published-dispatch outer) outer-order) => #t)
+      (check (eq? (%published-dispatch inner) inner-order) => #t))
 
     (test-case "the public lifecycle predicate composes with the existing Type API"
       (def class-value (clos-class 'instance-predicate))

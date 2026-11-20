@@ -10,8 +10,13 @@
         (only-in :std/hash/misc hash-ref/default)
         (only-in :std/list/list iota map-in-order delete-duplicates/hash)
         (only-in :clan/poo/prototype-map prototype-map-ref)
+        (only-in :clan/poo/read-route require-read-route!)
+        (only-in :clan/poo/slot-observation
+          %slot-read-active? %call-with-recorded-slot-reads
+          call-with-slot-read-observer slot-read-observers-compatible?)
         "types.ss" "funcs.ss"
-        (only-in :clan/poo/read-projection owned-read-value! owned-read-open!))
+        (only-in :clan/poo/read-projection
+          current-owned-read-open-guard owned-read-value! owned-read-open!))
 
 (export clos-any-specializer clos-class-specializer
         clos-prototype-specializer
@@ -42,10 +47,13 @@
         %prepare-effective-method)
 
 (extern namespace: clan/poo/object %with-slot-edit-protection %publish-slot-edits!
-        %prepared-vector-slot-ref %owned-list-slot-spec %depend-on-object-except-slot!)
+        %prepared-vector-slot-ref %owned-list-slot-spec %depend-on-object-except-slot!
+        %prepared-slot-present? %call-with-fresh-slot-read-group %register-slot-dependencies!)
 (extern namespace: clan/poo/slot-observation %make-owned-list %borrow-owned-list owned-list?)
 (extern namespace: clan/poo/clos/funcs clos-distances-before?)
 (extern namespace: clan/poo/read-route %standard-symbol-table-lookup?)
+(extern namespace: clan/poo/clos/types %stock-call-validator?)
+(extern namespace: clan/poo/slot-observation slot-read-key slot-read-value slot-read-receiver)
 
 ;; A position only addresses an already applicable row. Index membership
 ;; never authorizes a method or replaces its original reads.
@@ -54,7 +62,7 @@
 ;; The generation owns this projection in the same edit as the method roster.
 ;; POO's reverse index advances the private revision if any input changes.
 (defstruct dispatch-publication (generic owner methods precedence positions order
-                                 after after-execution) final: #t)
+                                 after after-execution admission) final: #t)
 
 (def (%dispatch-publication-current? plan)
   (= (object-revision (dispatch-publication-owner plan)) 1))
@@ -147,7 +155,7 @@
   ;; once, including when a method is also an edit root.
   (and (= (object-revision owner) 0)
        (make-dispatch-publication generic owner methods (list-copy precedence)
-                                  index order after (and after (reverse after)))))
+                                  index order after (and after (reverse after)) #f)))
 
 (def (%dispatch-generation-field generic methods precedence)
   (def size (length methods))
@@ -168,6 +176,126 @@
   (list (cons 'methods (%make-owned-list methods))
         (cons 'generation generation)
         (%dispatch-generation-field generic methods precedence)))
+
+;; Admission belongs to the committed plan. Its owner uses whole-object
+;; edges even where the order projection uses filtered Class edges.
+(defstruct dispatch-admission (publication owner generation roots) final: #t)
+
+(def (%quiet-dispatch-admission?)
+  (and (not (%slot-read-active?)) (slot-read-observers-compatible? '())
+       (not (current-owned-read-open-guard))))
+
+(def (%stock-dispatch-read? read (class? #f))
+  (let ((key (slot-read-key read)) (value (slot-read-value read)))
+    (cond
+     ((eq? key '.element?)
+      (%stock-call-validator? (slot-read-receiver read) value class?))
+     ((equal? key '(bootstrap .element?)) #f)
+     ((symbol? key) (not (pair? value)))
+     (else #t))))
+
+(def (%dispatch-admission-current? generic receipt)
+  (and (dispatch-admission? receipt)
+       (%quiet-dispatch-admission?)
+       (let (publication (%published-dispatch generic))
+         (and (eq? publication (dispatch-admission-publication receipt))
+              (eq? receipt (dispatch-publication-admission publication))
+              (zero? (object-revision (dispatch-admission-owner receipt)))
+              (eqv? (dispatch-admission-generation receipt)
+                    (%prepared-vector-slot-ref generic 'generation))
+              (with-catch (lambda (_) #f)
+                (lambda ()
+                  (%call-with-fresh-slot-read-group
+                    (dispatch-admission-roots receipt) (cut %stock-dispatch-read? <> #t))))))))
+
+;; Capture only over prepared cells. The read precheck runs before slot
+;; preparation or invocation of a Type predicate. Cold, foreign and
+;; callback-backed fields stay with the ordinary admission.
+(def (%capture-dispatch-admission! generic publication)
+  (and (%quiet-dispatch-admission?)
+       (eq? publication (%published-dispatch generic))
+       (object-construction-current?)
+       (let (generation (%prepared-vector-slot-ref generic 'generation))
+         (and (exact-integer? generation)
+              (with-catch (lambda (_) #f)
+                (lambda ()
+                  (def ancestry '())
+                  (def (check-ancestry! value)
+                    (when (object? value)
+                      (unless (object-precedence-ready? value)
+                        (error "unprepared Generic admission ancestry"))
+                      (set! ancestry (cons (cons value (object-revision value)) ancestry))))
+                  (def (check-read! receiver key)
+                    (def store (object-%instance receiver))
+                    (def reads (object-%reads receiver))
+                    (unless (and store reads (object-precedence-ready? receiver)
+                                 (not (object-protocol receiver)))
+                      (error "unprepared Generic admission receiver"))
+                    (require-read-route! key reads store #t)
+                    (cond
+                     ((symbol? key)
+                      (def value (%prepared-vector-slot-ref receiver key))
+                      (unless (and (not (eq? value absent-value)) (not (pair? value))
+                                   (case key
+                                     ((.element?) (%stock-call-validator? receiver value #t))
+                                     ((direct-slots) (null? (%borrow-owned-list value)))
+                                     (else #t)))
+                        (error "unqualified Generic admission slot" key))
+                      ;; prototype-instance? consults ancestry without a Slot
+                      ;; observation. Include these receivers in the same owner.
+                      (check-ancestry! value)
+                      (when (owned-list? value)
+                        (let (items (%borrow-owned-list value))
+                          (when (list? items) (for-each check-ancestry! items)))))
+                     ((and (eq? (car key) 'presence)
+                           (%prepared-slot-present? receiver (cadr key))))
+                     (else (error "unqualified Generic admission query" key))))
+                  (defvalues (admitted? roots)
+                    (call-with-slot-read-observer void
+                      (lambda ()
+                        (%call-with-recorded-slot-reads
+                          (lambda () (element? ClosGenericFunction generic))
+                          unique-roots?: #t))
+                      before: check-read!))
+                  (and admitted? (pair? roots)
+                       (%call-with-fresh-slot-read-group roots (cut %stock-dispatch-read? <> #t))
+                       (let (owner (make-object))
+                         (%register-slot-dependencies! owner roots)
+                         (for-each (lambda (source) (depend-on-object! owner (car source))) ancestry)
+                         (and (eq? publication (%published-dispatch generic))
+                              (eqv? generation (%prepared-vector-slot-ref generic 'generation))
+                              (zero? (object-revision owner))
+                              (andmap (lambda (source)
+                                        (= (cdr source) (object-revision (car source)))) ancestry)
+                              (let (receipt (make-dispatch-admission publication owner generation roots))
+                                (set! (dispatch-publication-admission publication) receipt)
+                                receipt))))))))))
+
+;; Use prepared metadata for protocol selection. A cold hook is unknown;
+;; let its normal read take place at the original dispatch boundary.
+(def (standard-primary-publication? generic publication entry)
+  (let ((methods (dispatch-publication-methods publication))
+        (protocol (%prepared-vector-slot-ref generic 'protocol))
+        (combination (%prepared-vector-slot-ref generic 'method-combination)))
+    (and (pair? methods) (null? (cdr methods))
+         (eq? (%prepared-vector-slot-ref combination 'kind) 'standard)
+         (eq? (%prepared-vector-slot-ref protocol 'compute-applicable-methods) #f)
+         (eq? (%prepared-vector-slot-ref protocol 'compute-effective-method) #f)
+         (let* ((method (car methods))
+                (body (%prepared-vector-slot-ref method 'body)))
+           (and (eq? (%prepared-vector-slot-ref method 'qualifier) 'primary)
+                (eq? (%frameless-method-body method body) entry))))))
+
+(def (%published-dispatch-admission generic (entry #f))
+  (and (object? generic)
+       (%quiet-dispatch-admission?)
+       (let (publication (%published-dispatch generic))
+         (and publication
+              (or (not entry) (standard-primary-publication? generic publication entry))
+              (let (receipt (dispatch-publication-admission publication))
+                (if (%dispatch-admission-current? generic receipt)
+                  receipt
+                  (%capture-dispatch-admission! generic publication)))))))
 
 ;;; Cached owner-local prototype avoids repeated descriptor demand in constructors.
 ;; : POOObject
@@ -380,8 +508,8 @@
              method)
            'invalid-method))
 
-;; Only eligible .defmethod expansions issue this opaque entry. Matching it
-;; to the live body prevents an edit from retaining a former entry's authority.
+;; Eligible .defmethod expansions and the built-in lifecycle primaries issue
+;; this opaque entry. An edited body cannot use the previous entry.
 (defstruct frameless-entry (body invoke) final: #t)
 
 (def (%frameless-method-body method body)

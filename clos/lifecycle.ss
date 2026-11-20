@@ -32,6 +32,8 @@
 
 (extern namespace: clan/poo/clos/dispatch %prospective-instance-methods)
 (extern namespace: clan/poo/clos/classes %clos-initialize-supplied-slots!)
+(extern namespace: clan/poo/clos/objects %make-clos-method)
+(extern namespace: clan/poo/clos/dispatch %call-default-lifecycle)
 (extern namespace: clan/poo/object %publish-slot-edits! %with-slot-edit-protection)
 
 ;; : (-> ClosInstance [Symbol] [Symbol] [SchemeValue] SchemeValue ... ClosInstance)
@@ -519,7 +521,7 @@
 ;; : (-> Symbol Natural Boolean [ClosSpecializer] Procedure
 ;;        ClosGenericFunction)
 (def (standard-lifecycle-generic identity-value required-value rest-value
-                                 specializers body-value)
+                                 specializers body-value (entry #f))
   (let ((generic-value
          (clos-generic-function identity-value required-value
                                     rest?: rest-value
@@ -529,8 +531,8 @@
          (clos-lambda-list required-value 0 rest-value #f '() #f)))
     (clos-add-method
      generic-value
-     (clos-method identity-value specializers body-value
-                      lambda-list: lambda-list-value))
+     (%make-clos-method identity-value specializers body-value
+       lambda-list: lambda-list-value frameless: entry))
     generic-value))
 
 (def class-metaobject-specializer
@@ -549,7 +551,8 @@
    'shared-initialize 2 #t
    (list standard-instance-specializer (clos-any-specializer))
    (lambda (_frame instance-value slot-names . initargs)
-     (apply %clos-shared-initialize instance-value slot-names initargs))))
+     (apply %clos-shared-initialize instance-value slot-names initargs))
+   %clos-shared-initialize))
 
 (def clos-initialize-instance-generic
   (standard-lifecycle-generic
@@ -561,7 +564,8 @@
   (standard-lifecycle-generic
    'reinitialize-instance 1 #t (list standard-instance-specializer)
    (lambda (_frame instance-value . initargs)
-     (apply %clos-reinitialize-instance instance-value initargs))))
+     (apply %clos-reinitialize-instance instance-value initargs))
+   %clos-reinitialize-instance))
 
 (def clos-update-instance-for-redefined-class-generic
   (standard-lifecycle-generic
@@ -598,11 +602,11 @@
 (def (clos-allocate-instance . arguments)
   (apply clos-call clos-allocate-instance-generic arguments))
 (def (clos-shared-initialize . arguments)
-  (apply clos-call clos-shared-initialize-generic arguments))
+  (apply %call-default-lifecycle clos-shared-initialize-generic %clos-shared-initialize arguments))
 (def (clos-initialize-instance . arguments)
   (apply clos-call clos-initialize-instance-generic arguments))
 (def (clos-reinitialize-instance . arguments)
-  (apply clos-call clos-reinitialize-instance-generic arguments))
+  (apply %call-default-lifecycle clos-reinitialize-instance-generic %clos-reinitialize-instance arguments))
 (def (clos-update-instance-for-redefined-class . arguments)
   (apply clos-call
          clos-update-instance-for-redefined-class-generic arguments))

@@ -103,6 +103,7 @@
 ;; KEY is the slot name or a structural query such as '(presence port).
 ;; READS maps keys to SlotRead records. INSTANCE holds cached slot values.
 ;; Either table may be #f. A bootstrap read checks its constant directly.
+;; An owner recording fresh reads also qualifies the read table's writer.
 (defvalues (require-read-route! %standard-symbol-table-lookup? %admitted-vector-read-fields
             %prepared-vector-values)
   (let ()
@@ -116,7 +117,11 @@
         (&raw-table-hash backend) (&raw-table-test backend) object-field ref-field
         (read-runtime.class-slot-offset wrapper 'object)
         (read-runtime.class-slot-offset wrapper 'ref)))
-    (def reads-route (capture (make-hash-table)))
+    (def read-sample (make-hash-table))
+    (def reads-route (capture read-sample))
+    (def read-set-offset (read-runtime.class-slot-offset (route-wrapper reads-route) 'set!))
+    (def read-set-field (read-runtime.make-class-slot-accessor (route-wrapper reads-route) 'set!))
+    (def read-set (read-set-field read-sample))
     (def instance-route (capture (make-hash-table-symbolic)))
     (def vector-route
       (parameterize ((slot-value-storage 'vector))
@@ -191,7 +196,7 @@
                     (or (ref-refusal table instance-route (route-ref instance-route))
                         (backend-refusal backend instance-route))))))
         (when refused (error refused))))
-    (def (require-route! key reads instance)
+    (def (require-route! key reads instance (write-reads? #f))
       (unless (or (symbol? key)
                   (and (pair? key)
                     (case (car key)
@@ -201,7 +206,13 @@
                       (else #f))))
         (error "unsupported metadata key"))
       (unless (and (pair? key) (eq? (car key) 'bootstrap))
-        (when reads (check reads reads-route))
+        (when reads
+          (check reads reads-route)
+          (when write-reads?
+            (unless (and (eqv? read-set-offset
+                               (read-runtime.class-slot-offset (route-wrapper reads-route) 'set!))
+                         (eq? (read-set-field reads) read-set))
+              (error "changed metadata writer"))))
         (when instance (check-instance instance))))
     (def (standard-lookup? table)
       (and (eq? (read-runtime.object-class table) (route-wrapper instance-route))

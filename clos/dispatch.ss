@@ -7,7 +7,6 @@
 
 (import :clan/poo/object
         (only-in :clan/poo/mop/prototype element?)
-        (only-in :clan/poo/slot-observation slot-read-receiver)
         (only-in :std/list/list filter filter-map find flatten1 length=? duplicates)
         (only-in :std/hash/misc hash-remove!)
         "types.ss" "objects.ss" "method-combination.ss"
@@ -28,12 +27,12 @@
 (extern namespace: clan/poo/clos/objects
         %published-method-positions %method-position method-positions-size %frameless-method-body
         %published-dispatch dispatch-publication-methods dispatch-publication-precedence
+        %published-dispatch-admission %dispatch-admission-current? dispatch-admission? %stock-dispatch-read?
         dispatch-publication-positions dispatch-publication-order
         dispatch-publication-after dispatch-publication-after-execution)
 (extern namespace: clan/poo/clos/funcs clos-distances-before?)
-(extern namespace: clan/poo/clos/types %carrier-declarations-current? %stock-call-validator?)
-(extern namespace: clan/poo/slot-observation
-        slot-read-key slot-read-value %call-with-private-slot-read-prefix)
+(extern namespace: clan/poo/clos/types %carrier-declarations-current?)
+(extern namespace: clan/poo/slot-observation %call-with-private-slot-read-prefix)
 (extern namespace: clan/poo/object %ref-owned-list %prepared-vector-slot-ref
         object-construction-current? %call-with-fresh-slot-read-group)
 (extern namespace: clan/poo/read-projection %owned-private-registration?)
@@ -331,7 +330,7 @@
 ;;; generation used to rank all qualifier groups.  The protocol hook receives
 ;;; the checked default effective method rather than a raw evaluator continuation.
 ;; : (-> ClosGenericFunction [SchemeValue] (Maybe ClosEffectiveMethod))
-(def (select-effective-method generic arguments (roots #f))
+(def (select-effective-method generic arguments (evidence #f))
   (arguments-valid! generic arguments)
   (let (ranked (protocol-ranked-methods generic arguments))
     (if (null? ranked)
@@ -344,8 +343,8 @@
                (hook (.ref protocol 'compute-effective-method))
                (direct (begin
                          (owned-read-hook-owner! protocol)
-                         (and (not hook) roots
-                              (prepare-direct-primary generic arguments ranked roots))))
+                         (and (not hook) evidence
+                              (prepare-direct-primary generic arguments ranked evidence))))
                (effective-method
                 (cond
                   (direct direct)
@@ -382,20 +381,14 @@
   (with-catch (lambda (_) #f)
     (lambda ()
       (%call-with-fresh-slot-read-group roots
-        (lambda (read)
-          (let ((key (slot-read-key read)) (value (slot-read-value read)))
-            (cond
-             ((eq? key '.element?)
-              (%stock-call-validator? (slot-read-receiver read) value))
-             ((equal? key '(bootstrap .element?)) #f)
-             ((symbol? key) (not (pair? value)))
-             (else #t))))
+        %stock-dispatch-read?
         ;; Captured roots are unique. Reserve space for them and leave room
         ;; for receiver-route entries and dependencies discovered by the sweep.
         (* 2 (length roots))))))
 
-(def (prepare-direct-primary generic arguments ranked roots)
-  (and (%owned-private-registration?) (null? (cdr ranked))
+(def (prepare-direct-primary generic arguments ranked evidence)
+  (def published? (dispatch-admission? evidence))
+  (and (or published? (%owned-private-registration?)) (null? (cdr ranked))
        (object-construction-current?) (%carrier-declarations-current?)
        (%fresh-vector-seeds-available?)
        (let* ((method (caar ranked))
@@ -405,7 +398,13 @@
               (eq? (%prepared-vector-slot-ref combination 'kind) 'standard)
               (eq? (%prepared-vector-slot-ref method 'qualifier) 'primary)
               (let (entry (%frameless-method-body method body))
-                (and entry (current-direct-group? roots)
+                (and entry
+                     ;; Applicability and keyword checks have already run.
+                     ;; Independently recheck the original read roots before
+                     ;; choosing a body; never reopen or rerun an earlier hook.
+                     (if published?
+                       (%dispatch-admission-current? generic evidence)
+                       (current-direct-group? evidence))
                      (lambda ()
                        (%advance-fresh-vector-seeds!) ; EffectiveMethod preparation
                        (owned-read-method! body method)
@@ -768,11 +767,18 @@
 ;; : (-> ClosGenericFunction SchemeValue... SchemeValue)
 (def (clos-call generic-source . arguments)
   (%with-slot-read-registration-interval
-    (lambda () (call-generic generic-source arguments))))
+    (lambda () (call-generic generic-source arguments #f))))
 
-(def (call-generic generic-source arguments)
-  (defvalues (generic-value roots)
-    (if (%owned-private-registration?)
+(def (%call-default-lifecycle generic entry . arguments)
+  (%with-slot-read-registration-interval
+    (lambda ()
+      (call-generic generic arguments (%published-dispatch-admission generic entry)))))
+
+(def (call-generic generic-source arguments admission)
+  (defvalues (generic-value evidence)
+    (cond
+     (admission (values generic-source admission))
+     ((%owned-private-registration?)
       (let-values (((generic-value reads)
                     (%call-with-private-slot-read-prefix
                       (lambda ()
@@ -781,11 +787,11 @@
                         ;; repeated-field route before the group exists.
                         (%without-slot-read-registration-interval
                           (lambda () (require-clos-generic generic-source)))))))
-        (values generic-value (and (eq? generic-value generic-source) reads)))
-      (values (require-clos-generic generic-source) #f)))
+        (values generic-value (and (eq? generic-value generic-source) reads))))
+     (else (values (require-clos-generic generic-source) #f))))
   (let ()
     (owned-read-hook-owner! generic-value)
-    (let (effective-method (select-effective-method generic-value arguments roots))
+    (let (effective-method (select-effective-method generic-value arguments evidence))
       (if (not effective-method)
         (clos-no-applicable-method generic-value arguments)
         (if (procedure? effective-method) (effective-method)
