@@ -10,14 +10,18 @@
 (import :std/iter
         (only-in :std/error raise-unbound-key)
         (only-in :gerbil/runtime/interface interface-instance-object)
-        (only-in :gerbil/runtime/hash symbol-hash-table?)
-        (only-in :gerbil/runtime/table symbolic-table-ref symbolic-table-set!) (only-in :std/list/list delete-duplicates/hash foldl)
+        (only-in :gerbil/runtime/hash symbol-hash-table? gc-hash-table::t)
+        (only-in :gerbil/runtime/table symbolic-table-ref symbolic-table-set!
+                 make-gc-table gc-table-set! &gc-table-gcht &gc-table-gcht-set!)
+        (only-in :gerbil/runtime/thread with-lock)
+        (only-in :std/list/list delete-duplicates/hash foldl)
         (only-in :std/list/list-builder with-list-builder)
         (only-in ./support/base %graph-table-seed)
         (only-in ./support/index %roster %roster-width %roster-position %roster-keys %roster-for-each %roster-project
                  %index %index-ref %index-fork %index-write! %index-retire! %index-overridden?
                  %make-ordinal-buckets %ordinal-bucket-ref)
         (only-in ./generalized-graph %reverse-bucket-remove %reverse-bucket-add %for-each-reverse-bucket)
+        (only-in ./read-route gc-table-route-current?)
         ./object)
 (extern namespace: clan/poo/read-route %ordinal-index-routes-current?)
 ;; Public groups/representatives retain source order, independently of DFS order.
@@ -206,8 +210,36 @@
                            (write (cdr rest) (fx+ at 1) id)))))
                  (else #f))))))
 
+;; Restore the accepted prefix into the original table adapter. Its backend
+;; has never escaped or received a write. Populate the native backend without
+;; replaying an author or calling a replaced interface delegate for past rows.
+(def (restore-ordinal-rows! keys rows end backend)
+  (def restored (make-gc-table (vector-length keys) gc-hash-table::t))
+  (for (i (in-range end))
+    (gc-table-set! restored (vector-ref keys i) (vector-ref rows i)))
+  (&gc-table-gcht-set! backend (&gc-table-gcht restored)))
+
+(def (ordinal-row-reader keys buckets table backend rows)
+  (def retirement (make-mutex 'captured-rows))
+  (lambda (key (empty-default? #f))
+    (def current rows)
+    (let (i (and current (gc-table-route-current? table) (symbol? key)
+                 (%ordinal-bucket-ref buckets key)))
+      (if i
+        (vector-ref current i)
+        (begin
+          ;; The original hash-ref owns the absent-key error and its table
+          ;; irritant. A changed read route also sees the complete table.
+          (when current
+            (with-lock retirement
+              (lambda ()
+                (when rows
+                  (restore-ordinal-rows! keys rows (vector-length rows) backend)
+                  (set! rows #f)))))
+          (if empty-default? (hash-ref table key []) (hash-ref table key)))))))
+
 (def (capture-graph keys read-owner (symbolic-rows? #t) (edge-word-ceiling 4294967295)
-                    (ordered-rows? 'adjacent) (stable-rows? #f))
+                    (ordered-rows? 'adjacent) (stable-rows? #f) (compact-rows? #f))
   ;; The private reduced ceiling exercises exactly the native wide fallback in
   ;; bounded tests. Production always uses the full u32 range; it cannot expand.
   (unless (and (exact-integer? edge-word-ceiling) (<= 0 edge-word-ceiling 4294967295))
@@ -251,9 +283,24 @@
   (def ordered-trial? (and ordered-rows? (not symbolic-rows?)))
   (def row-buffer #f) (def owner-names (and (vector? keys) keys))
   (def offsets (and packed? (make-u32vector (1+ count) 0)))
-  (def reads (and (or symbolic-rows? (not packed?))
-                   (if stable-rows? (make-hash-table-symbolic size: count seed: (%graph-table-seed))
-                     (make-hash-table-eq size: count))))
+  (def small-table (and compact-rows? buckets (make-hash-table-eq)))
+  (def row-backend (and small-table (gc-table-route-current? small-table)
+                        (interface-instance-object small-table)))
+  (def dense-rows (and row-backend (make-vector count [])))
+  (def reads (or (and dense-rows small-table)
+                 (and (or symbolic-rows? (not packed?))
+                      (if stable-rows? (make-hash-table-symbolic size: count seed: (%graph-table-seed))
+                        (make-hash-table-eq size: count)))))
+  (def (retire-ordinal-rows! end)
+    (when dense-rows
+      (restore-ordinal-rows! keys dense-rows end row-backend)
+      (set! dense-rows #f)))
+  (def (store-row! key owner row)
+    (if (and dense-rows (gc-table-route-current? reads))
+      (vector-set! dense-rows owner row)
+      (begin
+        (retire-ordinal-rows! owner)
+        (hash-put! reads key row))))
   (def declared 0) (def edges 0)
   (def direction 3)
   ;; Private, bounded construction chunks, not a retained graph/value cache.
@@ -279,6 +326,7 @@
                                (u32vector-ref offsets (fx+ owner 1))))
               (vector-ref owner-names (next-id))))))))
   (def (use-wide-rows! completed)
+    (retire-ordinal-rows! completed)
     (restore-symbolic-prefix! completed)
     (set! packed? #f) (set! offsets #f)
     (set! chunks []) (set! chunk #f))
@@ -371,7 +419,7 @@
               ;; normalizer is identity (fresh_row_skips_normalization).
               (begin
                 (append-row-targets owner 0 row-length)
-                (when reads (hash-put! reads key (append deps []))))
+                (when reads (store-row! key owner (append deps []))))
               ;; A distinct fresh stamp lets the existing reverse scan keep the
               ;; rightmost occurrence, regardless of how late the first repeat was.
               (let ((token (fx+ forward 1)))
@@ -389,7 +437,7 @@
                     (set! fresh-streak (if (fx= start 0) (fxmin 2 (fx+ fresh-streak 1)) 0)))
                   (append-row-targets owner start row-length)
                   (when reads
-                    (hash-put! reads key (or unique
+                    (store-row! key owner (or unique
                       (for/collect (at (in-range start row-length))
                         (vector-ref owner-names (u32vector-ref row-buffer at))))))))))
           ;; Preserve the inexpensive empty/singleton path and the original wide
@@ -408,7 +456,7 @@
               (when reads
                 ;; Copy the singleton before the next author, including when this row
                 ;; caused fallback. Packed queries need no unconsumed symbolic copy.
-                (hash-put! reads key (if (and (pair? unique) (null? (cdr unique)))
+                (store-row! key owner (if (and (pair? unique) (null? (cdr unique)))
                                       (list (car unique)) unique))))))
         (set! declared (+ declared row-length)))))
   (def index
@@ -422,7 +470,8 @@
                           (u32vector-concatenate (reverse (cons tail chunks))))))
           (unless (= (u32vector-length targets) edges) (error "captured edge count changed"))
           (make-compact-graph (or owner-names (list->vector keys)) positions offsets targets direction)))))
-  (values reads index declared edges))
+  (values (if dense-rows (ordinal-row-reader keys buckets reads row-backend dense-rows) reads)
+    index declared edges))
 
 ;; Return reachable keys in source order using the saved adjacency rows.
 ;; Small walks retain bounded list membership. Large sparse walks use a private
@@ -736,7 +785,7 @@
                (list->vector keys)
                (append keys [])))
   (let-values (((reads index declared-edges captured-edges)
-                 (capture-graph keys read-owner #t 4294967295 'adjacent owned?)))
+                 (capture-graph keys read-owner #t 4294967295 'adjacent owned? #t)))
     ;; Retain only the ownership fields across discovery/certification. Keeping
     ;; index in this continuation also keeps its packed edges and capture arrays.
     (def complete
@@ -762,6 +811,8 @@
 (def (finish-partition keys reads validation-owners declared-edges
                        owners next component examined-edges finished popped (owned? #f) (complete values)
                        (retain-inverse? #f))
+    (def read-row (if (procedure? reads) (cut reads <>) (cut hash-ref reads <>)))
+    (def forward-row (if (procedure? reads) (cut reads <> #t) (cut hash-ref reads <> [])))
     (let-values (((groups members ranks) (normalize keys owners owned?)))
       ;; Independent ComponentWitness certificate: all quotient edges, and two
       ;; within-group spanning walks. Singleton paths are reflexive. Reverse
@@ -773,12 +824,13 @@
             (certificate-buckets 0) (certificate-edges 0) (quotient-edges 0)
             (certificate-singletons 0) (reverse-edges 0) (quotient-error #f))
         (def cycle? whole?)
-        (def (span adjacency seen root)
+        (def (reverse-row key) (hash-ref reverse-reads key []))
+        (def (span read seen root)
           (let walk ((pending (list root)))
             (unless (null? pending)
               (let ((key (car pending)) (rest (cdr pending)))
                 (if (hash-key? seen key) (walk rest)
-                  (let (row (hash-ref adjacency key []))
+                  (let (row (read key))
                     (hash-put! seen key #t)
                     (set! certificate-buckets (1+ certificate-buckets))
                     (set! certificate-edges (+ certificate-edges (length row)))
@@ -789,7 +841,7 @@
         (for (key keys)
           (let* ((consumer (hash-ref owners key))
                  (nontrivial (> (car (hash-ref members consumer)) 1)))
-            (def row (hash-ref reads key))
+            (def row (read-row key))
             (when (and cycle? (not (and (pair? row) (null? (cdr row)))))
               (set! cycle? #f))
             (for (dep row)
@@ -806,8 +858,8 @@
             (hash-put! ranks root 'covered)
             (if (null? (cdr group))
               (set! certificate-singletons (1+ certificate-singletons))
-              (begin (span reads forward-seen root)
-                     (span reverse-reads backward-seen root)))))
+              (begin (span forward-row forward-seen root)
+                     (span reverse-row backward-seen root)))))
         (for (key keys)
           (let* ((owner (hash-ref owners key)) (entry (hash-ref members owner)))
             (unless (and (eq? (hash-get ranks owner) 'covered)
@@ -816,7 +868,7 @@
               (error "invalid SCC spanning certificate" key)))
           (when (and quotient-error (eq? key (car quotient-error)))
             (error "invalid SCC quotient certificate" key (cdr quotient-error))))
-        (def result (make-%partition groups (cut hash-ref owners <>) (cut hash-ref reads <>) members
+        (def result (make-%partition groups (cut hash-ref owners <>) read-row members
           (work-receipt validation-owners declared-edges (if (zero? finished) 0 next)
             examined-edges finished popped next component
             certificate-buckets certificate-edges quotient-edges certificate-singletons reverse-edges

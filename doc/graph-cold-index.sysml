@@ -54,4 +54,11 @@ package GraphColdIndex {
                non-symbols, duplicates and changed table routes enter the
                ordinary admission path with the original seed transition. */
     }
+    requirement def OrdinalRowOwnership {
+        doc /* Store each admitted detached row at its original owner ordinal
+               while the captured row table uses the stock native route.
+               Before a changed delegate or a wide fallback, restore accepted
+               rows to the original table. Preserve the missing-key error
+               and the identity of rows returned before restoration. */
+    }
 }

@@ -1,10 +1,11 @@
 ;;; Graph properties and scale accounting through the existing POO APIs.
 (export graph-algorithms-test main small-reachability-study compact-study shared-cyclic-study)
 (import :std/test :std/iter :clan/poo/object :clan/poo/mop
-        (only-in :std/error Error? Error-message Error-irritants)
+        (only-in :std/error Error? Error-message Error-irritants UnboundKeyError?)
         (only-in :gerbil/runtime/gambit string->uninterned-symbol)
         (only-in :gerbil/runtime/interface interface-instance-object)
-        (only-in :gerbil/runtime/hash symbol-hash-table?)
+        (only-in :gerbil/runtime/hash symbol-hash-table? HashTable::interface)
+        (prefix-in (only-in :gerbil/runtime/mop slot-ref slot-set!) runtime.)
         (only-in :gerbil/runtime/table symbolic-table-ref symbolic-table-set!)
         :clan/poo/type :clan/poo/number (prefix-in :clan/poo/testing/type typed.)
         (only-in :clan/poo/support/testing require-property-passed)
@@ -446,6 +447,45 @@
         (lambda (failure) (and (Error? failure)
           (equal? (Error-message failure) "symbolic captured owner required"))))
       (check-equal? calls []))
+    (test-case "packed rows retain ownership through a miss and a changed route"
+      (def keys '#(first second third))
+      (def author-row (list 'second))
+      (def (read key)
+        (when (eq? key 'second) (set-car! author-row 'third))
+        (if (eq? key 'first) author-row []))
+      (make-hash-table-symbolic seed: 0)
+      (defvalues (compact _graph _declared _edges)
+        (capture-graph keys read #t 4294967295 'adjacent #f #t))
+      (check (procedure? compact) => #t)
+      (def stored (compact 'first))
+      (check-equal? stored '(second))
+      (def misses
+        (for/collect (key '(outside other))
+          (def thread (make-thread (lambda ()
+            (with-catch UnboundKeyError? (lambda () (compact key) #f)))))
+          (thread-start! thread)
+          thread))
+      (for (thread misses) (check-eq? (thread-join! thread) #t))
+      (check-eq? (compact 'first) stored)
+      (def descriptor (runtime.slot-ref HashTable::interface 'type))
+      (def replaced (##structure-copy descriptor))
+      (def calls [])
+      (def restored
+        (dynamic-wind void
+          (lambda ()
+            (defvalues (rows _index _declared _edges)
+              (capture-graph keys
+                (lambda (key)
+                  (set! calls (cons key calls))
+                  (when (eq? key 'second) (runtime.slot-set! HashTable::interface 'type replaced))
+                  (if (eq? key 'first) (list 'second) []))
+                #t 4294967295 'adjacent #f #t))
+            rows)
+          (lambda () (runtime.slot-set! HashTable::interface 'type descriptor))))
+      (check (procedure? restored) => #f)
+      (check-equal? (reverse calls) '(first second third))
+      (check-equal? (hash-ref restored 'first) '(second))
+      (check-equal? (hash-ref restored 'second) []))
     (test-case "query row projection restores completed rows at the word boundary"
       ;; Reduced PRIVATE word ceilings cover first-row fallback, empty rows,
       ;; rightmost duplicates, chunk crossings and the singleton append route.
@@ -462,7 +502,7 @@
           (def calls [])
           (defvalues (actual index observed-declared observed-edges)
             (capture-graph roster (lambda (key)
-              (set! calls (cons key calls)) (hash-ref rows key)) retain? limit))
+              (set! calls (cons key calls)) (hash-ref rows key)) retain? limit 'adjacent #f (vector? roster)))
           (check-equal? (reverse calls) keys)
           (check-equal? index #f)
           (check-equal? (list observed-declared observed-edges) (list declared edges))
