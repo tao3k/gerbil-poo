@@ -8,9 +8,10 @@
   (prefix-in (only-in :gerbil/runtime/mop object? object-class make-class-slot-accessor
                       class-slot-offset &class-type-slot-table slot-ref slot-set!) read-runtime.)
   (only-in :gerbil/runtime/table raw-table? &raw-table-table &raw-table-hash &raw-table-test &raw-table-lock &raw-table-seed
+           &raw-table-free raw-table-for-each
            symbolic-table-ref symbolic-table-set! symbolic-hash gc-table-ref gc-table-set! gc-table-length)
   (only-in :gerbil/runtime/hash HashTable::interface gc-hash-table::t)
-  (only-in :gerbil/runtime/interface &interface-descriptor-type))
+  (only-in :gerbil/runtime/interface &interface-descriptor-type interface-instance-object))
 
 ;; Share table checks within one replay pass when casting an existing
 ;; HashTable wrapper returns that wrapper. With a different descriptor, use
@@ -66,6 +67,23 @@
                   (eq? (&raw-table-hash backend) symbolic-hash)
                   (eq? (&raw-table-test backend) eq?)
                   (not (&raw-table-lock backend))))))))
+
+;; Existing-key replacements can rehash before lookup. Leave enough free
+;; space for every proposed insertion before relying on enumeration order.
+(def %fixed-symbol-table-order?
+  (let* ((wrapper (&interface-descriptor-type HashTable::interface))
+         (offset (read-runtime.class-slot-offset wrapper 'for-each))
+         (field (read-runtime.make-class-slot-accessor wrapper 'for-each)))
+    (lambda (table insertions)
+      (and (standard-symbol-table-writes? table)
+           (eq? (&interface-descriptor-type HashTable::interface) wrapper)
+           (eqv? (read-runtime.class-slot-offset wrapper 'for-each) offset)
+           (eq? (field table) raw-table-for-each)
+           (let* ((backend (interface-instance-object table))
+                  (buckets (&raw-table-table backend))
+                  (free (&raw-table-free backend)))
+             (and (vector? buckets) (fixnum? free)
+                  (>= (- free insertions) (quotient (vector-length buckets) 4))))))))
 
 ;; Callback-free identity-table operations for a private owned key domain.
 ;; This only checks the LIVE route. The owner must separately retain native

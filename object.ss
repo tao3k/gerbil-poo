@@ -327,14 +327,41 @@
         (let (scratch (make-object))
           (for-each (lambda (define-slot) (define-slot scratch)) definitions)
           (cons (object-%slots scratch) (object-%defaults scratch)))))))
-;; Capture the whole C3 family first, then define each source in its original order.
-;; Incremental scratch visibility remains local to each catalog; nothing pending
-;; escapes or survives a failed build. Direct specifications still override declarations.
+(extern namespace: clan/poo/prototype-map specifications-entries)
+(extern namespace: clan/poo/read-route %fixed-symbol-table-order?)
+
+(def (plain-root-slot-entries self)
+  (def precedence (object-%precedence-list self))
+  (and (not (object-%protocol self))
+       (pair? precedence) (eq? (car precedence) self) (null? (cdr precedence))
+       (zero? (prototype-map-length (object-%defaults self)))
+       (zero? (prototype-map-length (object-%declarations self)))
+       (let (entries (specifications-entries (object-%slots self)))
+         (and (vector? entries) (<= (vector-length entries) 4)
+              (let loop ((index 0))
+                (if (= index (vector-length entries)) entries
+                  (let (spec (cdr (vector-ref entries index)))
+                    (and (or ($constant-slot-spec? spec) ($self-slot-spec? spec))
+                         (loop (1+ index))))))))))
+
 (def (compute-slot-funs! self)
   ;; support/base.ss binds seed 0 for private graph tables so preparation does
   ;; not consume the application's random sequence. The default #f lets Gerbil
   ;; draw its usual seed. Component callbacks run with that default.
   (def h (make-hash-table test: eq? hash: symbolic-hash seed: (%graph-table-seed)))
+  (def direct (plain-root-slot-entries self))
+  (if (and direct (%fixed-symbol-table-order? h (vector-length direct)))
+    ;; These independent specs compile to procedures without invoking them.
+    ;; Keep initial write order and the same final hash layout.
+    (for (entry (in-vector direct))
+      (hash-put! h (car entry) (apply-slot-spec self (cdr entry) #f)))
+    (assemble-slot-funs! self h))
+  (set! (object-%slot-funs self) h))
+
+;; Capture the whole C3 family first, then define each source in its original order.
+;; Incremental scratch visibility remains local to each catalog; nothing pending
+;; escapes or survives a failed build. Direct specifications still override declarations.
+(def (assemble-slot-funs! self h)
   (def prepared (map-in-order (lambda (super) (cons super (prepare-declaration-specifications super)))
                              (reverse (object-%precedence-list self))))
   (def sources (map-in-order (lambda (entry)
@@ -369,8 +396,7 @@
     (def compiled (if (or skip-hook-lookup? (bootstrap-anchor self slot)) standard
       (invoke-object-hook self 'compute-slot (lambda () standard) slot)))
     (unless (procedure? compiled) (error "compute-slot must return a thunk" slot))
-    (hash-put! h slot compiled))
-  (set! (object-%slot-funs self) h))
+    (hash-put! h slot compiled)))
 
 ;; SUPER-SLOTS contains one ordered list of names per prototype, most specific
 ;; first. Visit the lists least specific first and keep the first occurrence
