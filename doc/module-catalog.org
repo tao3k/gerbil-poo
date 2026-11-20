@@ -33,6 +33,20 @@ and source values retain their opaque identities. The cold fixture creates
 its rows inside the prototype. The staged candidate remains stable when the
 producer later replaces a list cell or edits a borrowed row's fields.
 
+* Installed Gerbil modules
+
+The =installed-module-catalog-test= selects an exact installed Gerbil version
+of =std/text/pregexp= and reads its compiled imports via =import-module= and
+=module-context-import=. Enumerating versions, a missing version, duplicate
+exact rows and incompatible pins make zero importer calls. Successful demand
+selects one root and checks its original Module ID. Gerbil resolves its imports.
+
+#+begin_src sh
+gerbil -:max-heap=2G,debug=q test -r '^installed-module-catalog-test$' benchmarks/versioned-catalog-test.ss
+#+end_src
+
+* Synthetic scale
+
 Use =just test-file benchmarks/versioned-catalog-test.ss= with the existing
 2 GiB heap fence and the 180-second watchdog. This source-executed prototype
 run reports separate CPU and wall windows in milliseconds:

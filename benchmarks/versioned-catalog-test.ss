@@ -1,8 +1,10 @@
 ;;; Independent metadata prototype. Gerbil still owns package installation.
-(export versioned-catalog-test)
+(export versioned-catalog-test installed-module-catalog-test)
 (import :std/test :std/iter (only-in :std/error Error-message)
         (only-in :std/list/list length<=n?)
         (only-in :std/list/list-builder with-list-builder)
+        (only-in :gerbil/expander import-module expander-context-id module-context-path module-context-import)
+        (only-in :gerbil/runtime/system gerbil-system-version-string)
         (only-in :gerbil/runtime/thread with-lock)
         (only-in :clan/poo/support/index %index %index-ref %index-fork %index-write!)
         (only-in :clan/poo/benchmarks/closure-measure measure qualified-metrics))
@@ -207,6 +209,44 @@
   (check-eq? (snapshot owner) updated)
   (displayln (list 'MODULE-CATALOG-WIDE-WORK count 'linear-version-visits (* 16 count)
                    'indexed-version-lookups 16 'unrelated-index-retained #t 'changed-versions 1)))
+
+(def installed-module-catalog-test
+  (test-suite "Catalog demand through Gerbil's installed module interfaces"
+    (test-case "exact selection admits the plan before reading Gerbil imports"
+      (def version (string->symbol (gerbil-system-version-string)))
+      (def names #(std/text/pregexp std/text/template))
+      (def (source-for name)
+        (case name
+          ((std/text/pregexp) ':std/text/pregexp)
+          ((std/text/template) ':std/text/template)))
+      (def (bucket name) (list (make-row version (source-for name))))
+      (def (same-version name) (cons name version))
+      (def view (build-catalog names bucket))
+      (def ambiguous (build-catalog names
+        (lambda (name)
+          (if (eq? name 'std/text/template)
+            (append (bucket name) (bucket name))
+            (bucket name)))))
+      (def requested [])
+      (def (read-imports source)
+        (set! requested (cons source requested))
+        (let (ctx (import-module source))
+          (check-equal? (path-extension (module-context-path ctx)) ".ssi")
+          (cons (expander-context-id ctx) (module-context-import ctx))))
+      (check-equal? (versions view 'std/text/pregexp) (list version))
+      (check-exception (dependencies view 'std/text/pregexp 'missing read-imports)
+        (catalog-error? "missing exact catalog version"))
+      (check-exception
+        (demand-plan ambiguous (map same-version (vector->list names)) read-imports)
+        (catalog-error? "conflicting exact catalog version"))
+      (check-exception
+        (demand-plan view (list (same-version 'std/text/pregexp) '(std/text/pregexp . missing)) read-imports)
+        (catalog-error? "incompatible exact catalog requirements"))
+      (check-equal? requested [])
+      (def result (dependencies view 'std/text/pregexp version read-imports))
+      (check-eq? (car result) 'std/text/pregexp)
+      (check-eq? (pair? (cdr result)) #t)
+      (check-equal? requested '(:std/text/pregexp)))))
 
 (def versioned-catalog-test
   (test-suite "versioned module metadata independent of evaluation"
