@@ -561,19 +561,16 @@
 ;; Read an already stored vector cell through the stock HashTable route.
 ;; A cold cell or an unsupported table returns absent-value. A stored #f
 ;; remains a value. This probe does not instantiate, demand, or issue a read.
+(extern namespace: clan/poo/read-route %prepared-vector-value %prepared-vector-values)
 (def (%prepared-vector-slot-ref self slot)
   (let (instance (and (object? self) (object-%instance self)))
     (if (and instance (not (object-protocol self))
-             (not (bootstrap-anchor self slot)) (slot-values-layout instance))
-      (with-catch (lambda (_) absent-value)
-        (lambda ()
-          (%require-read-route! slot #f instance #f)
-          (hash-ref instance slot absent-value)))
+             (not (bootstrap-anchor self slot)) (symbol? slot))
+      (%prepared-vector-value instance slot)
       absent-value)))
 
 ;; One uninterrupted inspection of the receiver's existing symbolic vector
 ;; store. Author hooks and bootstrap reads remain with ordinary demand.
-(extern namespace: clan/poo/read-route %prepared-vector-values)
 (def (%prepared-vector-slots-ref self first second third)
   (let (instance (and (object? self) (object-%instance self)))
     (if (and instance (object-%precedence-list self)

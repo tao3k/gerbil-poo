@@ -23,7 +23,7 @@
 ;; Ordinary consumers use the public replay and protected checkpoint entries.
 (extern namespace: clan/poo/object call-with-issued-reads object-read-key
         object-read-dependencies object-read-value require-current-read-sweep!
-        %call-with-fresh-slot-read-group %register-slot-dependencies!)
+        %call-with-fresh-slot-read-group %register-slot-dependencies! %prepared-vector-slot-ref)
 (def (admit-group roots (visit-capacity 0))
   (%call-with-fresh-slot-read-group roots (lambda (_) #t) visit-capacity))
 (def (captured-order roots)
@@ -683,6 +683,22 @@
     (check-equal? (car reordered) b)
     (check-equal? (eq? first reordered) #f)
     (check-equal? (car first) a)
+    (def probe-owner (.o flag: #f cold: (error "undemanded vector probe")))
+    (.ref probe-owner 'flag)
+    (def absent (%prepared-vector-slot-ref probe-owner 'missing))
+    (check-eq? (%prepared-vector-slot-ref probe-owner 'flag) #f)
+    (check-equal? (eq? absent #f) #f)
+    (check-eq? (%prepared-vector-slot-ref probe-owner 'cold) absent)
+    (check-eq? (%prepared-vector-slot-ref probe-owner 0) absent)
+    (let* ((table (object-%instance probe-owner)) (original (runtime.slot-ref table 'ref))
+           (calls 0))
+      (try
+        (runtime.slot-set! table 'ref
+          (lambda (_table _key _default) (set! calls (+ calls 1)) #t))
+        (check-eq? (%prepared-vector-slot-ref probe-owner 'flag) absent)
+        (check-equal? calls 0)
+        (finally (runtime.slot-set! table 'ref original)))
+      (check-eq? (%prepared-vector-slot-ref probe-owner 'flag) #f))
     (set! classification-order [])
     (check-equal? (published) #t)
     (check-equal? classification-order [])
