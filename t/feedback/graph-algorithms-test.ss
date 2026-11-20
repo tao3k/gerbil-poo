@@ -482,7 +482,7 @@
       (check-equal? calls []))
     (test-case "packed rows retain ownership through a miss and a changed route"
       (def keys '#(first second third))
-      (def author-row (list 'second))
+      (def author-row (list 'second 'first 'second))
       (def (read key)
         (when (eq? key 'second) (set-car! author-row 'third))
         (if (eq? key 'first) author-row []))
@@ -491,7 +491,7 @@
         (capture-graph keys read #t 4294967295 'adjacent #f #t))
       (check (procedure? compact) => #t)
       (def stored (compact 'first))
-      (check-equal? stored '(second))
+      (check-equal? stored '(first second))
       (def misses
         (for/collect (key '(outside other))
           (def thread (make-thread (lambda ()
@@ -503,6 +503,7 @@
       (def descriptor (runtime.slot-ref HashTable::interface 'type))
       (def replaced (##structure-copy descriptor))
       (def calls [])
+      (def earlier (list 'second 'first 'second))
       (def restored
         (dynamic-wind void
           (lambda ()
@@ -510,15 +511,17 @@
               (capture-graph keys
                 (lambda (key)
                   (set! calls (cons key calls))
-                  (when (eq? key 'second) (runtime.slot-set! HashTable::interface 'type replaced))
-                  (if (eq? key 'first) (list 'second) []))
+                  (when (eq? key 'second)
+                    (set-car! (cdr earlier) 'third)
+                    (runtime.slot-set! HashTable::interface 'type replaced))
+                  (case key ((first) earlier) ((second) '(third first)) (else [])))
                 #t 4294967295 'adjacent #f #t))
             rows)
           (lambda () (runtime.slot-set! HashTable::interface 'type descriptor))))
       (check (procedure? restored) => #f)
       (check-equal? (reverse calls) '(first second third))
-      (check-equal? (hash-ref restored 'first) '(second))
-      (check-equal? (hash-ref restored 'second) []))
+      (check-equal? (hash-ref restored 'first) '(first second))
+      (check-equal? (hash-ref restored 'second) '(third first)))
     (test-case "query row projection restores completed rows at the word boundary"
       ;; Reduced PRIVATE word ceilings cover first-row fallback, empty rows,
       ;; rightmost duplicates, chunk crossings and the singleton append route.

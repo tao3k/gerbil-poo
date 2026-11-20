@@ -287,45 +287,46 @@
   (def small-table (and compact-rows? buckets (make-hash-table-eq)))
   (def row-backend (and small-table (gc-table-route-current? small-table)
                         (interface-instance-object small-table)))
-  (def dense-rows (and row-backend (make-vector count [])))
-  (def reads (or (and dense-rows small-table)
+  (def deferred-rows? (and row-backend #t))
+  (def reads (or (and deferred-rows? small-table)
                  (and (or symbolic-rows? (not packed?))
                       (if stable-rows? (make-hash-table-symbolic size: count seed: (%graph-table-seed))
                         (make-hash-table-eq size: count)))))
-  (def (retire-ordinal-rows! end)
-    (when dense-rows
-      (restore-ordinal-rows! keys dense-rows end row-backend)
-      (set! dense-rows #f)))
-  (def (store-row! key owner row)
-    (if (and dense-rows (gc-table-route-current? reads))
-      (vector-set! dense-rows owner row)
-      (begin
-        (retire-ordinal-rows! owner)
-        (hash-put! reads key row))))
   (def declared 0) (def edges 0)
   (def direction 3)
   ;; Private, bounded construction chunks, not a retained graph/value cache.
   ;; A small graph pays only its support-sized chunk; an empty graph pays none.
   (def capacity (max 1 (min count 65536)))
   (def chunks []) (def chunk #f) (def used 0)
-  ;; A query consumes the packed product only. On a real word-domain fallback,
-  ;; recover completed rows BEFORE dropping those chunks. The current row can
-  ;; have a partial suffix there; offsets stop before it (restore_completed_prefix).
+  ;; Only completed offset intervals belong to the accepted prefix. A
+  ;; partially encoded current row is never restored to a symbolic table.
+  (def (visit-packed-prefix completed emit)
+    (unless owner-names (set! owner-names (list->vector keys)))
+    (let ((pending (reverse (if chunk (cons chunk chunks) chunks))) (cursor 0))
+      (def (next-id)
+        (when (fx= cursor capacity) (set! pending (cdr pending)) (set! cursor 0))
+        (unless (pair? pending) (error "incomplete captured row prefix"))
+        (let (id (u32vector-ref (car pending) cursor))
+          (set! cursor (fx+ cursor 1)) id))
+      (for (owner (in-range completed))
+        (emit (vector-ref owner-names owner)
+          (for/collect (_at (in-range (u32vector-ref offsets owner)
+                             (u32vector-ref offsets (fx+ owner 1))))
+            (vector-ref owner-names (next-id)))))))
   (def (restore-symbolic-prefix! completed)
     (unless reads
       (set! reads (make-hash-table-eq size: count))
-      (unless owner-names (set! owner-names (list->vector keys)))
-      (let ((pending (reverse (if chunk (cons chunk chunks) chunks))) (cursor 0))
-        (def (next-id)
-          (when (fx= cursor capacity) (set! pending (cdr pending)) (set! cursor 0))
-          (unless (pair? pending) (error "incomplete captured row prefix"))
-          (let (id (u32vector-ref (car pending) cursor))
-            (set! cursor (fx+ cursor 1)) id))
-        (for (owner (in-range completed))
-          (hash-put! reads (vector-ref owner-names owner)
-            (for/collect (_at (in-range (u32vector-ref offsets owner)
-                               (u32vector-ref offsets (fx+ owner 1))))
-              (vector-ref owner-names (next-id))))))))
+      (visit-packed-prefix completed (lambda (key row) (hash-put! reads key row)))))
+  (def (retire-ordinal-rows! completed)
+    (when deferred-rows?
+      (let (restored (make-gc-table count gc-hash-table::t))
+        (visit-packed-prefix completed (lambda (key row) (gc-table-set! restored key row)))
+        (&gc-table-gcht-set! row-backend (&gc-table-gcht restored))
+        (set! deferred-rows? #f))))
+  (defrule (store-row! key owner row)
+    (when (and reads (not (and deferred-rows? (gc-table-route-current? reads))))
+      (retire-ordinal-rows! owner)
+      (hash-put! reads key row)))
   (def (use-wide-rows! completed)
     (retire-ordinal-rows! completed)
     (restore-symbolic-prefix! completed)
@@ -420,12 +421,12 @@
               ;; normalizer is identity (fresh_row_skips_normalization).
               (begin
                 (append-row-targets owner 0 row-length)
-                (when reads (store-row! key owner (append deps []))))
+                (store-row! key owner (append deps [])))
               ;; A distinct fresh stamp lets the existing reverse scan keep the
               ;; rightmost occurrence, regardless of how late the first repeat was.
               (let ((token (fx+ forward 1)))
                 (let-values (((start unique)
-                              (let scan ((read row-length) (write row-length) (unique (and reads [])))
+                              (let scan ((read row-length) (write row-length) (unique (and reads (not deferred-rows?) [])))
                                 (if (fx= read 0) (values write unique)
                                   (let* ((next (fx- read 1)) (id (u32vector-ref row-buffer next)))
                                     (if (fx= (u32vector-ref row-marks id) token)
@@ -433,14 +434,13 @@
                                       (let (destination (fx- write 1))
                                         (u32vector-set! row-marks id token)
                                         (u32vector-set! row-buffer destination id)
-                                        (scan next destination (and reads (cons (vector-ref owner-names id) unique))))))))))
+                                        (scan next destination (and unique (cons (vector-ref owner-names id) unique))))))))))
                   (unless reads
                     (set! fresh-streak (if (fx= start 0) (fxmin 2 (fx+ fresh-streak 1)) 0)))
                   (append-row-targets owner start row-length)
-                  (when reads
-                    (store-row! key owner (or unique
-                      (for/collect (at (in-range start row-length))
-                        (vector-ref owner-names (u32vector-ref row-buffer at))))))))))
+                  (store-row! key owner (or unique
+                    (for/collect (at (in-range start row-length))
+                      (vector-ref owner-names (u32vector-ref row-buffer at)))))))))
           ;; Preserve the inexpensive empty/singleton path and the original wide
           ;; domain. Copy singleton spines before the next independent callback.
           (begin
@@ -454,11 +454,8 @@
                         ((fx> id owner) (set! direction (fxand direction 2))))
                   (append-target owner id))
                 (set! edges (1+ edges)))
-              (when reads
-                ;; Copy the singleton before the next author, including when this row
-                ;; caused fallback. Packed queries need no unconsumed symbolic copy.
-                (store-row! key owner (if (and (pair? unique) (null? (cdr unique)))
-                                      (list (car unique)) unique))))))
+              (store-row! key owner (if (and (pair? unique) (null? (cdr unique)))
+                                    (list (car unique)) unique)))))
         (set! declared (+ declared row-length)))))
   (def index
     (and packed?
@@ -471,8 +468,21 @@
                           (u32vector-concatenate (reverse (cons tail chunks))))))
           (unless (= (u32vector-length targets) edges) (error "captured edge count changed"))
           (make-compact-graph (or owner-names (list->vector keys)) positions offsets targets direction)))))
-  (values (if dense-rows (ordinal-row-reader keys buckets reads row-backend dense-rows) reads)
-    index declared edges))
+  (def published
+    (if deferred-rows?
+      (let ((targets (compact-graph-targets index))
+            (rows (make-vector count [])))
+        ;; Admit all authors before constructing symbolic spines. Each final
+        ;; row is owned once and retains its identity across lookups or misses.
+        (for (owner (in-range count))
+          (def lo (u32vector-ref offsets owner))
+          (let decode ((hi (u32vector-ref offsets (fx+ owner 1))) (row []))
+            (if (fx= hi lo) (vector-set! rows owner row)
+              (let (at (fx- hi 1))
+                (decode at (cons (vector-ref keys (u32vector-ref targets at)) row))))))
+        (ordinal-row-reader keys buckets reads row-backend rows))
+      reads))
+  (values published index declared edges))
 
 ;; Return reachable keys in source order using the saved adjacency rows.
 ;; Small walks retain bounded list membership. Large sparse walks use a private
