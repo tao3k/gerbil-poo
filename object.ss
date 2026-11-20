@@ -35,7 +35,7 @@
   :std/iter
   ./slot-observation
   (prefix-in (only-in :gerbil/runtime/mop object-class find-method) read-runtime.)
-  (only-in ./read-route require-read-route! standard-symbol-table-writes?
+  (only-in ./read-route standard-symbol-table-writes?
            %issued-read? %read-issuance)
   ./object-state
   ./prototype-map
@@ -425,7 +425,7 @@
 
 ;; Authenticate the receiver's prepared route without handing out its table.
 (def (require-object-instance-route! self key)
-  (require-read-route! key #f (object-%instance self)))
+  (%require-read-route! key #f (object-%instance self) #f))
 
 ;; Qualify both routes of a warm observed read without delivering evidence.
 ;; The caller separately qualifies the dynamic observation scope.
@@ -433,7 +433,7 @@
   (and (object? self) (not (bootstrap-anchor self name))
        (let ((instance (object-%instance self)) (reads (object-%reads self)))
          (and instance reads
-              (begin (require-read-route! name reads instance)
+              (begin (%require-read-route! name reads instance #f)
                      (let (read (hash-get reads name))
                        (and read (object-read-issued? read)
                             (not (eq? absent-value (hash-ref instance name absent-value))))))))))
@@ -445,7 +445,7 @@
   (let (instance (and (object? self) (object-%instance self)))
     (if instance
       (begin
-        (require-read-route! name #f instance)
+        (%require-read-route! name #f instance #f)
         (let (value (hash-ref instance name absent-value))
           (if (eq? value absent-value) default (%owned-list-value value))))
       default)))
@@ -567,7 +567,7 @@
              (not (bootstrap-anchor self slot)) (slot-values-layout instance))
       (with-catch (lambda (_) absent-value)
         (lambda ()
-          (require-read-route! slot #f instance)
+          (%require-read-route! slot #f instance #f)
           (hash-ref instance slot absent-value)))
       absent-value)))
 
@@ -596,7 +596,7 @@
          (not (object-%bootstrap self)) (not (object-protocol self))
          (with-catch (lambda (_) #f)
            (lambda ()
-             (require-read-route! 'presence reads instance)
+             (%require-read-route! 'presence reads instance #f)
              (and (%standard-symbol-table-lookup? methods) #t)))
          (let (revision (object-revision self))
            (def (registered-current? read key expected)

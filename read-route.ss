@@ -104,7 +104,19 @@
 ;; READS maps keys to SlotRead records. INSTANCE holds cached slot values.
 ;; Either table may be #f. A bootstrap read checks its constant directly.
 ;; An owner recording fresh reads also qualifies the read table's writer.
-(defvalues (require-read-route! %standard-symbol-table-lookup? %admitted-vector-read-fields!
+;; Key-only replay checks need neither an absent table pair nor an optional
+;; argument dispatcher.
+(def (%require-read-key! key)
+  (unless (or (symbol? key)
+              (and (pair? key)
+                   (case (car key)
+                     ((preparation names) (null? (cdr key)))
+                     ((bootstrap cache-miss presence)
+                      (and (pair? (cdr key)) (symbol? (cadr key)) (null? (cddr key))))
+                     (else #f))))
+    (error "unsupported metadata key")))
+
+(defvalues (%require-read-route! %standard-symbol-table-lookup? %admitted-vector-read-fields!
             %prepared-vector-values)
   (let ()
     ;; Pin the standard wrapper, primitive lookup and hash/test identities once.
@@ -196,15 +208,8 @@
                     (or (ref-refusal table instance-route (route-ref instance-route))
                         (backend-refusal backend instance-route))))))
         (when refused (error refused))))
-    (def (require-route! key reads instance (write-reads? #f))
-      (unless (or (symbol? key)
-                  (and (pair? key)
-                    (case (car key)
-                      ((preparation names) (null? (cdr key)))
-                      ((bootstrap cache-miss presence)
-                       (and (pair? (cdr key)) (symbol? (cadr key)) (null? (cddr key))))
-                      (else #f))))
-        (error "unsupported metadata key"))
+    (def (require-route! key reads instance write-reads?)
+      (%require-read-key! key)
       (unless (and (pair? key) (eq? (car key) 'bootstrap))
         (when reads
           (check reads reads-route)
@@ -268,6 +273,8 @@
             (absent)))))
     (values require-route! standard-lookup? admitted-vector-read-fields! prepared-vector-values)))
 
+(def (require-read-route! key reads instance (write-reads? #f))
+  (%require-read-route! key reads instance write-reads?))
 
 ;; Each issuer keeps a weak table of the records it created and their original
 ;; field checkers. Its structural keys are independent copies.

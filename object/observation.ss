@@ -42,7 +42,8 @@
 ;; Trusted implementation access to the one existing writer; it remains absent
 ;; from the read-route public exports. Ordinary consumers receive only checks.
 (extern namespace: clan/poo/read-route %issue-read %pure-read-sweep? %read-index-size-effect-free?)
-(extern namespace: clan/poo/read-route %admitted-vector-read-fields!)
+(extern namespace: clan/poo/read-route %admitted-vector-read-fields!
+        %require-read-key! %require-read-route!)
 (def issue-object-read %issue-read)
 (def object-read-issued? %issued-read?)
 (def object-read-issuance %read-issuance)
@@ -72,8 +73,8 @@
 ;; Check the receiver's read table and cached values before looking in either.
 (def (require-object-read-route! read)
   (def receiver (slot-read-receiver read))
-  (require-read-route! (object-read-key read)
-    (object-%reads receiver) (object-%instance receiver)))
+  (%require-read-route! (object-read-key read)
+    (object-%reads receiver) (object-%instance receiver) #f))
 
 ;; A private replay vector stores six fields per receiver. They are borrowed
 ;; after route admission and read only during the current sweep.
@@ -123,7 +124,7 @@
           (let (key (object-read-key read))
             ;; Bootstrap uses its constant directly. Leave this receiver's
             ;; table checks for the first ordinary read.
-            (require-read-route! key #f #f)
+            (%require-read-key! key)
             (unless (and (pair? key) (eq? (car key) 'bootstrap))
               (let (index (vector-ref positions position))
                 (unless (vector-ref seen index)
@@ -167,7 +168,7 @@
     (def (require-group-read-key! read)
       (require-issued! read)
       (def key (object-read-key read))
-      (unless (symbol? key) (require-read-route! key #f #f))
+      (unless (symbol? key) (%require-read-key! key))
       key)
     (def (bootstrap-key? key)
       (and (pair? key) (eq? (car key) 'bootstrap)))
