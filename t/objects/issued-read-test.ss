@@ -22,7 +22,7 @@
 ;; Ordinary consumers use the public replay and protected checkpoint entries.
 (extern namespace: clan/poo/object call-with-issued-reads object-read-key
         object-read-dependencies object-read-value require-current-read-sweep!
-        %call-with-fresh-slot-read-group)
+        %call-with-fresh-slot-read-group %register-slot-dependencies!)
 (def (admit-group roots (visit-capacity 0))
   (%call-with-fresh-slot-read-group roots (lambda (_) #t) visit-capacity))
 (def (captured-order roots)
@@ -654,6 +654,14 @@
     (def first (captured-order roots))
     (check-equal? (car first) a)
     (check-equal? (length (filter (cut eq? <> a) first)) 1)
+    (def replay-order [])
+    (def published
+      (%register-slot-dependencies! (.o) roots
+        (lambda (read)
+          (set! replay-order (cons read replay-order))
+          #t)))
+    (check-equal? (published) #t)
+    (check-equal? (reverse replay-order) first)
     ;; Weak eviction is allowed. Check actual reuse in a no-GC interval rather
     ;; than asserting that a weak value survives an arbitrary collection.
     (def reused 0)
@@ -674,6 +682,17 @@
     (check-equal? (car reordered) b)
     (check-equal? (eq? first reordered) #f)
     (check-equal? (car first) a)
+    (set! replay-order [])
+    (check-equal? (published) #t)
+    (check-equal? (reverse replay-order) first)
+    (let (saved (runtime.slot-ref b 'dependencies))
+      (try
+        (runtime.slot-set! b 'dependencies '())
+        (refuses "unissued slot dependency" published)
+        ;; A's staleness wins over B's later issuance failure.
+        (.put! First 'port 5434)
+        (refuses "stale slot dependency" published)
+        (finally (runtime.slot-set! b 'dependencies saved))))
     (set! completed (+ completed 1)))
   (test-case "cached structure retains issuance and transient miss currentness checks"
     (.def Root port: 5432 missing: 99)

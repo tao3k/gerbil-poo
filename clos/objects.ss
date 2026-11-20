@@ -179,7 +179,7 @@
 
 ;; Admission belongs to the committed plan. Its owner uses whole-object
 ;; edges even where the order projection uses filtered Class edges.
-(defstruct dispatch-admission (publication owner generation roots) final: #t)
+(defstruct dispatch-admission (publication owner generation roots replay) final: #t)
 
 (def (%quiet-dispatch-admission?)
   (and (not (%slot-read-active?)) (slot-read-observers-compatible? '())
@@ -204,9 +204,7 @@
               (eqv? (dispatch-admission-generation receipt)
                     (%prepared-vector-slot-ref generic 'generation))
               (with-catch (lambda (_) #f)
-                (lambda ()
-                  (%call-with-fresh-slot-read-group
-                    (dispatch-admission-roots receipt) (cut %stock-dispatch-read? <> #t))))))))
+                (dispatch-admission-replay receipt))))))
 
 ;; Capture only over prepared cells. The read precheck runs before slot
 ;; preparation or invocation of a Type predicate. Cold, foreign and
@@ -259,15 +257,17 @@
                       before: check-read!))
                   (and admitted? (pair? roots)
                        (%call-with-fresh-slot-read-group roots (cut %stock-dispatch-read? <> #t))
-                       (let (owner (make-object))
-                         (%register-slot-dependencies! owner roots)
+                       (let* ((owner (make-object))
+                              (replay (%register-slot-dependencies! owner roots
+                                        (cut %stock-dispatch-read? <> #t))))
                          (for-each (lambda (source) (depend-on-object! owner (car source))) ancestry)
-                         (and (eq? publication (%published-dispatch generic))
+                         (and replay
+                              (eq? publication (%published-dispatch generic))
                               (eqv? generation (%prepared-vector-slot-ref generic 'generation))
                               (zero? (object-revision owner))
                               (andmap (lambda (source)
                                         (= (cdr source) (object-revision (car source)))) ancestry)
-                              (let (receipt (make-dispatch-admission publication owner generation roots))
+                              (let (receipt (make-dispatch-admission publication owner generation roots replay))
                                 (set! (dispatch-publication-admission publication) receipt)
                                 receipt))))))))))
 
