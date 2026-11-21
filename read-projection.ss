@@ -2,7 +2,7 @@
 ;;; SPDX-License-Identifier: Apache-2.0 AND LGPL-2.1-or-later
 ;;; Call-local retention projection; MOP still owns read validity.
 (import :clan/poo/object
-        (only-in :clan/poo/prototype-map prototype-map-length)
+        (only-in :clan/poo/object/prototype-map prototype-map-length)
         (only-in :clan/poo/slot-observation
                  %call-with-recorded-slot-reads %record-slot-reads!
                  slot-read-receiver slot-read-dependencies slot-read-key slot-read-value

@@ -34,7 +34,7 @@
 (import (only-in ../read-route standard-symbol-table-writes?))
 (extern namespace: clan/poo/read-route %ordinal-index-routes-current? %gc-scratch-routes-current?
   %standard-symbol-table-lookup?)
-(extern namespace: clan/poo/prototype-map %stock-struct-construction?)
+(extern namespace: clan/poo/object/prototype-map %stock-struct-construction?)
 (extern namespace: clan/poo/slot-observation %make-owned-list %borrow-owned-list)
 (defstruct %schedule (source order reads adjacency ranks reverse supported work positions position-changes
                      rank-frontier owned roster) final: #t)

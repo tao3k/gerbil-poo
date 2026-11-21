@@ -4,7 +4,7 @@
   :gerbil/runtime/gambit
   :std/format
   :std/iter
-  :clan/poo/object :clan/poo/prototype-map
+  :clan/poo/object :clan/poo/object/prototype-map
   (prefix-in "closure-measure.ss" sample.))
 
 ;; Complete cold construction/read operations per observed sample.

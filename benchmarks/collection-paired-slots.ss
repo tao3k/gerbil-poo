@@ -3,7 +3,7 @@
         map-workload names-workload chain-workload offset-workload
         cycle-report-workload cycle-workflow seeding-workload slot-workload)
 (import :std/iter :clan/poo/object
-        :clan/poo/prototype-map
+        :clan/poo/object/prototype-map
         (only-in :clan/poo/io module-action)
         (only-in :clan/poo/object/slot-layout slot-value-storage make-slot-cache
                  make-slot-layout slot-layout-index slot-layout-ref)

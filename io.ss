@@ -15,7 +15,7 @@
   ./support/io
   ./support/json
   ./object
-  (only-in ./prototype-map prototype-map-keys)
+  (only-in ./object/prototype-map prototype-map-keys)
   ./mop/prototype)
 
 (extern namespace: "clan/poo/io" writeenv-style)

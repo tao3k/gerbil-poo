@@ -42,7 +42,7 @@
   (only-in ./read-route standard-symbol-table-writes?
            %issued-read? %read-issuance)
   ./object/state
-  ./prototype-map
+  ./object/prototype-map
   ./object/slot-layout
   (only-in :std/list/list-builder with-list-builder)
   (only-in :std/list/list flatten delete-duplicates/hash map-in-order)

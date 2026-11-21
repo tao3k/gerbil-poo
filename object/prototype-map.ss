@@ -7,7 +7,7 @@
         (only-in :gerbil/runtime/table make-raw-table raw-table-for-each
                  raw-table? &raw-table-hash &raw-table-test &raw-table-lock
                  symbolic-hash symbolic-table-ref symbolic-table-set!)
-        (only-in ./support/base %compare-symbol-identity)
+        (only-in ../support/base %compare-symbol-identity)
         (only-in :std/vector/vector vector-filter vector-fold-right/index)
         (only-in :std/list/list length<=n? delete-duplicates/hash foldr))
 

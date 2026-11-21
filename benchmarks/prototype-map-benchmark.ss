@@ -4,7 +4,7 @@
         layout-admission-workload dependency-workload shape-workload)
 (import (only-in :clan/poo/type TypeError?)
         (only-in :gerbil/runtime/hash HashTable) (only-in :gerbil/runtime/gambit string->uninterned-symbol) :std/error :std/iter (only-in :std/list/list delete-duplicates/hash foldr take drop)
-        (only-in :clan/poo/slot-observation %slot-read-active? call-with-slot-read-observer %call-with-recorded-slot-reads without-observation slot-read-receiver) :clan/poo/object :clan/poo/prototype-map :clan/poo/mop :clan/poo/number
+        (only-in :clan/poo/slot-observation %slot-read-active? call-with-slot-read-observer %call-with-recorded-slot-reads without-observation slot-read-receiver) :clan/poo/object :clan/poo/object/prototype-map :clan/poo/mop :clan/poo/number
         (only-in :clan/poo/io module-action)
         (only-in :gerbil/runtime/loader load-module)
         (only-in :clan/poo/object-contract checked-action)

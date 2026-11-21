@@ -3,7 +3,7 @@
 (import (prefix-in (only-in :gerbil/runtime/mop slot-ref) runtime.) :std/test :std/error :std/iter
         (only-in :gerbil/runtime/gambit string->uninterned-symbol)
         :clan/poo/object :clan/poo/mop :clan/poo/number :clan/poo/reflection
-        :clan/poo/prototype-map :clan/poo/slot-observation
+        :clan/poo/object/prototype-map :clan/poo/slot-observation
         (only-in :clan/poo/type List Fun TypeError?)
         (only-in :clan/poo/object/slot-layout make-slot-cache)
         (only-in :clan/poo/benchmarks/prototype-map-benchmark reference-reflection reference-read-slot)

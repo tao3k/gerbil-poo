@@ -113,7 +113,7 @@
     "graph/construction"
     "staged-publication"
     "number"
-    "prototype-map"
+    "object/prototype-map"
     ,(apply production-module "object/slot-layout" [] "" (include-gambit-sharp))
     "read-route"
     "slot-observation"

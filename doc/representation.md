@@ -136,7 +136,7 @@ continues to belong to the standard loader. These failure policies are distinct.
 
 ## Protocol and public operations
 
-`prototype-map.ss` uses private compact vectors and V19 `std/struct/rbtree`, not a second tree implementation.
+`object/prototype-map.ss` uses private compact vectors and V19 `std/struct/rbtree`, not a second tree implementation.
 It stores ordered contributions and a first-name index. Persistent updates copy
 balanced-tree paths, preserve later same-name methods and append new names. Input
 and reflection list spines/entry pairs are owned; values and SlotSpecs are shared.
@@ -206,7 +206,7 @@ benchmarks are required before claiming any strategy is faster.
 ## Compact persistent prototype maps
 
 The concrete small-map item in the representation TODO is now implemented through
-`prototype-map.ss`, without another public namespace or object API. The default policy remains `tree`. Explicit
+`object/prototype-map.ss`, without another public namespace or object API. The default policy remains `tree`. Explicit
 `prototype-map entries policy: 'compact` selects private vectors through eight
 **contributions**, including duplicates. Existing snapshots preserve their policy;
 explicit `tree`/`compact` conversion owns a new snapshot with identical entries.

@@ -125,7 +125,7 @@
         (let (scratch (make-object))
           (for-each (lambda (define-slot) (define-slot scratch)) definitions)
           (cons (object-%slots scratch) (object-%defaults scratch)))))))
-(extern namespace: clan/poo/prototype-map specifications-entries)
+(extern namespace: clan/poo/object/prototype-map specifications-entries)
 (extern namespace: clan/poo/read-route %fixed-symbol-table-order?)
 
 (def (plain-root-slot-entries self)

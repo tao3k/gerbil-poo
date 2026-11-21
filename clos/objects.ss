@@ -9,7 +9,7 @@
         (only-in :clan/poo/mop/prototype element? .defgeneric)
         (only-in :std/hash/misc hash-ref/default)
         (only-in :std/list/list iota map-in-order delete-duplicates/hash)
-        (only-in :clan/poo/prototype-map prototype-map-ref)
+        (only-in :clan/poo/object/prototype-map prototype-map-ref)
         (only-in :clan/poo/read-route require-read-route!)
         (only-in :clan/poo/slot-observation
           %slot-read-active? %call-with-recorded-slot-reads
