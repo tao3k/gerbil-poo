@@ -9,7 +9,7 @@
         (only-in :gerbil/runtime/interface interface-instance-object)
         (only-in :gerbil/runtime/mop object-class slot-ref)
         (prefix-in :clan/poo/graph/schedule graph.)
-        (prefix-in :clan/poo/dependency-analysis code.)
+        (prefix-in :clan/poo/graph/computation code.)
         (only-in :clan/poo/object .@)
         (only-in :clan/poo/support/index %index)
         (only-in :gerbil/runtime/gambit default-random-source))

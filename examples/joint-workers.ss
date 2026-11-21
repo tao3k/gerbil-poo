@@ -1,8 +1,8 @@
 ;;; Scoped Gerbil installation workers with explicit coordinator-controlled release.
 (export call-with-installations)
 (import :std/sync/channel
-        (runtime: :clan/poo/joint-publication)
-        (prefix-in (only-in ../joint-publication install!) joint.))
+        (runtime: :clan/poo/graph/component/joint)
+        (prefix-in (only-in ../graph/component/joint install!) joint.))
 ;; The coordinator receives start and receive procedures. start waits for one
 ;; worker's readiness and returns its one-shot release procedure; receive observes
 ;; one completed install. New receipts may be prepared while older workers wait.

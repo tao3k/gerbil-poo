@@ -6,7 +6,7 @@
         ../../generalized-declaration ../../generalized-closure ./closure ../../lens-laws
         (only-in ../schedule %splice-witness-tree %witness-span %witness-tree-current? %witness-tree-stamp
                  %witness-tree-left %witness-tree-right %witness-tree-evidence)
-        (prefix-in ../construction cache.) (prefix-in ../../dependency-analysis code.)
+        (prefix-in ../construction cache.) (prefix-in ../computation code.)
         (prefix-in (only-in ../../fun Observation.) fun.))
 ;; Only successful whole-raw closure plus every component residual creates a group.
 ;; Registered sources and immutable receipt data remain part of the reuse premise.

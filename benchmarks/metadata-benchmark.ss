@@ -41,8 +41,8 @@
         (runtime: :clan/poo/graph/schedule)
         (prefix-in (only-in :clan/poo/graph/schedule define reschedule schedule
                    schedule-order set-base) graph.)
-        (runtime: :clan/poo/dependency-analysis)
-        (prefix-in (only-in :clan/poo/dependency-analysis make-success need) code.)
+        (runtime: :clan/poo/graph/computation)
+        (prefix-in (only-in :clan/poo/graph/computation make-success need) code.)
         (prefix-in :clan/poo/examples/construction-workflow workflow.))
 ;; Matched unfactored control: the previous public constructor semantics.
 ;; This intentionally reconstructs invariant Types/Formula; it is not a runtime API.

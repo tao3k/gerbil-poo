@@ -9,12 +9,12 @@
   :clan/poo/mop
   :clan/poo/brace
   :clan/poo/graph/feedback
-  (prefix-in :clan/poo/joint-publication joint.)
+  (prefix-in :clan/poo/graph/component/joint joint.)
   (prefix-in :clan/poo/graph/construction cache.)
   (prefix-in :clan/poo/examples/component-rounds rounds.)
   (prefix-in :clan/poo/examples/joint-services joint-rounds.service.)
   :clan/poo/support/option
-  (prefix-in :clan/poo/dependency-analysis code.)
+  (prefix-in :clan/poo/graph/computation code.)
   (prefix-in :clan/poo/graph/scc scc.)
   (prefix-in :clan/poo/examples/joint-topology joint-topology.service.))
 

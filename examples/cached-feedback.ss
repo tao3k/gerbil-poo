@@ -8,8 +8,8 @@
         ../generalized-closure
         (runtime: :clan/poo/graph/schedule)
         (prefix-in (only-in ../graph/schedule declaration) graph.)
-        (runtime: :clan/poo/dependency-analysis)
-        (prefix-in (only-in ../dependency-analysis both make-success map need pure) code.)
+        (runtime: :clan/poo/graph/computation)
+        (prefix-in (only-in ../graph/computation both make-success map need pure) code.)
         (prefix-in ./feedback-services service.))
 ;; Group support is explicit; internal feedback is closed atomically in each node.
 (def keys '(quota left right stable))

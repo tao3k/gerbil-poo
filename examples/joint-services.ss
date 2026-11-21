@@ -3,7 +3,7 @@
 (import ../object
         ../mop
         ../brace
-        (prefix-in ../joint-publication joint.)
+        (prefix-in ../graph/component/joint joint.)
         (runtime: :clan/poo/graph/construction)
         (prefix-in (only-in ../graph/construction Builder.) cache.)
         (runtime: :clan/poo/examples/component-membership)

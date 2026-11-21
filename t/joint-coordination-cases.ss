@@ -5,8 +5,8 @@
         :clan/poo/mop
         :clan/poo/brace
         :clan/poo/graph/feedback
-        (runtime: :clan/poo/joint-publication)
-        (prefix-in (only-in :clan/poo/joint-publication approval current head) joint.)
+        (runtime: :clan/poo/graph/component/joint)
+        (prefix-in (only-in :clan/poo/graph/component/joint approval current head) joint.)
         (prefix-in :clan/poo/examples/joint-topology service.)
         :clan/poo/examples/joint-coordination-rounds)
 ;; Checkpoint provenance retains the reply for its specific coordinator.

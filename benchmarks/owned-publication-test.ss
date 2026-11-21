@@ -8,7 +8,7 @@
         (only-in :clan/poo/graph/feedback publish-owned-feedback-graph graph-cache-ref graph-cache-partition)
         (prefix-in :clan/poo/graph/schedule graph.)
         (prefix-in :clan/poo/graph/scc scc.)
-        (prefix-in :clan/poo/dependency-analysis code.)
+        (prefix-in :clan/poo/graph/computation code.)
         (only-in :clan/poo/benchmarks/closure-measure measure qualified-metrics))
 
 ;; Source declaration and result checks are outside the publication window.

@@ -1,6 +1,6 @@
 (export joint-restaging-test)
 (import :std/test :clan/poo/object :clan/poo/mop :clan/poo/brace :clan/poo/graph/feedback
-        (prefix-in :clan/poo/joint-publication joint.) (prefix-in :clan/poo/graph/construction cache.)
+        (prefix-in :clan/poo/graph/component/joint joint.) (prefix-in :clan/poo/graph/construction cache.)
         (prefix-in :clan/poo/examples/joint-topology service.) (prefix-in :clan/poo/examples/joint-receipts receipts.)
         (prefix-in :clan/poo/examples/joint-workers workers.))
 ;; Named private observations preserve receipt and whole-snapshot provenance.

@@ -5,7 +5,7 @@
         (only-in :gerbil/runtime/thread with-lock)
         (only-in ../../support/base %graph-table-seed %with-graph-table-seeds %with-application-table-seeds)
         (only-in ../../read-route gc-table-route-current?)
-        (prefix-in ../../dependency-analysis code.))
+        (prefix-in ../computation code.))
 (extern namespace: clan/poo/generalized-declaration %fragment-preparation-current?)
 (extern namespace: clan/poo/lens-laws %prepared-vector-lens?)
 ;; Only this constructor issues evidence for the actual returned procedure.

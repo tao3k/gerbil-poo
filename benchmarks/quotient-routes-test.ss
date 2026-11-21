@@ -6,7 +6,7 @@
         (only-in :gerbil/runtime/gambit default-random-source)
         :clan/poo/object
         :clan/poo/mop :clan/poo/support/option
-        (prefix-in :clan/poo/dependency-analysis code.)
+        (prefix-in :clan/poo/graph/computation code.)
         (prefix-in :clan/poo/graph/schedule graph.)
         (prefix-in :clan/poo/graph/scc scc.)
         (only-in :clan/poo/graph/feedback graph-cache?)

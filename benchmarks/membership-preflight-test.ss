@@ -7,7 +7,7 @@
         (only-in :clan/poo/benchmarks/closure-measure measure qualified-metrics)
         (prefix-in :clan/poo/graph/schedule graph.)
         (prefix-in :clan/poo/graph/scc scc.)
-        (prefix-in :clan/poo/dependency-analysis code.)
+        (prefix-in :clan/poo/graph/computation code.)
         (prefix-in :clan/poo/graph/component/publication pub.)
         (prefix-in :clan/poo/graph/component/revision revision.))
 (export membership-preflight-test)

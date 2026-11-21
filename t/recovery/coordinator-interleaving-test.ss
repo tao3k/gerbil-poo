@@ -3,7 +3,7 @@
         :clan/poo/object :clan/poo/mop :clan/poo/brace
         (prefix-in :clan/poo/graph/construction cache.)
         (prefix-in :clan/poo/examples/joint-receipts receipts.)
-        (prefix-in :clan/poo/joint-publication joint.)
+        (prefix-in :clan/poo/graph/component/joint joint.)
         (prefix-in :clan/poo/examples/joint-topology service.)
         :clan/poo/examples/joint-coordination-rounds :clan/poo/examples/coordinator-rejoining
         :clan/poo/t/joint-coordination-cases)

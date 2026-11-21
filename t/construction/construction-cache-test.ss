@@ -7,7 +7,7 @@
   (only-in :std/list/list delete-duplicates/hash)
   :clan/poo/object
   :clan/poo/support/option
-  (prefix-in :clan/poo/dependency-analysis code.)
+  (prefix-in :clan/poo/graph/computation code.)
   (prefix-in :clan/poo/graph/schedule graph.)
   (prefix-in :clan/poo/graph/construction cache.)
   (only-in :std/values first-value)

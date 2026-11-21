@@ -8,7 +8,7 @@
         (only-in ../trie SimpleTrie)
         ../object ../mop ../object-contract ../support/option
         (prefix-in ../graph/construction cache.)
-        (prefix-in ../dependency-analysis code.)
+        (prefix-in ../graph/computation code.)
         (only-in ../fun Observation.))
 
 ;; Host ownership uses generated class fields; POO retains descriptor semantics.

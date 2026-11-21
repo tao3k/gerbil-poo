@@ -25,7 +25,7 @@
   :clan/poo/lens-laws
   (prefix-in :clan/poo/graph/schedule graph.)
   (prefix-in :clan/poo/graph/scc scc.)
-  (prefix-in :clan/poo/dependency-analysis code.)
+  (prefix-in :clan/poo/graph/computation code.)
   (prefix-in :clan/poo/graph/construction cache.)
   (prefix-in :clan/poo/examples/service-revisions service-revisions.service.)
   (prefix-in (only-in :clan/poo/fun Observation.) fun.)

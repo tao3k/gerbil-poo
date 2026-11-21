@@ -80,7 +80,7 @@
         (only-in :clan/poo/graph/feedback publish-owned-feedback-graph graph-cache-values graph-cache-ref graph-cache-partition)
         (only-in :clan/poo/benchmarks/closure-measure measure qualified-metrics)
         (prefix-in :clan/poo/graph/schedule graph.)
-        (prefix-in :clan/poo/dependency-analysis code.)
+        (prefix-in :clan/poo/graph/computation code.)
         (prefix-in :clan/poo/graph/construction cache.)
         (prefix-in :clan/poo/graph/component/revision edit.)
         (prefix-in :clan/poo/graph/component/publication publication.)

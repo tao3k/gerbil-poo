@@ -13,7 +13,7 @@
         (rename-in (only-in :clan/poo/benchmarks/closure-measure measure qualified-metrics) (measure raw-measure))
         (only-in :std/list/list filter foldl find take append-map delete-duplicates/hash)
         (prefix-in :clan/poo/graph/schedule graph.)
-        (prefix-in :clan/poo/dependency-analysis code.)
+        (prefix-in :clan/poo/graph/computation code.)
         (prefix-in :clan/poo/graph/scc scc.)
         (prefix-in :clan/poo/recursive/topology topology.)
         (prefix-in :clan/poo/graph/component/revision component.))

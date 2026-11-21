@@ -1,7 +1,7 @@
 ;;; Finite Computation expressions; transforms receive child values only.
 (export Computation. pure need read inspect deny failure map both choose
         make-success success? success-value error? error-kind error-key error-cause)
-(import ./object (only-in ./mop/prototype define-type) ./support/option)
+(import ../object (only-in ../mop/prototype define-type) ../support/option)
 (defstruct success (value) final: #t)
 (defstruct error (kind key cause) final: #t)
 (def (bind result next) (if (success? result) (next (success-value result)) result))

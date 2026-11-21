@@ -12,8 +12,8 @@
         ../lens-laws
         (runtime: :clan/poo/graph/schedule)
         (prefix-in (only-in ../graph/schedule declaration revise) graph.)
-        (runtime: :clan/poo/dependency-analysis)
-        (prefix-in (only-in ../dependency-analysis both make-success map need pure) code.)
+        (runtime: :clan/poo/graph/computation)
+        (prefix-in (only-in ../graph/computation both make-success map need pure) code.)
         (runtime: :clan/poo/examples/closed-declarations)
         (prefix-in (only-in ./closed-declarations vector-focus) product.))
 ;; Stable support includes two quota sources, six service endpoints and a monitor.

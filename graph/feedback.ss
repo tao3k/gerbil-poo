@@ -10,13 +10,13 @@
         (only-in ../support/base %graph-table-seed %with-graph-table-seeds %with-application-table-seeds)
         ../object ../mop/prototype ../support/option ./feedback/cache ../lens-laws
         (prefix-in ./scc scc.) (prefix-in ./schedule graph.)
-        (prefix-in ./construction cache.) (prefix-in ../dependency-analysis code.)
+        (prefix-in ./construction cache.) (prefix-in ./computation code.)
         (prefix-in (only-in ../fun Observation.) fun.))
 ;; Keep the frozen node source, admitted partition, builder identity and group DAG.
 (defstruct graph-cache (source partition build values owned group-keys guard stock-builder?) final: #t)
 (extern namespace: clan/poo/graph/construction %default-builder-current?)
 (extern (start-owned-cache-quotient clan/poo/graph/construction#%start-owned-quotient))
-(extern namespace: clan/poo/dependency-analysis %computation-constructor-current?)
+(extern namespace: clan/poo/graph/computation %computation-constructor-current?)
 (extern namespace: clan/poo/graph/schedule %retire-component-source %component-source-roster
   %with-component-source-rows)
 (extern namespace: clan/poo/graph/scc %retire-partition-isolates %isolated-partition-owner?

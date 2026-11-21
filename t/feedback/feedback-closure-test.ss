@@ -12,7 +12,7 @@
   :clan/poo/graph/feedback/cache
   :clan/poo/generalized-declaration
   :clan/poo/lens-laws
-  (prefix-in :clan/poo/dependency-analysis code.)
+  (prefix-in :clan/poo/graph/computation code.)
   (prefix-in :clan/poo/graph/construction cache.)
   (prefix-in :clan/poo/graph/schedule graph.)
   (prefix-in :clan/poo/examples/cached-feedback service.)

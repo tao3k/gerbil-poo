@@ -28,9 +28,9 @@
                  %roster %roster-cold-index %roster-width %roster-position %roster-keys %roster-append %roster-retire)
         (only-in ../slot-observation %call-with-recorded-slot-reads %record-slot-reads!
                  %slot-read-active? slot-read-observers-compatible?)
-        (only-in ../dependency-analysis Computation.)
+        (only-in ./computation Computation.)
         ../object (only-in ../mop/prototype define-type) ../support/option)
-(extern namespace: clan/poo/dependency-analysis %computation-constructor-current?)
+(extern namespace: clan/poo/graph/computation %computation-constructor-current?)
 (import (only-in ../read-route standard-symbol-table-writes?))
 (extern namespace: clan/poo/read-route %ordinal-index-routes-current? %gc-scratch-routes-current?
   %standard-symbol-table-lookup?)

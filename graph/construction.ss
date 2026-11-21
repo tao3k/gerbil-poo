@@ -11,7 +11,7 @@
         (only-in ../lens-laws with-lens-checks)
         (only-in ../slot-observation %call-with-recorded-slot-reads
                  %slot-read-active? slot-read-observers-compatible?)
-        (prefix-in ./schedule graph.) (prefix-in ../dependency-analysis computation.))
+        (prefix-in ./schedule graph.) (prefix-in ./computation computation.))
 (defstruct cache (source lookup evaluated retained scheduled base patch guards owned-run work) final: #t)
 (defstruct failure (key cause) final: #t)
 ;; Expose one source-bound lookup; ordinary absence may itself be cached.

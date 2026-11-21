@@ -13,8 +13,8 @@
         ../lens-laws
         (runtime: :clan/poo/graph/schedule)
         (prefix-in (only-in ../graph/schedule declaration define) graph.)
-        (runtime: :clan/poo/dependency-analysis)
-        (prefix-in (only-in ../dependency-analysis both make-success map need pure) code.)
+        (runtime: :clan/poo/graph/computation)
+        (prefix-in (only-in ../graph/computation both make-success map need pure) code.)
         (runtime: :clan/poo/examples/closed-declarations)
         (prefix-in (only-in ./closed-declarations vector-focus) product.))
 ;; Stable finite support maps service names onto a non-record vector carrier.

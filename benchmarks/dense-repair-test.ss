@@ -2,7 +2,7 @@
 (export dense-repair-natural-test dense-repair-collected-test)
 (import :std/test :clan/poo/object
         (prefix-in :clan/poo/graph/schedule graph.)
-        (prefix-in :clan/poo/dependency-analysis code.)
+        (prefix-in :clan/poo/graph/computation code.)
         (only-in ./closure-measure measure qualified-metrics))
 
 (def (verify-dense-repair collect?)

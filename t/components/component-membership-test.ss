@@ -19,7 +19,7 @@
   (prefix-in :clan/poo/graph/construction cache.)
   (prefix-in :clan/poo/graph/scc scc.)
   (prefix-in :clan/poo/graph/schedule graph.)
-  (prefix-in :clan/poo/dependency-analysis code.)
+  (prefix-in :clan/poo/graph/computation code.)
   (prefix-in :clan/poo/examples/component-membership component-membership.service.)
   (prefix-in :clan/poo/graph/component/revision revision.)
   (prefix-in :clan/poo/examples/component-membership initial.)

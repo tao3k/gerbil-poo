@@ -20,7 +20,7 @@
         (prefix-in (only-in :gerbil/runtime/mop slot-set!) runtime.)
         (prefix-in :clan/poo/graph/schedule graph.)
         (prefix-in :clan/poo/graph/construction cache.)
-        (prefix-in :clan/poo/dependency-analysis code.)
+        (prefix-in :clan/poo/graph/computation code.)
         (prefix-in :clan/poo/graph/scc scc.))
 
 (extern namespace: clan/poo/graph/schedule %invalidation-work affected-work-receipt-set!

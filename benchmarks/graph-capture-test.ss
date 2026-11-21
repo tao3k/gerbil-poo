@@ -2,7 +2,7 @@
 (import :std/test :std/iter
         (only-in :std/list/list delete-duplicates/hash)
         (only-in :clan/poo/object .cc .get call-with-current-slot-reads)
-        (only-in :clan/poo/dependency-analysis Computation.)
+        (only-in :clan/poo/graph/computation Computation.)
         (only-in :clan/poo/slot-observation %call-with-recorded-slot-reads %record-slot-reads!)
         (only-in :clan/poo/support/base %graph-table-seed)
         (only-in :clan/poo/support/index %index)

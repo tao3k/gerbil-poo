@@ -3,8 +3,8 @@
 (import :std/iter
         ../object
         ../support/option
-        (runtime: :clan/poo/dependency-analysis)
-        (prefix-in (only-in ../dependency-analysis both choose deny inspect make-success
+        (runtime: :clan/poo/graph/computation)
+        (prefix-in (only-in ../graph/computation both choose deny inspect make-success
                    need success-value success?) code.)
         (runtime: :clan/poo/graph/schedule)
         (prefix-in (only-in ../graph/schedule declaration) graph.)

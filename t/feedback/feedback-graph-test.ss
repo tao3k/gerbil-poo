@@ -14,7 +14,7 @@
         (only-in :gerbil/runtime/interface interface-instance-object &interface-descriptor-index prototype-table-table)
         :clan/poo/object :clan/poo/mop :clan/poo/brace :clan/poo/support/option :clan/poo/graph/feedback :clan/poo/graph/feedback/cache
         :clan/poo/generalized-closure (prefix-in :clan/poo/graph/scc scc.)
-        (prefix-in :clan/poo/graph/schedule graph.) (prefix-in :clan/poo/dependency-analysis code.)
+        (prefix-in :clan/poo/graph/schedule graph.) (prefix-in :clan/poo/graph/computation code.)
         (prefix-in :clan/poo/graph/construction cache.)
         (prefix-in :clan/poo/examples/component-services service.)
         (prefix-in (only-in :clan/poo/fun Observation.) fun.))

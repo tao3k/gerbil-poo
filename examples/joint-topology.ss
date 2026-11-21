@@ -3,8 +3,8 @@
 (import (only-in ../type define-type) ../object
         ../mop
         ../brace
-        (runtime: :clan/poo/joint-publication)
-        (prefix-in (only-in ../joint-publication approval head publication stage-with) joint.)
+        (runtime: :clan/poo/graph/component/joint)
+        (prefix-in (only-in ../graph/component/joint approval head publication stage-with) joint.)
         (runtime: :clan/poo/graph/construction)
         (prefix-in (only-in ../graph/construction Builder.) cache.)
         (runtime: :clan/poo/examples/component-membership)

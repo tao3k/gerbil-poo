@@ -19,7 +19,7 @@
         (only-in :clan/poo/type Record List Tuple Any Type. validate TypeError? Fun)
         (prefix-in :clan/poo/types/validation containers.)
         (prefix-in :clan/poo/examples/service-collection service.)
-        (prefix-in :clan/poo/dependency-analysis code.)
+        (prefix-in :clan/poo/graph/computation code.)
         (prefix-in :clan/poo/graph/schedule graph.)
         (prefix-in :clan/poo/graph/construction cache.))
 

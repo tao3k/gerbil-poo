@@ -8,7 +8,7 @@
   :clan/poo/object
   :clan/poo/mop
   :clan/poo/brace
-  (prefix-in :clan/poo/joint-publication joint.)
+  (prefix-in :clan/poo/graph/component/joint joint.)
   (prefix-in :clan/poo/graph/construction cache.)
   (prefix-in :clan/poo/examples/joint-topology service.)
   (prefix-in :clan/poo/examples/joint-receipts receipts.)
