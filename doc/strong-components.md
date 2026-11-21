@@ -15,6 +15,14 @@ Members follow source order, and each group's first member is its representative
 Empty graphs still pass through joint approval. The graph contains declared
 reads, so a dependency hidden in a Scheme closure must be declared explicitly.
 
+For a graph supplied as data, `graph.declaration/rows` takes the ordered owner
+list, a vector of dependency lists in that order, and an evaluator accepting
+`(owner provider)`. `#f` marks an owner without an equation. An empty list
+marks an equation with no dependencies. The declaration owns its row lists.
+SCC capture can read those lists directly, while `.code` materializes a
+Computation on demand. An observer, a cloned declaration, or an invalidated
+generation uses the ordinary `.code` and `reads` path.
+
 `feedback-graph-action` is an ordinary FUN Reader from an old graph cache (or
 `#f`) to an accepted graph cache. It freezes code/base identities, discovers SCCs,
 condenses external reads to group representatives, and uses the existing checked

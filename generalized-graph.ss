@@ -1,5 +1,5 @@
 ;;; GeneralizedGraph.Declaration: immutable source and checked finite DAG schedule.
-(export Declaration. declaration define remove set-base revise reconfigure support schedule reschedule
+(export Declaration. declaration declaration/rows define remove set-base revise reconfigure support schedule reschedule
         schedule? schedule-source schedule-order schedule-reads schedule-work schedule-supports?
         schedule-owned schedule-owned? schedule-revision apply-schedule-revision
         %reschedule-owned-support %schedule-support-revision %schedule-revision-retirements %schedule-same-program?
@@ -24,8 +24,14 @@
         (only-in ./support/index %index %index-project %index-ref %index-fork %index-write! %index-retire!
                  %index? %index-base %index-changes
                  %roster %roster-width %roster-position %roster-keys %roster-append %roster-retire)
-        (only-in ./slot-observation %call-with-recorded-slot-reads %record-slot-reads!)
+        (only-in ./slot-observation %call-with-recorded-slot-reads %record-slot-reads!
+                 %slot-read-active? slot-read-observers-compatible?)
+        (only-in ./dependency-analysis Computation.)
         ./object (only-in ./mop/prototype define-type) ./support/option)
+(extern namespace: clan/poo/dependency-analysis %computation-constructor-current?)
+(extern namespace: clan/poo/read-route %ordinal-index-routes-current? %gc-scratch-routes-current?)
+(extern namespace: clan/poo/prototype-map %stock-struct-construction?)
+(extern namespace: clan/poo/slot-observation %make-owned-list %borrow-owned-list)
 (defstruct %schedule (source order reads adjacency ranks reverse supported work positions position-changes
                      rank-frontier owned roster) final: #t)
 (def schedule? %schedule?)
@@ -55,11 +61,68 @@
     (hash-put! result (car entry) (cdr entry)))
   result)
 (define-type (Declaration. @ [] keys .code .base))
+(def declaration-constructor-revision (object-revision Declaration.))
 (def (declaration keys codes (base []))
   (def names (keys! keys))
   (def programs (table codes))
   (def values (table base))
   (.cc Declaration. keys: names .code: (cut hash-get programs <>) .base: (cut hash-get values <>)))
+
+;; The source owns the roster and row spines. The generated .code method
+;; materializes one Computation on demand, with a separately owned public row.
+(def declared-rows-slot (gensym 'declared-rows))
+(def declared-rows-access (cons 'declared-rows 'access))
+(defstruct %row-source (authorize) final: #t)
+(def (declaration/rows keys rows evaluate (base []))
+  (unless (and (list? keys) (vector? rows) (procedure? evaluate))
+    (error "one dependency row per component owner and a component evaluator required"))
+  (def roster (%make-owned-list keys))
+  (def names (%borrow-owned-list roster))
+  (unless (= (length names) (vector-length rows))
+    (error "one dependency row per component owner required"))
+  (def entries (vector-map
+    (lambda (row)
+      (cond ((not row) #f)
+            ((list? row) (list-copy row))
+            (else (error "dependency row must be a finite list" row)))) rows))
+  (def bases (table base))
+  (def positions (delay
+    (let (positions (make-hash-table-symbolic size: (vector-length entries) seed: (%graph-table-seed)))
+      (for ((key names) (i (in-range (vector-length entries))))
+        (unless (and (symbol? key) (not (hash-key? positions key)))
+          (error "distinct symbolic component owners required" key))
+        (hash-put! positions key i))
+      positions)))
+  (def (materialize key row)
+    (.cc Computation. reads: (list-copy row) .evaluate: (cut evaluate key <>)))
+  (def owner #f)
+  (def generation #f)
+  (def (authorize token query)
+    (and (eq? token declared-rows-access) (eq? query owner)
+         (= (object-revision query) generation)
+         entries))
+  (set! owner (seal-object!
+    (.cc Declaration. keys: roster
+      .code: (lambda (key)
+        (let* ((i (hash-get (force positions) key)) (row (and i (vector-ref entries i))))
+          (and row (materialize key row))))
+      .base: (cut hash-get bases <>)
+      declared-rows-slot (make-%row-source authorize))))
+  (set! generation (object-revision owner))
+  owner)
+
+;; A clone inherits its public methods, but only the issuer can lend rows.
+;; Active collection or a changed constructor keeps the ordinary read path.
+(def (%declared-row-source spec)
+  (let* ((binding (and (object? spec) (object-direct-slot-specification spec declared-rows-slot)))
+         (source (and ($constant-slot-spec? binding) ($constant-slot-spec-value binding))))
+    (and (%row-source? source)
+         (not (%slot-read-active?)) (slot-read-observers-compatible? [])
+         (= (object-revision Declaration.) declaration-constructor-revision)
+         (%computation-constructor-current?)
+         (%stock-struct-construction? object::t 15 object:::init!)
+         (%ordinal-index-routes-current?) (%gc-scratch-routes-current?)
+         ((%row-source-authorize source) declared-rows-access spec))))
 (def (define spec key code)
   (unless (symbol? key) (error "component key must be a symbol"))
   (.cc spec keys: (if (memq key (.@ spec keys)) (.@ spec keys) (append (.@ spec keys) (list key)))

@@ -17,6 +17,12 @@ package GraphForwardRows {
                public defensive copy, and keep mutable row spines private.
                Unrestricted sources still use their authored read boundary. */
     }
+    requirement def DeclaredRowAcquisition {
+        doc /* A sealed data declaration owns one row per source ordinal.
+               Its current receiver and unobserved stock route may lend that
+               row to SCC validation. Public reads and refusals own their
+               spines. Other receivers and observed reads use .code. */
+    }
     requirement def PersistentPatch {
         doc /* Absent patch falls through; a present empty patch or a retirement
                tombstone masks the cold base. A fork cannot change its predecessor. */

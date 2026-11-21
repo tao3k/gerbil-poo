@@ -27,6 +27,8 @@
         ./object)
 (extern namespace: clan/poo/read-route %ordinal-index-routes-current?
   %standard-symbol-table-lookup? %gc-scratch-routes-current? %gc-table-route-backend)
+(extern namespace: clan/poo/generalized-graph %declared-row-source)
+(extern namespace: clan/poo/object %ref-owned-list)
 ;; Public groups/representatives retain source order, independently of DFS order.
 (defstruct %partition (groups owner reads members work owners owned) final: #t)
 (defstruct owned-partition (roster forward backward owner members shape retired?) final: #t)
@@ -271,7 +273,7 @@
         (decode at (cons (vector-ref keys (u32vector-ref targets at)) row))))))
 
 (def (capture-graph keys read-owner (symbolic-rows? #t) (edge-word-ceiling 4294967295)
-                    (ordered-rows? 'adjacent) (stable-rows? #f) (compact-rows? #f))
+                    (ordered-rows? 'adjacent) (stable-rows? #f) (compact-rows? #f) (declared-rows #f))
   ;; The private reduced ceiling exercises exactly the native wide fallback in
   ;; bounded tests. Production always uses the full u32 range; it cannot expand.
   (unless (and (exact-integer? edge-word-ceiling) (<= 0 edge-word-ceiling 4294967295))
@@ -391,16 +393,19 @@
                 (set! used (fx+ used take))
                 (copy stop))))))
       (set! edges after)))
+  (def (reject-read key deps)
+    ;; Refusal irritants are public, so do not expose a declared source row.
+    (error "unsupported component read" key (if declared-rows (list-copy deps) deps)))
   (defrule (capture-target! key owner deps id)
     (begin
-      (unless id (error "unsupported component read" key deps))
+      (unless id (reject-read key deps))
       (cond ((fx< id owner) (set! direction (fxand direction 1)))
             ((fx> id owner) (set! direction (fxand direction 2))))
       (append-target owner id)
       (set! edges (1+ edges))))
   (for ((key keys) (owner (in-range count)))
     (when packed? (u32vector-set! offsets owner edges))
-    (def deps (read-owner key))
+    (def deps (if declared-rows (or (vector-ref declared-rows owner) []) (read-owner key)))
     (def end
       (and ordered-trial? packed? chunk
            (fx<= (fx+ used 32) capacity)
@@ -443,7 +448,7 @@
         ;; Symbol admission shares the subsequent ID pass; this pure interval
         ;; contains no author, getter or source-approval callback (fused_row_eq).
         (unless (list? deps)
-          (error "unsupported component read" key deps))
+          (reject-read key deps))
         (def row-length (length deps))
         (if (and word-support? (pair? deps) (pair? (cdr deps))
                  (fixnum? row-length) (<= row-length 4294967295))
@@ -462,7 +467,7 @@
               (let fill ((pending deps) (at 0) (repeated? (or (and reads #t) (fx< fresh-streak 2))))
                 (if (null? pending) repeated?
                   (let* ((dep (car pending)) (id (and (symbol? dep) (position dep))))
-                    (unless id (error "unsupported component read" key deps))
+                    (unless id (reject-read key deps))
                     (cond ((fx< id owner) (set! direction (fxand direction 1)))
                           ((fx> id owner) (set! direction (fxand direction 2))))
                     (let (repeated? (or repeated? (fx= (u32vector-ref row-marks id) forward)))
@@ -497,7 +502,7 @@
           ;; Preserve the inexpensive empty/singleton path and the original wide
           ;; domain. Copy singleton spines before the next independent callback.
           (begin
-            (unless (andmap symbol? deps) (error "unsupported component read" key deps))
+            (unless (andmap symbol? deps) (reject-read key deps))
             (let (unique (cond ((null? deps) []) ((null? (cdr deps)) deps)
                               (else (delete-duplicates/hash deps))))
               (for (dep unique)
@@ -836,11 +841,20 @@
 (def (partition spec) (capture-partition spec #f))
 (def (partition-owned spec) (capture-partition spec #t))
 (def (capture-partition spec owned?)
-  (capture-partition-rows (.@ spec keys)
-    (lambda (key)
-      (let (code (.call spec .code key)) (if code (.@ code reads) [])))
-    owned?))
-(def (capture-partition-rows keys read-owner owned?)
+  (def source (%declared-row-source spec))
+  ;; Capture takes its own roster snapshot. Borrow from the sealed declaration
+  ;; for that copy only, through the same POO slot demand and observation.
+  (def keys (if source (%ref-owned-list spec 'keys) (.@ spec keys)))
+  (def declared (and source (eq? source (%declared-row-source spec)) source))
+  (def result
+    (capture-partition-rows keys
+      (lambda (key)
+        (let (code (.call spec .code key)) (if code (.@ code reads) [])))
+      owned? declared))
+  (when (and declared (not (eq? declared (%declared-row-source spec))))
+    (error "declared graph source changed during capture"))
+  result)
+(def (capture-partition-rows keys read-owner owned? (declared-rows #f))
   ;; The encoding index admits symbols and uniqueness before any author.
   ;; Keep finite-list admission here, then own the roster; do not build a
   ;; second duplicate table (empty_owner_index_admits_exactly_nodup).
@@ -855,7 +869,7 @@
                (list->vector keys)
                (append keys [])))
   (let-values (((reads index declared-edges captured-edges)
-                 (capture-graph keys read-owner #t 4294967295 'adjacent owned? #t)))
+                 (capture-graph keys read-owner #t 4294967295 'adjacent owned? #t declared-rows)))
     ;; Retain only the ownership fields across discovery/certification. Keeping
     ;; index in this continuation also keeps its packed edges and capture arrays.
     (def complete
