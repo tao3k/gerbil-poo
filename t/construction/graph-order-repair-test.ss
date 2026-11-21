@@ -75,6 +75,24 @@
 ;; Keep case registration in separate C host functions. Gambit groups the
 ;; closures under their enclosing function, even in multiple-host mode.
 (def (check-owned-graph-admission)
+    (test-case "captured rows preserve dependency order and the first rejected edge"
+      (def keys '(deploy report init audit))
+      (def rows (make-hash-table-eq))
+      (hash-put! rows 'deploy '(init))
+      (hash-put! rows 'report '(audit))
+      (hash-put! rows 'init [])
+      (hash-put! rows 'audit [])
+      (check-equal? (graph.schedule-order/rows keys rows) '(init deploy audit report))
+      (hash-put! rows 'init '(deploy missing))
+      (def cycle (caught (lambda () (graph.schedule-order/rows keys rows))))
+      (check (graph.failure? cycle) => #t)
+      (check-eq? (graph.failure-kind cycle) 'cycle)
+      (check-eq? (graph.failure-key cycle) 'deploy)
+      (hash-put! rows 'init '(missing deploy))
+      (def unsupported (caught (lambda () (graph.schedule-order/rows keys rows))))
+      (check (graph.failure? unsupported) => #t)
+      (check-eq? (graph.failure-kind unsupported) 'unsupported)
+      (check-eq? (graph.failure-key unsupported) 'missing))
     (test-case "owned empty and single-provider cold graphs retain domain effects and snapshots"
       (def calls 0)
       (def program (.o reads: (begin (set! calls (1+ calls)) [])

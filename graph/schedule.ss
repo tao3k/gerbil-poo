@@ -1,5 +1,6 @@
-;;; GeneralizedGraph.Declaration: immutable source and checked finite DAG schedule.
+;;; Finite dependency order and revisions of owned DAG schedules.
 (export Declaration. declaration declaration/rows define remove set-base revise reconfigure support schedule reschedule
+        schedule-order/rows
         schedule? schedule-source schedule-order schedule-reads schedule-work schedule-supports?
         schedule-owned schedule-owned? schedule-revision apply-schedule-revision
         %reschedule-owned-support %schedule-support-revision %schedule-revision-retirements %schedule-same-program?
@@ -52,9 +53,9 @@
          (if supported (hash-key? supported key)
            (and (%index-ref (%schedule-ranks scheduled) key #f) #t)))))
 (defstruct failure (kind key) final: #t)
-(def (keys! keys)
+(def (keys! keys (seen #f))
   (unless (and (list? keys) (andmap symbol? keys)) (error "component keys must be symbols"))
-  (delete-duplicates/hash keys table: (make-hash-table seed: (%graph-table-seed)) from-end?: #t))
+  (delete-duplicates/hash keys table: (or seen (make-hash-table seed: (%graph-table-seed))) from-end?: #t))
 (def (index-keys keys (index (make-hash-table-eq)))
   (for (key keys) (hash-put! index key #t)) index)
 (def (table entries (result (make-hash-table-eq)))
@@ -305,6 +306,26 @@
   (if code (keys! (.@ code reads)) []))
 (def (schedule spec)
   (schedule-rows spec (list-copy (.@ spec keys)) (cut source-row spec <>)))
+(def (emit-dependency-order keys supported read-row add)
+  (def states (make-hash-table-eq))
+  (def (visit key)
+    (unless (hash-key? supported key) (raise (make-failure 'unsupported key)))
+    (case (hash-get states key)
+      ((done) (void))
+      ((active) (raise (make-failure 'cycle key)))
+      (else (hash-put! states key 'active)
+        (for-each visit (read-row key))
+        (hash-put! states key 'done) (add key))))
+  (for-each visit keys))
+
+;; Borrow a hash table from symbols to ordered dependency lists. Supply a row
+;; for each roster key and keep the table and lists stable during the call.
+(def (schedule-order/rows keys rows)
+  (def supported (make-hash-table-symbolic seed: (%graph-table-seed)))
+  (def names (keys! keys supported))
+  (with-list-builder (add)
+    (emit-dependency-order names supported (cut hash-ref rows <>) add)))
+
 (def (schedule-rows spec keys row (owned #f) (known-support #f) (footprints #f)
                     (borrow-rows? #f))
   ;; The empty-capture arm supplies no row reader: all authored capture has
@@ -346,17 +367,7 @@
               (add inverse-root)
               (set! emitted? #t))
             (add key)))))
-      (else
-       (def states (make-hash-table-eq))
-       (def (visit key)
-         (unless (hash-key? supported key) (raise (make-failure 'unsupported key)))
-         (case (hash-get states key)
-           ((done) (void))
-           ((active) (raise (make-failure 'cycle key)))
-           (else (hash-put! states key 'active)
-             (for-each visit (read-row key))
-             (hash-put! states key 'done) (add key))))
-       (for-each visit keys))))
+      (else (emit-dependency-order keys supported read-row add))))
   (def adjacency (if projection (%index-project supported projection) (%index reads)))
   (indexed-schedule spec emit reads read-row adjacency supported
     (work (length keys) (if implicit-empty? 0 (or footprints (length keys))) 0 0 0 0 0 (length keys)) owned
@@ -661,12 +672,8 @@
 (def (schedule-owned keys codes (bases []))
   (schedule-owned/rows keys codes bases #t))
 (def (schedule-owned/rows keys codes bases implicit-allowed?)
-  ;; Normalize and populate the private support table in the same pass.
-  ;; Use the same validation and standard first-occurrence list builder as keys!.
-  (unless (and (list? keys) (andmap symbol? keys)) (error "component keys must be symbols"))
-  ;; Owned snapshots use stable Symbol hashing, including after GC.
   (def supported (make-hash-table-symbolic seed: (%graph-table-seed)))
-  (def names (delete-duplicates/hash keys table: supported from-end?: #t))
+  (def names (keys! keys supported))
   (def programs (table codes))
   (def values (table bases (make-hash-table-symbolic seed: (%graph-table-seed))))
   (def code-keys (map car codes))
