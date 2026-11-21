@@ -8,7 +8,7 @@
         (prefix-in :clan/poo/mop/methods/dispatch multimethod.)
         (prefix-in :clan/poo/mop/methods/extension dispatch-extension.)
         (prefix-in :clan/poo/examples/protected-dispatch protected-dispatch.))
-(def sources '("mop/methods/dispatch.ss" "mop/methods/extension.ss" "cyclic-publication.ss" "closure.ss" "object.ss" "object/observation.ss" "slot-observation.ss" "mop.ss"
+(def sources '("mop/methods/dispatch.ss" "mop/methods/extension.ss" "cyclic-publication.ss" "closure.ss" "object.ss" "object/representation.scm" "object/construction.scm" "object/observation.ss" "slot-observation.ss" "mop.ss"
                "number.ss" "type.ss" "justfile" "examples/protected-dispatch.ss" "benchmarks/closure-measure.ss" "benchmarks/dispatch-benchmark.ss"))
 (def widths '(0 64 256))
 (def rounds 4)
