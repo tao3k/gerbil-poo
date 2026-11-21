@@ -1,4 +1,4 @@
-#!/usr/bin/env -S gxi -:max-heap=2G,debug=q
+#!/usr/bin/env -S gxi -:max-heap=1G,debug=q
 (import :std/build-script
         (rename-in (only-in "../../build.ss" project-build-source)
           (project-build-source this-source-file))
@@ -22,7 +22,8 @@
       (gxc: "benchmarks/closure-measure" "-cc-options" "-O2")
       (gxc: "benchmarks/cold-handoff-test" "-cc-options" "-O2")
       (gxc: "benchmarks/dense-repair-test" "-cc-options" "-O2")
-      (gxc: "benchmarks/ordered-scc-study" "-cc-options" "-O2")) parallelize: #f)
+      (gxc: "benchmarks/ordered-scc-study" "-cc-options" "-O2")
+      (gxc: "benchmarks/scc-test" "-cc-options" "-O2")) parallelize: #f)
     main))
 
 (def (main . options) (call-with-build-jobs (cut apply build options)))
