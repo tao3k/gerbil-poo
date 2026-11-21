@@ -33,10 +33,10 @@
         (prefix-in (only-in :clan/poo/generic-family failure-stage family-built family-reused
                    prepare refresh) family.)
         (prefix-in :clan/poo/staged-publication staged.)
-        (runtime: :clan/poo/multimethod)
-        (prefix-in (only-in :clan/poo/multimethod cache-size) multimethod.)
-        (runtime: :clan/poo/dispatch-extension)
-        (prefix-in (only-in :clan/poo/dispatch-extension snapshot) dispatch.)
+        (runtime: :clan/poo/mop/methods/dispatch)
+        (prefix-in (only-in :clan/poo/mop/methods/dispatch cache-size) multimethod.)
+        (runtime: :clan/poo/mop/methods/extension)
+        (prefix-in (only-in :clan/poo/mop/methods/extension snapshot) dispatch.)
         (prefix-in :clan/poo/graph/construction cache.)
         (runtime: :clan/poo/graph/schedule)
         (prefix-in (only-in :clan/poo/graph/schedule define reschedule schedule

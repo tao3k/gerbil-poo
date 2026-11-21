@@ -3,18 +3,18 @@
         cached-forwarding-model cached-simula-model compiled-forwarding-model compiled-simula-model prepared-forwarding-model prepared-simula-model child-prepared-simula-model shape-prepared-simula-model context-prepared-simula-model context-simula-model compiled-context-simula-model compiled-context-model staged-simula-model simula-workflow-model context-simula-template sized-simula-model bound-simula-model empty-storage-simula-model bound-preflight context-preflight forwarder preflight start revise)
 (import ../object
         (only-in :std/values first-value)
-        (runtime: :clan/poo/dispatch-extension)
-        (prefix-in (only-in ../dispatch-extension check prepare-shape shape snapshot) extension.)
+        (runtime: :clan/poo/mop/methods/extension)
+        (prefix-in (only-in ../mop/methods/extension check prepare-shape shape snapshot) extension.)
         (only-in ../number IntegerRange)
         (only-in ../type Unit Any Object element? validate)
         (only-in ../support/option some)
-        (runtime: :clan/poo/multimethod)
-        (prefix-in (only-in ../multimethod bind-context call forwarding-standard inner
+        (runtime: :clan/poo/mop/methods/dispatch)
+        (prefix-in (only-in ../mop/methods/dispatch bind-context call forwarding-standard inner
                    make nested prepare-shape prepared prepared-context
                    prepared-forwarding-standard prepared-inner prepared-simple
                    prepared-simula prepared-standard prototype simple simula standard) dispatch.)
-        (runtime: :clan/poo/method-combination)
-        (prefix-in (only-in ../method-combination SimplePolicy. after around before
+        (runtime: :clan/poo/mop/methods/combination)
+        (prefix-in (only-in ../mop/methods/combination SimplePolicy. after around before
                    compile-simula compile-simula-context forward-around
                    forward-primary item prepare-simula primary simula-body
                    simula-body?) combination.)

@@ -4,8 +4,8 @@
         (runtime: :clan/poo/generalized-prototype)
         (prefix-in (only-in :clan/poo/generalized-prototype assemble bind-observer cook-fields
                    prepare-inheritance) gp.)
-        (runtime: :clan/poo/method-combination)
-        (prefix-in (only-in :clan/poo/method-combination prepare-simple sum) combination.)
+        (runtime: :clan/poo/mop/methods/combination)
+        (prefix-in (only-in :clan/poo/mop/methods/combination prepare-simple sum) combination.)
         (runtime: :clan/poo/examples/generalized-checkout)
         (prefix-in (only-in :clan/poo/examples/generalized-checkout base declarations
                    nested-base nested-declarations nested-protocol nested-root

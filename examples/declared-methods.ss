@@ -1,9 +1,9 @@
 ;;; A shared C3 declaration family, qualified methods and current Reader data.
 (export typed-charge make-dispatch-family typed-charge-action reviewed-summary-action replayed-summary-action configured-summary configured-summary-action summary-observation charge make-account make-family observation summarize checked-summarize typed-summary-action summary-prototypes prototype-summary-action make-reporting-family summary-action checked-summary-action make-scoped-account scoped-action inspected-action batch-expander batch-action prefixed-action)
 (import (only-in ../type validate Function Any Object)
-        (only-in ../number Integer) ../object ../mop ../brace ../declaration ../method-declaration
-        (prefix-in ../method-combination combination.)
-        (prefix-in ../multimethod dispatch.) (prefix-in ../dispatch-extension extension.)
+        (only-in ../number Integer) ../object ../mop ../brace ../declaration ../mop/methods/declaration
+        (prefix-in ../mop/methods/combination combination.)
+        (prefix-in ../mop/methods/dispatch dispatch.) (prefix-in ../mop/methods/extension extension.)
         (prefix-in ../declarative-metadata metadata.) (only-in ../reflection read-slot) (only-in ../proto compose-proto*)
         (prefix-in (only-in ../fun Observation.) fun.))
 ;; Type-provided methods receive the original account exactly once, then units.

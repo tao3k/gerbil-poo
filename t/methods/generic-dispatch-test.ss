@@ -8,9 +8,9 @@
         (only-in :clan/poo/object .o .get .ref)
         (only-in :clan/poo/declaration .declare declaration-forms object<-declaration-forms)
         (only-in :clan/poo/mop .defgeneric)
-        (only-in :clan/poo/method-declaration MethodDeclaration. standard-combination)
-        (prefix-in :clan/poo/method-combination combination.)
-        (prefix-in :clan/poo/multimethod multi.))
+        (only-in :clan/poo/mop/methods/declaration MethodDeclaration. standard-combination)
+        (prefix-in :clan/poo/mop/methods/combination combination.)
+        (prefix-in :clan/poo/mop/methods/dispatch multi.))
 (export generic-dispatch-test)
 
 ;; Receiver generics use Gerbil optional, keyword and rest parameters.

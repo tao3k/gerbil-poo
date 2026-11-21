@@ -4,11 +4,11 @@
         (only-in ../object .o .@ .mix)
         (only-in ../number IntegerRange)
         (only-in ../type List Object Bool)
-        (runtime: :clan/poo/multimethod)
-        (prefix-in (only-in ../multimethod make prototype prototype-precedence
+        (runtime: :clan/poo/mop/methods/dispatch)
+        (prefix-in (only-in ../mop/methods/dispatch make prototype prototype-precedence
                    register) multimethod.)
-        (runtime: :clan/poo/dispatch-extension)
-        (prefix-in (only-in ../dispatch-extension call check shape) dispatch-extension.))
+        (runtime: :clan/poo/mop/methods/extension)
+        (prefix-in (only-in ../mop/methods/extension call check shape) dispatch-extension.))
 (def document (.o))
 (def financial (.o (:: @ document)))
 (def sensitive (.o (:: @ document)))

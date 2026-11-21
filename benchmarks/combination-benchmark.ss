@@ -3,7 +3,7 @@
 (import (only-in :clan/poo/support/base require-value)
         :clan/poo/object
         :clan/poo/mop
-        :clan/poo/method-declaration
+        :clan/poo/mop/methods/declaration
         (runtime: :clan/poo/examples/declared-methods)
         (prefix-in (only-in :clan/poo/examples/declared-methods make-account
                    make-reporting-family typed-summary-action) service.)
@@ -12,8 +12,8 @@
         :std/iter
         (only-in :std/list/list foldr)
         (only-in :std/func compose1)
-        (runtime: :clan/poo/method-combination)
-        (prefix-in (only-in :clan/poo/method-combination Contribution.
+        (runtime: :clan/poo/mop/methods/combination)
+        (prefix-in (only-in :clan/poo/mop/methods/combination Contribution.
                    compile-simula-context contribution prepare-inner simula-body
                    standard-contribution?) combination.)
         "combination-cases.ss"

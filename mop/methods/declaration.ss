@@ -3,15 +3,15 @@
         forwarding-combination inner-combination simula-combination
         typed-method-fragment invoke-declared declared-snapshot
         instantiate-declared infer-declared infer-declared-calls instance-signature)
-(import :std/iter (only-in :std/list/list foldr) (only-in :std/list/alist aremq) ./object ./mop/prototype ./declaration
-        (only-in ./reflection reflect-slots)
-        (only-in ./optional-validation call-with-current-catalogs)
-        (only-in ./prototype-types instantiate/checked infer-prototype/checked infer-prototype-calls/checked bound-parameters/checked with-bound-parameters/checked)
-        (prefix-in ./parameters positional.)
-        (only-in ./types/relation type-work bounded-type-data type-expression normalize-type compile-expression function-expression check-function-path copy-type refuse-type)
-        (prefix-in ./multimethod dispatch.)
-        (prefix-in ./method-combination combination.)
-        (prefix-in ./declarative-metadata metadata.) (prefix-in ./dispatch-extension extension.))
+(import :std/iter (only-in :std/list/list foldr) (only-in :std/list/alist aremq) ../../object ../prototype ../../declaration
+        (only-in ../../reflection reflect-slots)
+        (only-in ../../optional-validation call-with-current-catalogs)
+        (only-in ../../prototype-types instantiate/checked infer-prototype/checked infer-prototype-calls/checked bound-parameters/checked with-bound-parameters/checked)
+        (prefix-in ../../parameters positional.)
+        (only-in ../../types/relation type-work bounded-type-data type-expression normalize-type compile-expression function-expression check-function-path copy-type refuse-type)
+        (prefix-in ./dispatch dispatch.)
+        (prefix-in ./combination combination.)
+        (prefix-in ../../declarative-metadata metadata.) (prefix-in ./extension extension.))
 ;; A private marker distinguishes method metadata from arbitrary user Slot fields.
 ;; Public descriptors remain extensible POO objects; no second declaration AST exists.
 (def method-marker (list 'method-fragment))

@@ -10,8 +10,8 @@
         (prefix-in (only-in ./closed-declarations vector-focus) product.)
         (runtime: :clan/poo/generalized-prototype)
         (prefix-in (only-in ../generalized-prototype cook-fields) gp.)
-        (runtime: :clan/poo/method-combination)
-        (prefix-in (only-in ../method-combination around prepare-standard primary) combination.))
+        (runtime: :clan/poo/mop/methods/combination)
+        (prefix-in (only-in ../mop/methods/combination around prepare-standard primary) combination.))
 ;; Comparable raw data stores three allocations, joint approval and an audit frame.
 (def base (vector (vector 0 0 0) #f 'audit))
 ;; Nested Gerbil lenses reuse functional vector replacement and composition.

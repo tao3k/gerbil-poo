@@ -15,7 +15,7 @@
   (prefix-in :clan/poo/examples/cyclic-access access.)
   (prefix-in :clan/poo/examples/recursive-catalog catalog.)
   (prefix-in :clan/poo/cyclic-publication publication.)
-  (prefix-in :clan/poo/multimethod dispatch.))
+  (prefix-in :clan/poo/mop/methods/dispatch dispatch.))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (recursive-benchmark-test)

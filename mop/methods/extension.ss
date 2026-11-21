@@ -2,7 +2,7 @@
 (export shape call register contribute register-when erase patch check guard publish invoke prepare-shape
         certificate? snapshot conflict? conflict-position conflict-watch conflict-kind conflict-first-method
         failure? failure-stage failure-cause)
-(import :std/iter (prefix-in ./multimethod multimethod.))
+(import :std/iter (prefix-in ./dispatch multimethod.))
 (defstruct watch (kind value) final: #t)
 (defstruct change (kind path predicate method) final: #t)
 (defstruct certificate (snapshot watches) final: #t)

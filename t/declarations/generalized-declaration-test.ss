@@ -9,7 +9,7 @@
   :clan/poo/number
   :clan/poo/prototype-types
   :clan/poo/types/relation
-  :clan/poo/method-declaration
+  :clan/poo/mop/methods/declaration
   (only-in :clan/poo/type RecordSlot Bool Function Type Type. element? validate TypeError?)
   (only-in :clan/poo/optional-validation call-with-current-catalogs)
   (only-in :clan/poo/slot-observation call-with-slot-read-observer slot-read-receiver slot-read-key)
@@ -17,8 +17,8 @@
   :std/iter
   (only-in :std/values first-value)
   (prefix-in :clan/poo/declarative-metadata metadata.)
-  (prefix-in :clan/poo/multimethod multimethod.)
-  (prefix-in :clan/poo/dispatch-extension dispatch-extension.)
+  (prefix-in :clan/poo/mop/methods/dispatch multimethod.)
+  (prefix-in :clan/poo/mop/methods/extension dispatch-extension.)
   :clan/poo/brace
   :clan/poo/declaration
   :clan/poo/generalized-declaration

@@ -11,13 +11,13 @@
         ../testing/type
         (only-in ../types/relation expression-type)
         (only-in ../prototype-types prototype-type specialize-prototype-type)
-        ../method-declaration
+        ../mop/methods/declaration
         ../declaration
         ../object-contract
-        (runtime: :clan/poo/multimethod)
-        (prefix-in (only-in ../multimethod prototype) dispatch.)
-        (runtime: :clan/poo/method-combination)
-        (prefix-in (only-in ../method-combination primary standard-contribution?) combination.)
+        (runtime: :clan/poo/mop/methods/dispatch)
+        (prefix-in (only-in ../mop/methods/dispatch prototype) dispatch.)
+        (runtime: :clan/poo/mop/methods/combination)
+        (prefix-in (only-in ../mop/methods/combination primary standard-contribution?) combination.)
         (runtime: :clan/poo/declarative-metadata)
         (prefix-in (only-in ../declarative-metadata contract predicate replace truth) metadata.)
         (runtime: :clan/poo/fun)

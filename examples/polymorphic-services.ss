@@ -22,15 +22,15 @@
         (runtime: :clan/poo/declarative-metadata)
         (prefix-in (only-in ../declarative-metadata bind-evidence contract contribute
                    predicate publish replace truth) metadata.)
-        ../method-declaration
+        ../mop/methods/declaration
         (runtime: :clan/poo/fun)
         (prefix-in ./contract-publication publication.)
-        (runtime: :clan/poo/multimethod)
-        (prefix-in (only-in ../multimethod prototype) dispatch.)
-        (runtime: :clan/poo/dispatch-extension)
-        (prefix-in (only-in ../dispatch-extension call shape) extension.)
-        (runtime: :clan/poo/method-combination)
-        (prefix-in (only-in ../method-combination after around before
+        (runtime: :clan/poo/mop/methods/dispatch)
+        (prefix-in (only-in ../mop/methods/dispatch prototype) dispatch.)
+        (runtime: :clan/poo/mop/methods/extension)
+        (prefix-in (only-in ../mop/methods/extension call shape) extension.)
+        (runtime: :clan/poo/mop/methods/combination)
+        (prefix-in (only-in ../mop/methods/combination after around before
                    prepare-standard primary standard-contribution?) combination.)
         (prefix-in (only-in :clan/poo/fun Observation.) fun.))
 

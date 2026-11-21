@@ -25,8 +25,8 @@
         (prefix-in :clan/poo/examples/service-bundle bundle.)
         (runtime: :clan/poo/examples/cyclic-access)
         (prefix-in (only-in :clan/poo/examples/cyclic-access config equations) access.)
-        (runtime: :clan/poo/multimethod)
-        (prefix-in (only-in :clan/poo/multimethod multimethod?) dispatch.))
+        (runtime: :clan/poo/mop/methods/dispatch)
+        (prefix-in (only-in :clan/poo/mop/methods/dispatch multimethod?) dispatch.))
 ;; One view-independent child supplies the actual no-binding control. Construction
 ;; is common module setup, not silently charged to any timed binding sample.
 (def shared-context-program (qualified.context-preflight #t))

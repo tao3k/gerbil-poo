@@ -4,11 +4,11 @@
         prepared-context bind-context prepare-shape call reference-call cache-size effective-cache-size cache-capacity index-shared? prototype-precedence
         dispatch-error? dispatch-error-kind dispatch-error-expected dispatch-error-actual
         inspect)
-(import (only-in :std/list/alist arem) (only-in ./support/base require-value) :std/iter (only-in :std/list/list-builder with-list-builder)
-        (only-in ./mop/prototype Type Any validate define-type raise-type-error)
-        (prefix-in ./function-signature signature.) ./object
-        (only-in ./object compute-precedence-list!) (only-in ./type Unit)
-        (prefix-in ./method-combination combination.))
+(import (only-in :std/list/alist arem) (only-in ../../support/base require-value) :std/iter (only-in :std/list/list-builder with-list-builder)
+        (only-in ../prototype Type Any validate define-type raise-type-error)
+        (prefix-in ../../function-signature signature.) ../../object
+        (only-in ../../object compute-precedence-list!) (only-in ../../type Unit)
+        (prefix-in ./combination combination.))
 
 ;; All index/cache records and their mutators remain private. Names are symbols,
 ;; so lazy POO object caches never enter structural hash/equality keys.

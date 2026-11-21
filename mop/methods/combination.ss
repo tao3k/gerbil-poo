@@ -5,8 +5,8 @@
         standard-contribution? simple-contribution? effective simple-effective
         prepare-standard prepare-simple prepare-simple-items prepare-forwarding prepare-inner prepare-simula compile-simula bind-simula compile-simula-context
         SimplePolicy. sum collect append-policy all-policy any-policy last-policy maximum minimum)
-(import (only-in ./support/base require-value) :std/iter (only-in :std/list/list foldr) ./object
-        (only-in ./mop/prototype define-type Type. element?) ./support/option)
+(import (only-in ../../support/base require-value) :std/iter (only-in :std/list/list foldr) ../../object
+        (only-in ../prototype define-type Type. element?) ../../support/option)
 
 ;; Public extensible qualifier descriptor; each body follows its qualifier's calling
 ;; convention. Primary/around receive a zero-argument next thunk followed by args;

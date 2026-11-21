@@ -7,8 +7,8 @@
         ../generalized-declaration
         ../generalized-closure
         ../lens-laws
-        (runtime: :clan/poo/method-combination)
-        (prefix-in (only-in ../method-combination around prepare-standard primary) combination.)
+        (runtime: :clan/poo/mop/methods/combination)
+        (prefix-in (only-in ../mop/methods/combination around prepare-standard primary) combination.)
         (runtime: :clan/poo/generalized-prototype)
         (prefix-in (only-in ../generalized-prototype cook-fields) gp.))
 ;; Custom vector getters/setters use functional copying; their product analogues

@@ -82,7 +82,7 @@
       (and (list? phases) (= (length phases) 1) (memq (car phases) '(0 1 2 3 4 5 6)))))
     (error "invalid fixed factory horizon or phase"))
   (def expected (* 4 (length phases) 9))
-  (def sources '("prototype-types.ss" "method-declaration.ss" "declarative-metadata.ss" "examples/polymorphic-services.ss"))
+  (def sources '("prototype-types.ss" "mop/methods/declaration.ss" "declarative-metadata.ss" "examples/polymorphic-services.ss"))
   (def current (source-digests (append sources '("benchmarks/factory-paired-benchmark.ss" "benchmarks/closure-measure.ss"))))
   (def original (source-digests sources baseline-source))
   (def binaries (source-digests (list baseline candidate)))

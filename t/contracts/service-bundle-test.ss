@@ -13,8 +13,8 @@
   (prefix-in :clan/poo/staged-publication staged.)
   (prefix-in :clan/poo/cyclic-publication service-bundle.publication.)
   (prefix-in :clan/poo/declarative-metadata metadata.)
-  (prefix-in :clan/poo/dispatch-extension dispatch.)
-  (prefix-in :clan/poo/multimethod multimethod.)
+  (prefix-in :clan/poo/mop/methods/extension dispatch.)
+  (prefix-in :clan/poo/mop/methods/dispatch multimethod.)
   (prefix-in :clan/poo/examples/service-metadata service-metadata.service.)
   (prefix-in :clan/poo/cyclic-publication service-metadata.publication.)
   :clan/poo/mop

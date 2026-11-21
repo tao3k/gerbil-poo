@@ -11,10 +11,10 @@
         (runtime: :clan/poo/declarative-metadata)
         (prefix-in (only-in ../declarative-metadata atom both check contract
                    declaration-name install predicate replace with-meaning) metadata.)
-        (runtime: :clan/poo/multimethod)
-        (prefix-in (only-in ../multimethod make) multimethod.)
-        (runtime: :clan/poo/dispatch-extension)
-        (prefix-in (only-in ../dispatch-extension check) dispatch-extension.)
+        (runtime: :clan/poo/mop/methods/dispatch)
+        (prefix-in (only-in ../mop/methods/dispatch make) multimethod.)
+        (runtime: :clan/poo/mop/methods/extension)
+        (prefix-in (only-in ../mop/methods/extension check) dispatch-extension.)
         (runtime: :clan/poo/cyclic-publication)
         (prefix-in (only-in ../cyclic-publication invoke prepare publish
                    version-view) publication.)

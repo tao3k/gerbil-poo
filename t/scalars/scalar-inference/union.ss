@@ -7,7 +7,7 @@
   :clan/poo/mop
   :clan/poo/types/relation
   :clan/poo/prototype-types
-  :clan/poo/method-declaration
+  :clan/poo/mop/methods/declaration
   (prefix-in :clan/poo/examples/polymorphic-services service.)
   (only-in :std/number/misc uint-below?)
   (only-in :gerbil/runtime/gambit string->uninterned-symbol)

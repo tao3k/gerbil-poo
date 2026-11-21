@@ -18,8 +18,8 @@
   (prefix-in :clan/poo/staged-publication staged.)
   (prefix-in :clan/poo/examples/protected-dispatch protected.)
   (prefix-in :clan/poo/cyclic-publication publication.)
-  (prefix-in :clan/poo/dispatch-extension dispatch.)
-  (prefix-in :clan/poo/multimethod multimethod.)
+  (prefix-in :clan/poo/mop/methods/extension dispatch.)
+  (prefix-in :clan/poo/mop/methods/dispatch multimethod.)
   :clan/poo/mop
   :clan/poo/brace
   :clan/poo/lens-laws

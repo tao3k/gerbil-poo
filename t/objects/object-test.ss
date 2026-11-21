@@ -23,8 +23,8 @@
   (for-syntax :gerbil/expander)
   (prefix-in :clan/poo/parameters parameters.)
   (prefix-in :clan/poo/examples/parameter-service service.)
-  (prefix-in :clan/poo/method-declaration methods.)
-  (prefix-in :clan/poo/method-combination combination.)
+  (prefix-in :clan/poo/mop/methods/declaration methods.)
+  (prefix-in :clan/poo/mop/methods/combination combination.)
   :clan/poo/slot-observation
   :clan/poo/slot-layout
   (only-in :clan/poo/meta-prototype bootstrap-protocol)

@@ -8,8 +8,8 @@
         ../generalized-declaration
         (runtime: :clan/poo/generalized-prototype)
         (prefix-in (only-in ../generalized-prototype cook-fields) gp.)
-        (runtime: :clan/poo/method-combination)
-        (prefix-in (only-in ../method-combination around prepare-standard primary) combination.))
+        (runtime: :clan/poo/mop/methods/combination)
+        (prefix-in (only-in ../mop/methods/combination around prepare-standard primary) combination.))
 ;; A functional Gerbil vector lens copies before update, preserving caller storage.
 (def (vector-focus index)
   (lens-of-get-set (cut vector-ref <> index)

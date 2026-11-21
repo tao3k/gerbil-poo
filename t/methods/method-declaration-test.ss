@@ -8,9 +8,9 @@
   :clan/poo/object
   :clan/poo/support/option
   (only-in :clan/poo/number Integer)
-  (prefix-in :clan/poo/method-combination combination.)
-  (prefix-in :clan/poo/multimethod dispatch.)
-  (prefix-in :clan/poo/dispatch-extension extension.)
+  (prefix-in :clan/poo/mop/methods/combination combination.)
+  (prefix-in :clan/poo/mop/methods/dispatch dispatch.)
+  (prefix-in :clan/poo/mop/methods/extension extension.)
   (prefix-in :clan/poo/declarative-metadata metadata.)
   (prefix-in :clan/poo/cyclic-publication publication.)
   (prefix-in :clan/poo/generic-family family.)
@@ -21,14 +21,14 @@
   (only-in :clan/poo/type Any Bool Object define-type)
   :clan/poo/brace
   :clan/poo/declaration
-  :clan/poo/method-declaration
+  :clan/poo/mop/methods/declaration
   :clan/poo/reflection
   :clan/poo/recursive/declaration
   (prefix-in :clan/poo/proto proto.)
   (prefix-in :clan/poo/examples/declared-methods service.)
   (only-in :std/list/list-builder with-list-builder)
-  (prefix-in :clan/poo/multimethod multimethod.)
-  (prefix-in :clan/poo/dispatch-extension dispatch-extension.))
+  (prefix-in :clan/poo/mop/methods/dispatch multimethod.)
+  (prefix-in :clan/poo/mop/methods/extension dispatch-extension.))
 
 ;; Give method-combination-test its own compiler function and private fixture scope.
 (def (make-method-combination-test)

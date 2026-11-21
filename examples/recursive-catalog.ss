@@ -7,10 +7,10 @@
         (prefix-in (only-in ../recursive/evaluation Interaction. close source-error value) recursive.)
         (runtime: :clan/poo/recursive/handling)
         (prefix-in (only-in ../recursive/handling Signature. call-batch result-next) handling.)
-        (runtime: :clan/poo/multimethod)
-        (prefix-in (only-in ../multimethod contribute prototype standard) dispatch.)
-        (runtime: :clan/poo/method-combination)
-        (prefix-in (only-in ../method-combination primary) combination.))
+        (runtime: :clan/poo/mop/methods/dispatch)
+        (prefix-in (only-in ../mop/methods/dispatch contribute prototype standard) dispatch.)
+        (runtime: :clan/poo/mop/methods/combination)
+        (prefix-in (only-in ../mop/methods/combination primary) combination.))
 ;; Immutable source requests use the final self. The inherited head implementation
 ;; is overridden below, so every chain observes the same composed final program.
 (def (base self _)

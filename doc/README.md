@@ -5,6 +5,7 @@
 | Objects and prototypes | [Object model](poo.md), [prototype programming](prototypes.md), [slot specifications](slot-specs.md) |
 | Object runtime | [Representations](representation.md), [inheritance hooks](inheritance-hooks.md), [slot observations](slot-observation.md) |
 | CLOS | [Multiple dispatch and class lifecycle](clos.md) |
+| Appendix B methods | [Declaration](method-declarations.md), [combination](../mop/methods/combination.ss), [dispatch](../mop/methods/dispatch.ss) |
 | Types and contracts | [Prototype types](prototype-types.md), [object contracts](object-contracts.md) |
 | Graph and incremental evaluation | [Graph algorithms](graph-algorithm-selection.org), [SCC evaluation](strong-components.md), [component families](component-family.org), [component publication](component-publication.md) |
 | Recursive evaluation | [Evaluation](../recursive/evaluation.ss), [validation, topology and publication](recursive-validation.md) |

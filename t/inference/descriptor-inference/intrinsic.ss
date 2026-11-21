@@ -11,7 +11,7 @@
   (only-in :clan/poo/optional-validation type-value-catalog)
   (only-in :clan/poo/object-contract ObjectContract. refine)
   (only-in :clan/poo/slot-observation call-with-slot-read-observer slot-read-receiver slot-read-key)
-  :clan/poo/method-declaration
+  :clan/poo/mop/methods/declaration
   (prefix-in :clan/poo/examples/signature-service signature.)
   (prefix-in :clan/poo/examples/polymorphic-services service.)
   :clan/poo/number)

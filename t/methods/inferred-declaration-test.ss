@@ -1,10 +1,10 @@
 (export inferred-declaration-test)
 (import (only-in :clan/poo/type Function Object Bool TypeError? Any CaseFunction)
         :std/test :std/error :clan/poo/object :clan/poo/mop :clan/poo/number :clan/poo/parameters :clan/poo/prototype-types :clan/poo/types/relation
-        :clan/poo/declaration :clan/poo/method-declaration
+        :clan/poo/declaration :clan/poo/mop/methods/declaration
         (prefix-in :clan/poo/examples/polymorphic-services service.)
-        (prefix-in :clan/poo/multimethod dispatch.) (prefix-in :clan/poo/dispatch-extension extension.)
-        (prefix-in :clan/poo/declarative-metadata metadata.) (prefix-in :clan/poo/method-combination combination.))
+        (prefix-in :clan/poo/mop/methods/dispatch dispatch.) (prefix-in :clan/poo/mop/methods/extension extension.)
+        (prefix-in :clan/poo/declarative-metadata metadata.) (prefix-in :clan/poo/mop/methods/combination combination.))
 ;; Match typed refusal categories independently of prose or unrelated exceptions.
 (def (refusal kind) (lambda (cause) (and (type-refusal? cause) (eq? (type-refusal-kind cause) kind))))
 ;; Capture exact exception identity so source callback errors cannot masquerade as

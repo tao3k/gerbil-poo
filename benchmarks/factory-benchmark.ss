@@ -9,8 +9,8 @@
         (prefix-in (only-in :clan/poo/examples/generalized-checkout
                    bind-envelope-items-report bind-envelope-report envelope-base
                    prepare-envelope prepare-envelope-items) checkout.)
-        (runtime: :clan/poo/method-combination)
-        (prefix-in (only-in :clan/poo/method-combination item) combination.)
+        (runtime: :clan/poo/mop/methods/combination)
+        (prefix-in (only-in :clan/poo/mop/methods/combination item) combination.)
         (prefix-in "factory-cases.ss" study.)
         (only-in "closure-measure.ss" run-child))
 ;; Identical fixed-field projection on both sides, matching the actual public report.

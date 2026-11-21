@@ -9,8 +9,8 @@
         ../reflection
         (only-in ../type List Fun)
         (runtime: :clan/poo/fun)
-        (runtime: :clan/poo/method-combination)
-        (prefix-in (only-in ../method-combination compile-simula-context
+        (runtime: :clan/poo/mop/methods/combination)
+        (prefix-in (only-in ../mop/methods/combination compile-simula-context
                    simula-body) combination.)
         (prefix-in (only-in :clan/poo/fun Observation.) fun.))
 ;; Derive an audited protocol using ordinary inherited method continuations.

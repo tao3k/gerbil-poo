@@ -17,8 +17,8 @@
   :std/iter
   (only-in :std/values first-value)
   (prefix-in :clan/poo/closure closure.)
-  (prefix-in :clan/poo/multimethod multimethod.)
-  (prefix-in :clan/poo/dispatch-extension dispatch-extension.)
+  (prefix-in :clan/poo/mop/methods/dispatch multimethod.)
+  (prefix-in :clan/poo/mop/methods/extension dispatch-extension.)
   (prefix-in :clan/poo/cyclic-publication cyclic-publication.)
   (prefix-in :clan/poo/examples/protected-dispatch protected-dispatch.))
 
