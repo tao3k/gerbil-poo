@@ -2,12 +2,75 @@
 (export slot-value-storage make-slot-values slot-values-layout
         make-slot-layout slot-layout-shape slot-layout-index slot-layout-ref slot-layout-set! slot-layout-put!
         make-slot-cache slot-cache-name slot-cache-layout slot-cache-hit? slot-cache-offset slot-cache-index slot-cache-read slot-cache-bind!)
-(import (only-in :gerbil/runtime/hash HashTable) (only-in :gerbil/runtime/interface interface-instance? interface-instance-object)
+(import (only-in :gerbil/runtime/hash HashTable HashTable::interface symbol-hash-table::t)
+        (only-in :gerbil/runtime/interface interface-instance? interface-instance-object
+                 &interface-descriptor-type &interface-descriptor-index interface-subclass?
+                 prototype-table? prototype-table-table)
+        (prefix-in (only-in :gerbil/runtime/mop object? object-class make-class-slot-accessor
+                           class-slot-offset &class-type-slot-table &class-type-interface) route.)
+        (only-in :gerbil/runtime/table raw-table? symbolic-table-ref symbolic-table-set!)
+        (only-in :gerbil/runtime/gambit table? table-ref table-set! macro-table-test macro-table-hash macro-table-flags
+                 random-integer macro-max-fixnum32)
+        (only-in ./support/base %compare-symbol-identity %graph-table-seed)
         (only-in ./object-state object-state-revision)
-        (only-in :std/hash/misc hash-ensure-ref) :std/iter (only-in :std/list/list delete-duplicates/hash find))
+        ./slot-observation
+        (only-in :std/hash/misc hash-ensure-ref) :std/iter (only-in :std/list/list delete-duplicates/hash find foldr length<=n?))
+
+;; Carry Gambit's macro definitions in this module's static source as well as
+;; its standard make invocation. Linked programs compile the dependency closure
+;; independently of the per-module dynamic compiler command (as in io.ss).
+(begin-foreign
+  (include "~~lib/_gambit#.scm"))
 
 ;; Weak values allow unused canonical shapes to disappear; live layouts retain them.
 (def shapes (make-hash-table test: equal? weak-values: #t))
+;; Read the existing Gerbil adapter cache; never create a replacement adapter.
+;; A cold/changed adapter uses ordinary admission. Pins describe class/method
+;; identities and backend configuration; every call reads the current routes.
+(def scalar-shape-routes-current?
+  (let* ((wrapper (route.object-class shapes))
+         (wrapper-id (##type-id wrapper))
+         (backend-id (##type-id symbol-hash-table::t))
+         (object-offset (route.class-slot-offset wrapper 'object))
+         (ref-offset (route.class-slot-offset wrapper 'ref))
+         (set-offset (route.class-slot-offset wrapper 'set!))
+         (last-offset (max object-offset ref-offset set-offset))
+         (object-field (route.make-class-slot-accessor wrapper 'object))
+         (ref-field (route.make-class-slot-accessor wrapper 'ref))
+         (set-field (route.make-class-slot-accessor wrapper 'set!))
+         (cache-backend (object-field shapes))
+         (cache-test (macro-table-test cache-backend))
+         (cache-hash (macro-table-hash cache-backend))
+         (cache-flags (macro-table-flags cache-backend)))
+    (lambda ()
+      (and (eq? (&interface-descriptor-type HashTable::interface) wrapper)
+           (eq? (##type-id wrapper) wrapper-id)
+           (eq? (##type-id symbol-hash-table::t) backend-id)
+           (not (eq? wrapper-id backend-id))
+           (not (interface-subclass? symbol-hash-table::t))
+           (let (slots (route.&class-type-slot-table wrapper))
+             (and (raw-table? slots)
+               (eqv? (symbolic-table-ref slots 'object #f) object-offset)
+               (eqv? (symbolic-table-ref slots 'ref #f) ref-offset)
+               (eqv? (symbolic-table-ref slots 'set! #f) set-offset)))
+           (eq? (ref-field shapes) table-ref)
+           (eq? (set-field shapes) table-set!)
+           (let (backend (object-field shapes))
+             (and (table? backend)
+               (eq? (macro-table-test backend) cache-test)
+               (eq? (macro-table-hash backend) cache-hash)
+               (eqv? (macro-table-flags backend) cache-flags)))
+           (let ((table (route.&class-type-interface symbol-hash-table::t))
+                 (index (&interface-descriptor-index HashTable::interface)))
+             (and (prototype-table? table) (fixnum? index) (fx>= index 0)
+               (let (entries (prototype-table-table table))
+                 (and (vector? entries) (fx< index (vector-length entries))
+                   (let (prototype (vector-ref entries index))
+                     (and (route.object? prototype)
+                          (eq? (route.object-class prototype) wrapper)
+                          (> (##structure-length prototype) last-offset)
+                          (eq? (ref-field prototype) symbolic-table-ref)
+                          (eq? (set-field prototype) symbolic-table-set!)))))))))))
 ;; A shape owns the immutable name-to-index mapping. Cells always belong to one receiver.
 (defstruct shape (indices names))
 ;; Object-backed cells belong to one revision of the existing invalidation state.
@@ -18,15 +81,16 @@
 ;; Intern an already canonical identity order through the one existing weak table.
 ;; An admitted private membership table can become the index of a new shape.
 ;; A hit leaves it unpublished. This routine never edits the keys' spine.
-(def (intern-ordered-shape keys (members #f))
+(def (intern-ordered-shape keys (members #f) (seed #f))
   (hash-ensure-ref shapes keys
     (lambda ()
-      (let (indices (or members (make-hash-table-symbolic)))
+      (let (indices (or members (if seed (make-hash-table-symbolic seed: seed)
+                                   (make-hash-table-symbolic))))
         (for ((name keys) (index (in-range (length keys)))) (hash-put! indices name index))
         (make-shape indices keys)))))
-;; Serial identity is the one canonical order for full and revised directories.
+;; Full and revised directories share the same symbolic order.
 (def (shape-name<? left right)
-  (< (object->serial-number left) (object->serial-number right)))
+  (negative? (%compare-symbol-identity left right)))
 ;; Fresh unrelated name sets still use the standard complete sort.
 (def (intern-shape names members)
   (intern-ordered-shape (list-sort shape-name<? names) members))
@@ -45,10 +109,9 @@
 ;; cached transition is retained. The caller has already certified key absence.
 (def (extend-shape previous key (members #f))
   (def keys (shape-names previous))
-  (def serial (object->serial-number key))
   ;; Standard find stops at the successor; its already-existing index supplies
   ;; the cut. False is not a symbolic key, and zero remains a valid offset.
-  (def successor (find (lambda (name) (>= (object->serial-number name) serial)) keys))
+  (def successor (find (lambda (name) (not (shape-name<? name key))) keys))
   (def at (if successor (hash-ref (shape-indices previous) successor) (length keys)))
   (intern-ordered-shape (append (take keys at) (cons key (drop keys at))) members))
 ;; Check exact identity coverage through the old index. One byte per offset
@@ -70,10 +133,32 @@
 
 ;; Admit every key before symbolic hashing. The private deduplication table
 ;; already owns exactly the new identities and can be filled with offsets.
+(def (scalar-shape-request? names)
+  (or (null? names) (and (pair? names) (null? (cdr names)))))
+(def (admit-shape-name name) (using (name :~ symbol?) name))
+;; Bound quadratic membership and foldr depth; larger requests keep the hash path.
+(def small-shape-name-limit 8)
 (def (shape-for-names names hint)
-  (def members (make-hash-table-symbolic))
+  (def scalar? (scalar-shape-request? names))
+  (if (and (not hint) (or scalar? (length<=n? names small-shape-name-limit))
+           (scalar-shape-routes-current?))
+    ;; Retain the native scratch seed BEFORE any key admission, on hits and
+    ;; failures too. Only its callback-free allocation/membership is omitted.
+    (let* ((seed (or (%graph-table-seed) (random-integer (macro-max-fixnum32))))
+           (owned
+             (if scalar? (if (null? names) [] (list (admit-shape-name (car names))))
+               ;; Std foldr keeps the original right-to-left admission and
+               ;; last occurrence, while producing a fresh owned name spine.
+               (foldr (lambda (name kept)
+                        (admit-shape-name name)
+                        (if (memq name kept) kept (cons name kept))) [] names))))
+      (intern-ordered-shape (if scalar? owned (list-sort shape-name<? owned)) #f seed))
+    (ordinary-shape-for-names names hint)))
+(def (ordinary-shape-for-names names hint)
+  (def seed (and (%graph-table-seed) (scalar-shape-routes-current?) (%graph-table-seed)))
+  (def members (make-hash-table-symbolic seed: seed))
   (def unique (delete-duplicates/hash names table: members
-    key: (lambda (name) (using (name :~ symbol?) name))))
+    key: admit-shape-name))
   (if (not hint) (intern-shape unique members)
     (let ((width (length unique)) (prior-width (hash-length (shape-indices hint))))
       ;; Bound filtering by the old/new width ratio. Large contractions sort
@@ -115,6 +200,19 @@
 ;; Explicit backend qualification uses the same evaluator and resource limits.
 ;; The default owns all computed values in one vector; hash is a measured control.
 (def slot-value-storage (make-parameter 'vector))
+
+;; Only the pinned fresh vector route can consume its three seed operations
+;; without allocating receiver storage. Each preparation calls this at its
+;; own boundary, under the current application/graph seed parameter.
+(def (%fresh-vector-seeds-available?)
+  (and (eq? (slot-value-storage) 'vector) (scalar-shape-routes-current?)))
+
+(def (%advance-fresh-vector-seeds!)
+  (unless (%graph-table-seed)
+    (random-integer (macro-max-fixnum32))
+    (random-integer (macro-max-fixnum32))
+    (random-integer (macro-max-fixnum32)))
+  (void))
 ;; Build the sole instance value store before publishing any read credentials.
 ;; Symbolic shapes describe uncomputed cells, so construction runs no slot body.
 (def (make-slot-values names initial entries missing previous: (previous #f) state: (state #f))
@@ -232,7 +330,18 @@
 ;; The fixed slot name belongs to the access site, not to the last receiver.
 (defalias slot-cache-name access-cache-name)
 ;; An old receiver layout is a shape hint only; its cells never seed a new owner.
-(defalias slot-cache-layout access-cache-layout)
+(extern namespace: clan/poo/slot-observation %owned-list-value)
+;; A diagnostic layout owns its cells and directory. Even reflective edits
+;; to its HashTable adapter or indices cannot affect the receiver's layout.
+(def (%layout-snapshot live)
+  (and live
+       (let* ((directory (layout-shape live))
+              (shape (make-shape (hash-copy (shape-indices directory))
+                                 (list-copy (shape-names directory)))))
+         (make-layout shape (vector-map %owned-list-value (layout-cells live))
+                      (layout-missing live) (layout-count live) #f #f))))
+(def (slot-cache-layout site)
+  (%layout-snapshot (access-cache-layout site)))
 ;; Sites retain only access guards and one or two descriptor offsets. Successful
 ;; values always belong to the receiver, so sites have no value-seeding policy.
 (def (make-slot-cache name shapes: (count 1))

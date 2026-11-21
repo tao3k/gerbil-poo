@@ -4,6 +4,10 @@
 (import
   :std/iter
   :std/test
+  (only-in :std/error Error? Error-message)
+  (only-in :gerbil/expander current-expander-context make-top-context
+           core-import-module module-context-export module-export-name eval-syntax)
+  (only-in :gerbil/runtime/gambit unbound-global-exception?)
   :clan/poo/object
   :clan/poo/number
   :clan/poo/type

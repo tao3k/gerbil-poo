@@ -10,7 +10,7 @@ or destructive-storage research questions.
 
 ## One existing interface
 
-`Set<-Table.` stays in `clan/poo/table`; `table/sets.scm` is a standard compiler
+`Set<-Table.` stays in `clan/poo/table`; `table/sets.ss` is a standard compiler
 include tracked by `defbuild-script`. The set's `Table.Value` must be the standard
 `Unit` descriptor. The carrier stores an admitted element as a key and `(void)` as
 its value. The algebra uses existing backend merge, short-circuit traversal and

@@ -4,7 +4,7 @@
         :clan/poo/object
         :clan/poo/mop
         :clan/poo/brace
-        :clan/poo/feedback-graph
+        :clan/poo/graph/feedback
         (runtime: :clan/poo/joint-publication)
         (prefix-in (only-in :clan/poo/joint-publication approval current head) joint.)
         (prefix-in :clan/poo/examples/joint-topology service.)

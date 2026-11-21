@@ -16,12 +16,12 @@
         (only-in :std/list/plist alist->plist)
         (only-in :std/list/alist plist->alist aremq arem)
         :clan/poo/object :clan/poo/mop :clan/poo/number :clan/poo/object-contract :clan/poo/support/option :clan/poo/slot-layout
-        (only-in :clan/poo/type Record List Tuple)
+        (only-in :clan/poo/type Record List Tuple Any Type. validate TypeError? Fun)
         (prefix-in :clan/poo/types/validation containers.)
         (prefix-in :clan/poo/examples/service-collection service.)
         (prefix-in :clan/poo/dependency-analysis code.)
-        (prefix-in :clan/poo/generalized-graph graph.)
-        (prefix-in :clan/poo/construction-cache cache.))
+        (prefix-in :clan/poo/graph/schedule graph.)
+        (prefix-in :clan/poo/graph/construction cache.))
 
 ;; Exercise actual scoped expansion rather than serializing identifier names.
 (defsyntax (rejects? stx)
@@ -50,9 +50,8 @@
       (for (shapes '(1 2))
         (check (representation.slot-revision-workflow '(7 11 7 #f) shapes) => #t)))
     (test-case "cold inline binding refreshes offsets after a dynamic dependency grows the shape"
-      (def early (string->uninterned-symbol "early"))
-      (def target (string->uninterned-symbol "target"))
-      (object->serial-number early) (object->serial-number target)
+      (def early (string->uninterned-symbol "early" 0))
+      (def target (string->uninterned-symbol "target" 1))
       (def calls 0)
       (def owner (make-object slots:
         (list (cons target ($self-slot-spec (lambda (self)
@@ -64,11 +63,10 @@
       (check (.ref/inline owner site) => #f)
       (check-equal? calls 1)
       (check-equal? (.ref owner early) 17)
-      (check (hash-key? (object-instance owner) target) => #t))
+      (check (hash-key? (%live-object-instance owner) target) => #t))
     (test-case "evicted warm inline demand rebinds the final dynamic shape"
-      (def early (string->uninterned-symbol "evicted-dependency"))
-      (def target (string->uninterned-symbol "evicted-target"))
-      (object->serial-number early) (object->serial-number target)
+      (def early (string->uninterned-symbol "evicted-dependency" 0))
+      (def target (string->uninterned-symbol "evicted-target" 1))
       (def grow? #f)
       (def calls 0)
       (def owner (make-object slots:
@@ -78,7 +76,7 @@
                 (lambda (_ key) (if (eq? key early) #f (error "unexpected dependency"))))))))
       (def site (make-slot-cache target shapes: 2))
       (check-eq? (.ref/inline owner site) identity)
-      (let* ((table (object-instance owner)) (layout (object-layout owner)))
+      (let* ((table (%live-object-instance owner)) (layout (%live-object-layout owner)))
         (hash-remove! table target)
         (check-equal? (slot-cache-hit? site owner (object-revision owner) layout)
           (slot-layout-index layout target))
@@ -95,10 +93,9 @@
       (for ((storage '(hash vector)))
         (check-equal? (representation.value-store-redemand-workflow storage) '#(6 #t #t))))
     (test-case "canonical growth preserves sparse cells at every insertion boundary"
-      ;; Allocate serial identities first, then insert in reverse order and in
-      ;; alternating halves. This exercises front, middle, end and empty copies.
-      (def keys (for/collect ((_ (in-range 7))) (string->uninterned-symbol "growth")))
-      (for-each object->serial-number keys)
+      ;; Assign increasing hashes, then insert in reverse and alternating order.
+      ;; This exercises front, middle, end and empty copies.
+      (def keys (for/collect ((hash (in-range 7))) (string->uninterned-symbol "growth" hash)))
       (for ((order (list (reverse keys) (list (list-ref keys 3) (car keys) (list-ref keys 6)
                          (list-ref keys 1) (list-ref keys 5) (list-ref keys 2) (list-ref keys 4)))))
         (def missing (list 'uncomputed))
@@ -124,18 +121,18 @@
       (def owner (.o (value (if refused? (raise cause) #f))))
       (def site (make-slot-cache 'value shapes: 2))
       (check (.ref/inline owner site) => #f)
-      (def layout (object-layout owner))
+      (def layout (%live-object-layout owner))
       (def index (slot-layout-index layout 'value))
-      (hash-remove! (object-instance owner) 'value)
+      (hash-remove! (%live-object-instance owner) 'value)
       (set! refused? #t)
       (check-eq? (caught (cut .ref/inline owner site)) cause)
       (check-equal? (slot-cache-hit? site owner (object-revision owner) layout) index)
-      (check (hash-key? (object-instance owner) 'value) => #f)
+      (check (hash-key? (%live-object-instance owner) 'value) => #f)
       (set! refused? #f)
       (check (.ref/inline owner site) => #f)
       (check-equal? (slot-cache-hit? site owner (object-revision owner) layout) index)
       (.putslot! owner 'value ($constant-slot-spec identity))
-      (check (slot-cache-hit? site owner (object-revision owner) (object-layout owner)) => #f)
+      (check (slot-cache-hit? site owner (object-revision owner) (%live-object-layout owner)) => #f)
       (check-eq? (.ref/inline owner site) identity))
     (test-case "reentrant demand restores a site rebound by another owner"
       ;; A callback can use the same mutable site for a different receiver.
@@ -146,22 +143,22 @@
       (def owner (.o (value (begin
         (when nested?
           (.ref other 'value)
-          (let (layout (object-layout other))
+          (let (layout (%live-object-layout other))
             (slot-cache-bind! site other (object-revision other) layout (slot-layout-index layout 'value))))
         #f))))
       (check (.ref/inline owner site) => #f)
-      (hash-remove! (object-instance owner) 'value)
+      (hash-remove! (%live-object-instance owner) 'value)
       (set! nested? #t)
       (check (.ref/inline owner site) => #f)
-      (check-equal? (slot-cache-hit? site owner (object-revision owner) (object-layout owner))
-        (slot-layout-index (object-layout owner) 'value))
+      (check-equal? (slot-cache-hit? site owner (object-revision owner) (%live-object-layout owner))
+        (slot-layout-index (%live-object-layout owner) 'value))
       (check-eq? (slot-cache-read site) #f))
     (test-case "ordinary inline and HashTable operations share one lazy value store"
       (def calls 0) (def failure (list 'refused)) (def refuse? #t)
       (def owner (.o (value (begin (set! calls (1+ calls)) #f))
         (retry (if refuse? (raise failure) identity)) (unused (error "unrelated value forced"))))
-      (def table (object-instance owner))
-      (def layout (object-layout owner))
+      (def table (%live-object-instance owner))
+      (def layout (%live-object-layout owner))
       (check-eq? (slot-values-layout table) layout)
       (check-equal? (hash-length table) 0)
       (def site (make-slot-cache 'value shapes: 2))
@@ -180,7 +177,7 @@
       (check (eq? old-shape (slot-layout-shape layout)) => #f)
       (check (.ref/inline owner site) => #f)
       (check-equal? (.ref owner 'new-field) 19)
-      (check-eq? (object-instance owner) table)
+      (check-eq? (%live-object-instance owner) table)
       (def copied (hash-copy table))
       (hash-put! copied 'new-field 23)
       (check-equal? (hash-ref table 'new-field) 19)
@@ -199,7 +196,7 @@
       (check-equal? calls 3)
       (.put! owner 'value identity)
       (check-eq? (.ref/inline owner site) identity)
-      (check (eq? (object-instance owner) table) => #f)
+      (check (eq? (%live-object-instance owner) table) => #f)
       (check-equal? (representation.value-storage-workflow 4 'vector)
                     (representation.value-storage-workflow 4 'hash)))
     (test-case "seed preparation preserves source values precedence and failure retry"
@@ -419,11 +416,9 @@
           (slot-layout-put! left 'value 7)
           (check-equal? (slot-cache-read site) 7))))
     (test-case "a retained offset refuses shape growth until the site is rebound"
-      (let* ((earlier (string->uninterned-symbol "earlier"))
-             (target (string->uninterned-symbol "target"))
+      (let* ((earlier (string->uninterned-symbol "earlier" 0))
+             (target (string->uninterned-symbol "target" 1))
              (owner (list 'owner)) (site (make-slot-cache target)))
-        (object->serial-number earlier)
-        (object->serial-number target)
         (let (layout (make-slot-layout (list target) #f 'missing))
           (slot-layout-put! layout target #f)
           (slot-cache-bind! site owner 1 layout (slot-layout-index layout target))
@@ -608,3 +603,7 @@
           (check-equal? charge 86)
           (check-equal? rows '((20 2 #f review (audit)))))
         (check-equal? (length (filter (lambda (event) (eq? event 'base)) events)) 2)))))
+
+(extern namespace: clan/poo/object %live-object-instance)
+
+(extern namespace: clan/poo/object %live-object-layout)

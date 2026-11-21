@@ -3,7 +3,7 @@
 (import :std/test :std/iter :std/misc/process
         (only-in :clan/poo/io module-action)
         (only-in :gerbil/runtime/loader load-module list-modules)
-        (only-in :std/error Error?) (only-in :std/number/misc uint?)
+        (only-in :std/error Error? contract-violation-error?) (only-in :std/number/misc uint?)
         (only-in :std/test/base test-run! test-result-error? TestResultError? TestResultError
           TestResultErrors? TestResultErrors TestHarness TestModule TestConfig TestSuite)
         (only-in :std/list/list drop-right append-map)
@@ -83,7 +83,7 @@
                 ((string-prefix? "HARNESS " line) (mark! 'harness-start))
                 ((string-prefix? "HARNESS-OK " line) (mark! 'harness-end))
                 ((and (assq 'harness-end marks) (equal? line "OK")) (mark! 'report))
-                ((and (assq 'report marks) (string-prefix? "real " line)) (mark! 'test-exit)))
+                ((and (assq 'report marks) (equal? line "TEST-PROCESS-EXIT")) (mark! 'test-exit)))
               (when (string-prefix? "CHECK-PROCESS " line)
                 (let (datum (call-with-input-string (substring line 14 (string-length line)) read))
                   (match datum
@@ -190,7 +190,7 @@
           line))))
     (let-values (((lines metrics)
       (measure (lambda () (run-process [timeout "--foreground" "--signal=TERM" "--kill-after=3s" "90s"
-        "/usr/bin/time" "-p" . arguments] stderr-redirection: #t coprocess: receive)) 1)))
+        arguments ...] stderr-redirection: #t coprocess: receive)) 1)))
       (let* ((lifetime (- (monotonic-seconds clock) started))
              (prefix (string-append "SERVICE-WORKFLOW-OK " width " " access " "))
              (receipts (filter (cut string-prefix? prefix <>) lines))
@@ -353,7 +353,7 @@
     (display "MODULE-ENTRY ")
     (write (vector (and (assoc "clan/poo/examples/representation-service" before) #t)
       (andmap (lambda (id) (let (item (assoc id before)) (and item (eq? (cdr item) 'builtin))))
-        '("clan/poo/object" "clan/poo/mop" "clan/poo/fun"))
+        '("clan/poo/object" "clan/poo/mop/prototype" "clan/poo/fun"))
       (length before)))
     (newline) (force-output))
   (load-module "clan/poo/io")
@@ -422,4 +422,14 @@
         "-:max-heap=1G,debug=q" "64" "4" "main"))
     (test-case "joint service and checkout entry pairs"
       (study (cond-expand (darwin "gtimeout") (else "timeout"))
-        "-:max-heap=1G,debug=q" "64" "4" "joint-main"))))
+        "-:max-heap=1G,debug=q" "64" "4" "joint-main"))
+    (test-case "compiled runtime entry composes the service and checkout workflows"
+      (def entry (module-action "clan/poo/examples/representation-service"
+        'clan/poo/examples/representation-service#entry-workflow))
+      (check-equal? (entry '(4 layout: #t)) '#(#(30 36 42 12) (30 33 3)))
+      (check-exception (entry '(-1)) contract-violation-error?))
+    (test-case "batch layout publication composes module FUN contracts and repair"
+      (def batch (module-action "clan/poo/examples/representation-service"
+        'clan/poo/examples/representation-service#batch-shape-workflow))
+      (for (reuse? '(#f #t))
+        (check-equal? (batch (list 32 reuse?)) '#(65 19 6))))))

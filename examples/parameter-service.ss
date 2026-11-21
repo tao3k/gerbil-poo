@@ -1,6 +1,6 @@
 ;;; Parameterized service construction composes syntax, C3, generic calls and FUN.
 (export Service specialize-action quote-service)
-(import ../object
+(import (only-in ../type Object) ../object
         ../mop
         ../number
         (prefix-in ../object-contract contract.)

@@ -7,7 +7,7 @@
   :clan/poo/object
   :clan/poo/mop
   :clan/poo/number
-  (only-in :clan/poo/type Record)
+  (only-in :clan/poo/type Record validate TypeError?)
   (prefix-in :clan/poo/recursive-validation graph.)
   (prefix-in :clan/poo/recursive-staging staging.)
   (prefix-in :clan/poo/recursive-publication recursive-approvals.publication.)
@@ -74,4 +74,4 @@
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (recursive-revision-test)
-  (let () (include "recursive-approvals/recursive-revision.scm")))
+  (let () (include "recursive-approvals/recursive-revision.ss")))

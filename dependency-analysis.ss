@@ -1,12 +1,15 @@
 ;;; Finite Computation expressions; transforms receive child values only.
 (export Computation. pure need read inspect deny failure map both choose
         make-success success? success-value error? error-kind error-key error-cause)
-(import ./object (only-in ./mop define-type) ./support/option)
+(import ./object (only-in ./mop/prototype define-type) ./support/option)
 (defstruct success (value) final: #t)
 (defstruct error (kind key cause) final: #t)
 (def (bind result next) (if (success? result) (next (success-value result)) result))
 (def (source thunk) (try (make-success (thunk)) (catch (cause) (make-error 'source #f cause))))
 (define-type (Computation. @ [] reads .evaluate))
+(def computation-constructor-revision (object-revision Computation.))
+(def (%computation-constructor-current?)
+  (= (object-revision Computation.) computation-constructor-revision))
 (def (pure value) (.cc Computation. reads: [] .evaluate: (lambda (_) (make-success value))))
 (def (failure message) (.cc Computation. reads: [] .evaluate: (lambda (_) (make-error 'source #f message))))
 (def (need key transform)

@@ -22,8 +22,8 @@
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (set-algebra-test)
-  (let () (include "set-algebra/cases.scm")))
+  (let () (include "set-algebra/cases.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (set-observation-test)
-  (let () (include "set-algebra/set-observation.scm")))
+  (let () (include "set-algebra/set-observation.ss")))

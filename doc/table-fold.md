@@ -128,7 +128,7 @@ prohibits target point writes, checks complete cold construction, repeated
 remove/reinsert with false values, exact conversion failures, stale declarations,
 and mistyped or interfering key-space getters.
 
-The existing table module includes its fold implementation from `table/fold.scm`;
+The existing table module includes its fold implementation from `table/fold.ss`;
 no public namespace or duplicate collection engine is introduced. Lean's
 `keySpaceView_replace`, `overlayView_replace`, `traceBindings_apply`,
 `traceBindings_transport`, `traceBindings_represented` and `traceBindings_index` connect the typed key space,

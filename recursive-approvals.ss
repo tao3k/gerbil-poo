@@ -1,7 +1,7 @@
 ;;; Joint revisions of one recursive graph and shared approval metadata.
 (export stage-with submit! observe! submit-sequence! call-with-submissions
         attempt-request attempt-snapshot attempt-values attempt-failed? attempt-failure)
-(import (only-in :std/list/list foldl) (prefix-in :std/struct/queue queue.) ./object ./mop ./lens-laws
+(import (only-in :std/list/list foldl) (prefix-in :std/struct/queue queue.) ./object ./mop/prototype ./lens-laws
         (prefix-in ./recursive-publication publication.))
 
 ;; Capture Gerbil supported revisions of installed/proposed metadata. Existing

@@ -179,7 +179,7 @@ and a generator of result tuples. Map `function-procedure` through the existing
 generator algebra to derive a sampler for a POO Function descriptor. Calls outside
 those rows refuse. Multi-value and keyword calls use Gerbil's ordinary call path;
 there is no generated evaluator or second argument parser. See the executable
-[property workflows](../examples/property-workflows.ss) and the PBT RFC for bounds.
+[property workflows](../examples/property-workflows-test.ss) and the PBT RFC for bounds.
 
 ## Standard TestSuite assertions and named arguments
 
@@ -606,7 +606,7 @@ parameter results at `data-list-shrinks`. Model repair refuses malformed inputs;
 model shrinking delegates to that shared boundary. Each parameter callback keeps
 its source scope, so revision skips the next coordinate. `make-generator` lazy
 shrink Iterators retain their separate bounded consumption protocol. [Finite sequence preparation without prefix salvage](pbt/data-generation.md#finite-sequence-preparation-without-prefix-salvage) and
-`examples/generated-traces.ss` show typed Record/FUN failure, retry and replay
+`examples/generated-traces-test.ss` show typed Record/FUN failure, retry and replay
 without partial packing.
 
 
@@ -616,7 +616,7 @@ the next action, not merely the eventual report. Initializer invalidation can no
 longer execute an obsolete draw suffix. Expected observation is explicitly
 sequenced before actual observation. Ordinary multi-values, false commands,
 original exceptions and `try`/`finally` cleanup keep their existing meanings.
-`examples/property-traces.ss` and `examples/generated-traces.ss` show generic and
+`examples/property-traces.ss` and `examples/generated-traces-test.ss` show generic and
 Record/FUN refusal/retry without a second evaluator. Seven dependent-action laws
 in `PropertyScopes.lean` state the finite source/serial-callback premises; host
 unwinding remains executable evidence. See [Source-consistent generic model actions](pbt/model-traces.md#source-consistent-generic-model-actions) in the RFC for costs and scope.

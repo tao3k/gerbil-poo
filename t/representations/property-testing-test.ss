@@ -1,5 +1,5 @@
 ;;; Generated evidence exercises domains, replay, source invalidation and budgets.
-(export inspection-request-test failure-preparation-test signature-preparation-test trace-snapshot-test trace-request-test handoff-test product-row-test trace-tree-test request-preparation-test bridge-preparation-test snapshot-admission-test assertion-admission-test product-preparation-test trace-preparation-test sampler-binding-test sampler-scope-test call-admission-test property-testing-test property-kernel-test property-workflows-test generated-batches-test generated-traces-test generated-products-test)
+(export inspection-request-test failure-preparation-test signature-preparation-test handoff-test product-row-test trace-tree-test request-preparation-test bridge-preparation-test snapshot-admission-test assertion-admission-test product-preparation-test trace-preparation-test sampler-binding-test sampler-scope-test call-admission-test property-testing-test property-kernel-test generated-batches-test generated-products-test)
 (import (prefix-in (only-in :clan/poo/support/testing require-property-passed) standard.)
         (prefix-in :clan/poo/testing/property/test assertion.)
         (prefix-in :clan/poo/testing/property/generator core.)
@@ -15,9 +15,7 @@
         (only-in :clan/poo/examples/representation-service slot-revision-workflow)
         (prefix-in (only-in :clan/poo/examples/collection-properties map-service-tests map-service-action service-value-generator service-batch-action service-factory-action) collection.)
         (only-in :clan/poo/examples/property-kernel property-kernel-test)
-        (only-in :clan/poo/examples/property-workflows property-workflows-test)
         (only-in :clan/poo/examples/generated-batches generated-batches-test)
-        (only-in :clan/poo/examples/generated-traces trace-snapshot-test trace-request-test generated-traces-test)
         (only-in :clan/poo/examples/generated-products generated-products-test product-row-test handoff-test))
 
 (import (only-in "property-testing/preparation.ss" make-preparation-suites))
@@ -85,10 +83,9 @@
       (displayln "PROPERTY-LIBRARY-START " (time->seconds (current-time)) " " arguments
         " cores=" (getenv "GERBIL_BUILD_CORES" "compiler-default") " directory=" project) (force-output)
       (def result
-        (run-process ["/usr/bin/time" "-p"
-          (if (equal? (car arguments) "build")
-            [timeout "--signal=TERM" "--kill-after=3s" "0"] []) ...
-          "env" (string-append "GERBIL_PATH=" package) runtime-options
+        (run-process [(if (equal? (car arguments) "build")
+                        [timeout "--signal=TERM" "--kill-after=3s" "0"] []) ...
+          "env" "-u" "GERBIL_LOADPATH" (string-append "GERBIL_PATH=" package) runtime-options
           "gerbil" "-:max-heap=1G,debug=q" arguments ...] directory: project stderr-redirection: #t
           coprocess: (lambda (port)
             (call-with-output-string

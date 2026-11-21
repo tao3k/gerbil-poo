@@ -1,12 +1,15 @@
 #!/usr/bin/env -S gxi -:max-heap=2G,debug=q
 ;;; Standard package declaration; Gerbil owns inputs, dependencies and freshness.
-(export main +gerbil-poo-build-spec+ production-spec)
+(export main project-build-source)
 (import :std/build-script (only-in :std/source this-source-file)
         (only-in :std/make include-gambit-sharp append-options)
         (only-in "t/build.ss" call-with-build-jobs))
 ;; Preserve the established compiler backend bound in the official entry.
 (let (options (getenv "GAMBOPT" #f))
   (setenv "GAMBOPT" (string-append (if options (string-append options ",") "") "max-heap=2G,debug=q")))
+;; Use the package root for benchmark build specs that include sibling modules.
+(def project-build-file (this-source-file))
+(defrules project-build-source () ((_ . _) project-build-file))
 ;; Declare one production C policy through standard make. Explicit inputs keep
 ;; compiler policy and each module's existing included sources in freshness checks.
 (def (production-module name (inputs []) (cc-options "") . options)
@@ -31,6 +34,7 @@
 (def +gerbil-poo-build-spec+
   `("brace"
     "support/base"
+    "support/index"
     "support/debug"
     "support/io"
     "support/json"
@@ -55,6 +59,30 @@
     "value-diagnostics"
     "class-validation"
     "function-signature"
+    "mop/prototype"
+    "read-projection"
+    "clos/class-declaration-ir"
+    "clos/classes"
+    "clos/declaration-ir"
+    "clos/declaration-ir-core"
+    "clos/dispatch"
+    "clos/evolution"
+    "clos/funcs"
+    "clos/generic-evolution"
+    "clos/generic-syntax"
+    "clos/instance-state"
+    "clos/lambda-list"
+    "clos/lifecycle"
+    "clos/load-form"
+    "clos/method-bundle-syntax"
+    "clos/method-combination"
+    "clos/method-combination-declaration-ir"
+    "clos/model"
+    "clos/mop"
+    "clos/objects"
+    "clos/reflection"
+    "clos/syntax"
+    "clos/types"
     "mop"
     "parameters"
     "types/syntax"
@@ -77,16 +105,16 @@
     "generic-family"
     "contract-family"
     "dependency-analysis"
-    "generalized-graph"
-    "component-revision"
-    "component-publication"
+    "graph/schedule"
+    "graph/component/revision"
+    "graph/component/publication"
     "joint-publication"
     "generalized-prototype"
-    "construction-cache"
+    "graph/construction"
     "staged-publication"
     "number"
     "prototype-map"
-    "slot-layout"
+    ,(apply production-module "slot-layout" [] "" (include-gambit-sharp))
     "read-route"
     "slot-observation"
     "object-state"
@@ -98,13 +126,13 @@
     "lens-laws"
     "generalized-closure"
     "focused-closure"
-    "feedback-closure"
-    "feedback-cache"
-    "component-closure"
-    "strong-components"
-    "feedback-graph"
+    "graph/feedback/closure"
+    "graph/feedback/cache"
+    "graph/feedback/builder"
+    "graph/scc"
+    "graph/feedback"
     "reflection"
-    ,(production-module "object" ["object/observation.scm"])
+    ,(production-module "object" ["object/observation.ss"])
     "polynomial"
     "proto"
     "rationaldict"
@@ -114,8 +142,8 @@
     ;; Standard compiler inputs, object caching and all stage limits remain owned
     ;; by std/make; this is a code-generation choice, not a larger resource budget.
     ,(production-module "table"
-      ["table/observation.scm" "table/io.scm" "table/fold.scm" "table/focus.scm"
-       "table/mapping.scm" "table/styles.scm" "table/sets.scm" "table/indexes.scm" "table/order.scm"]
+      ["table/observation.ss" "table/io.ss" "table/fold.ss" "table/focus.ss"
+       "table/mapping.ss" "table/styles.ss" "table/sets.ss" "table/indexes.ss" "table/order.ss"]
       +gerbil-poo-cc-options+)
     ,(production-module "trie" ["trie/changes.scm"])
     "type"

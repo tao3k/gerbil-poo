@@ -5,13 +5,13 @@
         ../mop
         ../brace
         ../support/option
-        ../component-closure
+        ../graph/feedback/builder
         ../generalized-closure
-        ../feedback-cache
-        ../feedback-graph
+        ../graph/feedback/cache
+        ../graph/feedback
         ../lens-laws
-        (runtime: :clan/poo/generalized-graph)
-        (prefix-in (only-in ../generalized-graph declaration revise) graph.)
+        (runtime: :clan/poo/graph/schedule)
+        (prefix-in (only-in ../graph/schedule declaration revise) graph.)
         (runtime: :clan/poo/dependency-analysis)
         (prefix-in (only-in ../dependency-analysis both make-success map need pure) code.)
         (runtime: :clan/poo/examples/closed-declarations)

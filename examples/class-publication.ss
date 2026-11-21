@@ -5,7 +5,7 @@
         ../mop
         ../number
         ../object-contract
-        (only-in ../type Record String Maybe List)
+        (only-in ../type Record String Maybe List Fun define-type Bool)
         (runtime: :clan/poo/fun)
         (prefix-in ./object-contracts service.)
         (prefix-in ./contract-publication publication.)

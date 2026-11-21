@@ -15,7 +15,7 @@
     (display "MODULE-ENTRY ")
     (write (vector (and (assoc module before) #t)
       (andmap (lambda (id) (let (entry (assoc id before)) (and entry (eq? (cdr entry) 'builtin))))
-        '("clan/poo/object" "clan/poo/mop" "clan/poo/fun"))
+        '("clan/poo/object" "clan/poo/mop/prototype" "clan/poo/fun"))
       (length before)))
     (newline) (force-output))
   ((module-action module (string->symbol binding)) arguments))

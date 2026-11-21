@@ -7,8 +7,8 @@
         (prefix-in ../examples/joint-topology service.)
         (prefix-in ../examples/joint-receipts receipts.)
         (prefix-in ../examples/joint-workers workers.)
-        (runtime: :clan/poo/construction-cache)
-        (prefix-in (only-in ../construction-cache Builder.) cache.))
+        (runtime: :clan/poo/graph/construction)
+        (prefix-in (only-in ../graph/construction Builder.) cache.))
 ;; Never reconstruct the independent shared dependency while revising SCCs.
 (def builder (.cc cache.Builder. allow: (lambda (key) (not (eq? key 'stable)))))
 ;; Preserve receipt identity, whole snapshots and explicit refusal reasons.

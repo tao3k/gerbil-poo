@@ -1,6 +1,7 @@
 ;;; Bound wrappers, refusals and cooked-family preparation, measured by Scheme.
 (export main sources phases rounds repetitions)
-(import (only-in "metadata-report.ss" sources phases rounds repetitions) :gerbil/runtime/gambit
+(import (only-in :clan/poo/type element?)
+        (only-in "metadata-report.ss" sources phases rounds repetitions) :gerbil/runtime/gambit
         :std/iter
         (only-in :clan/poo/object .cc .@ .o .call)
         :clan/poo/support/option
@@ -9,7 +10,6 @@
         (runtime: :clan/poo/declarative-metadata)
         (prefix-in (only-in :clan/poo/declarative-metadata atom both contract contract?
                    failure-phase failure? invoke predicate publish wrap) metadata.)
-        (only-in :clan/poo/mop element?)
         (only-in :clan/poo/number IntegerRange)
         (prefix-in :clan/poo/examples/service-metadata service.)
         (runtime: :clan/poo/examples/cyclic-access)
@@ -37,9 +37,9 @@
         (prefix-in (only-in :clan/poo/multimethod cache-size) multimethod.)
         (runtime: :clan/poo/dispatch-extension)
         (prefix-in (only-in :clan/poo/dispatch-extension snapshot) dispatch.)
-        (prefix-in :clan/poo/construction-cache cache.)
-        (runtime: :clan/poo/generalized-graph)
-        (prefix-in (only-in :clan/poo/generalized-graph define reschedule schedule
+        (prefix-in :clan/poo/graph/construction cache.)
+        (runtime: :clan/poo/graph/schedule)
+        (prefix-in (only-in :clan/poo/graph/schedule define reschedule schedule
                    schedule-order set-base) graph.)
         (runtime: :clan/poo/dependency-analysis)
         (prefix-in (only-in :clan/poo/dependency-analysis make-success need) code.)

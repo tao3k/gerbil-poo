@@ -9,7 +9,7 @@ index updates. Neither behavior is the shared checked selection protocol.
 ## Shared boundary and existing algorithms
 
 `methods.table` owns both public operations. `select-table` stays in the existing
-`clan/poo/table` module, alongside the other bulk algorithms in `table/mapping.scm`.
+`clan/poo/table` module, alongside the other bulk algorithms in `table/mapping.ss`.
 It checks the predicate procedure even for an empty input, admits the original
 root before callbacks, requires each decision to be Bool, and recognizes every
 complete returned branch before exposing a result. Recognition does not normalize

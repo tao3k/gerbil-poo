@@ -5,11 +5,11 @@
         ../brace
         ../support/option
         ../generalized-closure
-        ../feedback-cache
-        ../feedback-graph
+        ../graph/feedback/cache
+        ../graph/feedback
         ../lens-laws
-        (runtime: :clan/poo/generalized-graph)
-        (prefix-in (only-in ../generalized-graph reconfigure) graph.)
+        (runtime: :clan/poo/graph/schedule)
+        (prefix-in (only-in ../graph/schedule reconfigure) graph.)
         (prefix-in ../examples/service-revisions service.))
 ;; Explicit lens universe is reused; only supported components may be observed.
 (def keys service.keys)

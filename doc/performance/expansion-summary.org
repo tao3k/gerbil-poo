@@ -119,7 +119,7 @@ expansion selector A/A pair spans -0.005..+0.005us natural. Identical constructo
 pairs span roughly -0.98..+3.58us natural; identical approval pairs
 -1.55..+0.09us. These are observed noise references, not calibrated confidence
 intervals or permission to discard bad results. Previous regressions remain in
-[[file:paired-summary.org][historical paired controls]]. Selection caching remains optional.
+[[file:paired-summary.org][paired benchmark protocol]]. Selection caching remains optional.
 
 * Local source identities
 Gerbil 1cfb032, Gambit ea114fc. SHA-256:

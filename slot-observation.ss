@@ -2,13 +2,35 @@
 ;;; Values are still computed by object.ss; this module only records/replays.
 (export make-slot-read (rename-out copy-slot-read-key (copy-slot-read-key slot-read-key))
         slot-read-receiver
-        slot-read-revision slot-read-instance
+        slot-read-revision (rename-out copy-slot-read-instance (copy-slot-read-instance slot-read-instance))
         (rename-out copy-slot-read-value (copy-slot-read-value slot-read-value))
         (rename-out copy-slot-read-dependencies (copy-slot-read-dependencies slot-read-dependencies))
         call-with-slot-read-observer without-observation
         %slot-read-active? %slot-read-demand! %deliver-slot-read %record-slot-reads!
         %call-with-recorded-slot-reads slot-read-observers-compatible? slot-read-precheck-active?)
 (import :std/error)
+
+;; The value store and signed reads retain one token. Public projections
+;; receive copies. Only the private traversal key can borrow its spine.
+(defstruct owned-list (access copy) final: #t)
+(def owned-list-access-key (cons 'owned-list 'access))
+;; List metadata may own entry cells as well as the outer spine. The same
+;; pure copier runs at capture and public projection; opaque values stay shared.
+(def (%make-owned-list values (copy list-copy))
+  (let (spine (copy values))
+    (make-owned-list (lambda (key)
+      (if (eq? key owned-list-access-key) spine (copy spine))) copy)))
+(def (%owned-list-value value)
+  (if (owned-list? value) ((owned-list-access value) #f) value))
+(def (%borrow-owned-list value)
+  (if (owned-list? value) ((owned-list-access value) owned-list-access-key) value))
+(def (%slot-store-snapshot store)
+  (and store
+       (let (snapshot (make-hash-table-symbolic))
+         (hash-for-each
+          (lambda (slot value) (hash-put! snapshot slot (%owned-list-value value)))
+          store)
+         snapshot)))
 (defstruct slot-read (receiver key revision instance value dependencies current? birth)
   final: #t constructor: :init!)
 ;; Keep the public seven-argument raw constructor. It never mints provenance.
@@ -21,23 +43,45 @@
 (def (copy-slot-read-key read)
   (let (key (slot-read-key read))
     (if (pair? key) (list-copy key) key)))
-;; Names are structural metadata. All other values remain opaque, even an
-;; application list stored in a regular Slot called names.
+(def (copy-slot-read-instance read)
+  (%slot-store-snapshot (slot-read-instance read)))
+;; Names and explicitly owned lists have detached spines. Ordinary
+;; application values remain opaque, including lists in a Slot called names.
 (def (copy-slot-read-value read)
   (let (value (slot-read-value read))
-    (if (equal? (slot-read-key read) '(names)) (list-copy value) value)))
+    (case (and (pair? (slot-read-key read)) (car (slot-read-key read)))
+      ((names) (list-copy value))
+      ((preparation) (%slot-store-snapshot value))
+      (else (%owned-list-value value)))))
 ;; Consumers may edit the dependency list, while each parent keeps its signed
 ;; record identity and its original position and multiplicity.
 (def (copy-slot-read-dependencies read)
   (list-copy (slot-read-dependencies read)))
-(defstruct read-collection (seen reversed) final: #t)
+(defstruct read-collection (seen reversed visit-index thread) final: #t)
 ;; One dynamic binding owns the complete observation scope: #f when disabled,
 ;; the existing collection for capture alone, or a scope with actual observers.
 ;; Capture alone allocates no extra context. parameterize still owns nesting,
 ;; exceptions, continuations and the standard inherited thread scope.
-(defstruct read-scope (frame observers prechecks) final: #t)
+(defstruct read-scope (frame observers prechecks inline-observer) final: #t)
 ;; The standard dynamic parameter provides lexical restoration and inheritance.
 (def current-read-scope (make-parameter #f))
+(def (%current-slot-read-frame)
+  (let (scope (current-read-scope))
+    (if (read-scope? scope) (read-scope-frame scope) scope)))
+;; Reuse traversal storage only within a closed, unique native capture. A fresh
+;; identity marks each build, so an older visit never authenticates a new read.
+;; The frame owns this workspace; no projection or bound action retains it.
+(def (%projection-read-visit-index)
+  (let (frame (current-read-scope))
+    (and (read-collection? frame) (read-collection-seen frame)
+         (eq? (read-collection-thread frame) (current-thread))
+         (let (index (or (read-collection-visit-index frame)
+                        (let (next (make-hash-table-eq))
+                          (set! (read-collection-visit-index frame) next)
+                          next)))
+           (cons index #f)))))
+
+(def current-registration-interval (make-parameter #f))
 (def (slot-read-precheck-active? check)
   (let (scope (current-read-scope))
     (and (read-scope? scope) (memq check (read-scope-prechecks scope)) #t)))
@@ -84,28 +128,82 @@
   ;; Only replay-root consumers opt in. Dependency capture keeps every
   ;; edge occurrence; no signed dependency list is edited or reconstructed.
   (unless (boolean? unique-roots?) (error "invalid root collection policy"))
-  (def frame (make-read-collection (and unique-roots? (make-hash-table-eq)) '()))
+  ;; This private identity membership has no public adapter or callbacks.
+  ;; Keep the original first-occurrence spine and the delivery scope below.
+  (def frame (make-read-collection (and unique-roots? (make-table test: eq?)) '() #f (and unique-roots? (current-thread))))
   (def parent (current-read-scope))
   (def value (parameterize ((current-read-scope
     (if (read-scope? parent)
-      (make-read-scope frame (read-scope-observers parent) (read-scope-prechecks parent))
-      frame))) (action)))
+      (make-read-scope frame (read-scope-observers parent) (read-scope-prechecks parent)
+        (read-scope-inline-observer parent))
+      frame)))
+    (if unique-roots?
+      (dynamic-wind void action
+        (lambda ()
+          (set! (read-collection-thread frame) #f)
+          (set! (read-collection-visit-index frame) #f)))
+      (action))))
   (values value (reverse (read-collection-reversed frame))))
 ;; One recording boundary serves normal delivery and already-delivered child
 ;; captures. Respect the current collector's occurrence/deduplication policy.
+(defrule (record-in-collection! frame seen read)
+  (unless (and seen (table-ref seen read #f))
+    (when seen (table-set! seen read (or (current-registration-interval) #t)))
+    (set! (read-collection-reversed frame)
+      (cons read (read-collection-reversed frame)))))
 (def (record-slot-read! frame read)
   (when frame
     (let (seen (read-collection-seen frame))
-      (unless (and seen (hash-key? seen read))
-        (when seen (hash-put! seen read #t))
-        (set! (read-collection-reversed frame)
-          (cons read (read-collection-reversed frame)))))))
+      (record-in-collection! frame seen read))))
+;; Borrow the identity membership of the current unique capture. The caller
+;; still owns live record authentication and its observer/effect boundary.
+(def (%first-registered-read?)
+  (let* ((scope (current-read-scope))
+         (frame (if (read-scope? scope) (read-scope-frame scope) scope))
+         (seen (and frame (read-collection-seen frame)))
+         (interval (current-registration-interval)))
+    (and seen interval (car interval)
+         (lambda (read) (and (car interval) (eq? interval (table-ref seen read #f)))))))
+
+(def (%revoke-slot-read-registration-interval!)
+  (let (interval (current-registration-interval))
+    (when interval (set-car! interval #f))))
+
+(def (%without-slot-read-registration-interval action)
+  (if (current-registration-interval)
+    (parameterize ((current-registration-interval #f)) (action))
+    (action)))
+
+(def (%with-slot-read-registration-interval action)
+  (let* ((scope (current-read-scope))
+         (frame (if (read-scope? scope) (read-scope-frame scope) scope)))
+    (if (and frame (read-collection-seen frame))
+      (parameterize ((current-registration-interval (cons #t #f)))
+        (dynamic-wind void action %revoke-slot-read-registration-interval!))
+      (%without-slot-read-registration-interval action))))
+
 ;; Merge an authenticated child capture under one parent-scope lookup, without
 ;; replaying observers/prechecks. Recording never mints or authenticates provenance.
 (def (%record-slot-reads! reads)
   (def scope (current-read-scope))
   (def frame (if (read-scope? scope) (read-scope-frame scope) scope))
-  (when frame (for-each (cut record-slot-read! frame <>) reads)))
+  (when frame
+    ;; A batch keeps the same private identity table throughout.
+    (let (seen (read-collection-seen frame))
+      (for-each (lambda (read) (record-in-collection! frame seen read)) reads))))
+
+;; The owner has already proved this is its private capture. When it is
+;; empty, the Generic's admission is its first prefix, with precisely the
+;; same first-occurrence membership as a fresh child frame.
+(def (%call-with-private-slot-read-prefix action)
+  (let (frame (%current-slot-read-frame))
+    (if (and frame (read-collection-seen frame) (null? (read-collection-reversed frame)))
+      (let (value (action))
+        (values value (reverse (read-collection-reversed frame))))
+      (let-values (((value reads)
+                    (%call-with-recorded-slot-reads action unique-roots?: #t)))
+        (%record-slot-reads! reads)
+        (values value reads)))))
 ;; Record the original read, then deliver it in order without observing callbacks.
 (def (%deliver-slot-read read value)
   (def scope (current-read-scope))
@@ -113,14 +211,33 @@
   (record-slot-read! (if observed? (read-scope-frame scope) scope) read)
   ;; Deduplicate storage, NEVER delivery. Duplicate events, observer ordering,
   ;; effects and exceptions keep their original per-delivery boundary.
-  (let (observers (if observed? (read-scope-observers scope) '()))
+  (let (observers (if observed? (%delivery-observers (read-scope-observers scope)) '()))
     (unless (null? observers)
-      (without-observation
-        (lambda () (for-each (lambda (observe) (observe read)) observers)))))
+      (let (inline (read-scope-inline-observer scope))
+        (if (and inline (null? (cdr observers)) (eq? (car observers) (car inline)))
+          ((cdr inline) read)
+          (without-observation
+            (lambda () (for-each (lambda (observe) (observe read)) observers)))))))
   value)
+
+;; Keep the dynamic scope intact for prechecks and compatibility inspection.
+;; A leading runtime void can be ignored before entering a callback boundary.
+(def (%delivery-observers observers)
+  (if (and (pair? observers) (eq? (car observers) void))
+    (%delivery-observers (cdr observers))
+    observers))
 ;; Nested observers receive the same actual reads. Final replay is owned by the
 ;; consumer's admission boundary, not memoized as a successful previous check.
 (def (call-with-slot-read-observer observe action before: (before #f))
+  (install-slot-read-observer observe action before #f))
+
+;; The runtime owner supplies a delivery procedure that is responsible for
+;; masking observation if its live effect guard requires it. Public callers
+;; still get the original masking and callback order.
+(def (%call-with-inline-slot-read-observer observe deliver action)
+  (install-slot-read-observer observe action #f (cons observe deliver)))
+
+(def (install-slot-read-observer observe action before inline)
   (unless (and (procedure? observe) (procedure? action)
                (or (not before) (procedure? before)))
     (error "invalid slot-read observer"))
@@ -130,4 +247,5 @@
   (call-with-parameters action current-read-scope
     (make-read-scope (if observed? (read-scope-frame parent) parent)
       (cons observe (if observed? (read-scope-observers parent) '()))
-      (if before (cons before checks) checks))))
+      (if before (cons before checks) checks)
+      (or inline (and observed? (read-scope-inline-observer parent))))))

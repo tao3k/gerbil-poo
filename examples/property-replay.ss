@@ -104,7 +104,8 @@
   (test-case "portable identities refuse fresh symbols and keywords through nested data"
     (for (token (list (gensym 'identity) (string->uninterned-keyword "identity")))
       (for (wrap (list values list vector (cut cons 'format <>)))
-        (check-exception (replay.make-codec (wrap token) values values) nonportable?))))
+        (check-exception (apply replay.make-codec [#!key (wrap token) values values])
+          nonportable?))))
   (test-case "fresh payload tokens refuse before writing any envelope bytes"
     (for (token (list (gensym 'service) (string->uninterned-keyword "service")))
       (def domain (property.make-specification (lambda (value) (or (symbol? value) (keyword? value)))

@@ -9,6 +9,7 @@
   :clan/poo/number
   :clan/poo/brace
   (prefix-in :clan/poo/examples/lifecycle lifecycle.)
+  (only-in :clan/poo/examples/representation-service closure-invalidation-workflow)
   :std/assert
   :std/format
   (except-in :clan/poo/support/base ignore-errors)
@@ -58,7 +59,7 @@
 
 ;; Give slot-observation-test its own compiler function and private fixture scope.
 (def (make-slot-observation-test)
-  (include "object/slot-observation.scm"))
+  (include "object/slot-observation.ss"))
 
 (def slot-observation-test (make-slot-observation-test))
 

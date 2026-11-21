@@ -18,6 +18,7 @@
   (prefix-in :clan/poo/examples/service-bundle bundle.)
   :std/error
   :clan/poo/mop
+  (only-in :clan/poo/type Any Bool Object define-type)
   :clan/poo/brace
   :clan/poo/declaration
   :clan/poo/method-declaration

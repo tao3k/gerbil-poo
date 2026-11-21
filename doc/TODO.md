@@ -2346,7 +2346,7 @@ cold family admission, dual identifier swaps, shared-team migration, retained
 Function identities, genuine conflict refusal, retry and inverse recovery.
 Repeated edits, stored false, collisions, stale/empty-origin requests and invalid
 capability metadata retain explicit negative controls. Fold code lives in the
-existing table module's `table/fold.scm` include. Companion overlay/transport/index
+existing table module's `table/fold.ss` include. Companion overlay/transport/index
 proofs and charged preparation boundaries are in [table-fold.md](table-fold.md).
 Automatic equality/capability discovery remains a separate research boundary.
 
@@ -3764,7 +3764,7 @@ no registration after failed full admission. Lean connects concrete registration
 to the existing finite invalidation model; this is bounded cache-invalidation
 future work, not a gap in the author's original pure-by-default policy.
 
-Object read issuance/replay lives in `object/observation.scm`, included in the
+Object read issuance/replay lives in `object/observation.ss`, included in the
 existing Object namespace and tracked by standard make `extra-inputs`. There is
 no additional runtime image, cache, loader or namespace. Existing benchmark
 source identities include that input. Slot workload bodies reuse the existing

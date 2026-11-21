@@ -1,7 +1,7 @@
 ;;; Common declarations and methods for tables
 
 (export methods.table Set<-Table. PreZipping. Zipping. FocusableZipping.
-        with-set-tables iterator-map table-element? validate-table table-for-each-change table-styles set-styles table-indexes
+        with-set-tables fold-set/shared-backing iterator-map table-element? validate-table table-for-each-change table-styles set-styles table-indexes
         table-comparer table-comparer-wrapper table-order table-ordered-cursor
         table-key-space table-index-conflict? table-index-conflict-name table-index-conflict-key
         table-index-conflict-existing table-index-conflict-incoming
@@ -24,7 +24,7 @@
   (only-in ./support/option some some? option-ref option-get/default map/option some-value)
   (only-in ./brace @method @@method)
   (only-in ./io marshal)
-  (only-in ./mop define-type Type. Function. Any validate element? raise-type-error TypeError? Lens lens-of-get-set)
+  (only-in ./mop/prototype define-type Type. Function. Any validate element? raise-type-error TypeError? Lens lens-of-get-set)
   (only-in ./fun Wrapper. Wrap.)
   (only-in ./function-signature signature-shape?)
   (only-in ./object .o object<-alist .all-slots .@ .ref .slot? .call .cc .mix .has? object-revision active-object-constructions instantiate-object!)
@@ -268,7 +268,7 @@
             ((some value) (.call descriptor .acons key value staged))))
         source (table-delta-changes delta)))))
 
-(include "table/fold.scm")
+(include "table/fold.ss")
 
 ;; A failed finite law/collision check reports its kind and offending value.
 ;; No partially converted carrier or change sequence is included in this payload.
@@ -914,8 +914,8 @@
   .unmarshal: (cut collection-codec @ #f '.unmarshal <>))
 
 ;; Set presentation and algebra remain in the existing table module.
-(include "table/sets.scm")
-(include "table/io.scm")
+(include "table/sets.ss")
+(include "table/io.ss")
 
 (define-type (PreZipping. @ [Type.]
   ;; StepF :: Type <- Type
@@ -932,15 +932,15 @@
 (define-type (FocusableZipping. @ [Zipping.]
   .refocus)) ;; Zipper <- FocusKey Zipper
 
-(include "table/focus.scm")
-(include "table/observation.scm")
-(include "table/mapping.scm")
+(include "table/focus.ss")
+(include "table/observation.ss")
+(include "table/mapping.ss")
 
 ;; Derive style ownership in the existing interface; .admit normalizes raw input,
 ;; whereas .ap and transitions retain admitted Function wrappers and batch ordering.
-(include "table/styles.scm")
+(include "table/styles.ss")
 
 ;; Correlated indexes share the same public table namespace and backend contracts.
-(include "table/indexes.scm")
+(include "table/indexes.ss")
 
-(include "table/order.scm")
+(include "table/order.ss")

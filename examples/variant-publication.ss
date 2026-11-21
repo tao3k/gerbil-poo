@@ -4,7 +4,7 @@
         ../mop
         ../number
         ../object-contract
-        (only-in ../type Pair Map Sum Union String)
+        (only-in ../type Pair Map Sum Union String Fun Bool)
         (runtime: :clan/poo/fun)
         (prefix-in ./object-contracts service.)
         (prefix-in ./contract-publication publication.)

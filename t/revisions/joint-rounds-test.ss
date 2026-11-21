@@ -8,14 +8,14 @@
   :clan/poo/object
   :clan/poo/mop
   :clan/poo/brace
-  :clan/poo/feedback-graph
+  :clan/poo/graph/feedback
   (prefix-in :clan/poo/joint-publication joint.)
-  (prefix-in :clan/poo/construction-cache cache.)
+  (prefix-in :clan/poo/graph/construction cache.)
   (prefix-in :clan/poo/examples/component-rounds rounds.)
   (prefix-in :clan/poo/examples/joint-services joint-rounds.service.)
   :clan/poo/support/option
   (prefix-in :clan/poo/dependency-analysis code.)
-  (prefix-in :clan/poo/strong-components scc.)
+  (prefix-in :clan/poo/graph/scc scc.)
   (prefix-in :clan/poo/examples/joint-topology joint-topology.service.))
 
 ;; Construct once with the original private helper scope and declaration order.

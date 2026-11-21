@@ -1,7 +1,7 @@
 ;;; Recursive.Interaction: explicit final-self requests, separate from source errors.
 (export Interaction. Generator. value value? value-result source-error source-error? source-error-message
         request bind map-interaction fold interaction? generate solve pending? close)
-(import ./object (only-in ./mop define-type Type validate element?) (prefix-in ./fun fun.))
+(import ./object (only-in ./mop/prototype define-type Type validate element?) (prefix-in ./fun fun.))
 ;; Closed Gerbil nodes; public builders never expose mutation or cache receipts.
 (defstruct returned (result) final: #t)
 ;; Explicit source-language failure, not a caught host exception or machine diagnostic.

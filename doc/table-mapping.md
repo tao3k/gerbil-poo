@@ -57,7 +57,7 @@ future work, not completion of the general collection library.
 
 This closes a concrete collection TODO: `.map/2` was listed but absent from
 `methods.table`, while Trie exposed only its carrier-specific traversal. The new
-standard include `table/mapping.scm` stays inside `clan/poo/table`. This advances
+standard include `table/mapping.ss` stays inside `clan/poo/table`. This advances
 the collection proposal's future work, reusing existing folds, writes, Option,
 metadata guards, FUN/IO and declared Trie mapping, without a new tree or namespace.
 

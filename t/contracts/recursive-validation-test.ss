@@ -6,7 +6,7 @@
   :clan/poo/object
   :clan/poo/mop
   :clan/poo/number
-  (only-in :clan/poo/type Record List)
+  (only-in :clan/poo/type Record List Any Fun define-type validate TypeError?)
   (prefix-in :clan/poo/recursive-validation graph.)
   (prefix-in :clan/poo/recursive-staging staging.)
   (prefix-in :clan/poo/recursive-topology recursive-staging.topology.)
@@ -24,7 +24,7 @@
   (prefix-in :clan/poo/examples/recursive-submissions recursive-submissions.workflow.)
   (only-in :std/list/list filter)
   (prefix-in :clan/poo/recursive-topology recursive-topology.topology.)
-  (prefix-in :clan/poo/strong-components scc.)
+  (prefix-in :clan/poo/graph/scc scc.)
   (prefix-in :clan/poo/examples/recursive-topology recursive-topology.service.)
   (prefix-in :clan/poo/examples/contract-publication recursive-topology.publication.)
   :clan/poo/object-contract

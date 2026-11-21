@@ -12,11 +12,11 @@
   :clan/poo/mop
   :clan/poo/brace
   :clan/poo/support/option
-  :clan/poo/component-closure
-  :clan/poo/feedback-graph
-  (prefix-in :clan/poo/generalized-graph graph.)
+  :clan/poo/graph/feedback/builder
+  :clan/poo/graph/feedback
+  (prefix-in :clan/poo/graph/schedule graph.)
   (prefix-in :clan/poo/dependency-analysis code.)
-  (prefix-in :clan/poo/construction-cache cache.))
+  (prefix-in :clan/poo/graph/construction cache.))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (closure-alignment-test)

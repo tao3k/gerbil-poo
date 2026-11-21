@@ -7,7 +7,7 @@
   (only-in :std/func compose)
   (only-in :std/list/list acons)
   ./support/option
-  ./object ./mop ./brace ./number ./type ./io)
+  ./object ./mop/prototype ./brace ./number ./type ./io)
 
 (define-type (Category. @ Type. ;; The Category is identified to the type of its objects/nodes/states/points
   ;; @ : Type ;; objects of the category, points of the space, states of the computation…

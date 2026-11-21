@@ -4,7 +4,7 @@
         ../mop
         ../number
         ../object-contract
-        (only-in ../type Record)
+        (only-in ../type Record Fun Any)
         (runtime: :clan/poo/recursive-validation)
         (prefix-in (only-in ../recursive-validation closed-ref closed-type
                    validation-node) graph.)

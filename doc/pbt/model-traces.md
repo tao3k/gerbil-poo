@@ -212,7 +212,7 @@ Five independent cases exercise all six drawing stages, shared admission and
 retirement, reference/actual/equality/setup/teardown revisions, original causes,
 false data and multi-values, and transient specification refusal with balanced
 cleanup and a fresh retry. The independent standard-library package now runs 92
-cases. `examples/generated-traces.ss` adds one Record/FUN scenario across initial,
+cases. `examples/generated-traces-test.ss` adds one Record/FUN scenario across initial,
 draw, precondition and advance revisions: no property is entered after refusal,
 repeat runs retain the same stage boundary, and a fresh preparation successfully
 checks commands whose nested Function fields still reject invalid arguments.

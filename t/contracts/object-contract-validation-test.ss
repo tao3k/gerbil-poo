@@ -11,7 +11,8 @@
   (prefix-in :clan/poo/examples/object-contracts service.)
   (prefix-in :clan/poo/examples/contract-publication publication.)
   (prefix-in :clan/poo/declarative-metadata metadata.)
-  (only-in :clan/poo/type Maybe Maybe. OrFalse OrFalse. TypeValuePair List Tuple String)
+  (only-in :clan/poo/type Maybe Maybe. OrFalse OrFalse. TypeValuePair List Tuple String
+           Any Bool Fun Type. element? validate TypeError?)
   (prefix-in :clan/poo/examples/optional-publication pipeline.)
   :std/iter
   (only-in :std/values first-value)

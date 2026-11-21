@@ -3,9 +3,9 @@
 (import ../object
         ../mop
         ../brace
-        ../feedback-graph
+        ../graph/feedback
         ../lens-laws
-        (prefix-in ../component-revision revision.)
+        (prefix-in ../graph/component/revision revision.)
         (runtime: :clan/poo/examples/service-revisions)
         (prefix-in (only-in ./service-revisions recipe) recipes.)
         (prefix-in ./component-membership service.))

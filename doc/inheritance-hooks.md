@@ -38,6 +38,27 @@ automatically merged into a new protocol. Hook failure clears partial constructi
 state. Reading a receiver during its own construction refuses instead of exposing
 an incomplete instance. Hook/source edits while checking C3 are also rejected.
 
+During slot assembly, the engine can check once for an inherited protocol if
+Gerbil's `HashTable` conversion and symbolic writer cannot invoke author
+code. A replaced conversion or writer keeps the per-slot hook lookup.
+[LeanPoo effect model](https://github.com/tao3k/lean-poo/blob/31b550d15e81b095795078efb8344442d8ba6edd/LeanPoo/Object/SlotPreparation.lean#L35-L75)
+
+## Slot lookup and generic dispatch
+
+| Hook | Trigger and inputs |
+| --- | --- |
+| Gerbil-POO `no-applicable-method(receiver, slot)` | A prototype slot read has no effective definition, or a slot refinement invokes its inherited thunk and there is no inherited definition. The second case can occur for a slot defined on the receiver. [Object implementation](../object.ss) |
+| CLOS `no-applicable-method(generic-function, &rest arguments)` | A generic function call has no applicable method. [Common Lisp HyperSpec](https://www.lispworks.com/documentation/HyperSpec/Body/f_no_app.htm) · [CLOS dispatch](../clos/dispatch.ss) |
+| CLOS `slot-missing(class, object, slot-name, operation, &optional new-value)` | A slot operation names a slot absent from the instance's class. A declared but unbound slot has its own `slot-unbound` hook. [Common Lisp HyperSpec](https://www.lispworks.com/documentation/HyperSpec/Body/f_slt_mi.htm) · [Slot unbound](https://www.lispworks.com/documentation/HyperSpec/Body/f_slt_un.htm) · [CLOS slot lifecycle](../clos/lifecycle.ss) |
+
+`fallback-to(thunk)` supplies the POO hook and obtains its delegate on demand.
+Separate presence and name hooks consult the same delegate. Local slots,
+including slots with value `#f`, take precedence. An unhandled read raises
+`NoApplicableMethod` with the receiver and slot.
+
+Gerbil-POO retains this name for its prototype slot hook. The CLOS generic
+function of the same name takes a generic function and its call arguments.
+
 ## Source mutation and cache validity
 
 `object-state.ss` owns revisions and weak reverse dependency edges. Constructors

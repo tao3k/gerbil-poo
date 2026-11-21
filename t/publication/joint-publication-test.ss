@@ -4,14 +4,18 @@
 (import
   :std/test
   :std/sync/channel
+  (only-in :gerbil/expander current-expander-context make-top-context eval-syntax)
+  (only-in :gerbil/runtime/gambit unbound-global-exception?)
+  (only-in :std/error Error? Error-message)
   (only-in :std/list/list foldl)
   :clan/poo/object
   :clan/poo/mop
   :clan/poo/brace
   :clan/poo/support/option
-  :clan/poo/feedback-graph
-  (prefix-in :clan/poo/construction-cache cache.)
-  (prefix-in :clan/poo/component-publication publication.)
+  :clan/poo/graph/feedback
+  (prefix-in :clan/poo/graph/construction cache.)
+  (prefix-in :clan/poo/graph/component/publication publication.)
+  (prefix-in :clan/poo/graph/component/revision revision.)
   (prefix-in :clan/poo/dependency-analysis code.)
   (prefix-in :clan/poo/examples/component-requests approval-revision.service.)
   (prefix-in :clan/poo/joint-publication joint.)
@@ -25,7 +29,7 @@
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (approval-revision-test)
-  (let () (include "joint-publication/approval-revision.scm")))
+  (let () (include "joint-publication/approval-revision.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (joint-admission-test)

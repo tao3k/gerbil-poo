@@ -20,17 +20,17 @@
   :clan/poo/mop
   :clan/poo/brace
   :clan/poo/support/option
-  :clan/poo/feedback-graph
-  :clan/poo/feedback-cache
+  :clan/poo/graph/feedback
+  :clan/poo/graph/feedback/cache
   :clan/poo/lens-laws
-  (prefix-in :clan/poo/generalized-graph graph.)
-  (prefix-in :clan/poo/strong-components scc.)
+  (prefix-in :clan/poo/graph/schedule graph.)
+  (prefix-in :clan/poo/graph/scc scc.)
   (prefix-in :clan/poo/dependency-analysis code.)
-  (prefix-in :clan/poo/construction-cache cache.)
+  (prefix-in :clan/poo/graph/construction cache.)
   (prefix-in :clan/poo/examples/service-revisions service-revisions.service.)
   (prefix-in (only-in :clan/poo/fun Observation.) fun.)
   :std/sync/channel
-  (prefix-in :clan/poo/component-publication shared-approvals.publication.)
+  (prefix-in :clan/poo/graph/component/publication shared-approvals.publication.)
   (prefix-in :clan/poo/examples/component-requests single.)
   (prefix-in :clan/poo/examples/shared-approvals shared-approvals.service.))
 

@@ -7,7 +7,7 @@
         ../number
         ../brace
         ../reflection
-        (only-in ../type List)
+        (only-in ../type List Fun)
         (runtime: :clan/poo/fun)
         (runtime: :clan/poo/method-combination)
         (prefix-in (only-in ../method-combination compile-simula-context

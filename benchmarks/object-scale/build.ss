@@ -1,6 +1,9 @@
 #!/usr/bin/env -S gxi -:max-heap=1G,debug=q
-;;; Standard program declarations; workload objects are built by the root package.
-(import :std/build-script (only-in :std/make pkg-config-libs)
+;;; Standard executable and library declarations for this benchmark.
+(import :std/build-script
+        (rename-in (only-in "../../build.ss" project-build-source)
+          (project-build-source this-source-file))
+        (only-in :std/make pkg-config-libs)
         (only-in "../../t/build.ss" call-with-build-jobs))
 ;; Preserve the compiler backend bound in this standard package entry.
 (let (options (getenv "GAMBOPT" #f))
@@ -11,7 +14,9 @@
 ;; Library and test compilation retain the standard concurrent backend budget.
 (def build (let ((links (pkg-config-libs "openssl")))
   (defbuild-script `(
-    (exe: "object-scale-benchmark-main" bin: "object-scale-benchmark" "-cc-options" "-D___SINGLE_HOST_LIMIT=10000" "-ld-options" ,links)
+    (gxc: "benchmarks/closure-measure" "-cc-options" "-O2")
+    (gxc: "benchmarks/object-scale-benchmark" "-cc-options" "-O2")
+    (exe: "benchmarks/object-scale/object-scale-benchmark-main" bin: "object-scale-benchmark" "-cc-options" "-D___SINGLE_HOST_LIMIT=10000" "-ld-options" ,links)
 ) parallelize: #f) main))
 ;; Close the standard executor on refusal; no project process registry is used.
 (def (main . options) (call-with-build-jobs (cut apply build options)))

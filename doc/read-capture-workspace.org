@@ -1,0 +1,230 @@
+#+title: Capture-local visitation storage: contract and native comparison
+
+* Change and limits
+
+The existing unique-root capture frame owns one Gerbil identity hash table for
+read traversal. Each bound projection receives a fresh private identity marker;
+old marks never authorize the next projection. Receiver registration and dense
+positions remain in their original per-projection index. This removes repeated
+table construction, not signature or currentness checks. No successful admission
+verdict survives a binding, and callback-return guards remain independent.
+
+Borrowing is restricted to the creating thread in a closed unique-root capture.
+Observers, prechecks, other threads and ordinary captures use the original path.
+Normal and exceptional exit revoke borrowing and release the workspace. Bound
+currentness retains its own projection rather than the workspace.
+
+The corresponding Lean contract is [[https://github.com/tao3k/lean-poo/commit/5c71ec98c45a647dfec66f7edc5e22790a0b06b5][5c71ec9]],
+=LeanPoo/Object/ReadVisitWorkspace.lean=. It proves ordered traversal/first-error
+equivalence, fresh-generation exclusion, thread ownership, retirement and the
+abstract table count. It does not prove native hash latency, GC behavior, the
+whole evaluator, or a wall-clock bound. Runtime tests cover that correspondence.
+
+* Frozen workload and results
+
+Comparison base: =31b42c30b8c35879f6e9f31479f6c7bd2a47ef38=, with the same CLOS/MOP
+native modules in both arms. Toolchain: Gerbil =2591dcd=, Gambit =dcd677c=;
+=gxc -O -cc-options -O2=; each process has a 2 GiB Scheme heap. Native preparation
+used a 4 GiB process-tree RSS guard and one compiler worker.
+
+=benchmarks/graph-capture-test.ss= uses the original compiled capture loop:
+10,000 owner names, 9,999 Computations reading the first provider. Every captured
+program remains in its original table through source construction and public
+order/row validation. Source preparation and scheduling are outside the measured
+capture interval. Each process runs production, attributed, attributed,
+production with fresh inputs; four pairs alternate B,C / C,B / B,C / C,B.
+
+CPU milliseconds including GC, all samples retained:
+
+| Arm | First capture, four processes | Later capture, same processes |
+|------+-------------------------------+-------------------------------|
+| Base | 231.027, 259.366, 230.411, 223.940 | 201.770, 204.697, 186.003, 184.886 |
+| Change | 232.167, 235.457, 226.665, 228.824 | 154.357, 167.616, 151.652, 153.015 |
+| Median base / change | 230.719 / 230.496 | 193.887 / 153.686 |
+
+There is no demonstrated first-capture improvement. Later capture improves
+20.7% by median and improves in every adjacent pair. This is not a measurement
+of Yuanxu 10,000 real-module EVAL or of full Graph scheduling.
+
+The instrumented binding phase has median CPU 72.269 -> 32.868 ms. Its inserted
+clocks affect execution, so this is diagnostic rather than a total speedup.
+Whole-capture allocation is unavailable because every total interval includes
+GC. Qualified binding allocation is 73,966,400--73,980,480 bytes in 2/8 base
+intervals and 48,188,016--49,108,128 bytes in 8/8 changed intervals; the other six
+base intervals remain #f, not substituted estimates. Maximum process RSS ranges
+499,154,944--502,267,904 vs 494,288,896--496,205,824 bytes. Wall time is not a
+cross-platform performance gate.
+
+Earlier interpreted/discarded-result probes are not comparable: they changed
+carrier lifetime and compilation policy. Per-receiver vector shortcuts and
+coalesced receiver/visit tables did not produce stable full-loop gains and are
+not part of this change.
+
+* Reproduction and controls
+
+Use the same Gerbil/Gambit toolchain for both revisions and build each normally.
+Compile the optional benchmark with the same options into its own output prefix:
+
+#+begin_src scheme
+;; Native commands, not additional build/test entrypoints:
+;; gxc -O -cc-options -O2 -d "$GERBIL_PATH/lib" benchmarks/closure-measure.ss
+;; gxc -O -cc-options -O2 -d "$GERBIL_PATH/lib" benchmarks/graph-capture-test.ss
+;; just test-file "$GERBIL_PATH/lib/clan/poo/benchmarks/graph-capture-test.ssi"
+#+end_src
+
+The explicit compiled .ssi is essential: running the benchmark source instead
+would measure interpreted loop overhead. Run both revision orders and retain
+all output, CPU/GC fields, #f allocations and process exit status.
+
+The new =t/objects/read-projection-index-test.ss= has eight controls: dense
+receiver identity/write guard, RNG, fresh markers, changed issuance after a
+successful binding, observer fallback, inherited child-thread refusal,
+normal/exceptional retirement and weak-GC release. Existing issued-read,
+Graph-order repair, CLOS evolution and method-combination suites also passed,
+including callback mutation and return revalidation controls. No check in those
+paths was removed to obtain the result.
+
+* Next-stage cold-path attribution (diagnostic, not an optimization claim)
+
+The same compiled benchmark now separates Slot demand, row normalization and
+row snapshot inside its attributed arm. The production loop is unchanged.
+An initial complete run reported normalization 10.757--10.862 ms and snapshot
+6.104--6.125 ms; Slot demand 161.405--204.641 ms included 77.564--120.293 ms of
+GC. Nested timing allocates statistics objects and changes GC placement: these
+figures locate work; they cannot be compared with the previous uninstrumented
+total as a speedup or summed as independent costs.
+
+A second diagnostic uses a frozen object.ss source fixture with internal clocks
+around the original operations, without preparing any object before .get. Both
+attributed passes completed all original source/order/row checks. Columns below
+are call count, CPU milliseconds INCLUDING GC, and GC milliseconds:
+
+| Phase | Pass 1 count / CPU / GC | Pass 2 count / CPU / GC |
+|-------+-------------------------+-------------------------|
+| precedence | 10000 / 16.666 / 0 | 10000 / 16.327 / 0 |
+| SlotSpec construction | 10000 / 32.619 / 0 | 10000 / 83.057 / 50.892 |
+| value store | 10000 / 26.666 / 0 | 10000 / 26.518 / 0 |
+| issuer call | 20000 / 19.109 / 0 | 20000 / 19.299 / 0 |
+| Slot evaluation | 10000 / 17.341 / 0 | 10000 / 19.728 / 0 |
+
+These clocks exclude surrounding capture, active-construction bookkeeping,
+preparation-read publication and other work. They also perturb execution.
+The second pass's SlotSpec difference is almost entirely GC; it is not evidence
+that its algorithm became slower. The workload has 9999 declared Computations;
+the measured call count includes metadata work and is not a module count.
+The instrumented issuer alone is not the entire evidence collection cost.
+
+This rejects treating the remaining cold interval as one large repeated signature
+check. The leading candidates are effective Slot construction and value-store
+preparation, followed by precedence and issuance. Before Scheme changes, the
+Lean obligations are: preserve canonical inheritance/contribution order, bind
+self and mutable cells to the original owner, preserve callbacks and first-error
+order, and preserve random-source advancement. Only owner-independent structure
+may be shared through existing POO mechanisms; no successful authentication may
+be carried across author code.
+
+Separately, delayed bound invocation performs whole-traversal issuance preflight
+followed by an authenticating entry sweep. Sharing that authentication requires a
+proof that the intervening native operations are effect-free. The ordinary/foreign
+route fallback and callback-return authentication remain independent. This path
+is outside initial capture timing and cannot count as a cold-capture improvement.
+
+The diagnostic source fixture stays out of production. Native preparation used
+the existing 180-second/4-GiB guard and completed in 47.748 seconds with sampled
+peak process-tree footprint 4,184,020,704 bytes. It must not be compiled alongside
+other large C targets. Logs and frozen fixtures remain under the ignored
+=.build/graph-capture/= directory; they are not installation dependencies.
+
+* Rejected candidate: empty-catalog intermediate-list pruning
+
+A candidate classified the private declaration catalogs in precedence order.
+When all were empty it omitted the prepared/sources wrapper lists and visited
+original owners directly. Mixed families retained the complete resolve-all then
+define-all path. A generic Lean model proved effectful preparation and arbitrary
+continuation equivalence assuming that the native empty-catalog constructor is
+no-effect; a second theorem proved direct traversal equivalent to traversal of
+None wrappers. The model and candidate are retained in ignored research fixtures,
+not registered as a production algorithm.
+
+114 runtime controls passed: the previous 111 plus distinct self/super binding,
+resolve-all before definitions, and later resolution failure before any earlier
+definition callback. No authentication or callback-return guard changed.
+
+Four complete pairs alternated baseline/candidate order, same compiled benchmark
+and 31b42c3 CLOS/MOP cohort. Only object.ss differed; this compares the frozen
+object construction path rather than claiming a measurement of later CLOS
+renames. CPU milliseconds including GC, in adjacent pair order:
+
+| Pair | First base / candidate | Later base / candidate |
+|------+------------------------+------------------------|
+| B,C | 238.940 / 237.153 | 156.377 / 155.869 |
+| C,B | 277.138 / 240.666 | 184.251 / 175.520 |
+| B,C | 271.134 / 283.650 | 173.878 / 182.601 |
+| C,B | 237.086 / 255.999 | 154.596 / 170.579 |
+| Median | 255.037 / 248.332 | 165.128 / 173.049 |
+
+Only two pairs improve. First-capture non-GC CPU median increases from 132.230
+to 133.421 ms; later capture including GC increases 4.8%. Maximum RSS ranges
+494,731,264--497,745,920 vs 496,304,128--498,466,816 bytes. All whole-operation
+allocation entries remain #f because their intervals include GC. No sample was
+excluded or rerun to manufacture a win.
+
+The candidate is withdrawn. Additional catalog classification and duplicated
+loops are not justified by this result. Native candidate compilation completed
+under the existing 180-second/4-GiB guard (44.324 seconds, sampled peak footprint
+3,754,786,816 bytes). Earlier fixture syntax/dependency failures remain recorded;
+the final 114-case run includes the original frozen source-search environment.
+The baseline preparation receipt was labelled candidate before the unsuccessful
+source patch was detected; its actual frozen source is byte-identical to the
+unmodified base, and is the baseline arm. The later, separate candidate receipt
+and source contain the tested change. Labels alone are not provenance.
+
+The next construction candidate must remove repeated effective Slot/store work
+rather than adding an empty-catalog branch. No Core fast path is removed and no
+cold-path improvement is claimed from this rejected experiment.
+
+* Index sizing: effect-boundary correction
+
+The next authentication-sharing audit found a concrete omitted boundary:
+=hash-length= invokes the Gerbil HashTable length delegate before the sweep.
+A changed delegate can edit a read after the selection/preflight check. The
+fixed-result path formerly skipped issuance inside that sweep and accepted a
+changed checker, even though =%issued-read?= returned #f after the operation.
+This was reproduced on the frozen baseline; it is not an inferred optimization.
+
+The correction qualifies the LIVE wrapper, length-field offset and exact
+=gc-table-length= delegate before sizing. That fixed Gerbil delegate reads
+native counts and calls no author code. Foreign length delegates are still
+invoked exactly once. Their successful return forces fresh issuance in original
+record order before key/route/live checks; exceptions retain their cause.
+An already-authenticating sweep needs no additional qualification. Return
+checks, source guards and all ordinary fallbacks remain independent.
+
+Four matched controls cover unchanged foreign sizing, changed issuance during
+sizing, original sizing exceptions and preflight refusal before sizing. The
+unmodified baseline passes three and fails the changed-issuance assertion. The
+correction passes all four plus the preceding 111 Graph/CLOS/issued-read controls
+and naturally exits. All mutations are fixture-local and restored in finally;
+the outer checkpoint retains the exact cached index during nested replay.
+
+This correctness correction is separate from a CPU speedup. It establishes the
+boundary required before another duplicate-authentication removal can be tried.
+
+The Lean model and Org/SysML contract are published in
+[[https://github.com/tao3k/lean-poo/commit/a2bfdace20a1706a7c3744a8ae32e653cd814608][a2bfdac]],
+=LeanPoo/Object/ReadSweepBoundary.lean=. The four-pair complete-capture comparison
+retains the same frozen CLOS/MOP cohort and compiler policy as above. CPU ms:
+
+| Pair | First base / correction | Later base / correction |
+|------+-------------------------+-------------------------|
+| B,C | 242.308 / 253.915 | 149.270 / 158.581 |
+| C,B | 277.671 / 262.814 | 212.967 / 158.029 |
+| B,C | 297.640 / 304.015 | 184.491 / 191.515 |
+| C,B | 291.402 / 273.405 | 181.920 / 184.883 |
+
+All intervals include GC, so whole-operation allocation remains #f. Maximum RSS
+ranges 493,223,936--498,171,904 vs 493,780,992--499,384,320 bytes. Mixed paired
+results do not establish a CPU win: first capture improves in two pairs and
+later capture in one. Lower unpaired medians must not be reported as a speedup.
+This patch fixes a demonstrated effect-boundary omission; reducing its ordinary
+route qualification cost is separate future work. No Core stock path is removed.

@@ -5,7 +5,7 @@
         ../mop
         ../number
         ../object-contract
-        (only-in ../type Record List)
+        (only-in ../type Record List Fun define-type Any)
         (runtime: :clan/poo/fun)
         (prefix-in ./object-contracts config.)
         (prefix-in ./contract-publication publication.)

@@ -7,11 +7,11 @@
         (only-in :std/io/tempfile call-with-temporary-directory)
         (only-in :std/misc/ports read-all-as-string)
         (prefix-in (only-in "../build.ss" main) root.)
-        (prefix-in (only-in "../build-development.ss" main) development.)
+        (prefix-in (only-in "../benchmarks/representation-startup/build.ss" main) startup.)
         (only-in :std/encoding/json string->json JSONReadOptions) (only-in :std/list/list delete-duplicates/hash take drop) (only-in "build.ss" test-build-spec test-build-partitions call-with-build-jobs))
 
 ;; Preserve the declaration/input projection independently of backend flags;
-;; a separate assertion checks one shared compiler option for every root.
+;; a separate assertion checks each root has one tracked compiler policy.
 (def (build-inputs specs) (map (cut take <> 3) specs))
 
 (include "../testing/property/build.scm")
@@ -81,8 +81,8 @@
     (test-case "standard build metadata exclude progress output"
       ;; Consume one datum from the generated build protocol; never evaluate it
       ;; or reconstruct the compiler's dependency graph.
-      (def (metadata entry command)
-        (call-with-input-string (with-output-to-string (cut entry command))
+      (def (metadata entry . commands)
+        (call-with-input-string (with-output-to-string (lambda () (apply entry commands)))
           (lambda (port)
             (def value (read port))
             (check (eof-object? (read port)) => #t)
@@ -92,17 +92,13 @@
           (and (pair? entry) (eq? (car entry) exe:))) spec)))
       (for-each (lambda (entry)
         (check-equal? (metadata entry "meta") '("spec" "compile" "clean")))
-        (list root.main development.main))
+        (list root.main startup.main))
       (def core (metadata root.main "spec"))
-      (def development (metadata development.main "spec"))
-      (check (list? core) => #t)
-      (check (list? development) => #t)
+      (def startup (metadata startup.main "spec"))
       (check-equal? (executables core) '())
-      ;; Darwin shares the executable's static objects in the development graph.
-      (check (executables development)
-        => (cond-expand (darwin '("examples/representation-main")) (else '())))
-      (check (member "examples/generated-batches" (map cadr core)) => #f)
-      (check (and (member "examples/generated-batches" (map cadr development)) #t) => #t))
+      (check-equal? (executables startup)
+        '("examples/representation-main" "benchmarks/representation-startup/main"))
+      (check (ormap (cut string-prefix? "examples/" <>) (map cadr core)) => #f))
     (test-case "shared graph preserves included-source dependencies and package order"
       (let (complete (build-inputs (test-build-spec)))
         (check (and (member '(gxc: "collection-order/table-cursor-test"
@@ -129,30 +125,30 @@
         (check (build-inputs (test-build-spec "recovery")) =>
           '((gxc: "coordinator-interleaving-test" (extra-inputs: ("../build.ss")))))
         (check (length parts) => 4)
-        (check (length all) => 68)
-        ;; Retain the 62 original roots plus the byte-I/O and FUN acceptance roots.
-        (check (length (filter (lambda (spec) (string-suffix? "-test" (cadr spec))) all)) => 64)
+        (check (length all) => 88)
+        (check (length (filter (lambda (spec) (string-suffix? "-test" (cadr spec))) all)) => 82)
+        (for (name '("construction/graph-order-repair-test" "feedback/graph-algorithms-test"
+                     "objects/class-diagnostics-test" "objects/shape-admission-test"
+                     "methods/duim-pane" "methods/duim-pane-test"
+                     "collection-styles/uint-trie-set-admission-test"))
+          (check (and (member name (map cadr all)) #t) => #t))
         ;; Grouping cannot leave any root unbounded or duplicate its policy.
         (for (spec all)
+          (check-equal? (length (filter (cut equal? <> "-cc-options") (drop spec 3))) 1)
           (check-equal? (drop spec 3)
-            '("-cc-options" "-Og -D___SINGLE_HOST_LIMIT=4096")))
+            (if (member (cadr spec)
+                  '("feedback/graph-algorithms-test" "construction/graph-order-repair-test"))
+              '("-cc-options" "-O2 -D___SINGLE_HOST_LIMIT=4096")
+              '("-cc-options" "-Og -D___SINGLE_HOST_LIMIT=4096"))))
         (check (length groups) => 25)
         (check (length (delete-duplicates/hash groups)) => (length groups))
         (check (apply + (map (lambda (group) (length (test-build-spec group))) groups)) => (length all))))
-    (test-case "standard Just dependencies share four bounded graphs for build and cleanup"
+    (test-case "Just selects source test groups and keeps the core build independent"
       (def graph (string->json (run-process ["just" "--dump" "--dump-format" "json"])
         (JSONReadOptions key-as-symbol: #f array-as-vector: #f object-as-hash: #t)))
       (def recipes (hash-ref graph "recipes"))
-      (def entry (hash-ref recipes "_build-test-packages"))
-      (check (hash-ref entry "attributes") => '("parallel"))
-      (check (map (cut hash-ref <> "recipe") (hash-ref entry "dependencies")) =>
-        '("_build-test-package" "_build-test-package" "_build-test-package" "_build-test-package"))
-      ;; Build and failure cleanup share this one standard dependency graph.
-      (check (map (cut hash-ref <> "arguments") (hash-ref entry "dependencies")) =>
-        '(("contracts" ("variable" "action")) ("types" ("variable" "action"))
-          ("prototypes" ("variable" "action")) ("collections" ("variable" "action"))))
-      ;; The parallel runner uses the identical declared partitions, with every
-      ;; existing suite exactly once and no independently maintained inventory.
+      (def examples (hash-ref recipes "test-examples"))
+      (check (hash-ref examples "dependencies") => '())
       (def tests (hash-ref recipes "_test-packages"))
       (check (hash-ref tests "attributes") => '("parallel"))
       (check (map (cut hash-ref <> "recipe") (hash-ref tests "dependencies")) =>

@@ -12,8 +12,8 @@ see [invocation evidence binding](evidence-binding.md). That operation belongs t
 ## Ordinary fields first
 
 ```scheme
-(import :clan/poo/object :clan/poo/mop
-        (only-in :clan/poo/type String)
+(import :clan/poo/object
+        (only-in :clan/poo/type String Type. define-type)
         :clan/poo/object-contract)
 
 (define-type (Port @ Type.)

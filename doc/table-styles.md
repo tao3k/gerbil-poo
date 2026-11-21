@@ -2,7 +2,7 @@
 
 `table-styles` derives pure, mutable, linear, posh and classy protocols from one existing persistent table,
 including a `table-wrapper` representation. It remains part of `clan/poo/table`;
-`table/styles.scm` is a standard Gerbil include, not a second public namespace.
+`table/styles.ss` is a standard Gerbil include, not a second public namespace.
 This advances the general collection TODO and the proposal's future work, using
 the original text's pure-value / mutable-cell / consuming-reference construction.
 It does not introduce a static linear type system or destructive tree backend.

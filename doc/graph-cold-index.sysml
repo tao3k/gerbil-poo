@@ -1,0 +1,67 @@
+package GraphColdIndex {
+    requirement def CapturedBeforeSpecialization {
+        doc /* Capture every row and retain independent source/effect checks.
+               Only an owned, unique admitted roster with all captured rows
+               empty may bypass DFS. Copy the resulting private order spine. */
+    }
+    requirement def SingleProviderOrder {
+        doc /* If one supported empty-row provider is shared by all
+               nonempty rows, emit it at its first reader or its earlier
+               roster position. Preserve roster order for other owners
+               and the ordinary refusal for unsupported or cyclic rows. */
+    }
+    requirement def SingleProviderInverseOrder {
+        doc /* When collecting a certified single-provider inverse bucket
+               during rank emission, prepend readers in emission order.
+               The resulting bucket equals the ordinary second edge pass. */
+    }
+    requirement def SparseInverse {
+        doc /* For owned snapshots with zero or one distinct provider, do not
+               write one empty inverse bucket per owner. Multi-provider graphs
+               retain dense initialization. Preserve edge order; reads use [].
+               Domain membership stays in support/ranks, never inverse keys. */
+    }
+    requirement def MissingIsNotEmptyEverywhere {
+        doc /* Forward adjacency and general structural-index missing/default
+               semantics are unchanged. Only private inverse consumers use the
+               empty default. Keep the native symbolic invalidation fast path. */
+    }
+    requirement def UncontrolledSources {
+        doc /* Unknown sources keep the original full traversal and dense
+               initialization. No key validation or first refusal is removed.
+               Native table constructors and author callback ordering remain. */
+    }
+    requirement def ProjectedIndexRetirement {
+        doc /* A retirement probe uses an explicit absence marker. Remove
+               entries introduced after cold capture. Mask admitted entries
+               in the successor and retain the predecessor projection. */
+    }
+    requirement def CardinalityIsOnlyCapacity {
+        doc /* A known owner count may reserve native table capacity. It must
+               not replace membership/admission or infer rank bounds. Native
+               constructor seed effects, point reads and snapshot forks stay. */
+    }
+    requirement def PrivateColdRoster {
+        doc /* Snapshot the public cold owner's sequence once. Use the ordered
+               vector for admission, CSR naming and certification. Preserve
+               refusal order, callback count and the original list-based
+               fallback outside the packed word domain. */
+    }
+    requirement def OrdinalOwnerBuckets {
+        doc /* Before any owner callback, bucket the admitted names by their
+               Gerbil symbol hash. Store only ordinals and prefix bounds.
+               Compare the original symbols by identity. Long buckets,
+               non-symbols, duplicates and changed table routes enter the
+               ordinary admission path with the original seed transition. */
+    }
+    requirement def OrdinalRowOwnership {
+        doc /* Store each admitted detached row at its original owner ordinal
+               while the captured row table uses the stock native route.
+               Before a changed delegate or a wide fallback, restore accepted
+               rows to the original table. Preserve the missing-key error
+               and the identity of rows returned before restoration.
+               While packed, a point read adds only its requested entry to
+               the original table. Enumeration preserves earlier group
+               identities and their source order. */
+    }
+}

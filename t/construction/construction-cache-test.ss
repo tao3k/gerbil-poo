@@ -8,8 +8,8 @@
   :clan/poo/object
   :clan/poo/support/option
   (prefix-in :clan/poo/dependency-analysis code.)
-  (prefix-in :clan/poo/generalized-graph graph.)
-  (prefix-in :clan/poo/construction-cache cache.)
+  (prefix-in :clan/poo/graph/schedule graph.)
+  (prefix-in :clan/poo/graph/construction cache.)
   (only-in :std/values first-value)
   (prefix-in :clan/poo/examples/construction-workflow workflow.)
   (prefix-in :clan/poo/examples/service-bundle bundle.)
