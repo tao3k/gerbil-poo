@@ -132,7 +132,7 @@
     "graph/scc"
     "graph/feedback"
     "reflection"
-    ,(production-module "object" ["object/representation.scm" "object/construction.scm" "object/observation.ss"])
+    ,(production-module "object" ["object/representation.scm" "object/construction.scm" "object/slot-values.scm" "object/observation.ss" "object/slot-access.scm" "object/operations.scm"])
     "polynomial"
     "proto"
     "rationaldict"
