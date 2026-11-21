@@ -45,8 +45,9 @@ package GraphForwardRows {
     }
     requirement def OrdinalComponentCertificate {
         doc /* Check every cross-group edge against decreasing discovery
-               ranks and cover every group in both directions. Closed tours
-               may certify both directions. Queries resolve the first source
+               ranks. Select an exact-length closed tour or two spanning
+               directions per group. Scope the fallback transpose to groups
+               requiring two directions. Queries resolve the first source
                representative from that same ordinal roster and rank array. */
     }
     requirement def PersistentPatch {

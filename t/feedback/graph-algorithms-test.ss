@@ -538,6 +538,13 @@
         (membership-observation ordinary (vector->list keys)))
       (check-equal? ((scc.partition-reads part) 'b) '(a z))
       (check-equal? (.get (scc.partition-work part) reverse-edges) 0)
+      (check-equal? (.get (scc.partition-work part) certificate-buckets) 6)
+      (check-equal? (.get (scc.partition-work part) certificate-edges) 6)
+      (defvalues (visits checked singletons reverse-edges)
+        (certify-ordinal-components
+          (make-compact-graph keys #f '#u32(0 2 4 5 6 6) '#u32(2 1 1 3 0 1) 0)
+          '#u32(1 0 1 0 2) '#u32(1 0 4) '#u32(2 2 1)))
+      (check-equal? (list visits checked singletons reverse-edges) '(6 8 1 3))
       (def first (scc.partition-members part 'b))
       (check-equal? (scc.partition-groups part) '((b a) (z x) (q)))
       (check-eq? (car (scc.partition-groups part)) first)
@@ -565,7 +572,15 @@
       (check-exception
         (certify-ordinal-components (make-compact-graph keys #f offsets '#u32(1 1 2 3 2) 0)
           '#u32(1 1 0 0) '#u32(2 0) '#u32(2 2) '#u8(255 0 255 0))
-        (certificate-error "invalid SCC spanning certificate" '(b))))
+        (certificate-error "invalid SCC spanning certificate" '(b)))
+      ;; A short closed cycle cannot certify a rank with another cycle.
+      ;; Owner c also has a bad quotient edge. Its spanning error comes first.
+      (check-exception
+        (certify-ordinal-components
+          (make-compact-graph '#(a b c d e f) #f '#u32(0 1 2 4 5 7 8)
+            '#u32(1 0 3 4 2 4 5 4) 0)
+          '#u32(0 0 0 0 1 1) '#u32(0 4) '#u32(4 2))
+        (certificate-error "invalid SCC spanning certificate" '(c))))
     (test-case "return verifier checks decoded edges, one root and forward coverage"
       (def (certify rows targets choices)
         (certify-ordinal-return (make-compact-graph '#(a b c) #f rows targets 0)

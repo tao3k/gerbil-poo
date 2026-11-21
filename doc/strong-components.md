@@ -38,8 +38,10 @@ at the root, the checker can certify the tour directly from the original
 edges before retiring the stack. Otherwise it checks the return choices,
 verifies that every chain reaches its group root, and covers each group from
 that root on the original forward edges. The transpose check handles missing
-or rejected choices and preserves source-ordered errors. A closed tour also
-certifies a group with one internal successor per member.
+or rejected choices and preserves source-ordered errors. Each group with
+one internal successor per member can use a closed tour of its exact size.
+In the same graph, other groups use both directions. The fallback transpose
+contains internal edges only from those other groups.
 
 Cross-group edges must descend in discovery rank. Public group roots are
 the first owners in source order, regardless of where DFS entered a group.
