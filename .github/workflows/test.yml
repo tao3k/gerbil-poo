@@ -138,7 +138,7 @@ jobs:
         # Each independent benchmark Module owns its interned fixture names.
         # Each benchmark runs with its existing workload and heap limit.
         run: |
-          just _build-root benchmarks/closure
+          just _build-root benchmarks/graph
           just _test -r '^cold-handoff-contract-test$' "$GERBIL_PATH/lib/clan/poo/benchmarks/cold-handoff-test.ssi"
           just _test benchmarks/scc-test.ss
           just _test benchmarks/owned-invalidation-test.ss

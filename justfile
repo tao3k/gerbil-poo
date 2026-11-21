@@ -211,7 +211,7 @@ benchmark-combination: (build-benchmarks "combination")
     mkdir -p .build/combination
     {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=5s 300s "$GERBIL_PATH/bin/combination-suite" {{ test-runtime-options }} "$GERBIL_PATH/bin/combination-benchmark" "{{ timeout-executable }}" .build/combination/results.scm
 
-benchmark-scc: build-core (_build-root "benchmarks/closure")
+benchmark-scc: build-core (_build-root "benchmarks/graph")
     just _test benchmarks/scc-test.ss
     just _test benchmarks/owned-invalidation-test.ss
     just benchmark-dense-repair-built natural
