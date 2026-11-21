@@ -863,9 +863,9 @@
   ;; The public cold path can use the same private ordered vector for owner
   ;; admission, CSR naming and certificate traversal. The published revision
   ;; path still gives own-partition its original list.
-  ;; Below this width Gerbil's symbolic table reserves less than 256 MiB.
-  ;; Keep the ordinary hot path until a packed roster pays for itself.
-  (set! keys (if (and (not owned?) (>= (length keys) 4194304))
+  ;; Declared rows already address owners by ordinal. Opaque sources retain
+  ;; the existing size-based admission policy.
+  (set! keys (if (and (not owned?) (or declared-rows (>= (length keys) 4194304)))
                (list->vector keys)
                (append keys [])))
   (let-values (((reads index declared-edges captured-edges)
@@ -919,7 +919,7 @@
                             (capture #f))
   (def result (compact-selected-discover index))
   (def count (vector-length keys))
-  (def ordinal? (and capture (> count 1) (= (vector-ref result 2) 1)
+  (def ordinal? (and capture (> count 1)
     (%ordinal-index-routes-current?) (%gc-scratch-routes-current?)
     (gc-table-route-current? (ordinal-capture-adapter capture))))
   (def table (or owners
@@ -928,10 +928,13 @@
   (def stock? (and (standard-symbol-table-writes? table)
                    (%standard-symbol-table-lookup? table) (%gc-scratch-routes-current?)))
   (if (and ordinal? stock?)
-    (begin
-      (certify-ordinal-whole index (vector-ref result 0))
-      (publish-ordinal-whole keys reads (ordinal-capture-buckets capture) table
-        validation-owners declared-edges (u32vector-length (compact-graph-targets index)) result complete))
+    (if (= (vector-ref result 2) 1)
+      (begin
+        (certify-ordinal-whole index (vector-ref result 0))
+        (publish-ordinal-whole keys reads (ordinal-capture-buckets capture) table
+          validation-owners declared-edges (u32vector-length (compact-graph-targets index)) result complete))
+      (finish-ordinal-components keys reads index (ordinal-capture-buckets capture) table
+        validation-owners declared-edges result complete))
     (let (state (and stock? (vector-ref result 0)))
       ;; A public miss exposes the owner table through Gerbil's error.
       (when ordinal?
@@ -1003,6 +1006,160 @@
     (unless (fx= (u8vector-ref marks node) 3)
       (error "invalid SCC spanning certificate" (vector-ref keys node)))))
 
+(def (ordinal-spans offsets targets ranks roots sizes marks internal-count)
+  (def count (u32vector-length ranks))
+  (def components (u32vector-length roots))
+  (def incoming (make-u32vector (fx+ count 1) 0))
+  (def sources (make-u32vector internal-count))
+  (def (internal-row node visit)
+    (def rank (u32vector-ref ranks node))
+    (when (fx> (u32vector-ref sizes rank) 1)
+      (let row ((at (u32vector-ref offsets node)) (end (u32vector-ref offsets (fx+ node 1))))
+        (when (fx< at end)
+          (let (target (u32vector-ref targets at))
+            (when (fx= rank (u32vector-ref ranks target)) (visit target)))
+          (row (fx+ at 1) end)))))
+  (for (node (in-range count))
+    (internal-row node (lambda (target)
+      (u32vector-set! incoming target (fx+ (u32vector-ref incoming target) 1)))))
+  (let prefix ((node 0) (end 0))
+    (if (fx= node count)
+      (u32vector-set! incoming count end)
+      (let (next (fx+ end (u32vector-ref incoming node)))
+        (u32vector-set! incoming node next)
+        (prefix (fx+ node 1) next))))
+  (let fill ((node (fx- count 1)))
+    (unless (fx< node 0)
+      (internal-row node (lambda (target)
+        (let (dst (fx- (u32vector-ref incoming target) 1))
+          (u32vector-set! incoming target dst)
+          (u32vector-set! sources dst node))))
+      (fill (fx- node 1))))
+  (def pending (make-u32vector
+    (for/fold (largest 0) (rank (in-range components))
+      (fxmax largest (u32vector-ref sizes rank)))))
+  (u8vector-fill! marks 0)
+  (def (span rank starts ends flag)
+    (def root (u32vector-ref roots rank))
+    (u32vector-set! pending 0 root)
+    (u8vector-set! marks root (fxior (u8vector-ref marks root) flag))
+    (let visit ((read 0) (end 1))
+      (unless (fx= read end)
+        (let (node (u32vector-ref pending read))
+          (let row ((at (u32vector-ref starts node))
+                    (last (u32vector-ref starts (fx+ node 1))) (next end))
+            (if (fx= at last)
+              (visit (fx+ read 1) next)
+              (let* ((dep (u32vector-ref ends at)) (seen (u8vector-ref marks dep)))
+                (if (and (fx= rank (u32vector-ref ranks dep)) (fx= (fxand seen flag) 0))
+                  (begin
+                    (u8vector-set! marks dep (fxior seen flag))
+                    (u32vector-set! pending next dep)
+                    (row (fx+ at 1) last (fx+ next 1)))
+                  (row (fx+ at 1) last next)))))))))
+  (for (rank (in-range components))
+    (when (fx> (u32vector-ref sizes rank) 1)
+      (span rank offsets targets 1)
+      (span rank incoming sources 2))))
+
+;; Discovery supplies only the proposed grouping. Check every original edge
+;; and independently cover each group. An internal functional graph needs
+;; only a closed tour. A branching group uses the forward and transpose walks.
+(def (certify-ordinal-components index ranks roots sizes)
+  (def keys (compact-graph-names index))
+  (def count (vector-length keys))
+  (def components (u32vector-length roots))
+  (def offsets (compact-graph-offsets index))
+  (def targets (compact-graph-targets index))
+  (def functional? #t)
+  (def internal-count 0)
+  (def span-edges 0)
+  (def singletons 0)
+  (def first-bad #f)
+  (def bad-provider #f)
+  (for (node (in-range count))
+    (def rank (u32vector-ref ranks node))
+    (def singleton? (fx= (u32vector-ref sizes rank) 1))
+    (def start (u32vector-ref offsets node))
+    (def stop (u32vector-ref offsets (fx+ node 1)))
+    (if singleton? (set! singletons (fx+ singletons 1))
+      (set! span-edges (fx+ span-edges (fx- stop start))))
+    (let scan ((at start) (internal 0))
+      (if (fx= at stop)
+        (unless singleton?
+          (set! internal-count (fx+ internal-count internal))
+          (unless (fx= internal 1) (set! functional? #f)))
+        (let* ((dep (u32vector-ref targets at)) (provider (u32vector-ref ranks dep)))
+          (cond
+           ((fx= rank provider) (scan (fx+ at 1) (fx+ internal 1)))
+           (else
+            (unless (or first-bad (fx< provider rank))
+              (set! first-bad node)
+              (set! bad-provider dep))
+            (scan (fx+ at 1) internal)))))))
+  (def marks (make-u8vector count 0))
+  (def (closed-tour? root rank)
+    (let walk ((node root))
+      (if (fx= (u8vector-ref marks node) 3) (fx= node root)
+        (begin
+          (u8vector-set! marks node 3)
+          (let next ((at (u32vector-ref offsets node)))
+            (let (dep (u32vector-ref targets at))
+              (if (fx= (u32vector-ref ranks dep) rank) (walk dep)
+                (next (fx+ at 1)))))))))
+  (def tours?
+    (and functional?
+         (let certify ((rank 0))
+           (or (fx= rank components)
+               (and (or (fx= (u32vector-ref sizes rank) 1)
+                        (closed-tour? (u32vector-ref roots rank) rank))
+                    (certify (fx+ rank 1)))))))
+  (unless tours?
+    (ordinal-spans offsets targets ranks roots sizes marks internal-count))
+  ;; Keep the first source-ordered refusal, with spanning before quotient
+  ;; failure at the same owner.
+  (for (node (in-range count))
+    (unless (or (fx= (u32vector-ref sizes (u32vector-ref ranks node)) 1)
+                (fx= (u8vector-ref marks node) 3))
+      (error "invalid SCC spanning certificate" (vector-ref keys node)))
+    (when (eqv? node first-bad)
+      (error "invalid SCC quotient certificate" (vector-ref keys node) (vector-ref keys bad-provider))))
+  (def spanned (fx- count singletons))
+  (values (if tours? spanned (fx* 2 spanned))
+    (if tours? spanned (fx+ span-edges internal-count)) singletons (if tours? 0 internal-count)))
+
+(def (finish-ordinal-components keys reads index buckets owners validation-owners declared-edges result complete)
+  (def count (vector-length keys))
+  (def components (vector-ref result 2))
+  (def ranks (vector-ref result 0))
+  (def roots (make-u32vector components count))
+  (def sizes (make-u32vector components 0))
+  (def represented 0)
+  ;; Retire the discovery labels into their zero-based quotient ranks in
+  ;; place. A second full owner map is unnecessary.
+  (for (node (in-range count))
+    (def rank (compact-rank ranks count node))
+    (unless (fx< rank components) (error "invalid compact SCC rank" (vector-ref keys node)))
+    (u32vector-set! ranks node rank)
+    (def size (u32vector-ref sizes rank))
+    (when (fx= size 0)
+      (u32vector-set! roots rank node)
+      (set! represented (fx+ represented 1)))
+    (u32vector-set! sizes rank (fx+ size 1)))
+  (unless (fx= represented components) (error "empty compact SCC rank"))
+  (defvalues (span-buckets span-edges singletons reverse-count)
+    (certify-ordinal-components index ranks roots sizes))
+  (def find-owner (ordinal-owner-reader keys buckets owners #f
+    (lambda (node) (vector-ref keys (u32vector-ref roots (u32vector-ref ranks node))))))
+  (def members (make-hash-table-eq))
+  (defvalues (member groups) (ordinal-component-members keys buckets members ranks roots sizes))
+  (def edges (u32vector-length (compact-graph-targets index)))
+  (complete
+    (make-%partition groups (cut find-owner <>) (cut reads <>) member
+      (work-receipt validation-owners declared-edges count (vector-ref result 3)
+        (vector-ref result 4) (vector-ref result 5) count components span-buckets span-edges
+        edges singletons reverse-count 0 0) find-owner #f)))
+
 (def (certify-ordinal-singletons index)
   ;; Direction selects a proposed ranking. Check the independently captured
   ;; edges in owner and row order before materializing the public groups.
@@ -1024,7 +1181,7 @@
   (&raw-table-count-set! backend (&raw-table-count prepared))
   (&raw-table-free-set! backend (&raw-table-free prepared)))
 
-(def (ordinal-owner-reader keys buckets table (representative #f))
+(def (ordinal-owner-reader keys buckets table (representative #f) (owner-at #f))
   (def backend (interface-instance-object table))
   (def pending? #t)
   (def retirement (make-mutex 'partition-owners))
@@ -1032,7 +1189,7 @@
     (def stock? (and pending? (%standard-symbol-table-lookup? table)))
     (def ordinal (and stock? (symbol? key) (%ordinal-bucket-ref buckets key)))
     (cond
-     (ordinal (or representative key))
+     (ordinal (if owner-at (owner-at ordinal) (or representative key)))
      ((and stock? optional?) #f)
      (else
       ;; A strict miss can expose the table. Populate the original adapter
@@ -1042,8 +1199,8 @@
           (lambda ()
             (when pending?
               (let (prepared (raw-table-new backend (vector-length keys)))
-                (for (owner (in-vector keys))
-                  (symbolic-table-set! prepared owner (or representative owner)))
+                (for ((owner (in-vector keys)) (i (in-range (vector-length keys))))
+                  (symbolic-table-set! prepared owner (if owner-at (owner-at i) (or representative owner))))
                 (install-owner-storage! backend prepared)
                 (set! pending? #f))))))
       (if optional? (hash-get table key) (hash-ref table key))))))
@@ -1079,6 +1236,65 @@
       (work-receipt validation-owners declared-edges count (vector-ref result 3)
         (vector-ref result 4) (vector-ref result 5) count 1 (* 2 count) (* 2 edges) edges
         0 edges 0 0) find-owner #f)))
+
+(def (ordinal-component-members keys buckets table ranks roots sizes)
+  (def count (vector-length keys))
+  (def backend (interface-instance-object table))
+  (def retirement (make-mutex 'partition-members))
+  (def next #f)
+  (def ordered #f)
+  (def pending? #t)
+  (def absent (gensym 'absent-member))
+  (def (group-at! key root rank)
+    (or (gc-table-ref backend key #f)
+        (let (size (u32vector-ref sizes rank))
+          (when (and (fx> size 1) (not next))
+            (let ((links (make-u32vector count))
+                  (heads (make-u32vector (u32vector-length roots) count)))
+              (let link ((node (fx- count 1)))
+                (unless (fx< node 0)
+                  (let (id (u32vector-ref ranks node))
+                    (u32vector-set! links node (u32vector-ref heads id))
+                    (u32vector-set! heads id node)
+                    (link (fx- node 1)))))
+              (set! next links)))
+          (def group
+            (if (fx= size 1) (list key)
+              (let collect ((node root) (members []))
+                (if (fx= node count) (reverse! members)
+                  (collect (u32vector-ref next node) (cons (vector-ref keys node) members))))))
+          (def entry (cons size group))
+          (gc-table-set! backend key entry)
+          entry)))
+  (def (ordered!)
+    (unless ordered
+      (set! ordered (with-list-builder (add)
+        (for (node (in-range count))
+          (def rank (u32vector-ref ranks node))
+          (when (fx= node (u32vector-ref roots rank))
+            (add (cdr (group-at! (vector-ref keys node) node rank)))))))
+      (set! next #f))
+    ordered)
+  (def (groups)
+    (or ordered (with-lock retirement ordered!)))
+  (def (member key size?)
+    (def decision
+      (with-lock retirement
+        (lambda ()
+          (cond
+           ((not pending?) #f)
+           ((eq? backend (%gc-table-route-backend table))
+            (let* ((node (and (symbol? key) (%ordinal-bucket-ref buckets key)))
+                   (rank (and node (u32vector-ref ranks node))))
+              (cond ((not (and rank (fx= node (u32vector-ref roots rank)))) absent)
+                    (size? (u32vector-ref sizes rank))
+                    (else (cdr (group-at! key node rank))))))
+           (else (ordered!) (set! pending? #f) #f)))))
+    (cond ((eq? decision absent) #f)
+          (decision decision)
+          (else (let (entry (hash-get table key))
+            (and entry (if size? (car entry) (cdr entry)))))))
+  (values member groups))
 
 (def (ordinal-singleton-members keys buckets table)
   (def backend (interface-instance-object table))

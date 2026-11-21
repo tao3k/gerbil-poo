@@ -27,6 +27,12 @@ For packed declared rows that form one SCC, the certificate walks the
 original edges and their transpose using owner ordinals. The first owner
 remains the representative. Member lists are built on demand in source
 order, and a strict miss still uses the original owner-table error contract.
+For multiple SCCs, the capture keeps discovery ranks in the same array.
+The certificate checks each cross-group edge against these ranks and checks
+reachability in both directions within each group. When each nontrivial group
+has one internal successor per member, closed tours certify both directions.
+Graphs with branching groups use the forward rows and a compact transpose
+of internal edges.
 
 `feedback-graph-action` is an ordinary FUN Reader from an old graph cache (or
 `#f`) to an accepted graph cache. It freezes code/base identities, discovers SCCs,

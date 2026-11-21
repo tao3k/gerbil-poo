@@ -481,9 +481,51 @@
           (check-exception (kernel '(a b) (lambda (_) bad) #f) error-object?)))))
 
 (extern namespace: clan/poo/read-route %gc-scratch-routes-current? %standard-symbol-table-lookup?)
-(extern namespace: clan/poo/strong-components certify-ordinal-whole)
+(extern namespace: clan/poo/strong-components certify-ordinal-whole certify-ordinal-components)
 
 (def (check-graph-projection)
+    (test-case "multi-SCC ordinal queries retain source order and exposed owner mutations"
+      ;; Both groups interleave in source order. A self edge makes the second
+      ;; group use the two-direction certificate. q is an isolated singleton.
+      (def keys '#(b z a x q))
+      (def rows '#((a z) (z x) (b) (z) ()))
+      (def spec (graph.declaration/rows (vector->list keys) rows
+        (lambda _ (error "partition evaluated a provider"))))
+      (def part (scc.partition spec))
+      (def ordinary (scc.partition (source keys rows)))
+      (check (procedure? (%partition-members part)) => #t)
+      (check-equal? (membership-observation part (vector->list keys))
+        (membership-observation ordinary (vector->list keys)))
+      (check-equal? ((scc.partition-reads part) 'b) '(a z))
+      (check-equal? (.get (scc.partition-work part) reverse-edges) 5)
+      (def first (scc.partition-members part 'b))
+      (check-equal? (scc.partition-groups part) '((b a) (z x) (q)))
+      (check-eq? (car (scc.partition-groups part)) first)
+      (check (scc.partition-group-of part 'missing) => #f)
+      (def owner (scc.partition-owner part))
+      (def owners (with-catch
+        (lambda (failure)
+          (if (UnboundKeyError? failure) (cadr (memq hash: (Error-irritants failure))) (raise failure)))
+        (lambda () (owner 'missing))))
+      (hash-put! owners 'a 'z)
+      (check-eq? (owner 'a) 'z)
+      (check-eq? (scc.partition-group-of part 'a) (scc.partition-members part 'z))
+      (check-eq? (scc.partition-members part 'b) first))
+    (test-case "multi-SCC certificate rejects bad quotient order and false cycles"
+      (def keys '#(a b c d))
+      (def offsets '#u32(0 1 3 4 5))
+      (def (certificate-error message irritants)
+        (lambda (cause)
+          (and (Error? cause) (equal? (Error-message cause) message)
+               (equal? (Error-irritants cause) irritants))))
+      (check-exception
+        (certify-ordinal-components (make-compact-graph keys #f offsets '#u32(1 0 2 3 2) 0)
+          '#u32(0 0 1 1) '#u32(0 2) '#u32(2 2))
+        (certificate-error "invalid SCC quotient certificate" '(b c)))
+      (check-exception
+        (certify-ordinal-components (make-compact-graph keys #f offsets '#u32(1 1 2 3 2) 0)
+          '#u32(1 1 0 0) '#u32(2 0) '#u32(2 2))
+        (certificate-error "invalid SCC spanning certificate" '(b))))
     (test-case "whole ordinal component preserves point queries and exposed owner table"
       (def keys '#(c a b))
       (def declared-rows '#((a b) (b) (c)))

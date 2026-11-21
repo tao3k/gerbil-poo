@@ -29,6 +29,12 @@ package GraphForwardRows {
                the roster for owner queries and source-ordered membership.
                Strict misses preserve the symbolic table error contract. */
     }
+    requirement def OrdinalComponentCertificate {
+        doc /* Check every cross-group edge against decreasing discovery
+               ranks and cover every group in both directions. Closed tours
+               may certify both directions. Queries resolve the first source
+               representative from that same ordinal roster and rank array. */
+    }
     requirement def PersistentPatch {
         doc /* Absent patch falls through; a present empty patch or a retirement
                tombstone masks the cold base. A fork cannot change its predecessor. */
