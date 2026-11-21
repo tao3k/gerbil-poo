@@ -1,7 +1,7 @@
 ;;; Full output of a dense owned schedule revision.
 (export dense-repair-natural-test dense-repair-collected-test)
 (import :std/test :clan/poo/object
-        (prefix-in :clan/poo/generalized-graph graph.)
+        (prefix-in :clan/poo/graph/schedule graph.)
         (prefix-in :clan/poo/dependency-analysis code.)
         (only-in ./closure-measure measure qualified-metrics))
 

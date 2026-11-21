@@ -5,7 +5,7 @@
         ../brace
         ../generalized-declaration
         ../generalized-closure
-        ../feedback-closure
+        ../graph/feedback/closure
         (runtime: :clan/poo/examples/closed-declarations)
         (prefix-in (only-in ./closed-declarations vector-focus) product.)
         (runtime: :clan/poo/generalized-prototype)

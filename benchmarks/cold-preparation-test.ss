@@ -18,9 +18,9 @@
         (only-in :std/hash/misc hash-ensure-modify!)
         (only-in :clan/poo/benchmarks/closure-measure measure qualified-metrics)
         (only-in :gerbil/runtime/gambit default-random-source))
-(import (only-in :clan/poo/generalized-graph %reverse-bucket-remove %for-each-reverse-bucket)
+(import (only-in :clan/poo/graph/schedule %reverse-bucket-remove %for-each-reverse-bucket)
         (only-in :clan/poo/support/index %index %index-ref))
-(extern namespace: clan/poo/generalized-graph reverse-bucket-members)
+(extern namespace: clan/poo/graph/schedule reverse-bucket-members)
 (extern namespace: #f random-source-state-ref random-source-state-set!)
 (extern namespace: clan/poo/slot-layout shape-for-names intern-ordered-shape make-layout
         ordinary-shape-for-names same-shape-names? shape-names scalar-shape-routes-current?)

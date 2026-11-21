@@ -7,10 +7,10 @@
         (only-in :clan/poo/support/base %graph-table-seed)
         (only-in :clan/poo/support/index %index)
         (only-in "./closure-measure.ss" measure qualified-metrics)
-        (prefix-in :clan/poo/generalized-graph graph.))
+        (prefix-in :clan/poo/graph/schedule graph.))
 (export graph-capture-test)
 (extern namespace: clan/poo/object %bind-current-slot-reads)
-(extern namespace: clan/poo/generalized-graph capture-program capture-program-batch keys! table
+(extern namespace: clan/poo/graph/schedule capture-program capture-program-batch keys! table
         check-edit-targets make-%program program-row make-%owned-source owned-declaration schedule-rows)
 
 (def (clock-phase totals name action)

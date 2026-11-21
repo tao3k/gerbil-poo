@@ -4,7 +4,7 @@
 (import ./closure ./object (only-in ./mop/prototype define-type .defgeneric)
         (prefix-in ./contract-family contract-family.)
         (prefix-in ./generic-family generic-family.)
-        (prefix-in ./construction-cache construction-cache.)
+        (prefix-in ./graph/construction construction-cache.)
         (prefix-in ./cyclic-publication cyclic-publication.))
 (define-type (methods.construction<-cache @ [] builder)
   .construct:

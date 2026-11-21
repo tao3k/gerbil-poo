@@ -8,13 +8,13 @@
         (only-in :clan/poo/benchmarks/closure-measure measure qualified-metrics)
         (only-in :gerbil/runtime/interface interface-instance-object)
         (only-in :gerbil/runtime/mop object-class slot-ref)
-        (prefix-in :clan/poo/generalized-graph graph.)
+        (prefix-in :clan/poo/graph/schedule graph.)
         (prefix-in :clan/poo/dependency-analysis code.)
         (only-in :clan/poo/object .@)
         (only-in :clan/poo/support/index %index)
         (only-in :gerbil/runtime/gambit default-random-source))
 (extern namespace: #f random-source-state-ref random-source-state-set!)
-(extern namespace: clan/poo/generalized-graph
+(extern namespace: clan/poo/graph/schedule
   keys! index-keys table check-edit-targets capture-program-batch capture-program
   make-%owned-source owned-declaration schedule-rows schedule-owned/rows)
 

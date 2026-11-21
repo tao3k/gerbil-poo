@@ -18,16 +18,16 @@
         (only-in :gerbil/runtime/thread with-lock)
         (only-in :std/list/list delete-duplicates/hash foldl)
         (only-in :std/list/list-builder with-list-builder)
-        (only-in ./support/base %graph-table-seed)
-        (only-in ./support/index %roster %roster-width %roster-position %roster-keys %roster-for-each %roster-project
+        (only-in ../support/base %graph-table-seed)
+        (only-in ../support/index %roster %roster-width %roster-position %roster-keys %roster-for-each %roster-project
                  %index %index-base %index-ref %index-fork %index-write! %index-retire! %index-overridden?
                  %make-ordinal-buckets %ordinal-bucket-ref %ordinal-roster %roster-cold-index)
-        (only-in ./generalized-graph %reverse-bucket-remove %reverse-bucket-add %for-each-reverse-bucket)
-        (only-in ./read-route gc-table-route-current? standard-symbol-table-writes?)
-        ./object)
+        (only-in ./schedule %reverse-bucket-remove %reverse-bucket-add %for-each-reverse-bucket)
+        (only-in ../read-route gc-table-route-current? standard-symbol-table-writes?)
+        ../object)
 (extern namespace: clan/poo/read-route %ordinal-index-routes-current?
   %standard-symbol-table-lookup? %gc-scratch-routes-current? %gc-table-route-backend)
-(extern namespace: clan/poo/generalized-graph %declared-row-source %decode-ordinal-row
+(extern namespace: clan/poo/graph/schedule %declared-row-source %decode-ordinal-row
   %packed-rows? %packed-rows-names %packed-rows-buckets %packed-rows-offsets
   %packed-rows-targets %packed-rows-direction)
 (extern namespace: clan/poo/object %ref-owned-list)

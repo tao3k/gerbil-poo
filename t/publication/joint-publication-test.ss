@@ -12,10 +12,10 @@
   :clan/poo/mop
   :clan/poo/brace
   :clan/poo/support/option
-  :clan/poo/feedback-graph
-  (prefix-in :clan/poo/construction-cache cache.)
-  (prefix-in :clan/poo/component-publication publication.)
-  (prefix-in :clan/poo/component-revision revision.)
+  :clan/poo/graph/feedback
+  (prefix-in :clan/poo/graph/construction cache.)
+  (prefix-in :clan/poo/graph/component/publication publication.)
+  (prefix-in :clan/poo/graph/component/revision revision.)
   (prefix-in :clan/poo/dependency-analysis code.)
   (prefix-in :clan/poo/examples/component-requests approval-revision.service.)
   (prefix-in :clan/poo/joint-publication joint.)

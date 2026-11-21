@@ -12,31 +12,31 @@
   :clan/poo/mop
   :clan/poo/brace
   :clan/poo/support/option
-  :clan/poo/feedback-graph
-  :clan/poo/feedback-cache
+  :clan/poo/graph/feedback
+  :clan/poo/graph/feedback/cache
   (only-in :clan/poo/generalized-closure closed-raw)
-  (only-in :clan/poo/component-closure component-group-builder)
-  (prefix-in :clan/poo/construction-cache cache.)
-  (prefix-in :clan/poo/strong-components scc.)
-  (prefix-in :clan/poo/generalized-graph graph.)
+  (only-in :clan/poo/graph/feedback/builder component-group-builder)
+  (prefix-in :clan/poo/graph/construction cache.)
+  (prefix-in :clan/poo/graph/scc scc.)
+  (prefix-in :clan/poo/graph/schedule graph.)
   (prefix-in :clan/poo/dependency-analysis code.)
   (prefix-in :clan/poo/examples/component-membership component-membership.service.)
-  (prefix-in :clan/poo/component-revision revision.)
+  (prefix-in :clan/poo/graph/component/revision revision.)
   (prefix-in :clan/poo/examples/component-membership initial.)
   (prefix-in :clan/poo/examples/component-migration component-migration.service.)
   :std/sync/channel
   :clan/poo/lens-laws
   (only-in :clan/poo/class-validation required-slots?)
   (only-in :clan/poo/slot-observation slot-read-key slot-read-receiver)
-  (prefix-in :clan/poo/component-publication publication.)
+  (prefix-in :clan/poo/graph/component/publication publication.)
   (prefix-in :clan/poo/examples/component-requests component-requests.service.)
   (prefix-in :clan/poo/examples/component-rounds rounds.)
   (only-in :std/list/list foldl find filter)
   (prefix-in :clan/poo/examples/component-rounds component-rounds.service.))
 
-(extern namespace: clan/poo/component-publication %request-lineage %lineage-invalidation
+(extern namespace: clan/poo/graph/component/publication %request-lineage %lineage-invalidation
   %request-action %request-action-set!)
-(extern namespace: clan/poo/generalized-graph %invalidation-work affected-work-marked)
+(extern namespace: clan/poo/graph/schedule %invalidation-work affected-work-marked)
 (extern namespace: clan/poo/lens-laws %prepared-vector-lens?)
 (extern namespace: clan/poo/object object-%instance)
 

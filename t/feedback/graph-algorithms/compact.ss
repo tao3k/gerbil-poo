@@ -1,5 +1,5 @@
 ;;; Prepared traversal study over the actual private production index.
-(extern namespace: clan/poo/strong-components
+(extern namespace: clan/poo/graph/scc
   make-compact-graph capture-compact compact-graph-names compact-graph-positions compact-graph-offsets compact-graph-targets compact-graph-direction
   compact-discover compact-selected-discover compact-component-owners compact-discovery-result compact-reachable)
 

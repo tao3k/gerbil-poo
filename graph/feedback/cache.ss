@@ -2,12 +2,12 @@
 (export close-feedback-group feedback-group? group-closed feedback-cache-ref
         feedback-cache-action publish-feedback-cache %admit-feedback-cache %feedback-cache-current!
         %start-feedback-guard %revise-feedback-guard %feedback-guard-current! %admit-guarded-feedback-cache)
-(import (only-in :std/list/list foldr list-sort delete-duplicates/hash) ./object ./mop/prototype ./support/option
-        ./generalized-declaration ./generalized-closure ./feedback-closure ./lens-laws
-        (only-in ./generalized-graph %splice-witness-tree %witness-span %witness-tree-current? %witness-tree-stamp
+(import (only-in :std/list/list foldr list-sort delete-duplicates/hash) ../../object ../../mop/prototype ../../support/option
+        ../../generalized-declaration ../../generalized-closure ./closure ../../lens-laws
+        (only-in ../schedule %splice-witness-tree %witness-span %witness-tree-current? %witness-tree-stamp
                  %witness-tree-left %witness-tree-right %witness-tree-evidence)
-        (prefix-in ./construction-cache cache.) (prefix-in ./dependency-analysis code.)
-        (prefix-in (only-in ./fun Observation.) fun.))
+        (prefix-in ../construction cache.) (prefix-in ../../dependency-analysis code.)
+        (prefix-in (only-in ../../fun Observation.) fun.))
 ;; Only successful whole-raw closure plus every component residual creates a group.
 ;; Registered sources and immutable receipt data remain part of the reuse premise.
 (defstruct group (prepared closed checks) final: #t)

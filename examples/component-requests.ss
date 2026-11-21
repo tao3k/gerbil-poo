@@ -4,9 +4,9 @@
         ../mop
         ../brace
         ../lens-laws
-        (prefix-in ../component-publication publication.)
-        (runtime: :clan/poo/construction-cache)
-        (prefix-in (only-in ../construction-cache Builder.) cache.)
+        (prefix-in ../graph/component/publication publication.)
+        (runtime: :clan/poo/graph/construction)
+        (prefix-in (only-in ../graph/construction Builder.) cache.)
         (runtime: :clan/poo/examples/component-membership)
         (prefix-in (only-in ./component-membership publish) initial.)
         (prefix-in ./component-rounds service.))

@@ -1,7 +1,7 @@
 ;;; Compiled, fixed-input structural study; ordinary gxtest owns execution.
 (export run-ordered-scc-study run-component-stable-study)
 (import :std/iter :clan/poo/object
-        (prefix-in :clan/poo/strong-components scc.)
+        (prefix-in :clan/poo/graph/scc scc.)
         (only-in ./closure-measure measure qualified-metrics))
 
 (def (fixture count shape)

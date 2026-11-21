@@ -31,7 +31,7 @@
       (check-equal? failure #f)
       (def imported-register
         (parameterize ((current-expander-context (make-top-context)))
-          (eval-syntax '(import :gerbil/core :clan/poo/feedback-graph))
+          (eval-syntax '(import :gerbil/core :clan/poo/graph/feedback))
           (with-catch
             (lambda (cause) (if (unbound-global-exception? cause) #f (raise cause)))
             (lambda () (eval-syntax '%feedback-component-revision-action)))))

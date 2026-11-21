@@ -9,7 +9,7 @@
   :clan/poo/mop
   :clan/poo/brace
   (prefix-in :clan/poo/joint-publication joint.)
-  (prefix-in :clan/poo/construction-cache cache.)
+  (prefix-in :clan/poo/graph/construction cache.)
   (prefix-in :clan/poo/examples/joint-topology service.)
   (prefix-in :clan/poo/examples/joint-receipts receipts.)
   (prefix-in :clan/poo/examples/joint-coordination coordination.)
@@ -17,7 +17,7 @@
   :clan/poo/t/joint-coordination-cases
   (prefix-in :clan/poo/examples/joint-workers workers.)
   (only-in :std/list/list foldl filter)
-  :clan/poo/feedback-graph
+  :clan/poo/graph/feedback
   (prefix-in :clan/poo/examples/joint-concurrency concurrent.))
 
 ;; Construct once with the original private helper scope and declaration order.

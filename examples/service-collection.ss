@@ -7,7 +7,7 @@
         (only-in ../type Fun Tuple Pair List validate Type Bool Type. element? raise-type-error) (only-in ../rationaldict RationalDict)
         (only-in ../trie SimpleTrie)
         ../object ../mop ../object-contract ../support/option
-        (prefix-in ../construction-cache cache.)
+        (prefix-in ../graph/construction cache.)
         (prefix-in ../dependency-analysis code.)
         (only-in ../fun Observation.))
 

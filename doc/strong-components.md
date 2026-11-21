@@ -8,7 +8,7 @@ groups. The lens compiler and feedback search build the values.
 
 ## Composition
 
-`partition` in [strong-components.ss](../strong-components.ss) reads the keys
+`partition` in [strong-components.ss](../graph/scc.ss) reads the keys
 and each Computation's declared `reads` from a `GeneralizedGraph.Declaration`.
 It validates every reference and checks the resulting partition independently.
 Members follow source order, and each group's first member is its representative.

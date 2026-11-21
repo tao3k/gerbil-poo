@@ -1,7 +1,7 @@
 (export coordinator-interleaving-test coordinator-prepared-test coordinator-retry-test)
 (import :std/test :std/sync/channel :std/sync/threads
         :clan/poo/object :clan/poo/mop :clan/poo/brace
-        (prefix-in :clan/poo/construction-cache cache.)
+        (prefix-in :clan/poo/graph/construction cache.)
         (prefix-in :clan/poo/examples/joint-receipts receipts.)
         (prefix-in :clan/poo/joint-publication joint.)
         (prefix-in :clan/poo/examples/joint-topology service.)

@@ -5,21 +5,21 @@
         reconfigure-components feedback-component-revision-action)
 (import :std/iter (only-in :std/list/list filter append-map delete-duplicates/hash)
         (only-in :std/list/list-builder with-list-builder)
-        (only-in ./component-closure %component-member-builder? %with-member-fragment-seeds)
-        (only-in ./slot-observation slot-read-observers-compatible? %slot-read-active?)
-        (only-in ./support/base %graph-table-seed %with-graph-table-seeds %with-application-table-seeds)
-        ./object ./mop/prototype ./support/option ./feedback-cache ./lens-laws
-        (prefix-in ./strong-components scc.) (prefix-in ./generalized-graph graph.)
-        (prefix-in ./construction-cache cache.) (prefix-in ./dependency-analysis code.)
-        (prefix-in (only-in ./fun Observation.) fun.))
+        (only-in ./feedback/builder %component-member-builder? %with-member-fragment-seeds)
+        (only-in ../slot-observation slot-read-observers-compatible? %slot-read-active?)
+        (only-in ../support/base %graph-table-seed %with-graph-table-seeds %with-application-table-seeds)
+        ../object ../mop/prototype ../support/option ./feedback/cache ../lens-laws
+        (prefix-in ./scc scc.) (prefix-in ./schedule graph.)
+        (prefix-in ./construction cache.) (prefix-in ../dependency-analysis code.)
+        (prefix-in (only-in ../fun Observation.) fun.))
 ;; Keep the frozen node source, admitted partition, builder identity and group DAG.
 (defstruct graph-cache (source partition build values owned group-keys guard stock-builder?) final: #t)
-(extern namespace: clan/poo/construction-cache %default-builder-current?)
-(extern (start-owned-cache-quotient clan/poo/construction-cache#%start-owned-quotient))
+(extern namespace: clan/poo/graph/construction %default-builder-current?)
+(extern (start-owned-cache-quotient clan/poo/graph/construction#%start-owned-quotient))
 (extern namespace: clan/poo/dependency-analysis %computation-constructor-current?)
-(extern namespace: clan/poo/generalized-graph %retire-component-source %component-source-roster
+(extern namespace: clan/poo/graph/schedule %retire-component-source %component-source-roster
   %with-component-source-rows)
-(extern namespace: clan/poo/strong-components %retire-partition-isolates %isolated-partition-owner?
+(extern namespace: clan/poo/graph/scc %retire-partition-isolates %isolated-partition-owner?
   %append-partition-owners %check-partition-retirements capture-partition-rows %partition-admitted-owned)
 (defstruct %stock-builder (value) final: #t)
 (def (%stock-builder-current?)

@@ -20,17 +20,17 @@
         (only-in :std/struct/rbtree RBTree rbtree-copy rbtree-ref rbtree-put! rbtree-put
                  rbtree-remove rbtree-fold rbtree-foldr rbtree-for-each rbtree-size rbtree->list
                  in-rbtree-values rbtree-empty?)
-        (only-in ./support/base %compare-symbol-identity %graph-table-seed %with-application-table-seeds)
-        (only-in ./support/index %index %index-project %index-ref %index-fork %index-write! %index-retire!
+        (only-in ../support/base %compare-symbol-identity %graph-table-seed %with-application-table-seeds)
+        (only-in ../support/index %index %index-project %index-ref %index-fork %index-write! %index-retire!
                  %index? %index-base %index-changes
                  %make-ordinal-buckets %ordinal-bucket-ref %ordinal-roster
                  %roster %roster-cold-index %roster-width %roster-position %roster-keys %roster-append %roster-retire)
-        (only-in ./slot-observation %call-with-recorded-slot-reads %record-slot-reads!
+        (only-in ../slot-observation %call-with-recorded-slot-reads %record-slot-reads!
                  %slot-read-active? slot-read-observers-compatible?)
-        (only-in ./dependency-analysis Computation.)
-        ./object (only-in ./mop/prototype define-type) ./support/option)
+        (only-in ../dependency-analysis Computation.)
+        ../object (only-in ../mop/prototype define-type) ../support/option)
 (extern namespace: clan/poo/dependency-analysis %computation-constructor-current?)
-(import (only-in ./read-route standard-symbol-table-writes?))
+(import (only-in ../read-route standard-symbol-table-writes?))
 (extern namespace: clan/poo/read-route %ordinal-index-routes-current? %gc-scratch-routes-current?
   %standard-symbol-table-lookup?)
 (extern namespace: clan/poo/prototype-map %stock-struct-construction?)

@@ -12,11 +12,11 @@
         (only-in :clan/poo/support/index %make-ordinal-buckets %ordinal-bucket-ref)
         (rename-in (only-in :clan/poo/benchmarks/closure-measure measure qualified-metrics) (measure raw-measure))
         (only-in :std/list/list filter foldl find take append-map delete-duplicates/hash)
-        (prefix-in :clan/poo/generalized-graph graph.)
+        (prefix-in :clan/poo/graph/schedule graph.)
         (prefix-in :clan/poo/dependency-analysis code.)
-        (prefix-in :clan/poo/strong-components scc.)
+        (prefix-in :clan/poo/graph/scc scc.)
         (prefix-in :clan/poo/recursive-topology topology.)
-        (prefix-in :clan/poo/component-revision component.))
+        (prefix-in :clan/poo/graph/component/revision component.))
 ;; Graph receipts use the existing paired-study allocation admission rule.
 ;; Only the post-timer projection changes; workload, clocks and GC stay intact.
 (def (measure thunk repetitions (collect? #f))
@@ -76,7 +76,7 @@
         (and (equal? (scc.partition-members part (car members)) members)
           (andmap (lambda (key) (eq? ((scc.partition-owner part) key) (car members))) members))) expected))))
 
-(extern namespace: clan/poo/generalized-graph %declared-row-source %packed-rows?)
+(extern namespace: clan/poo/graph/schedule %declared-row-source %packed-rows?)
 (def (check-declared-rows)
   (test-case "packed declaration owns its arrays and respects observed and stale reads"
     (def keys (vector 'a 'b 'c 'd))
@@ -323,7 +323,7 @@
         (write (list kind size (cons 'captured-partition-preparation preparation)
                      (cons 'indexed-comparison comparison))) (newline)))))
 
-(extern namespace: clan/poo/strong-components partition-captured finish-partition %partition-members %partition-groups)
+(extern namespace: clan/poo/graph/scc partition-captured finish-partition %partition-members %partition-groups)
 
 (def (check-certificate-refusal)
   (test-case "independent SCC certificate reports the first bad owner"
@@ -520,11 +520,11 @@
           (check-exception (kernel '(a b) (lambda (_) bad) #f) error-object?)))))
 
 (extern namespace: clan/poo/read-route %gc-scratch-routes-current? %standard-symbol-table-lookup?)
-(extern namespace: clan/poo/strong-components
+(extern namespace: clan/poo/graph/scc
   certify-active-tour certify-ordinal-whole certify-ordinal-components certify-ordinal-return)
 
 (extern namespace: clan/poo/support/index probe-ordinal-roster ordinal-probe)
-(extern namespace: clan/poo/strong-components ordinal-backward sparse-ordinal-backward dense-ordinal-backward)
+(extern namespace: clan/poo/graph/scc ordinal-backward sparse-ordinal-backward dense-ordinal-backward)
 
 (def (check-graph-projection)
     (test-case "multi-SCC ordinal queries retain source order and exposed owner mutations"

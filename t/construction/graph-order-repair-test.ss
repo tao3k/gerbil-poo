@@ -10,32 +10,32 @@
         (only-in :std/struct/rbtree rbtree-size)
         (only-in :clan/poo/lens-laws lens-check)
         (only-in :clan/poo/mop lens-of-get-set)
-        (only-in :clan/poo/component-closure component-group-builder)
+        (only-in :clan/poo/graph/feedback/builder component-group-builder)
         (only-in :clan/poo/generalized-closure closed-raw)
-        (only-in :clan/poo/feedback-cache group-closed)
-        (only-in :clan/poo/feedback-graph publish-owned-feedback-graph graph-cache-partition graph-cache-ref graph-cache-values)
-        (prefix-in :clan/poo/component-publication publication.)
-        (prefix-in :clan/poo/component-revision revision.)
+        (only-in :clan/poo/graph/feedback/cache group-closed)
+        (only-in :clan/poo/graph/feedback publish-owned-feedback-graph graph-cache-partition graph-cache-ref graph-cache-values)
+        (prefix-in :clan/poo/graph/component/publication publication.)
+        (prefix-in :clan/poo/graph/component/revision revision.)
         (only-in :clan/poo/slot-observation call-with-slot-read-observer slot-read-receiver slot-read-key)
         (prefix-in (only-in :gerbil/runtime/mop slot-set!) runtime.)
-        (prefix-in :clan/poo/generalized-graph graph.)
-        (prefix-in :clan/poo/construction-cache cache.)
+        (prefix-in :clan/poo/graph/schedule graph.)
+        (prefix-in :clan/poo/graph/construction cache.)
         (prefix-in :clan/poo/dependency-analysis code.)
-        (prefix-in :clan/poo/strong-components scc.))
+        (prefix-in :clan/poo/graph/scc scc.))
 
-(extern namespace: clan/poo/generalized-graph %invalidation-work affected-work-receipt-set!
+(extern namespace: clan/poo/graph/schedule %invalidation-work affected-work-receipt-set!
   %schedule-reverse reverse-bucket-remove reverse-bucket-add reverse-bucket-members reverse-bucket-edited
   edited-search-frontier
   %schedule-owned %owned-source-programs %schedule-adjacency %schedule-ranks
   start-affected-work advance-affected-work! affected-work-marked %retire-component-source
   %component-source-code-witnesses %component-source-storage %component-source-roster %owned-source-bases
   %with-component-source-rows)
-(extern namespace: clan/poo/strong-components %partition-owned owned-partition-backward
+(extern namespace: clan/poo/graph/scc %partition-owned owned-partition-backward
   owned-partition-owner owned-partition-members owned-partition-forward
   owned-partition-roster %retire-partition-isolates %append-partition-owners
   %check-partition-retirements capture-partition-rows)
 (extern namespace: clan/poo/support/index roster-appended roster-positions)
-(extern namespace: clan/poo/construction-cache cache-scheduled cache-patch)
+(extern namespace: clan/poo/graph/construction cache-scheduled cache-patch)
 
 (def (caught thunk) (try (thunk) #f (catch (cause) cause)))
 (def (value state key) (code.success-value (some-value (cache.cache-ref state key))))

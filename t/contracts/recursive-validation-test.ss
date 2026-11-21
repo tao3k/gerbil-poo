@@ -24,7 +24,7 @@
   (prefix-in :clan/poo/examples/recursive-submissions recursive-submissions.workflow.)
   (only-in :std/list/list filter)
   (prefix-in :clan/poo/recursive-topology recursive-topology.topology.)
-  (prefix-in :clan/poo/strong-components scc.)
+  (prefix-in :clan/poo/graph/scc scc.)
   (prefix-in :clan/poo/examples/recursive-topology recursive-topology.service.)
   (prefix-in :clan/poo/examples/contract-publication recursive-topology.publication.)
   :clan/poo/object-contract

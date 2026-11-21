@@ -2,14 +2,14 @@
 (import :std/test :std/iter :clan/poo/object :clan/poo/brace :clan/poo/mop
         :clan/poo/support/option
         (only-in :std/error Error-message)
-        (only-in :clan/poo/component-closure component-group-builder)
-        (only-in :clan/poo/feedback-graph publish-owned-feedback-graph graph-cache-partition)
+        (only-in :clan/poo/graph/feedback/builder component-group-builder)
+        (only-in :clan/poo/graph/feedback publish-owned-feedback-graph graph-cache-partition)
         (only-in :clan/poo/benchmarks/closure-measure measure qualified-metrics)
-        (prefix-in :clan/poo/generalized-graph graph.)
-        (prefix-in :clan/poo/strong-components scc.)
+        (prefix-in :clan/poo/graph/schedule graph.)
+        (prefix-in :clan/poo/graph/scc scc.)
         (prefix-in :clan/poo/dependency-analysis code.)
-        (prefix-in :clan/poo/component-publication pub.)
-        (prefix-in :clan/poo/component-revision revision.))
+        (prefix-in :clan/poo/graph/component/publication pub.)
+        (prefix-in :clan/poo/graph/component/revision revision.))
 (export membership-preflight-test)
 (extern namespace: #f random-source-pseudo-randomize!)
 

@@ -20,8 +20,8 @@
         (prefix-in :clan/poo/types/validation containers.)
         (prefix-in :clan/poo/examples/service-collection service.)
         (prefix-in :clan/poo/dependency-analysis code.)
-        (prefix-in :clan/poo/generalized-graph graph.)
-        (prefix-in :clan/poo/construction-cache cache.))
+        (prefix-in :clan/poo/graph/schedule graph.)
+        (prefix-in :clan/poo/graph/construction cache.))
 
 ;; Exercise actual scoped expansion rather than serializing identifier names.
 (defsyntax (rejects? stx)

@@ -7,12 +7,12 @@
         :clan/poo/object
         :clan/poo/mop :clan/poo/support/option
         (prefix-in :clan/poo/dependency-analysis code.)
-        (prefix-in :clan/poo/generalized-graph graph.)
-        (prefix-in :clan/poo/strong-components scc.)
-        (only-in :clan/poo/feedback-graph graph-cache?)
+        (prefix-in :clan/poo/graph/schedule graph.)
+        (prefix-in :clan/poo/graph/scc scc.)
+        (only-in :clan/poo/graph/feedback graph-cache?)
         (only-in :clan/poo/benchmarks/closure-measure measure qualified-metrics))
 (extern namespace: #f random-source-state-ref random-source-state-set!)
-(extern namespace: clan/poo/feedback-graph dependencies group-code)
+(extern namespace: clan/poo/graph/feedback dependencies group-code)
 
 (def (old-routes partition members)
   (def deps (dependencies partition members))

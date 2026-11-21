@@ -55,14 +55,14 @@ The public partition receipt distinguishes individual retirement from
 
 * Scheme paths under test
 
-- [[file:../strong-components.ss][Strong components]] owns ordered reachability, packed capture,
+- [[file:../graph/scc.ss][Strong components]] owns ordered reachability, packed capture,
   source-rank selection, Algorithm T, canonical normalization and
   independent partition certification.
-- [[file:../generalized-graph.ss][Graph scheduling]] owns local rank repair and the resumable inverse
+- [[file:../graph/schedule.ss][Graph scheduling]] owns local rank repair and the resumable inverse
   closure. The rank receipt includes whole-roster source checks,
   snapshot copies and order materialization.
-- [[file:../feedback-graph.ss][Feedback Graph]] consumes the certified partition for condensation.
-  [[file:../component-revision.ss][Component revision]] binds old inverse work to the current staged
+- [[file:../graph/feedback.ss][Feedback Graph]] consumes the certified partition for condensation.
+  [[file:../graph/component/revision.ss][Component revision]] binds old inverse work to the current staged
   ticket and retires it on successful publication.
 
 * Prepared SCC discovery

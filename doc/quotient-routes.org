@@ -1,6 +1,6 @@
 #+title: Preparing external reads for an SCC
 
-=group-code= in [[file:../feedback-graph.ss][feedback-graph.ss]] prepares two inputs from the declared
+=group-code= in [[file:../graph/feedback.ss][feedback-graph.ss]] prepares two inputs from the declared
 reads of a group. For each edge to a different group, it records both the
 target node and that node's SCC representative.
 

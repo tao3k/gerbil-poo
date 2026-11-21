@@ -2,7 +2,7 @@
 (export partition changed-members)
 (import (only-in :std/list/list filter append-map delete-duplicates/hash)
         ./object (prefix-in ./recursive-validation validation.)
-        (prefix-in ./strong-components scc.) (prefix-in ./generalized-graph graph.)
+        (prefix-in ./graph/scc scc.) (prefix-in ./graph/schedule graph.)
         (prefix-in ./dependency-analysis computation.))
 
 ;; Reuse the existing checked SCC algorithm without invoking node builders,

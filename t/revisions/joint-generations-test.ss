@@ -1,6 +1,6 @@
 (export joint-generations-test)
-(import :std/test (only-in :std/list/list foldl filter) :clan/poo/object :clan/poo/mop :clan/poo/brace :clan/poo/feedback-graph
-        (prefix-in :clan/poo/joint-publication joint.) (prefix-in :clan/poo/construction-cache cache.)
+(import :std/test (only-in :std/list/list foldl filter) :clan/poo/object :clan/poo/mop :clan/poo/brace :clan/poo/graph/feedback
+        (prefix-in :clan/poo/joint-publication joint.) (prefix-in :clan/poo/graph/construction cache.)
         (prefix-in :clan/poo/examples/joint-topology service.) (prefix-in :clan/poo/examples/joint-receipts receipts.)
         (prefix-in :clan/poo/examples/joint-concurrency concurrent.))
 ;; Preserve the opaque receipt's identity alongside each complete outcome.

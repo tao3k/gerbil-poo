@@ -37,9 +37,9 @@
         (prefix-in (only-in :clan/poo/multimethod cache-size) multimethod.)
         (runtime: :clan/poo/dispatch-extension)
         (prefix-in (only-in :clan/poo/dispatch-extension snapshot) dispatch.)
-        (prefix-in :clan/poo/construction-cache cache.)
-        (runtime: :clan/poo/generalized-graph)
-        (prefix-in (only-in :clan/poo/generalized-graph define reschedule schedule
+        (prefix-in :clan/poo/graph/construction cache.)
+        (runtime: :clan/poo/graph/schedule)
+        (prefix-in (only-in :clan/poo/graph/schedule define reschedule schedule
                    schedule-order set-base) graph.)
         (runtime: :clan/poo/dependency-analysis)
         (prefix-in (only-in :clan/poo/dependency-analysis make-success need) code.)

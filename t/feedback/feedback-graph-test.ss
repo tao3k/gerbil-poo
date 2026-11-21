@@ -3,7 +3,7 @@
         (only-in :std/error Error-message)
         (only-in :std/list/list filter foldl delete-duplicates/hash take drop)
         (only-in :clan/poo/benchmarks/closure-measure measure)
-        (only-in :clan/poo/component-closure component-group-builder)
+        (only-in :clan/poo/graph/feedback/builder component-group-builder)
         (only-in :clan/poo/read-route gc-table-route-current?)
         (only-in :clan/poo/slot-observation %call-with-recorded-slot-reads
                  slot-read-receiver slot-read-key)
@@ -12,14 +12,14 @@
         (only-in :gerbil/runtime/table symbolic-table-set!)
         (only-in :gerbil/runtime/hash HashTable::interface)
         (only-in :gerbil/runtime/interface interface-instance-object &interface-descriptor-index prototype-table-table)
-        :clan/poo/object :clan/poo/mop :clan/poo/brace :clan/poo/support/option :clan/poo/feedback-graph :clan/poo/feedback-cache
-        :clan/poo/generalized-closure (prefix-in :clan/poo/strong-components scc.)
-        (prefix-in :clan/poo/generalized-graph graph.) (prefix-in :clan/poo/dependency-analysis code.)
-        (prefix-in :clan/poo/construction-cache cache.)
+        :clan/poo/object :clan/poo/mop :clan/poo/brace :clan/poo/support/option :clan/poo/graph/feedback :clan/poo/graph/feedback/cache
+        :clan/poo/generalized-closure (prefix-in :clan/poo/graph/scc scc.)
+        (prefix-in :clan/poo/graph/schedule graph.) (prefix-in :clan/poo/dependency-analysis code.)
+        (prefix-in :clan/poo/graph/construction cache.)
         (prefix-in :clan/poo/examples/component-services service.)
         (prefix-in (only-in :clan/poo/fun Observation.) fun.))
-(extern namespace: clan/poo/feedback-graph group-code)
-(extern (start-owned-cache-quotient clan/poo/construction-cache#%start-owned-quotient))
+(extern namespace: clan/poo/graph/feedback group-code)
+(extern (start-owned-cache-quotient clan/poo/graph/construction#%start-owned-quotient))
 ;; Inspect physical work at the existing group materializer, not sampled timings.
 (def (evaluated current) (cache.cache-evaluated (graph-cache-values current)))
 ;; Native controls include topology changes, final approval, and independent hits.

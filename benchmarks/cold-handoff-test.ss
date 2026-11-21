@@ -1,9 +1,9 @@
 ;;; Compare the old retained-capture frame with the projected ownership handoff.
 (export cold-handoff-test cold-handoff-contract-test)
 (import :std/test :std/iter :clan/poo/object
-        (prefix-in :clan/poo/strong-components scc.)
+        (prefix-in :clan/poo/graph/scc scc.)
         (only-in :clan/poo/benchmarks/closure-measure measure qualified-metrics))
-(extern namespace: clan/poo/strong-components
+(extern namespace: clan/poo/graph/scc
   capture-graph partition-captured own-partition
   compact-graph-positions compact-graph-direction compact-graph-names
   compact-graph-offsets compact-graph-targets)

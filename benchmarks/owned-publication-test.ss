@@ -2,12 +2,12 @@
 (export owned-publication-test)
 (import :std/test :std/iter
         (only-in :clan/poo/mop/prototype .lens)
-        (only-in :clan/poo/component-closure component-group-builder)
+        (only-in :clan/poo/graph/feedback/builder component-group-builder)
         (only-in :clan/poo/generalized-closure closed-raw)
-        (only-in :clan/poo/feedback-cache group-closed)
-        (only-in :clan/poo/feedback-graph publish-owned-feedback-graph graph-cache-ref graph-cache-partition)
-        (prefix-in :clan/poo/generalized-graph graph.)
-        (prefix-in :clan/poo/strong-components scc.)
+        (only-in :clan/poo/graph/feedback/cache group-closed)
+        (only-in :clan/poo/graph/feedback publish-owned-feedback-graph graph-cache-ref graph-cache-partition)
+        (prefix-in :clan/poo/graph/schedule graph.)
+        (prefix-in :clan/poo/graph/scc scc.)
         (prefix-in :clan/poo/dependency-analysis code.)
         (only-in :clan/poo/benchmarks/closure-measure measure qualified-metrics))
 
