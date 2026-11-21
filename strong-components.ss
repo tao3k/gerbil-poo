@@ -80,7 +80,7 @@
   (def owned (%partition-owned part))
   (def members (%partition-members part))
   (cond
-   ((and owned (procedure? members)) (members representative #f visit))
+   ((and owned (procedure? members)) (members representative visit))
    (owned
     (and (symbol? representative)
          (let (entry (%index-ref (owned-partition-members owned) representative #f))
@@ -1520,13 +1520,14 @@
            (cons (u32vector-ref sizes id)
              (lambda (visit)
                (if visit (visit-members node id visit) (member-list node id)))))))))
-  (def (member key size? (visit #f))
+  ;; A fixed arity keeps the published lookup from collecting its arguments.
+  ;; Size accepts any member. Listing and visiting require its root.
+  (def (member key request)
     (let* ((node (position key)) (id (and node (rank node))))
       (and id
-           ;; Size accepts any member. Listing and visiting require its root.
-           (if size? (u32vector-ref sizes id)
+           (if (eq? request #t) (u32vector-ref sizes id)
              (and (fx= node (u32vector-ref roots id))
-                  (if visit (visit-members node id visit) (member-list node id)))))))
+                  (if request (visit-members node id request) (member-list node id)))))))
   ;; When the certified root array is small, enumerate just those ordinals
   ;; in source order. Every call constructs fresh member lists.
   (def groups
