@@ -20,8 +20,8 @@
         (only-in :std/list/list-builder with-list-builder)
         (only-in ./support/base %graph-table-seed)
         (only-in ./support/index %roster %roster-width %roster-position %roster-keys %roster-for-each %roster-project
-                 %index %index-ref %index-fork %index-write! %index-retire! %index-overridden?
-                 %make-ordinal-buckets %ordinal-bucket-ref)
+                 %index %index-base %index-ref %index-fork %index-write! %index-retire! %index-overridden?
+                 %make-ordinal-buckets %ordinal-bucket-ref %ordinal-roster)
         (only-in ./generalized-graph %reverse-bucket-remove %reverse-bucket-add %for-each-reverse-bucket)
         (only-in ./read-route gc-table-route-current? standard-symbol-table-writes?)
         ./object)
@@ -33,7 +33,7 @@
 (extern namespace: clan/poo/object %ref-owned-list)
 ;; Public groups/representatives retain source order, independently of DFS order.
 (defstruct %partition (groups owner reads members work owners owned) final: #t)
-(defstruct owned-partition (roster forward backward owner members shape retired?) final: #t)
+(defstruct owned-partition (roster forward backward owner members shape retired? ranks) final: #t)
 (defstruct quotient-support (added retired) final: #t)
 (def partition? %partition?)
 (def (partition-groups part)
@@ -54,6 +54,9 @@
 (def partition-work %partition-work)
 (def (owned-active-owner owned key)
   (%index-ref (owned-partition-owner owned) key #f))
+(def (owned-member-list entry)
+  (let (row (cdr entry))
+    (if (procedure? row) (row) row)))
 (def (observe-member part representative size?)
   (def owned (%partition-owned part))
   (def members (%partition-members part))
@@ -64,7 +67,7 @@
                   (hash-get members representative)))
       (and entry
            (cond (size? (car entry))
-                 (owned (list-copy (cdr entry)))
+                 (owned (let (row (cdr entry)) (if (procedure? row) (row) (list-copy row))))
                  (else (cdr entry)))))))
 (def (partition-members part representative)
   (observe-member part representative #f))
@@ -894,7 +897,7 @@
 (def (partition spec) (capture-partition spec #f))
 (def (partition-owned spec) (capture-partition spec #t))
 
-(def (partition-admitted-rows source)
+(def (partition-admitted-rows source (owned? #f))
   (def table (make-hash-table-eq))
   (and (gc-table-route-current? table)
     (let* ((keys (%packed-rows-names source))
@@ -908,7 +911,19 @@
                     #t (cut %decode-ordinal-row keys offsets targets <>))))
       ;; Discovery and the independent certificate both run on the borrowed
       ;; arrays. No author getter or structural capture is repeated.
-      (partition-captured keys reads edges (vector-length keys) edges index #f values #f #t))))
+      (if owned?
+        (and (%ordinal-index-routes-current?) (%gc-scratch-routes-current?)
+             (finish-ordinal-owned index buckets))
+        (partition-captured keys reads edges (vector-length keys) edges index #f values #f #t)))))
+
+;; The installed declaration owns the immutable ordinals. Neither an observer
+;; nor a changed issuer may borrow the structural publication.
+(def (%partition-admitted-owned spec)
+  (let* ((source (%declared-row-source spec))
+         (part (and (%packed-rows? source) (partition-admitted-rows source #t))))
+    (when (and part (not (eq? source (%declared-row-source spec))))
+      (error "declared graph source changed during capture"))
+    part))
 
 (def (capture-partition spec owned?)
   (def publication (%declared-row-source spec))
@@ -916,7 +931,7 @@
     (when (and source (not (eq? source (%declared-row-source spec))))
       (error "declared graph source changed during capture"))
     part)
-  (def packed (and (not owned?) (%packed-rows? publication) (partition-admitted-rows publication)))
+  (def packed (and (%packed-rows? publication) (partition-admitted-rows publication owned?)))
   (if packed (finish publication packed)
     (let* ((source (and (vector? publication) publication))
            (keys (if source (%ref-owned-list spec 'keys) (.@ spec keys)))
@@ -1304,7 +1319,8 @@
                             (if forest? (fx- span-nodes span-count) reverse-edges)))
         singletons reverse-edges))))
 
-(def (finish-ordinal-components keys reads index buckets owners validation-owners declared-edges result complete)
+(def (certified-ordinal-components index result)
+  (def keys (compact-graph-names index))
   (def count (vector-length keys))
   (def components (vector-ref result 2))
   (def ranks (vector-ref result 0))
@@ -1323,8 +1339,100 @@
       (set! represented (fx+ represented 1)))
     (u32vector-set! sizes rank (fx+ size 1)))
   (unless (fx= represented components) (error "empty compact SCC rank"))
+  (def evidence (vector-ref result 6))
   (defvalues (span-buckets span-edges singletons reverse-count)
-    (certify-ordinal-components index ranks roots sizes (vector-ref result 6)))
+    (if (eq? evidence active-tour-evidence)
+      (values count count 0 0)
+      (certify-ordinal-components index ranks roots sizes evidence)))
+  (values ranks roots sizes span-buckets span-edges singletons reverse-count))
+
+;; Supply the existing reverse index from immutable ordinal rows. The
+;; sparse index fork continues to own edits to individual reader buckets.
+(def (ordinal-backward keys offsets targets project)
+  (def count (vector-length keys))
+  (def incoming (make-u32vector (fx+ count 1) 0))
+  (def readers (make-u32vector (u32vector-length targets)))
+  (let tally ((at 0))
+    (unless (fx= at (u32vector-length targets))
+      (let (provider (u32vector-ref targets at))
+        (u32vector-set! incoming provider (fx+ (u32vector-ref incoming provider) 1))
+        (tally (fx+ at 1)))))
+  (let prefix ((node 0) (end 0))
+    (if (fx= node count)
+      (u32vector-set! incoming node end)
+      (let (next (fx+ end (u32vector-ref incoming node)))
+        (u32vector-set! incoming node next)
+        (prefix (fx+ node 1) next))))
+  ;; Each bucket reads in the same order as consing sources in own-partition.
+  (let fill ((node 0))
+    (unless (fx= node count)
+      (let row ((at (u32vector-ref offsets node))
+                (end (u32vector-ref offsets (fx+ node 1))))
+        (unless (fx= at end)
+          (let* ((provider (u32vector-ref targets at))
+                 (dst (fx- (u32vector-ref incoming provider) 1)))
+            (u32vector-set! incoming provider dst)
+            (u32vector-set! readers dst node)
+            (row (fx+ at 1) end))))
+      (fill (fx+ node 1))))
+  (project (cut %decode-ordinal-row keys incoming readers <>)))
+
+(def (finish-ordinal-owned index buckets)
+  (def keys (compact-graph-names index))
+  (def count (vector-length keys))
+  (def offsets (compact-graph-offsets index))
+  (def targets (compact-graph-targets index))
+  (def edges (u32vector-length targets))
+  (def direction (compact-graph-direction index))
+  (def result (compact-selected-discover index #t))
+  (defvalues (ranks roots sizes span-buckets span-edges singletons reverse-count)
+    (certified-ordinal-components index result))
+  (def components (u32vector-length roots))
+  (def (position key) (and (symbol? key) (%ordinal-bucket-ref buckets key)))
+  (def (project read)
+    (%index (lambda (key default)
+      (let (node (position key))
+        (if node (read node) default)))))
+  (def (rank node) (u32vector-ref ranks node))
+  (def forward (project (cut %decode-ordinal-row keys offsets targets <>)))
+  (def backward (ordinal-backward keys offsets targets project))
+  (def owner (project (lambda (node) (vector-ref keys (u32vector-ref roots (rank node))))))
+  (def links (and (< components count) (make-u32vector count)))
+  (when links
+    (let (heads (make-u32vector components count))
+      (let link ((node (fx- count 1)))
+        (unless (fx< node 0)
+          (let (id (rank node))
+            (u32vector-set! links node (u32vector-ref heads id))
+            (u32vector-set! heads id node))
+          (link (fx- node 1))))))
+  (def (member-list node)
+    (let collect ((at node) (result []))
+      (if (fx= at count) (reverse! result)
+        (collect (if links (u32vector-ref links at) count)
+          (cons (vector-ref keys at) result)))))
+  (def members (project (lambda (node)
+    (let (id (rank node))
+      (and (fx= node (u32vector-ref roots id))
+           (cons (u32vector-ref sizes id) (cut member-list node)))))))
+  ;; The rank is issued only after independent coverage and the original
+  ;; boundary-edge checks. Its address is stable across row replacements.
+  (owned-snapshot
+    (make-owned-partition (%ordinal-roster keys buckets) forward backward owner members
+      (cond ((positive? direction) direction)
+            ((and (fx= components 1) (fx> count 1) (fx= edges count)) 'cycle)
+            (else #f)) #f
+      (and (zero? direction)
+           (lambda (key) (let (node (position key)) (and node (rank node))))))
+    (work-receipt count edges (vector-ref result 1) (vector-ref result 3)
+      (vector-ref result 4) (vector-ref result 5) count components span-buckets span-edges
+      edges singletons reverse-count 0 0)))
+
+(def (finish-ordinal-components keys reads index buckets owners validation-owners declared-edges result complete)
+  (def count (vector-length keys))
+  (def components (vector-ref result 2))
+  (defvalues (ranks roots sizes span-buckets span-edges singletons reverse-count)
+    (certified-ordinal-components index result))
   (def find-owner (ordinal-owner-reader keys buckets owners #f
     (lambda (node) (vector-ref keys (u32vector-ref roots (u32vector-ref ranks node))))))
   (def members (make-hash-table-eq))
@@ -1622,6 +1730,7 @@
 
 ;; Owned partition keeps the existing SCC result and only adds the indexes
 ;; required to revise that result without rereading a declaration.
+(def absent-owned-entry (gensym 'absent-owned-entry))
 (def (owned-snapshot owned work)
   (def (require-active! key)
     (when (and (owned-partition-retired? owned) (not (owned-active-owner owned key)))
@@ -1629,7 +1738,10 @@
   (def (lookup index key)
     (unless (symbol? key) (error "component key must be a symbol" key))
     (require-active! key)
-    (%index-ref index key))
+    (if (procedure? (%index-base index))
+      (let (value (%index-ref index key absent-owned-entry))
+        (if (eq? value absent-owned-entry) (raise-unbound-key partition-owner key) value))
+      (%index-ref index key)))
   (make-%partition #f
     (cut lookup (owned-partition-owner owned) <>)
     (lambda (key) (list-copy (lookup (owned-partition-forward owned) key)))
@@ -1655,7 +1767,7 @@
                     ;; Carry that structural evidence instead of scanning again.
                     (cond (cycle? 'cycle)
                           ((and direction (positive? direction)) direction)
-                          (else #f)) #f)
+                          (else #f)) #f #f)
     (partition-work part)))
 
 ;; A node is entered once in each union walk. Mark on enqueue so a wide hub
@@ -1742,7 +1854,7 @@
       (owned-snapshot
         (make-owned-partition (or roster (owned-partition-roster old))
           (or forward prior-forward) (or backward prior-backward) owner members
-          (owned-partition-shape old) #t)
+          (owned-partition-shape old) #t (owned-partition-ranks old))
         (if (and roster (partition-work prior))
           (.cc (partition-work prior) retired-owners: (length keys) roster-materialized: 0)
           (.o retired-owners: (length keys) roster-materialized: 0))))))
@@ -1782,7 +1894,7 @@
   (def shape (owned-partition-shape old))
   (owned-snapshot
     (make-owned-partition roster forward backward owner members
-      (and (not (eq? shape 'cycle)) shape) (owned-partition-retired? old))
+      (and (not (eq? shape 'cycle)) shape) (owned-partition-retired? old) #f)
     #f))
 
 (def (revise-partition prior replacements quotient?: (quotient? #f))
@@ -1854,30 +1966,34 @@
   (def old-owner (owned-partition-owner old))
   (def old-members (owned-partition-members old))
   (def component-edge-checks 0)
-  ;; Exact edge differences suffice: inserting inside old SCCs cannot merge
-  ;; them; deleting between old SCCs (or a self edge) cannot split them.
-  ;; Reuse the existing owner index, with no old adjacency traversal. The
-  ;; retained-direction path needs none of these additional owner queries.
-  (def retained-components?
-    (and (not ranked?)
-      (let (valid? #t)
-        (hash-for-each
-          (lambda (consumer providers)
-            (for (provider providers)
-              (when valid?
-                (set! component-edge-checks (1+ component-edge-checks))
-                (unless (eq? (%index-ref old-owner consumer) (%index-ref old-owner provider))
-                  (set! valid? #f))))) add-forward)
-        (hash-for-each
-          (lambda (provider consumers)
-            (hash-for-each
-              (lambda (consumer _)
+  (def certified-rank (owned-partition-ranks old))
+  ;; Within a certified rank, only additions inside a current component are
+  ;; harmless. A strictly descending edge cannot be part of a merging cycle.
+  (def merge-safe?
+    (or ranked?
+        (let (valid? #t)
+          (hash-for-each
+            (lambda (consumer providers)
+              (for (provider providers)
                 (when valid?
                   (set! component-edge-checks (1+ component-edge-checks))
-                  (unless (or (eq? consumer provider)
-                              (not (eq? (%index-ref old-owner consumer) (%index-ref old-owner provider))))
-                    (set! valid? #f)))) consumers)) remove-backward)
-        valid?)))
+                  (unless (or (eq? (%index-ref old-owner consumer) (%index-ref old-owner provider))
+                              (and certified-rank (< (certified-rank provider) (certified-rank consumer))))
+                    (set! valid? #f))))) add-forward)
+          valid?)))
+  (def retained-components?
+    (and (not ranked?) merge-safe?
+        (let (valid? #t)
+          (hash-for-each
+            (lambda (provider consumers)
+              (hash-for-each
+                (lambda (consumer _)
+                  (when valid?
+                    (set! component-edge-checks (1+ component-edge-checks))
+                    (unless (or (eq? consumer provider)
+                                (not (eq? (%index-ref old-owner consumer) (%index-ref old-owner provider))))
+                      (set! valid? #f)))) consumers)) remove-backward)
+          valid?)))
   (def next-backward (%index-fork backward))
   (def removed-edges 0)
   (for (provider (hash-keys buckets))
@@ -1902,10 +2018,11 @@
   (def functional-cut? (and deletion-only? (positive? removed-edges)
                             (eq? (owned-partition-shape old) 'cycle)))
   (def single-owner (and single-removal? (not functional-cut?) (%index-ref old-owner (car roots))))
-  ;; Deletions cannot join old components. Revisit only components that
-  ;; lost an internal edge, even when one edit touches multiple components.
+  ;; If no old groups can merge, only internal removals need recertification.
+  ;; This includes mixed edits with certified descending boundary additions.
+  (def split-only? (or deletion-only? (and certified-rank merge-safe?)))
   (def dirty-components
-    (and deletion-only? (not functional-cut?) (not single-removal?)
+    (and split-only? (not functional-cut?) (not single-removal?)
          (not ranked?) (not retained-components?)
       (let (dirty (make-hash-table-symbolic))
         (hash-for-each
@@ -1918,9 +2035,9 @@
                   (hash-put! dirty representative #t))) consumers)) remove-backward)
         dirty)))
   (def dirty-keys (and dirty-components (hash-keys dirty-components)))
-  (def to (and (not ranked?) (not retained-components?) (not deletion-only?)
+  (def to (and (not ranked?) (not retained-components?) (not split-only?)
                (edit-region-walk roots forward add-forward forward-work)))
-  (def from (and (not ranked?) (not retained-components?) (not deletion-only?)
+  (def from (and (not ranked?) (not retained-components?) (not split-only?)
                  (edit-region-walk roots backward add-backward backward-work)))
   (def (inside? key)
     (if single-removal? (eq? single-owner (%index-ref old-owner key))
@@ -1928,15 +2045,15 @@
   (def region
     (cond ((or ranked? retained-components?) [])
           (functional-cut? [])
-          (single-removal? (cdr (%index-ref old-members single-owner)))
+          (single-removal? (owned-member-list (%index-ref old-members single-owner)))
           (dirty-keys
            (match dirty-keys
-             ([representative] (cdr (%index-ref old-members representative)))
+             ([representative] (owned-member-list (%index-ref old-members representative)))
              (else
               (%partition-order-keys prior
                 (with-list-builder (add)
                   (for (representative dirty-keys)
-                    (for-each add (cdr (%index-ref old-members representative)))))))))
+                    (for-each add (owned-member-list (%index-ref old-members representative)))))))))
           (else
            (let (smaller (if (< (hash-length to) (hash-length from)) to from))
              (%partition-order-keys prior (filter inside? (hash-keys smaller)))))))
@@ -1996,7 +2113,10 @@
           (set! owner-assignments (1+ owner-assignments))))
       (def replacement (hash-get (%partition-members local-part) key))
       (def previous (%index-ref old-members key #f))
-      (unless (equal? replacement previous)
+      (unless (if (and previous (procedure? (cdr previous)))
+                 (and replacement (= (car replacement) (car previous))
+                   (equal? (cdr replacement) (owned-member-list previous)))
+                 (equal? replacement previous))
         (when quotient?
           (cond ((not previous) (set! added (cons key added)))
                 ((not replacement) (set! retired (cons key retired))))
@@ -2025,7 +2145,8 @@
               (retained-components?
                 (and (eq? (owned-partition-shape old) 'singletons) 'singletons))
               ((and cycle? (= (hash-length (%partition-members local-part)) 1)) 'cycle)
-              (else #f)) retired?)
+              (else #f)) retired?
+        (and merge-safe? certified-rank))
       (.o edited-rows: (hash-length seen) changed-rows: (length roots)
       forward-buckets: (vector-ref forward-work 0) forward-edges: (vector-ref forward-work 1)
       reverse-buckets: (vector-ref backward-work 0) reverse-edges: (vector-ref backward-work 1)

@@ -48,6 +48,15 @@ the first owners in source order, regardless of where DFS entered a group.
 Member lists are built on demand in source order, and a strict miss uses
 the original owner-table error contract.
 
+An owned publication can borrow the same admitted roster and forward rows.
+It publishes the independently checked ranks and the compact reader rows as
+bases of the existing persistent indexes. An edit updates the reverse buckets
+of its changed edges. A new edge within the current component or strictly down
+a published rank cannot merge old components. In that case, only groups that
+lost a non-self internal edge run the independent checker again. A split may
+reuse the old rank as a coarse order. An edge within that coarse rank between
+distinct components uses ordinary merge-region repair.
+
 `feedback-graph-action` is an ordinary FUN Reader from an old graph cache (or
 `#f`) to an accepted graph cache. It freezes code/base identities, discovers SCCs,
 condenses external reads to group representatives, and uses the existing checked

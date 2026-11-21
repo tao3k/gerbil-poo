@@ -20,7 +20,7 @@
 (extern namespace: clan/poo/generalized-graph %retire-component-source %component-source-roster
   %with-component-source-rows)
 (extern namespace: clan/poo/strong-components %retire-partition-isolates %isolated-partition-owner?
-  %append-partition-owners %check-partition-retirements capture-partition-rows)
+  %append-partition-owners %check-partition-retirements capture-partition-rows %partition-admitted-owned)
 (defstruct %stock-builder (value) final: #t)
 (def (%stock-builder-current?)
   (and (%default-builder-current?) (slot-read-observers-compatible? '())))
@@ -208,11 +208,12 @@
                 ;; Without observation, borrow the already captured rows.
                 (private-seeds?
                  (%with-graph-table-seeds (lambda ()
-                   (if (%slot-read-active?)
-                     (scc.partition-owned frozen)
-                     (%with-component-source-rows ownership
-                       (lambda (keys row) (capture-partition-rows keys row #t)))))))
-                (ownership (scc.partition-owned frozen))
+                   (or (%partition-admitted-owned source)
+                       (if (%slot-read-active?)
+                         (scc.partition-owned frozen)
+                         (%with-component-source-rows ownership
+                           (lambda (keys row) (capture-partition-rows keys row #t))))))))
+                (ownership (or (%partition-admitted-owned source) (scc.partition-owned frozen)))
                 (else (scc.partition frozen))))
         (def same-quotient? (and same-source? (eq? build (graph-cache-build old))))
         (defvalues (outcomes keys guard)

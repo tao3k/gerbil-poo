@@ -50,6 +50,13 @@ package GraphForwardRows {
                requiring two directions. Queries resolve the first source
                representative from that same ordinal roster and rank array. */
     }
+    requirement def OwnedComponentRepair {
+        doc /* Publish stable owner ordinals, checked block ranks and original
+               reader rows through the existing persistent indexes. Apply exact
+               boundary-edge edits to their reader buckets. Only an internal
+               removal requires rechecking a block when no addition can merge
+               old components. A split may retain its coarse descending rank. */
+    }
     requirement def PersistentPatch {
         doc /* Absent patch falls through; a present empty patch or a retirement
                tombstone masks the cold base. A fork cannot change its predecessor. */
