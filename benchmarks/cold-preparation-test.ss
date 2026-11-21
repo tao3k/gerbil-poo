@@ -6,7 +6,7 @@
         (only-in :gerbil/runtime/loader list-modules)
         (only-in :std/values first-value)
         (only-in :clan/poo/slot-layout make-slot-layout slot-layout-shape slot-layout-index slot-layout-set!)
-        (only-in :clan/poo/object-state object-state-revision)
+        (only-in :clan/poo/object/state object-state-revision)
         (only-in :gerbil/runtime/gambit string->uninterned-symbol)
         (prefix-in (only-in :gerbil/runtime/mop object-class make-class-slot-accessor class-slot-offset slot-ref) assembly.)
         (only-in :gerbil/runtime/interface &interface-descriptor-type interface-instance-object)

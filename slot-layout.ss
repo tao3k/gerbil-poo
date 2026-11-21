@@ -12,7 +12,7 @@
         (only-in :gerbil/runtime/gambit table? table-ref table-set! macro-table-test macro-table-hash macro-table-flags
                  random-integer macro-max-fixnum32)
         (only-in ./support/base %compare-symbol-identity %graph-table-seed)
-        (only-in ./object-state object-state-revision)
+        (only-in ./object/state object-state-revision)
         ./slot-observation
         (only-in :std/hash/misc hash-ensure-ref) :std/iter (only-in :std/list/list delete-duplicates/hash find foldr length<=n?))
 

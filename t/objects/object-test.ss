@@ -17,7 +17,7 @@
   :clan/poo/support/testing
   :clan/poo/type
   :clan/poo/io
-  (only-in :clan/poo/object-state make-object-state object-state-revision depend-on-state! invalidate-state!)
+  (only-in :clan/poo/object/state make-object-state object-state-revision depend-on-state! invalidate-state!)
   (rename-in (only-in :clan/poo/object with-prefixed-slots def-prefixed-slots) (with-prefixed-slots renamed-fields) (def-prefixed-slots renamed-snapshots))
   :std/error
   (for-syntax :gerbil/expander)

@@ -41,7 +41,7 @@
   (prefix-in (only-in :gerbil/runtime/mop object-class find-method) read-runtime.)
   (only-in ./read-route standard-symbol-table-writes?
            %issued-read? %read-issuance)
-  ./object-state
+  ./object/state
   ./prototype-map
   ./slot-layout
   (only-in :std/list/list-builder with-list-builder)

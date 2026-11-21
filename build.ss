@@ -117,7 +117,7 @@
     ,(apply production-module "slot-layout" [] "" (include-gambit-sharp))
     "read-route"
     "slot-observation"
-    "object-state"
+    "object/state"
     "meta-prototype"
     "declaration"
     "recursive/declaration"

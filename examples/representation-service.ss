@@ -9,7 +9,7 @@
 (import (only-in ../type Object TypeError? Fun Bool)
         (only-in :gerbil/runtime/gambit string->uninterned-symbol) :std/error (only-in ../slot-observation %call-with-recorded-slot-reads slot-read-key) (only-in ../reflection read-slot write-slot!) (only-in :std/list/list map-in-order) :std/iter ../object
         ../prototype-map
-        (only-in ../object-state invalidate-state!)
+        (only-in ../object/state invalidate-state!)
         ../mop
         ../number
         ../slot-layout

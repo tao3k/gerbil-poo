@@ -61,7 +61,7 @@ function of the same name takes a generic function and its call arguments.
 
 ## Source mutation and cache validity
 
-`object-state.ss` owns revisions and weak reverse dependency edges. Constructors
+`object/state.ss` owns revisions and weak reverse dependency edges. Constructors
 register super dependencies; protocol and declaration compilation register their
 sources. `depend-on-object!` registers additional explicit callback dependencies.
 A change preflights the entire affected closure for active computation, then

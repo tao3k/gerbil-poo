@@ -1,7 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; SPDX-License-Identifier: Apache-2.0 AND LGPL-2.1-or-later
 
-(import :std/test :std/error :clan/poo/object-state)
+(import :std/test :std/error :clan/poo/object/state)
 (export scoped-invalidation-test)
 
 (def scoped-invalidation-test
