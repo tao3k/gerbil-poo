@@ -661,11 +661,31 @@
                   (lambda (key) (.call origin .reads key)))))
     (reachability-value origin owners declared edges query)))
 
+(def active-tour-evidence (gensym 'active-tour))
+(def (certify-active-tour offsets targets parents root tip arc slot count)
+  (def edges (u32vector-length targets))
+  (def start (u32vector-ref offsets tip))
+  (and (fx< slot (fx- (u32vector-ref offsets (fx+ tip 1)) start))
+       (fx= (u32vector-ref targets (fx+ start slot)) root)
+       (fx> arc 0) (fx<= arc edges) (fx= (u32vector-ref targets (fx- arc 1)) tip)
+       (let check ((node tip) (incoming arc) (left count))
+         (cond
+          ((fx= incoming 0) (and (fx= node root) (fx= left 1)))
+          ((or (fx<= left 1) (fx= node root)) #f)
+          (else
+           (let (prior (u32vector-ref parents node))
+             (and (fx<= prior edges)
+                  (let* ((parent (if (fx= prior 0) root (u32vector-ref targets (fx- prior 1))))
+                         (at (fx- incoming 1)))
+                    (and (fx<= (u32vector-ref offsets parent) at)
+                         (fx< at (u32vector-ref offsets (fx+ parent 1)))
+                         (check parent prior (fx- left 1)))))))))))
+
 ;; Streamlined Algorithm T over the same immutable CSR capture. Low/leader bits
 ;; share one word. The second word changes from active parent-arc link, through
 ;; follower link, to the final component label. Save the active link BEFORE any
 ;; postvisit write. No workspace or approval escapes this invocation.
-(def (compact-discover graph (stop-when-done? #t))
+(def (compact-discover graph (stop-when-done? #t) (record-return? #f))
   (def offsets (compact-graph-offsets graph))
   (def targets (compact-graph-targets graph))
   (def count (vector-length (compact-graph-names graph)))
@@ -674,6 +694,7 @@
   (def infinity (fx+ (fx* 2 count) 1))
   (def lows (make-u32vector count 0))
   (def pointers (make-u32vector count 0))
+  (def returns #f)
   (def clock 0) (def component 0) (def followers 0)
   (def examined 0) (def finished 0) (def popped 0)
   (def (enter node parent-arc)
@@ -681,13 +702,26 @@
     (u32vector-set! lows node clock)
     (u32vector-set! pointers node parent-arc)
     clock)
+  (def (remember-return! node at)
+    (def slot (fx- at (u32vector-ref offsets node)))
+    (unless returns (set! returns (make-u8vector count 255)))
+    (if (and (u8vector? returns) (fx< slot 255))
+      (u8vector-set! returns node slot)
+      (begin
+        (when (u8vector? returns)
+          (let (wide (make-u32vector count 4294967295))
+            (for (i (in-range count))
+              (let (choice (u8vector-ref returns i))
+                (unless (fx= choice 255) (u32vector-set! wide i choice))))
+            (set! returns wide)))
+        (u32vector-set! returns node slot))))
   (let search ((root 0))
     (cond
       ((fx= root count)
        (unless (and (fx= clock (fx* 2 count)) (fx= finished count)
                     (fx= popped count) (fx= followers 0))
          (error "shared SCC incomplete owner retirement"))
-       (vector pointers count component examined finished popped))
+       (vector pointers count component examined finished popped returns))
       ((not (fx= (u32vector-ref lows root) 0)) (search (fx+ root 1)))
       (else
         (let walk ((node root) (cursor (u32vector-ref offsets root))
@@ -704,8 +738,11 @@
                   (let (child-low (enter dep arc))
                     (walk dep (u32vector-ref offsets dep)
                           (u32vector-ref offsets (fx+ dep 1)) next child-low)))
-                (walk node next end arc
-                  (if (fx< dep-low current-low) (fxior dep-low 1) current-low))))
+                (if (fx< dep-low current-low)
+                  (begin
+                    (when record-return? (remember-return! node cursor))
+                    (walk node next end arc (fxior dep-low 1)))
+                  (walk node next end arc current-low))))
             (let* ((parent-arc (u32vector-ref pointers node))
                    (leader? (fx= (fxand current-low 1) 0)))
               (set! finished (fx+ finished 1))
@@ -719,8 +756,24 @@
                 ;; spanning/quotient check still runs on the original rows.
                 ((and stop-when-done? (fx= current-low 3) (fx= clock (fx* 2 count))
                       (fx= popped 0))
-                 (u32vector-fill! pointers (fx+ count 1))
-                 (vector pointers count 1 examined finished 0))
+                 ;; An active stack that covers the roster with a closing
+                 ;; arc to the root is itself the two-direction certificate.
+                 (let (tour? (and returns (fx= followers 0)
+                                 (certify-active-tour offsets targets pointers root node arc
+                                   (if (u8vector? returns) (u8vector-ref returns node)
+                                     (u32vector-ref returns node)) count)))
+                   ;; Replay only the pending parent relaxations. Parents that
+                   ;; already attained low 3 retain the earlier return arc.
+                   (when (and record-return? (not tour?))
+                     (let unwind ((arc arc) (parent-arc parent-arc))
+                       (unless (fx= arc 0)
+                         (let (parent (if (fx= parent-arc 0) root
+                                        (u32vector-ref targets (fx- parent-arc 1))))
+                           (when (fx> (u32vector-ref lows parent) 3)
+                             (remember-return! parent (fx- arc 1)))
+                           (unwind parent-arc (u32vector-ref pointers parent))))))
+                   (u32vector-fill! pointers (fx+ count 1))
+                   (vector pointers count 1 examined finished 0 (if tour? active-tour-evidence returns))))
                 (else
                   (if leader?
                     (let (label (fx+ (fx+ count 1) component))
@@ -750,8 +803,13 @@
                                        (u32vector-ref targets (fx- parent-arc 1))))
                              (parent-low (u32vector-ref lows parent))
                              (child-low (if leader? infinity current-low)))
-                        (walk parent arc (u32vector-ref offsets (fx+ parent 1)) parent-arc
-                          (if (fx< child-low parent-low) (fxior child-low 1) parent-low))))))))))))))
+                        (if (fx< child-low parent-low)
+                          (begin
+                            (when record-return? (remember-return! parent (fx- arc 1)))
+                            (walk parent arc (u32vector-ref offsets (fx+ parent 1)) parent-arc
+                              (fxior child-low 1)))
+                          (walk parent arc (u32vector-ref offsets (fx+ parent 1)) parent-arc
+                            parent-low))))))))))))))
 
 (def (compact-rank state count node)
   (let (retired (u32vector-ref state node))
@@ -773,9 +831,9 @@
 ;; the N result labels; do not allocate DFS state or replay E captured edges.
 ;; Self loops preserve both bits; any cross-owner cycle clears both bits.
 ;; Counter zeroes mean NO DFS discoveries/finishes/pops or edge visits occurred.
-(def (compact-selected-discover graph)
+(def (compact-selected-discover graph (record-return? #f))
   (def direction (compact-graph-direction graph))
-  (if (fx= direction 0) (compact-discover graph)
+  (if (fx= direction 0) (compact-discover graph #t record-return?)
     (let* ((count (vector-length (compact-graph-names graph)))
            (_ (unless (and (fixnum? (* 2 count)) (<= (* 2 count) 4294967295))
                 (error "compact SCC state word range" count)))
@@ -786,7 +844,7 @@
           (u32vector-set! state node
             (fx+ (fx+ count 1) (if decreasing? node (fx- (fx- count 1) node))))
           (assign (fx+ node 1))))
-      (vector state count count 0 0 0))))
+      (vector state count count 0 0 0 #f))))
 
 (def (compact-discovery-result graph)
   (let (result (compact-selected-discover graph))
@@ -931,7 +989,6 @@
 
 (def (finish-compact-public keys reads index owners validation-owners declared-edges complete retain-inverse?
                             (capture #f))
-  (def result (compact-selected-discover index))
   (def count (vector-length keys))
   (def ordinal? (and capture (> count 1)
     (%ordinal-index-routes-current?) (%gc-scratch-routes-current?)
@@ -941,12 +998,13 @@
       (make-hash-table-symbolic size: count seed: (%graph-table-seed)))))
   (def stock? (and (standard-symbol-table-writes? table)
                    (%standard-symbol-table-lookup? table) (%gc-scratch-routes-current?)))
+  (def result (compact-selected-discover index (and ordinal? stock?)))
   (if (and ordinal? stock?)
     (if (= (vector-ref result 2) 1)
-      (begin
-        (certify-ordinal-whole index (vector-ref result 0))
+      (let (certificate (certify-ordinal-whole index (vector-ref result 0) (vector-ref result 6)))
         (publish-ordinal-whole keys reads (ordinal-capture-buckets capture) table
-          validation-owners declared-edges (u32vector-length (compact-graph-targets index)) result complete))
+          validation-owners declared-edges (u32vector-length (compact-graph-targets index))
+          result complete certificate))
       (finish-ordinal-components keys reads index (ordinal-capture-buckets capture) table
         validation-owners declared-edges result complete))
     (let (state (and stock? (vector-ref result 0)))
@@ -962,9 +1020,22 @@
         table (vector-ref result 1) (vector-ref result 2) (vector-ref result 3)
         (vector-ref result 4) (vector-ref result 5) #f complete retain-inverse? state))))
 
-;; A whole component has no cross-group edge. Certify both spanning walks
-;; independently of discovery using the captured CSR and its transpose.
-(def (certify-ordinal-whole index labels)
+(def (certify-ordinal-whole index labels (choices #f))
+  (def count (vector-length (compact-graph-names index)))
+  (cond
+   ;; Discovery consumes the active links in the independent tour check
+   ;; before overwriting every label with the same whole-component rank.
+   ((eq? choices active-tour-evidence) 'tour)
+   ((and choices
+         (let valid ((node 0))
+           (or (fx= node count)
+               (and (fx= 0 (compact-rank labels count node)) (valid (fx+ node 1)))))
+         (certify-ordinal-return index choices #f (u32vector count) (make-u8vector count 0)))
+    'forest)
+   (else (certify-ordinal-whole-transpose index labels) #f)))
+
+;; Keep the independent transpose check for a missing or rejected witness.
+(def (certify-ordinal-whole-transpose index labels)
   (def keys (compact-graph-names index))
   (def count (vector-length keys))
   (def offsets (compact-graph-offsets index))
@@ -1076,10 +1147,77 @@
       (span rank offsets targets 1)
       (span rank incoming sources 2))))
 
-;; Discovery supplies only the proposed grouping. Check every original edge
-;; and independently cover each group. An internal functional graph needs
-;; only a closed tour. A branching group uses the forward and transpose walks.
-(def (certify-ordinal-components index ranks roots sizes)
+;; Each non-root choice names one real outgoing edge. Mark a chain before
+;; following it, and finalize the chain only after it reaches its group root
+;; or a finalized suffix. A pending mark belongs to the current chain.
+(def (certify-ordinal-return index choices ranks sizes marks)
+  (let/cc reject
+    (def count (vector-length (compact-graph-names index)))
+    (def offsets (compact-graph-offsets index))
+    (def targets (compact-graph-targets index))
+    (def groups (u32vector-length sizes))
+    (def roots (make-u32vector groups count))
+    (def narrow? (u8vector? choices))
+    (def missing (if narrow? 255 4294967295))
+    (def (choice node) (if narrow? (u8vector-ref choices node) (u32vector-ref choices node)))
+    (def (rank node) (if ranks (u32vector-ref ranks node) 0))
+    (u8vector-fill! marks 0)
+    (for (node (in-range count))
+      (def group (rank node))
+      (when (and (fx> (u32vector-ref sizes group) 1) (fx= (choice node) missing))
+        (unless (fx= (u32vector-ref roots group) count) (reject #f))
+        (u32vector-set! roots group node)
+        (u8vector-set! marks node 2)))
+    (for (node (in-range count))
+      (when (and (fx> (u32vector-ref sizes (rank node)) 1) (fx= (u8vector-ref marks node) 0))
+        (let follow ((at node))
+          (case (u8vector-ref marks at)
+            ((0)
+             (let* ((start (u32vector-ref offsets at))
+                    (end (u32vector-ref offsets (fx+ at 1)))
+                    (slot (choice at)))
+               (unless (fx< slot (fx- end start)) (reject #f))
+               (let (target (u32vector-ref targets (fx+ start slot)))
+                 (unless (fx= (rank at) (rank target)) (reject #f))
+                 (u8vector-set! marks at 1)
+                 (follow target))))
+            ((1) (reject #f))
+            (else
+             (let settle ((at node))
+               (when (fx= (u8vector-ref marks at) 1)
+                 (u8vector-set! marks at 2)
+                 (settle (u32vector-ref targets (fx+ (u32vector-ref offsets at) (choice at)))))))))))
+    (def pending (make-u32vector
+      (for/fold (largest 0) (group (in-range groups)) (fxmax largest (u32vector-ref sizes group)))))
+    ;; The forward walk starts at each DFS leader. Group/member queries
+    ;; still use the existing first owner in declaration order.
+    (for (group (in-range groups))
+      (def size (u32vector-ref sizes group))
+      (def root (u32vector-ref roots group))
+      (when (fx> size 1)
+        (unless (fx< root count) (reject #f))
+        (u32vector-set! pending 0 root)
+        (u8vector-set! marks root 3)
+        (let walk ((read 0) (write 1))
+          (if (fx= read write)
+            (unless (fx= write size) (reject #f))
+            (let (node (u32vector-ref pending read))
+              (let row ((at (u32vector-ref offsets node))
+                        (end (u32vector-ref offsets (fx+ node 1))) (write write))
+                (if (fx= at end)
+                  (walk (fx+ read 1) write)
+                  (let (target (u32vector-ref targets at))
+                    (if (and (fx= (rank target) group) (fx= (u8vector-ref marks target) 2))
+                      (begin
+                        (u8vector-set! marks target 3)
+                        (u32vector-set! pending write target)
+                        (row (fx+ at 1) end (fx+ write 1)))
+                      (row (fx+ at 1) end write))))))))))
+    #t))
+
+;; Check every original cross-group edge. An internal functional group
+;; needs only a closed tour. A branching group can use the return choices.
+(def (certify-ordinal-components index ranks roots sizes (choices #f))
   (def keys (compact-graph-names index))
   (def count (vector-length keys))
   (def components (u32vector-length roots))
@@ -1089,6 +1227,7 @@
   (def internal-count 0)
   (def span-edges 0)
   (def singletons 0)
+  (def nontrivial 0)
   (def first-bad #f)
   (def bad-provider #f)
   (for (node (in-range count))
@@ -1128,7 +1267,10 @@
                (and (or (fx= (u32vector-ref sizes rank) 1)
                         (closed-tour? (u32vector-ref roots rank) rank))
                     (certify (fx+ rank 1)))))))
-  (unless tours?
+  (for (rank (in-range components))
+    (when (fx> (u32vector-ref sizes rank) 1) (set! nontrivial (fx+ nontrivial 1))))
+  (def forest? (and (not tours?) choices (certify-ordinal-return index choices ranks sizes marks)))
+  (unless (or tours? forest?)
     (ordinal-spans offsets targets ranks roots sizes marks internal-count))
   ;; Keep the first source-ordered refusal, with spanning before quotient
   ;; failure at the same owner.
@@ -1140,7 +1282,10 @@
       (error "invalid SCC quotient certificate" (vector-ref keys node) (vector-ref keys bad-provider))))
   (def spanned (fx- count singletons))
   (values (if tours? spanned (fx* 2 spanned))
-    (if tours? spanned (fx+ span-edges internal-count)) singletons (if tours? 0 internal-count)))
+    (cond (tours? spanned)
+          (forest? (fx+ span-edges (fx- spanned nontrivial)))
+          (else (fx+ span-edges internal-count)))
+    singletons (if (or tours? forest?) 0 internal-count)))
 
 (def (finish-ordinal-components keys reads index buckets owners validation-owners declared-edges result complete)
   (def count (vector-length keys))
@@ -1162,7 +1307,7 @@
     (u32vector-set! sizes rank (fx+ size 1)))
   (unless (fx= represented components) (error "empty compact SCC rank"))
   (defvalues (span-buckets span-edges singletons reverse-count)
-    (certify-ordinal-components index ranks roots sizes))
+    (certify-ordinal-components index ranks roots sizes (vector-ref result 6)))
   (def find-owner (ordinal-owner-reader keys buckets owners #f
     (lambda (node) (vector-ref keys (u32vector-ref roots (u32vector-ref ranks node))))))
   (def members (make-hash-table-eq))
@@ -1219,7 +1364,7 @@
                 (set! pending? #f))))))
       (if optional? (hash-get table key) (hash-ref table key))))))
 
-(def (publish-ordinal-whole keys reads buckets owners validation-owners declared-edges edges result complete)
+(def (publish-ordinal-whole keys reads buckets owners validation-owners declared-edges edges result complete certificate)
   (def count (vector-length keys))
   (def root (vector-ref keys 0))
   (def find-owner (ordinal-owner-reader keys buckets owners root))
@@ -1248,8 +1393,10 @@
   (complete
     (make-%partition groups (cut find-owner <>) (cut reads <>) member
       (work-receipt validation-owners declared-edges count (vector-ref result 3)
-        (vector-ref result 4) (vector-ref result 5) count 1 (* 2 count) (* 2 edges) edges
-        0 edges 0 0) find-owner #f)))
+        (vector-ref result 4) (vector-ref result 5) count 1
+        (if (eq? certificate 'tour) count (* 2 count))
+        (case certificate ((tour) count) ((forest) (+ edges (1- count))) (else (* 2 edges)))
+        edges 0 (if certificate 0 edges) 0 0) find-owner #f)))
 
 (def (ordinal-component-members keys buckets table ranks roots sizes)
   (def count (vector-length keys))

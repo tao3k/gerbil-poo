@@ -30,10 +30,18 @@ package GraphForwardRows {
                lend the arrays to discovery and independent certification. */
     }
     requirement def WholeComponentOrdinalCertificate {
-        doc /* Check both directions from the first owner on the captured
-               edges and their transpose. A single certified group borrows
+        doc /* Check both directions against the captured edges. A single
+               certified group borrows
                the roster for owner queries and source-ordered membership.
                Strict misses preserve the symbolic table error contract. */
+    }
+    requirement def ReturnEdgeCertificate {
+        doc /* Preserve the last decreasing low-link edge through retirement.
+               During bulk retirement, check a closed active tour or finish
+               missing choices from child to parent. Independently check
+               original edge membership, return chains and forward coverage.
+               Missing or rejected choices use the same source-ordered refusal
+               as the transpose check. */
     }
     requirement def OrdinalComponentCertificate {
         doc /* Check every cross-group edge against decreasing discovery

@@ -31,16 +31,20 @@ for discovery and independent certification. Public slot reads still
 return symbolic rows in declaration order. Repeated targets follow ordinary
 normalization and remain visible in the raw `.code` row.
 
-For packed declared rows that form one SCC, the certificate walks the
-original edges and their transpose using owner ordinals. The first owner
-remains the representative. Member lists are built on demand in source
-order, and a strict miss still uses the original owner-table error contract.
-For multiple SCCs, the capture keeps discovery ranks in the same array.
-The certificate checks each cross-group edge against these ranks and checks
-reachability in both directions within each group. When each nontrivial group
-has one internal successor per member, closed tours certify both directions.
-Graphs with branching groups use the forward rows and a compact transpose
-of internal edges.
+For packed declared rows, discovery records the outgoing edge used at each
+owner's last low-link decrease. Bulk retirement completes pending parent
+choices along the active DFS path. If that path covers the roster and closes
+at the root, the checker can certify the tour directly from the original
+edges before retiring the stack. Otherwise it checks the return choices,
+verifies that every chain reaches its group root, and covers each group from
+that root on the original forward edges. The transpose check handles missing
+or rejected choices and preserves source-ordered errors. A closed tour also
+certifies a group with one internal successor per member.
+
+Cross-group edges must descend in discovery rank. Public group roots are
+the first owners in source order, regardless of where DFS entered a group.
+Member lists are built on demand in source order, and a strict miss uses
+the original owner-table error contract.
 
 `feedback-graph-action` is an ordinary FUN Reader from an old graph cache (or
 `#f`) to an accepted graph cache. It freezes code/base identities, discovers SCCs,

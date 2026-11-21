@@ -520,7 +520,8 @@
           (check-exception (kernel '(a b) (lambda (_) bad) #f) error-object?)))))
 
 (extern namespace: clan/poo/read-route %gc-scratch-routes-current? %standard-symbol-table-lookup?)
-(extern namespace: clan/poo/strong-components certify-ordinal-whole certify-ordinal-components)
+(extern namespace: clan/poo/strong-components
+  certify-active-tour certify-ordinal-whole certify-ordinal-components certify-ordinal-return)
 
 (def (check-graph-projection)
     (test-case "multi-SCC ordinal queries retain source order and exposed owner mutations"
@@ -536,7 +537,7 @@
       (check-equal? (membership-observation part (vector->list keys))
         (membership-observation ordinary (vector->list keys)))
       (check-equal? ((scc.partition-reads part) 'b) '(a z))
-      (check-equal? (.get (scc.partition-work part) reverse-edges) 5)
+      (check-equal? (.get (scc.partition-work part) reverse-edges) 0)
       (def first (scc.partition-members part 'b))
       (check-equal? (scc.partition-groups part) '((b a) (z x) (q)))
       (check-eq? (car (scc.partition-groups part)) first)
@@ -563,8 +564,40 @@
         (certificate-error "invalid SCC quotient certificate" '(b c)))
       (check-exception
         (certify-ordinal-components (make-compact-graph keys #f offsets '#u32(1 1 2 3 2) 0)
-          '#u32(1 1 0 0) '#u32(2 0) '#u32(2 2))
+          '#u32(1 1 0 0) '#u32(2 0) '#u32(2 2) '#u8(255 0 255 0))
         (certificate-error "invalid SCC spanning certificate" '(b))))
+    (test-case "return verifier checks decoded edges, one root and forward coverage"
+      (def (certify rows targets choices)
+        (certify-ordinal-return (make-compact-graph '#(a b c) #f rows targets 0)
+          choices #f '#u32(3) (make-u8vector 3 0)))
+      (check (certify '#u32(0 1 2 3) '#u32(1 2 0) '#u8(255 0 0)) => #t)
+      (check (certify '#u32(0 1 2 3) '#u32(1 2 0) '#u32(4294967295 0 0)) => #t)
+      (check (certify '#u32(0 1 2 3) '#u32(1 2 1) '#u8(255 0 0)) => #f)
+      (check (certify '#u32(0 1 2 3) '#u32(1 2 0) '#u8(255 1 0)) => #f)
+      (check (certify '#u32(0 1 2 3) '#u32(1 2 0) '#u8(255 255 0)) => #f)
+      (check (certify '#u32(0 1 2 3) '#u32(0 0 1) '#u8(255 0 0)) => #f))
+    (test-case "wide return choices keep the source representative when discovery starts elsewhere"
+      (def keys (names 259))
+      (def offsets (make-u32vector 260 260))
+      (def targets (make-u32vector 260 0))
+      ;; The first owner reaches the second group's DFS leader, ordinal 2.
+      ;; A self edge makes that group branching. Its rootward edge from
+      ;; ordinal 1 follows 256 already-retired singleton neighbors.
+      (u32vector-set! offsets 0 0)
+      (u32vector-set! offsets 1 1)
+      (u32vector-set! offsets 2 258)
+      (u32vector-set! targets 0 2)
+      (for (i (in-range 256)) (u32vector-set! targets (fx+ i 1) (fx+ i 3)))
+      (u32vector-set! targets 257 2)
+      (u32vector-set! targets 258 1)
+      (u32vector-set! targets 259 2)
+      (def part (scc.partition (graph.declaration/rows keys offsets values targets: targets)))
+      (def first (vector-ref keys 1))
+      (def leader (vector-ref keys 2))
+      (check-eq? ((scc.partition-owner part) leader) first)
+      (check-equal? (scc.partition-members part first) (list first leader))
+      (check-equal? (.get (scc.partition-work part) reverse-edges) 0)
+      (check-equal? (.get (scc.partition-work part) member-pops) 259))
     (test-case "whole ordinal component preserves point queries and exposed owner table"
       (def keys '#(c a b))
       (def declared-rows '#((a b) (b) (c)))
@@ -577,7 +610,10 @@
         (membership-observation ordinary '(c a b)))
       (check (scc.partition-group-size result 'missing) => #f)
       (check-equal? ((scc.partition-reads result) 'c) '(a b))
-      (check-equal? (.alist/sort (scc.partition-work result)) (.alist/sort (scc.partition-work ordinary)))
+      (def work (scc.partition-work result))
+      (check-equal? (.get work bulk-retired) 3)
+      (check-equal? (.get work reverse-edges) 0)
+      (check-equal? (.get work certificate-edges) 3)
       (def group (scc.partition-members result 'c))
       (check-eq? (car (scc.partition-groups result)) group)
       (check (scc.partition-members result 'a) => #f)
@@ -591,6 +627,22 @@
       (check-eq? (owner 'b) 'a)
       (check (scc.partition-group-of result 'b) => #f)
       (check-eq? (scc.partition-group-of result 'a) group))
+    (test-case "active DFS tour rejects missing or forged parent links"
+      (def offsets '#u32(0 1 2 3))
+      (def targets '#u32(1 2 0))
+      (check (certify-active-tour offsets targets '#u32(0 0 1) 0 2 2 0 3) => #t)
+      (check (certify-active-tour offsets targets '#u32(0 0 0) 0 2 2 0 3) => #f)
+      (check (certify-active-tour offsets targets '#u32(0 0 2) 0 2 2 0 3) => #f)
+      (check (certify-active-tour offsets targets '#u32(0 0 1) 0 2 2 1 3) => #f))
+    (test-case "bulk retirement keeps completed followers when the active chain is only a prefix"
+      (def part (scc.partition (graph.declaration/rows '#(a b c d) '#u32(0 2 3 4 5) values
+        targets: '#u32(1 2 0 3 0))))
+      (def work (scc.partition-work part))
+      (check-equal? (scc.partition-groups part) '((a b c d)))
+      (check-equal? (.get work bulk-retired) 4)
+      (check-equal? (.get work finishes) 2)
+      (check-equal? (.get work certificate-buckets) 8)
+      (check-equal? (.get work reverse-edges) 0))
     (test-case "whole ordinal certificate rejects either missing spanning direction"
       (for (targets '(#u32(1 2 2) #u32(0 0 1)))
         (check-exception
