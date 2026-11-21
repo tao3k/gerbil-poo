@@ -23,6 +23,11 @@ SCC capture can read those lists directly, while `.code` materializes a
 Computation on demand. An observer, a cloned declaration, or an invalidated
 generation uses the ordinary `.code` and `reads` path.
 
+For packed declared rows that form one SCC, the certificate walks the
+original edges and their transpose using owner ordinals. The first owner
+remains the representative. Member lists are built on demand in source
+order, and a strict miss still uses the original owner-table error contract.
+
 `feedback-graph-action` is an ordinary FUN Reader from an old graph cache (or
 `#f`) to an accepted graph cache. It freezes code/base identities, discovers SCCs,
 condenses external reads to group representatives, and uses the existing checked

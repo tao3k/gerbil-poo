@@ -481,8 +481,43 @@
           (check-exception (kernel '(a b) (lambda (_) bad) #f) error-object?)))))
 
 (extern namespace: clan/poo/read-route %gc-scratch-routes-current? %standard-symbol-table-lookup?)
+(extern namespace: clan/poo/strong-components certify-ordinal-whole)
 
 (def (check-graph-projection)
+    (test-case "whole ordinal component preserves point queries and exposed owner table"
+      (def keys '#(c a b))
+      (def declared-rows '#((a b) (b) (c)))
+      (defvalues (reads index declared edges)
+        (capture-graph keys #f #t 4294967295 'adjacent #f #t declared-rows))
+      (def result (partition-captured keys reads edges 3 declared index #f values #f #t))
+      (def ordinary (scc.partition (source keys declared-rows)))
+      (check (procedure? (%partition-members result)) => #t)
+      (check-equal? (membership-observation result '(c a b))
+        (membership-observation ordinary '(c a b)))
+      (check (scc.partition-group-size result 'missing) => #f)
+      (check-equal? ((scc.partition-reads result) 'c) '(a b))
+      (check-equal? (.alist/sort (scc.partition-work result)) (.alist/sort (scc.partition-work ordinary)))
+      (def group (scc.partition-members result 'c))
+      (check-eq? (car (scc.partition-groups result)) group)
+      (check (scc.partition-members result 'a) => #f)
+      (def owner (scc.partition-owner result))
+      (def owners (with-catch
+        (lambda (failure)
+          (if (UnboundKeyError? failure) (cadr (memq hash: (Error-irritants failure))) (raise failure)))
+        (lambda () (owner 'missing))))
+      (check-eq? (hash-ref owners 'b) 'c)
+      (hash-put! owners 'b 'a)
+      (check-eq? (owner 'b) 'a)
+      (check (scc.partition-group-of result 'b) => #f)
+      (check-eq? (scc.partition-group-of result 'a) group))
+    (test-case "whole ordinal certificate rejects either missing spanning direction"
+      (for (targets '(#u32(1 2 2) #u32(0 0 1)))
+        (check-exception
+          (certify-ordinal-whole
+            (make-compact-graph '#(a b c) #f '#u32(0 1 2 3) targets 0) '#u32(4 4 4))
+          (lambda (cause)
+            (and (Error? cause) (equal? (Error-message cause) "invalid SCC spanning certificate")
+                 (equal? (Error-irritants cause) '(b)))))))
     (test-case "packed rank normalization preserves public owner and group identities"
       (def names (vector 'c 'b 'a 'd))
       (def (row key)

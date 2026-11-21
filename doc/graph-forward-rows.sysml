@@ -23,6 +23,12 @@ package GraphForwardRows {
                row to SCC validation. Public reads and refusals own their
                spines. Other receivers and observed reads use .code. */
     }
+    requirement def WholeComponentOrdinalCertificate {
+        doc /* Check both directions from the first owner on the captured
+               edges and their transpose. A single certified group borrows
+               the roster for owner queries and source-ordered membership.
+               Strict misses preserve the symbolic table error contract. */
+    }
     requirement def PersistentPatch {
         doc /* Absent patch falls through; a present empty patch or a retirement
                tombstone masks the cold base. A fork cannot change its predecessor. */

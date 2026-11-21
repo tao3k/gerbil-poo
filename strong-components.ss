@@ -529,7 +529,7 @@
              (decode (cut compact-symbolic-row keys offsets targets <>)))
         ;; Singleton certification reads the packed edges. Its existing
         ;; row projection allocates symbolic storage at first demand.
-        (if (zero? direction)
+        (if (and (zero? direction) (not declared-rows))
           (let (rows (make-vector count #f))
             (for (owner (in-range count))
               (vector-set! rows owner (decode owner)))
@@ -880,12 +880,13 @@
             (own-partition keys reads positions direction part inverse cycle?)))
         values))
     (partition-captured keys reads captured-edges (capture-roster-length keys)
-      declared-edges index owned? complete owned?)))
+      declared-edges index owned? complete owned? (and declared-rows #t))))
 
 ;; Compute SCCs from KEYS and validated READS. VALIDATION-OWNERS and
 ;; DECLARED-EDGES report the work already spent capturing those rows.
 (def (partition-captured keys reads captured-edges validation-owners declared-edges
-                         (index #f) (owned? #f) (complete values) (retain-inverse? #f))
+                         (index #f) (owned? #f) (complete values) (retain-inverse? #f)
+                         (declared? #f))
   (if (and (not owned?) index (vector? keys) (eq? keys (compact-graph-names index)))
     (let* ((count (vector-length keys))
            (capture (compact-graph-positions index))
@@ -908,28 +909,99 @@
               (finish-compact-public keys reads index owners validation-owners declared-edges
                 complete retain-inverse?))))
         (finish-compact-public keys reads index #f validation-owners declared-edges
-          complete retain-inverse?)))
+          complete retain-inverse? (and declared? (not retain-inverse?) (ordinal-capture? capture) capture))))
     (let-values (((owners next component examined-edges finished popped) (discover keys reads captured-edges index)))
       ;; Normalization and certification do not retain packed capture buffers.
       (finish-partition keys reads validation-owners declared-edges
         owners next component examined-edges finished popped owned? complete retain-inverse?))))
 
-(def (finish-compact-public keys reads index owners validation-owners declared-edges complete retain-inverse?)
+(def (finish-compact-public keys reads index owners validation-owners declared-edges complete retain-inverse?
+                            (capture #f))
   (def result (compact-selected-discover index))
   (def count (vector-length keys))
-  (def table (or owners (make-hash-table-symbolic size: count seed: (%graph-table-seed))))
-  (def state (and (standard-symbol-table-writes? table)
-                  (%standard-symbol-table-lookup? table)
-                  (%gc-scratch-routes-current?)
-                  (vector-ref result 0)))
-  ;; A public miss exposes the owner table through Gerbil's error. Keep the
-  ;; same table and seed across normalization, certification and publication.
-  (if state
-    (for (node (in-range count)) (compact-rank state count node))
-    (compact-component-owners index result table))
-  (finish-partition keys reads validation-owners declared-edges
-    table (vector-ref result 1) (vector-ref result 2) (vector-ref result 3)
-    (vector-ref result 4) (vector-ref result 5) #f complete retain-inverse? state))
+  (def ordinal? (and capture (> count 1) (= (vector-ref result 2) 1)
+    (%ordinal-index-routes-current?) (%gc-scratch-routes-current?)
+    (gc-table-route-current? (ordinal-capture-adapter capture))))
+  (def table (or owners
+    (if ordinal? (make-hash-table-symbolic seed: (%graph-table-seed))
+      (make-hash-table-symbolic size: count seed: (%graph-table-seed)))))
+  (def stock? (and (standard-symbol-table-writes? table)
+                   (%standard-symbol-table-lookup? table) (%gc-scratch-routes-current?)))
+  (if (and ordinal? stock?)
+    (begin
+      (certify-ordinal-whole index (vector-ref result 0))
+      (publish-ordinal-whole keys reads (ordinal-capture-buckets capture) table
+        validation-owners declared-edges (u32vector-length (compact-graph-targets index)) result complete))
+    (let (state (and stock? (vector-ref result 0)))
+      ;; A public miss exposes the owner table through Gerbil's error.
+      (when ordinal?
+        (let (backend (interface-instance-object table))
+          (unless (symbol-hash-table? backend) (error "compact owner index representation"))
+          (install-owner-storage! backend (raw-table-new backend count))))
+      (if state
+        (for (node (in-range count)) (compact-rank state count node))
+        (compact-component-owners index result table))
+      (finish-partition keys reads validation-owners declared-edges
+        table (vector-ref result 1) (vector-ref result 2) (vector-ref result 3)
+        (vector-ref result 4) (vector-ref result 5) #f complete retain-inverse? state))))
+
+;; A whole component has no cross-group edge. Certify both spanning walks
+;; independently of discovery using the captured CSR and its transpose.
+(def (certify-ordinal-whole index labels)
+  (def keys (compact-graph-names index))
+  (def count (vector-length keys))
+  (def offsets (compact-graph-offsets index))
+  (def targets (compact-graph-targets index))
+  (def incoming (make-u32vector (fx+ count 1) 0))
+  (for (node (in-range count))
+    (unless (fx= 0 (compact-rank labels count node))
+      (error "invalid whole SCC label" (vector-ref keys node))))
+  ;; Count into the start cells. After prefix summing, each cell holds an
+  ;; exclusive end. Filling backwards moves it to the final start.
+  (def edge-count (u32vector-length targets))
+  (for (at (in-range edge-count))
+    (def target (u32vector-ref targets at))
+    (u32vector-set! incoming target (fx+ 1 (u32vector-ref incoming target))))
+  (let prefix ((node 0) (end 0))
+    (if (fx= node count)
+      (u32vector-set! incoming count end)
+      (let (next (fx+ end (u32vector-ref incoming node)))
+        (u32vector-set! incoming node next)
+        (prefix (fx+ node 1) next))))
+  (def sources (make-u32vector edge-count))
+  (let fill ((node (fx- count 1)))
+    (unless (fx< node 0)
+      (let row ((at (u32vector-ref offsets node)) (end (u32vector-ref offsets (fx+ node 1))))
+        (when (fx< at end)
+          (let* ((target (u32vector-ref targets at)) (dst (fx- (u32vector-ref incoming target) 1)))
+            (u32vector-set! incoming target dst)
+            (u32vector-set! sources dst node)
+            (row (fx+ at 1) end))))
+      (fill (fx- node 1))))
+  (def marks (make-u8vector count 0))
+  (def pending (make-u32vector count))
+  (def (span starts ends flag)
+    (u32vector-set! pending 0 0)
+    (u8vector-set! marks 0 (fxior (u8vector-ref marks 0) flag))
+    (let visit ((read 0) (end 1))
+      (unless (fx= read end)
+        (let (node (u32vector-ref pending read))
+          (let row ((at (u32vector-ref starts node))
+                    (last (u32vector-ref starts (fx+ node 1))) (next end))
+            (if (fx= at last)
+              (visit (fx+ read 1) next)
+              (let* ((dep (u32vector-ref ends at)) (seen (u8vector-ref marks dep)))
+                (if (fx= (fxand seen flag) 0)
+                  (begin
+                    (u8vector-set! marks dep (fxior seen flag))
+                    (u32vector-set! pending next dep)
+                    (row (fx+ at 1) last (fx+ next 1)))
+                  (row (fx+ at 1) last next)))))))))
+  (span offsets targets 1)
+  (span incoming sources 2)
+  (for (node (in-range count))
+    (unless (fx= (u8vector-ref marks node) 3)
+      (error "invalid SCC spanning certificate" (vector-ref keys node)))))
 
 (def (certify-ordinal-singletons index)
   ;; Direction selects a proposed ranking. Check the independently captured
@@ -952,7 +1024,7 @@
   (&raw-table-count-set! backend (&raw-table-count prepared))
   (&raw-table-free-set! backend (&raw-table-free prepared)))
 
-(def (ordinal-owner-reader keys buckets table)
+(def (ordinal-owner-reader keys buckets table (representative #f))
   (def backend (interface-instance-object table))
   (def pending? #t)
   (def retirement (make-mutex 'partition-owners))
@@ -960,7 +1032,7 @@
     (def stock? (and pending? (%standard-symbol-table-lookup? table)))
     (def ordinal (and stock? (symbol? key) (%ordinal-bucket-ref buckets key)))
     (cond
-     (ordinal (vector-ref keys ordinal))
+     (ordinal (or representative key))
      ((and stock? optional?) #f)
      (else
       ;; A strict miss can expose the table. Populate the original adapter
@@ -970,10 +1042,43 @@
           (lambda ()
             (when pending?
               (let (prepared (raw-table-new backend (vector-length keys)))
-                (for (owner (in-vector keys)) (symbolic-table-set! prepared owner owner))
+                (for (owner (in-vector keys))
+                  (symbolic-table-set! prepared owner (or representative owner)))
                 (install-owner-storage! backend prepared)
                 (set! pending? #f))))))
       (if optional? (hash-get table key) (hash-ref table key))))))
+
+(def (publish-ordinal-whole keys reads buckets owners validation-owners declared-edges edges result complete)
+  (def count (vector-length keys))
+  (def root (vector-ref keys 0))
+  (def find-owner (ordinal-owner-reader keys buckets owners root))
+  (def members (make-hash-table-eq))
+  (def backend (interface-instance-object members))
+  (def lock (make-mutex 'partition-members))
+  (def ordered #f)
+  (def pending? #t)
+  (def (ordered!)
+    (unless ordered (set! ordered (list (vector->list keys))))
+    ordered)
+  (def (groups)
+    (or ordered (with-lock lock ordered!)))
+  (def (member key size?)
+    (if (and pending? (eq? backend (%gc-table-route-backend members)))
+      (and (eq? key root) (if size? count (car (groups))))
+      (begin
+        (when pending?
+          (with-lock lock
+            (lambda ()
+              (when pending?
+                (gc-table-set! backend root (cons count (car (ordered!))))
+                (set! pending? #f)))))
+        (let (entry (hash-get members key))
+          (and entry (if size? (car entry) (cdr entry)))))))
+  (complete
+    (make-%partition groups (cut find-owner <>) (cut reads <>) member
+      (work-receipt validation-owners declared-edges count (vector-ref result 3)
+        (vector-ref result 4) (vector-ref result 5) count 1 (* 2 count) (* 2 edges) edges
+        0 edges 0 0) find-owner #f)))
 
 (def (ordinal-singleton-members keys buckets table)
   (def backend (interface-instance-object table))
