@@ -80,11 +80,14 @@
   (def names (%borrow-owned-list roster))
   (unless (= (length names) (vector-length rows))
     (error "one dependency row per component owner required"))
-  (def entries (vector-map
-    (lambda (row)
+  ;; Gambit's vector-map retains a frame per element. Fill the owned vector
+  ;; in source order so admission uses bounded stack at graph scale.
+  (def entries (make-vector (vector-length rows)))
+  (for ((row (in-vector rows)) (i (in-range (vector-length rows))))
+    (vector-set! entries i
       (cond ((not row) #f)
             ((list? row) (list-copy row))
-            (else (error "dependency row must be a finite list" row)))) rows))
+            (else (error "dependency row must be a finite list" row)))))
   (def bases (table base))
   (def positions (delay
     (let (positions (make-hash-table-symbolic size: (vector-length entries) seed: (%graph-table-seed)))

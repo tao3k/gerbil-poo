@@ -27,13 +27,16 @@
   (test-suite "automatic SCC revision and joint service approval"
     (test-case "sealed cold partition agrees with the public source view"
       (def names '(provider reader isolated))
+      (def reader (code.need 'provider identity))
+      (def bases [(cons 'provider (some (code.make-success 0)))
+                  (cons 'isolated (some (code.make-success 0)))])
       (def source (graph.declaration names
-        [(cons 'reader (code.need 'provider identity))]
-        [(cons 'provider (some (code.make-success 0)))
-         (cons 'isolated (some (code.make-success 0)))]))
+        [(cons 'reader reader)] bases))
+      (def declared (graph.declaration/rows names '#(#f (provider) #f)
+        (lambda (_ provider) (.call reader .evaluate provider)) bases))
       (def build (component-group-builder names (lambda (_) (.lens)) 0 0 8))
       (def (accept _ __) #t)
-      (defvalues (stock stock-failure) (publish-owned-feedback-graph source build accept))
+      (defvalues (stock stock-failure) (publish-owned-feedback-graph declared build accept))
       (defvalues (public public-failure)
         (publish-owned-feedback-graph source build accept builder: (.cc cache.Builder.)))
       (check-eq? stock-failure #f)
