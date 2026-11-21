@@ -40,6 +40,22 @@ The MOP also accepts receiver-slot declarations such as
 `(.defgeneric (label widget) slot: .label)`. A generic with a separate
 lambda list uses CLOS method selection and combination.
 
+Gerbil's `:gerbil/runtime/c3` provides `c4-linearize*`. Both method systems
+can dispatch on that prototype order. CLOS-like rank and depth queries
+use it immediately. The Appendix B
+prototype helper maps symbolic keys over a snapshot. Appendix B also accepts
+caller-defined precedence.
+[C4 query proof](https://github.com/tao3k/lean-poo/blob/41a1b58371cfa8b749457a0ad4e75ef17b4a4c33/LeanPoo/Object/ClosAdmission/PrototypePrecedence.lean#L45-L54).
+
+| Stage | Appendix B | CLOS-like |
+| --- | --- | --- |
+| Applicability and order | Sparse symbolic paths and live predicate guards | Class, prototype and `eql` specializers with argument precedence and MOP hooks |
+| Standard combination | Qualifier bodies and fixed-argument next thunks | Invocation frames, checked replacement arguments and CLOS missing-method hooks |
+
+Appendix B forwarding can replace a payload while retaining the selected
+methods. CLOS replacement arguments must preserve the applicable method
+sequence.
+
 Declare slot keywords with `initarg` in `.defclass`. The slots and methods
 applicable to the current lifecycle operation determine which keywords it
 accepts. The default initialization, reinitialization, and class-update

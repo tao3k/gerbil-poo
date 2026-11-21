@@ -33,7 +33,7 @@
 (extern namespace: clan/poo/clos/funcs clos-distances-before?)
 (extern namespace: clan/poo/clos/types %carrier-declarations-current?)
 (extern namespace: clan/poo/slot-observation %call-with-private-slot-read-prefix)
-(extern namespace: clan/poo/object %ref-owned-list %prepared-vector-slot-ref
+(extern namespace: clan/poo/object %ref-owned-list %prepared-vector-slot-ref compute-object-precedence!
         object-construction-current? %call-with-fresh-slot-read-group)
 (extern namespace: clan/poo/read-projection %owned-private-registration?)
 (extern namespace: clan/poo/slot-layout %fresh-vector-seeds-available? %advance-fresh-vector-seeds!)
@@ -48,12 +48,11 @@
   (let (tail (memq target values))
     (and tail (- (length values) (length tail)))))
 
-;; The canonical C4 list is borrowed only for an immediate scalar query.
-;; Cold arguments still go through the public preparation and hook boundary.
+;; Read the canonical C4 order only for the duration of this scalar query.
 (def (prototype-precedence-position target argument)
   (identity-index target
     (or (object-%precedence-list argument)
-        (compute-precedence-list! argument))))
+        (compute-object-precedence! argument))))
 
 ;; : (-> SchemeValue Boolean)
 (def (clos-instance-state-bearing? value)
@@ -85,7 +84,7 @@
            (length (if argument-class
                      (clos-class-precedence-list argument-class)
                      (or (object-%precedence-list argument)
-                         (compute-precedence-list! argument)))))
+                         (compute-object-precedence! argument)))))
          0)))
 
 ;;; Eql ranks before every class; a class rank is its runtime C4 distance; the

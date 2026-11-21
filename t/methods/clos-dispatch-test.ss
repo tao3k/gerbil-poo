@@ -723,6 +723,29 @@
                         qualifier: (.ref method 'qualifier)
                         lambda-list: (.ref method 'lambda-list))))))))))
 
+    (test-case "cold prototype applicability preserves C4 hook refusal"
+      (def argument (.o (:: @ animal-class)))
+      (def hook-calls 0)
+      (def refuse? #t)
+      (object-protocol-set! argument
+        (.o (compute-precedence-list
+             (lambda (_ next)
+               (set! hook-calls (1+ hook-calls))
+               (when refuse? (raise 'ancestry-refused))
+               (next)))))
+      (def generic (clos-generic-function 'cold-ancestry 1))
+      (clos-add-method generic (primary-method 'fallback [any-specializer] 'fallback))
+      (clos-add-method generic
+        (primary-method 'specific [(clos-prototype-specializer animal-class)] 'specific))
+      (def (applicable)
+        (map (cut .ref <> 'identity) (clos-compute-applicable-methods generic argument)))
+      (check-exception (applicable) (cut eq? <> 'ancestry-refused))
+      (check-equal? hook-calls 1)
+      (set! refuse? #f)
+      (check-equal? (applicable) '(specific fallback))
+      (check-equal? (applicable) '(specific fallback))
+      (check-equal? hook-calls 2))
+
     (test-case "wide prototype ranking follows replacement and parent invalidation"
       (def root (.o))
       (def parent (.o (:: @ root)))
