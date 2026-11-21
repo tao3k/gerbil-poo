@@ -23,6 +23,14 @@ SCC capture can read those lists directly, while `.code` materializes a
 Computation on demand. An observer, a cloned declaration, or an invalidated
 generation uses the ordinary `.code` and `reads` path.
 
+A producer that already assigns owner ordinals can pass an owner vector,
+a u32 row-offset vector, and `targets: targets` to `graph.declaration/rows`.
+Offsets delimit rows of owner ordinals in the u32 target vector. Admission
+owns all three arrays. An unobserved partition borrows the admitted arrays
+for discovery and independent certification. Public slot reads still
+return symbolic rows in declaration order. Repeated targets follow ordinary
+normalization and remain visible in the raw `.code` row.
+
 For packed declared rows that form one SCC, the certificate walks the
 original edges and their transpose using owner ordinals. The first owner
 remains the representative. Member lists are built on demand in source

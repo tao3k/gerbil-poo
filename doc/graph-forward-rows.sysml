@@ -23,6 +23,12 @@ package GraphForwardRows {
                row to SCC validation. Public reads and refusals own their
                spines. Other receivers and observed reads use .code. */
     }
+    requirement def PackedDeclarationAdmission {
+        doc /* Own the roster and CSR at admission. Admit the roster before
+               checking offsets and targets in owner order. Only the issuing
+               current declaration under the stock unobserved route may
+               lend the arrays to discovery and independent certification. */
+    }
     requirement def WholeComponentOrdinalCertificate {
         doc /* Check both directions from the first owner on the captured
                edges and their transpose. A single certified group borrows

@@ -27,7 +27,9 @@
         ./object)
 (extern namespace: clan/poo/read-route %ordinal-index-routes-current?
   %standard-symbol-table-lookup? %gc-scratch-routes-current? %gc-table-route-backend)
-(extern namespace: clan/poo/generalized-graph %declared-row-source)
+(extern namespace: clan/poo/generalized-graph %declared-row-source %decode-ordinal-row
+  %packed-rows? %packed-rows-names %packed-rows-buckets %packed-rows-offsets
+  %packed-rows-targets %packed-rows-direction)
 (extern namespace: clan/poo/object %ref-owned-list)
 ;; Public groups/representatives retain source order, independently of DFS order.
 (defstruct %partition (groups owner reads members work owners owned) final: #t)
@@ -264,13 +266,6 @@
                           row)))
                    (else (vector-ref rows i))))))))
         (lookup key empty-default?))))
-
-(def (compact-symbolic-row keys offsets targets owner)
-  (def lo (u32vector-ref offsets owner))
-  (let decode ((hi (u32vector-ref offsets (fx+ owner 1))) (row []))
-    (if (fx= hi lo) row
-      (let (at (fx- hi 1))
-        (decode at (cons (vector-ref keys (u32vector-ref targets at)) row))))))
 
 (def (capture-graph keys read-owner (symbolic-rows? #t) (edge-word-ceiling 4294967295)
                     (ordered-rows? 'adjacent) (stable-rows? #f) (compact-rows? #f) (declared-rows #f))
@@ -526,7 +521,7 @@
   (def published
     (if deferred-rows?
       (let* ((targets (compact-graph-targets index))
-             (decode (cut compact-symbolic-row keys offsets targets <>)))
+             (decode (cut %decode-ordinal-row keys offsets targets <>)))
         ;; Singleton certification reads the packed edges. Its existing
         ;; row projection allocates symbolic storage at first demand.
         (if (and (zero? direction) (not declared-rows))
@@ -840,20 +835,39 @@
 
 (def (partition spec) (capture-partition spec #f))
 (def (partition-owned spec) (capture-partition spec #t))
+
+(def (partition-admitted-rows source)
+  (def table (make-hash-table-eq))
+  (and (gc-table-route-current? table)
+    (let* ((keys (%packed-rows-names source))
+           (buckets (%packed-rows-buckets source))
+           (offsets (%packed-rows-offsets source))
+           (targets (%packed-rows-targets source))
+           (edges (u32vector-length targets))
+           (index (make-compact-graph keys (make-ordinal-capture buckets table)
+                    offsets targets (%packed-rows-direction source)))
+           (reads (ordinal-row-reader keys buckets table (interface-instance-object table)
+                    #t (cut %decode-ordinal-row keys offsets targets <>))))
+      ;; Discovery and the independent certificate both run on the borrowed
+      ;; arrays. No author getter or structural capture is repeated.
+      (partition-captured keys reads edges (vector-length keys) edges index #f values #f #t))))
+
 (def (capture-partition spec owned?)
-  (def source (%declared-row-source spec))
-  ;; Capture takes its own roster snapshot. Borrow from the sealed declaration
-  ;; for that copy only, through the same POO slot demand and observation.
-  (def keys (if source (%ref-owned-list spec 'keys) (.@ spec keys)))
-  (def declared (and source (eq? source (%declared-row-source spec)) source))
-  (def result
-    (capture-partition-rows keys
-      (lambda (key)
-        (let (code (.call spec .code key)) (if code (.@ code reads) [])))
-      owned? declared))
-  (when (and declared (not (eq? declared (%declared-row-source spec))))
-    (error "declared graph source changed during capture"))
-  result)
+  (def publication (%declared-row-source spec))
+  (def (finish source part)
+    (when (and source (not (eq? source (%declared-row-source spec))))
+      (error "declared graph source changed during capture"))
+    part)
+  (def packed (and (not owned?) (%packed-rows? publication) (partition-admitted-rows publication)))
+  (if packed (finish publication packed)
+    (let* ((source (and (vector? publication) publication))
+           (keys (if source (%ref-owned-list spec 'keys) (.@ spec keys)))
+           (declared (and source (eq? source (%declared-row-source spec)) source)))
+      (finish declared
+        (capture-partition-rows keys
+          (lambda (key)
+            (let (code (.call spec .code key)) (if code (.@ code reads) [])))
+          owned? declared)))))
 (def (capture-partition-rows keys read-owner owned? (declared-rows #f))
   ;; The encoding index admits symbols and uniqueness before any author.
   ;; Keep finite-list admission here, then own the roster; do not build a

@@ -76,8 +76,47 @@
         (and (equal? (scc.partition-members part (car members)) members)
           (andmap (lambda (key) (eq? ((scc.partition-owner part) key) (car members))) members))) expected))))
 
-(extern namespace: clan/poo/generalized-graph %declared-row-source)
+(extern namespace: clan/poo/generalized-graph %declared-row-source %packed-rows?)
 (def (check-declared-rows)
+  (test-case "packed declaration owns its arrays and respects observed and stale reads"
+    (def keys (vector 'a 'b 'c 'd))
+    (def offsets (u32vector 0 2 3 4 5))
+    (def targets (u32vector 1 2 0 3 2))
+    (def spec (graph.declaration/rows keys offsets
+      (lambda _ (error "partition evaluated a provider")) targets: targets))
+    (def publication (%declared-row-source spec))
+    (check (%packed-rows? publication) => #t)
+    (vector-set! keys 0 'changed)
+    (u32vector-set! offsets 1 0)
+    (u32vector-set! targets 0 3)
+    (def partition (scc.partition spec))
+    (check-eq? (%declared-row-source spec) publication)
+    (check-equal? (scc.partition-groups partition) '((a b) (c d)))
+    (check-equal? ((scc.partition-reads partition) 'a) '(b c))
+    (check-equal? (scc.partition-groups (scc.partition-owned spec)) '((a b) (c d)))
+    (def trace [])
+    (def observed (call-with-slot-read-observer
+      (lambda (read) (set! trace (cons (slot-read-key read) trace)))
+      (lambda () (scc.partition spec))))
+    (check-equal? (reverse trace) '(keys .code reads .code reads .code reads .code reads))
+    (check-equal? (scc.partition-groups observed) (scc.partition-groups partition))
+    (uninstantiate-object! spec)
+    (check (%declared-row-source spec) => #f)
+    (check-equal? (scc.partition-groups (scc.partition spec)) (scc.partition-groups partition)))
+  (test-case "packed admission refuses in owner order and preserves repeated public arcs"
+    (def (expected message irritants)
+      (lambda (cause) (and (Error? cause) (equal? (Error-message cause) message)
+                           (equal? (Error-irritants cause) irritants))))
+    (check-exception
+      (graph.declaration/rows '#(a b) '#u32(0 1 2) void targets: '#u32(2 3))
+      (expected "unsupported component ordinal" '(a 2)))
+    (check-exception
+      (graph.declaration/rows '#(a a) '#u32(0 1 2) void targets: '#u32(2 3))
+      (expected "distinct captured owners required" []))
+    (def spec (graph.declaration/rows '#(a b c) '#u32(0 3 3 3) void targets: '#u32(1 2 1)))
+    (check (%declared-row-source spec) => #f)
+    (check-equal? (.get (.call spec .code 'a) reads) '(b c b))
+    (check-equal? ((scc.partition-reads (scc.partition spec)) 'a) '(c b)))
   (test-case "Declared rows share SCC validation and remain owned by the issuing graph"
     (def keys (list 'a 'b 'c 'd))
     (def row (list 'b 'c 'b))
