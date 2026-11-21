@@ -3,7 +3,7 @@
 ;;; Explicit feedback construction and recursive topology consume these groups;
 ;;; this does not load namespaces or make ordinary cyclic slot access valid.
 (export partition partition? partition-groups partition-owner partition-reads
-        partition-members partition-group-of partition-group-size partition-work
+        partition-members partition-for-each-member partition-group-of partition-group-size partition-work
         partition-owned revise-partition %partition-order-keys %partition-representatives %partition-key-before
         quotient-support-added quotient-support-retired %partition-source-count %partition-key-position
         capture-reachability capture-reachability-procedure)
@@ -58,21 +58,42 @@
   (%index-ref (owned-partition-owner owned) key #f))
 (def (owned-member-list entry)
   (let (row (cdr entry))
-    (if (procedure? row) (row) row)))
+    (if (procedure? row) (row #f) row)))
 (def (observe-member part representative size?)
   (def owned (%partition-owned part))
   (def members (%partition-members part))
-  (if (and (not owned) (procedure? members))
+  (if (procedure? members)
     (members representative size?)
     (let (entry (if owned
                   (and (symbol? representative) (%index-ref (owned-partition-members owned) representative #f))
                   (hash-get members representative)))
       (and entry
            (cond (size? (car entry))
-                 (owned (let (row (cdr entry)) (if (procedure? row) (row) (list-copy row))))
+                 (owned (let (row (cdr entry)) (if (procedure? row) (row #f) (list-copy row))))
                  (else (cdr entry)))))))
 (def (partition-members part representative)
   (observe-member part representative #f))
+;; Deliver source-order members of an existing representative. The
+;; visitor cannot change the partition's owned member storage.
+(def (partition-for-each-member part representative visit)
+  (unless (procedure? visit) (error "component member visitor required"))
+  (def owned (%partition-owned part))
+  (def members (%partition-members part))
+  (cond
+   ((and owned (procedure? members)) (members representative #f visit))
+   (owned
+    (and (symbol? representative)
+         (let (entry (%index-ref (owned-partition-members owned) representative #f))
+           (and entry (visit-owned-members entry visit)))))
+   (else
+    (let (row (partition-members part representative))
+      (and row (begin (for-each visit row) #t))))))
+
+(def (visit-owned-members entry visit)
+  (let (row (cdr entry))
+    (if (procedure? row) (row visit)
+      (begin (for-each visit row) #t))))
+
 (def (observe-group part node size?)
   (def owned (%partition-owned part))
   (def representative
@@ -1448,24 +1469,60 @@
   (def forward (project (cut %decode-ordinal-row keys offsets targets <>)))
   (def backward (ordinal-backward keys offsets targets project))
   (def owner (project (lambda (node) (vector-ref keys (u32vector-ref roots (rank node))))))
-  (def links (and (< components count) (make-u32vector count)))
+  ;; A second entry into the same rank identifies a fragmented source
+  ;; group. One-run groups can derive every member from their root and size.
+  (def fragmented
+    (and (fx> components 1) (fx< components count)
+         (let scan ((node 0) (previous -1) (flags #f))
+           (if (fx= node count) flags
+             (let (id (rank node))
+               (if (or (fx= id previous) (fx= node (u32vector-ref roots id)))
+                 (scan (fx+ node 1) id flags)
+                 (let (flags (or flags (make-u8vector components 0)))
+                   (u8vector-set! flags id 1)
+                   (scan (fx+ node 1) id flags))))))))
+  (defrule (fragmented? id) (and fragmented (fx= (u8vector-ref fragmented id) 1)))
+  (def links (and fragmented (make-u32vector count)))
   (when links
     (let (heads (make-u32vector components count))
       (let link ((node (fx- count 1)))
         (unless (fx< node 0)
           (let (id (rank node))
-            (u32vector-set! links node (u32vector-ref heads id))
-            (u32vector-set! heads id node))
+            (when (fragmented? id)
+              (u32vector-set! links node (u32vector-ref heads id))
+              (u32vector-set! heads id node)))
           (link (fx- node 1))))))
-  (def (member-list node)
-    (let collect ((at node) (result []))
-      (if (fx= at count) (reverse! result)
-        (collect (if links (u32vector-ref links at) count)
-          (cons (vector-ref keys at) result)))))
+  (def (visit-members node id visit)
+    (if (fragmented? id)
+      (let walk ((at node))
+        (unless (fx= at count)
+          (visit (vector-ref keys at))
+          (walk (u32vector-ref links at))))
+      (let ((stop (fx+ node (u32vector-ref sizes id))))
+        (let walk ((at node))
+          (unless (fx= at stop)
+            (visit (vector-ref keys at))
+            (walk (fx+ at 1))))))
+    #t)
+  (def (member-list node id)
+    (if (fragmented? id)
+      (with-list-builder (add) (visit-members node id add))
+      (let build ((end (fx+ node (u32vector-ref sizes id))) (members []))
+        (if (fx= end node) members
+          (let (at (fx- end 1))
+            (build at (cons (vector-ref keys at) members)))))))
   (def members (project (lambda (node)
     (let (id (rank node))
       (and (fx= node (u32vector-ref roots id))
-           (cons (u32vector-ref sizes id) (cut member-list node)))))))
+           (cons (u32vector-ref sizes id)
+             (lambda (visit)
+               (if visit (visit-members node id visit) (member-list node id)))))))))
+  (def (member key size? (visit #f))
+    (let* ((node (position key)) (id (and node (rank node))))
+      (and id (fx= node (u32vector-ref roots id))
+           (cond (size? (u32vector-ref sizes id))
+                 (visit (visit-members node id visit))
+                 (else (member-list node id))))))
   ;; When the certified root array is small, enumerate just those ordinals
   ;; in source order. Every call constructs fresh member lists.
   (def groups
@@ -1473,7 +1530,7 @@
          (lambda ()
            (with-list-builder (add)
              (for (root (list-sort < (u32vector->list roots)))
-               (add (member-list root)))))))
+               (add (member-list root (rank root))))))))
   ;; The rank is issued only after independent coverage and the original
   ;; boundary-edge checks. Its address is stable across row replacements.
   (owned-snapshot
@@ -1485,7 +1542,7 @@
            (lambda (key) (let (node (position key)) (and node (rank node))))))
     (work-receipt count (or declared-edges edges) (vector-ref result 1) (vector-ref result 3)
       (vector-ref result 4) (vector-ref result 5) count components span-buckets span-edges
-      edges singletons reverse-count 0 0) groups))
+      edges singletons reverse-count 0 0) groups member))
 
 (def (finish-ordinal-components keys reads index buckets owners validation-owners declared-edges result complete)
   (def count (vector-length keys))
@@ -1790,7 +1847,7 @@
 ;; Owned partition keeps the existing SCC result and only adds the indexes
 ;; required to revise that result without rereading a declaration.
 (def absent-owned-entry (gensym 'absent-owned-entry))
-(def (owned-snapshot owned work (groups #f))
+(def (owned-snapshot owned work (groups #f) (member #f))
   (def (require-active! key)
     (when (and (owned-partition-retired? owned) (not (owned-active-owner owned key)))
       (raise-unbound-key partition-owner key)))
@@ -1804,7 +1861,7 @@
   (make-%partition groups
     (cut lookup (owned-partition-owner owned) <>)
     (lambda (key) (list-copy (lookup (owned-partition-forward owned) key)))
-    #f work #f owned))
+    member work #f owned))
 
 (def (own-partition keys reads captured-positions direction part (inverse #f) (certified-cycle? #f)
                        (roster #f))
@@ -2175,7 +2232,13 @@
       (def previous (%index-ref old-members key #f))
       (unless (if (and previous (procedure? (cdr previous)))
                  (and replacement (= (car replacement) (car previous))
-                   (equal? (cdr replacement) (owned-member-list previous)))
+                      (let/cc mismatch
+                        (def remaining (cdr replacement))
+                        (visit-owned-members previous
+                          (lambda (key)
+                            (unless (and (pair? remaining) (eq? key (car remaining))) (mismatch #f))
+                            (set! remaining (cdr remaining))))
+                        (null? remaining)))
                  (equal? replacement previous))
         (when quotient?
           (cond ((not previous) (set! added (cons key added)))
@@ -2218,7 +2281,8 @@
         projected-singletons: (if functional-cut? width 0)
         quotient-reader-edges: quotient-readers
         local: (and local-part (partition-work local-part)))
-      (and (eq? members old-members) (%partition-groups prior))))
+      (and (eq? members old-members) (%partition-groups prior))
+      (and (eq? members old-members) (%partition-members prior))))
   (if quotient?
     (values result (if functional-cut? 'all-representatives changed-groups)
       (cond (functional-cut? 'complete)

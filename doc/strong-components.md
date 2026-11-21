@@ -48,6 +48,12 @@ the first owners in source order, regardless of where DFS entered a group.
 Member lists are built on demand in source order, and a strict miss uses
 the original owner-table error contract.
 
+`partition-for-each-member` delivers a representative's members once in source
+order and returns `#f` for a missing representative. On an owned ordinal
+partition it traverses the published member data directly. A contiguous group
+uses its root and size. An interleaved group follows its ordinal links. The
+owned list APIs still produce independent mutable lists.
+
 An observed source still reads and validates its keys in source order. When
 the issued packed roster and its live key read agree, component capture
 shares the symbol identities and ordinals. The structural pass can also
