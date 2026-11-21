@@ -3,7 +3,7 @@
         %index? %index-base %index-changes %index-overridden?
         %roster %roster-width %roster-position %roster-keys %roster-for-each
         %roster-project %roster-append %roster-retire
-        %make-ordinal-buckets %ordinal-bucket-ref %ordinal-roster)
+        %make-ordinal-buckets %ordinal-bucket-ref %ordinal-roster %roster-cold-index)
 (import (only-in :std/struct/rbtree RBTree rbtree-copy rbtree-ref rbtree-put!
                  rbtree-remove! rbtree-for-each)
         (only-in :std/error raise-unbound-key)
@@ -152,6 +152,11 @@
       (or (and (symbol? key) (%ordinal-bucket-ref buckets key)) default)))
     (vector-length keys)))
 (def %roster-width roster-width)
+;; A dense source traversal must use the exact unedited ordinal order.
+(def (%roster-cold-index roster keys)
+  (let (positions (roster-positions roster))
+    (and (eq? keys (roster-initial roster)) (not (%index-changes positions))
+         (%index-base positions))))
 (def (%roster-position roster key)
   (%index-ref (roster-positions roster) key #f))
 (def (%roster-project roster project)

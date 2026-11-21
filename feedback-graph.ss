@@ -212,7 +212,7 @@
                        (if (%slot-read-active?)
                          (scc.partition-owned frozen)
                          (%with-component-source-rows ownership
-                           (lambda (keys row) (capture-partition-rows keys row #t))))))))
+                           (lambda (keys row roster) (capture-partition-rows keys row #t #f roster))))))))
                 (ownership (or (%partition-admitted-owned source) (scc.partition-owned frozen)))
                 (else (scc.partition frozen))))
         (def same-quotient? (and same-source? (eq? build (graph-cache-build old))))

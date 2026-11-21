@@ -23,14 +23,16 @@
         (only-in ./support/base %compare-symbol-identity %graph-table-seed %with-application-table-seeds)
         (only-in ./support/index %index %index-project %index-ref %index-fork %index-write! %index-retire!
                  %index? %index-base %index-changes
-                 %make-ordinal-buckets %ordinal-bucket-ref
-                 %roster %roster-width %roster-position %roster-keys %roster-append %roster-retire)
+                 %make-ordinal-buckets %ordinal-bucket-ref %ordinal-roster
+                 %roster %roster-cold-index %roster-width %roster-position %roster-keys %roster-append %roster-retire)
         (only-in ./slot-observation %call-with-recorded-slot-reads %record-slot-reads!
                  %slot-read-active? slot-read-observers-compatible?)
         (only-in ./dependency-analysis Computation.)
         ./object (only-in ./mop/prototype define-type) ./support/option)
 (extern namespace: clan/poo/dependency-analysis %computation-constructor-current?)
-(extern namespace: clan/poo/read-route %ordinal-index-routes-current? %gc-scratch-routes-current?)
+(import (only-in ./read-route standard-symbol-table-writes?))
+(extern namespace: clan/poo/read-route %ordinal-index-routes-current? %gc-scratch-routes-current?
+  %standard-symbol-table-lookup?)
 (extern namespace: clan/poo/prototype-map %stock-struct-construction?)
 (extern namespace: clan/poo/slot-observation %make-owned-list %borrow-owned-list)
 (defstruct %schedule (source order reads adjacency ranks reverse supported work positions position-changes
@@ -505,15 +507,36 @@
   (def storage (%component-source-storage source))
   (def programs (%owned-source-programs storage))
   (prepare (owned-source-names storage)
-    (lambda (key) (program-row (%index-ref programs key #f)))))
+    (lambda (key) (program-row (%index-ref programs key #f)))
+    (%component-source-roster source)))
+;; The observable key read still runs. Borrow only the current issuer's
+;; exact symbolic order and check the table route before replacing writes.
+(def (admit-component-roster names count packed)
+  (def packed-names (and packed (%packed-rows-names packed)))
+  (def reuse?
+    (and packed-names (= count (vector-length packed-names))
+         (let walk ((keys names) (node 0))
+           (or (null? keys)
+               (and (eq? (car keys) (vector-ref packed-names node))
+                    (walk (cdr keys) (fx+ node 1)))))))
+  (def positions (if reuse? (make-hash-table-symbolic seed: (%graph-table-seed))
+                   (make-hash-table-symbolic size: count seed: (%graph-table-seed))))
+  (if (and reuse? (standard-symbol-table-writes? positions) (%standard-symbol-table-lookup? positions))
+    (%ordinal-roster packed-names (%packed-rows-buckets packed))
+    (let ()
+      (for ((key names) (position (in-range count)))
+        (unless (and (symbol? key) (not (hash-key? positions key)))
+          (error "distinct symbolic component owners required" key))
+        (hash-put! positions key position))
+      (%roster names positions))))
+
 (def (%capture-component-source spec register)
+  (def publication (%declared-row-source spec))
   (defvalues (names key-reads) (capture-source-evidence (lambda () (list-copy (.get spec keys)))))
   (def count (length names))
-  (def positions (make-hash-table-symbolic size: count seed: (%graph-table-seed)))
-  (for ((key names) (position (in-range count)))
-    (unless (and (symbol? key) (not (hash-key? positions key)))
-      (error "distinct symbolic component owners required" key))
-    (hash-put! positions key position))
+  (def packed (and (%packed-rows? publication)
+                   (eq? publication (%declared-row-source spec)) publication))
+  (def roster (admit-component-roster names count packed))
   (defvalues (accessors accessor-reads)
     (capture-source-evidence (lambda ()
       (def code (.get spec .code))
@@ -524,7 +547,9 @@
   (def bases (make-hash-table-symbolic seed: (%graph-table-seed)))
   (def code-edits [])
   (def base-edits [])
-  (def supported? (cut hash-key? positions <>))
+  (def supported?
+    (let (positions (%roster-cold-index roster names))
+      (if positions (cut hash-key? positions <>) (cut %roster-position roster <>))))
   (for ((key names) (position (in-range count)))
     (defvalues (program code-reads)
       (capture-source-evidence (lambda () (capture-component-program (code key) supported?))))
@@ -540,7 +565,7 @@
   (def span (max 1 count))
   (def source
     (make-%component-source (make-%owned-source names (%index programs) (%index bases))
-      (%roster names positions) stamp
+      roster stamp
       (%splice-witness-tree #f span (reverse code-edits) attach-source-evidence! register)
       (%splice-witness-tree #f span (reverse base-edits) attach-source-evidence! register) span))
   (%component-source-current! source)

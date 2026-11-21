@@ -48,6 +48,13 @@ the first owners in source order, regardless of where DFS entered a group.
 Member lists are built on demand in source order, and a strict miss uses
 the original owner-table error contract.
 
+An observed source still reads and validates its keys in source order. When
+the issued packed roster and its live key read agree, component capture
+shares the symbol identities and ordinals. The structural pass can also
+share its predecessor's dense source index when the exact cold key spine
+is unchanged. The checked rows then go directly to ordinal certification.
+Reordered or edited rosters use ordinary admission.
+
 An owned publication can borrow the same admitted roster and forward rows.
 It publishes the independently checked ranks and the compact reader rows as
 bases of the existing persistent indexes. Large well-distributed rosters admit

@@ -28,11 +28,12 @@
   edited-search-frontier
   %schedule-owned %owned-source-programs %schedule-adjacency %schedule-ranks
   start-affected-work advance-affected-work! affected-work-marked %retire-component-source
-  %component-source-code-witnesses %component-source-storage %component-source-roster %owned-source-bases)
+  %component-source-code-witnesses %component-source-storage %component-source-roster %owned-source-bases
+  %with-component-source-rows)
 (extern namespace: clan/poo/strong-components %partition-owned owned-partition-backward
   owned-partition-owner owned-partition-members owned-partition-forward
   owned-partition-roster %retire-partition-isolates %append-partition-owners
-  %check-partition-retirements)
+  %check-partition-retirements capture-partition-rows)
 (extern namespace: clan/poo/support/index roster-appended roster-positions)
 (extern namespace: clan/poo/construction-cache cache-scheduled cache-patch)
 
@@ -1241,6 +1242,61 @@
       (check (graph.%witness-tree-current? late) => #f)))
 
 (def (check-retained-component-publication)
+    (test-case "publication reuses only the current exact roster and preserves the keys read"
+      (def (register action) (action))
+      (def spec (graph.declaration/rows '#(a b) '#u32(0 1 2)
+        (lambda (_key _read) (code.make-success 0)) targets: '#u32(1 0)))
+      (def admitted (graph.%capture-component-source spec register))
+      (def roster (%component-source-roster admitted))
+      (check (procedure? (%index-base (roster-positions roster))) => #t)
+      (check-equal? (%roster-position roster 'a) 0)
+      (check-equal? (%roster-position roster 'b) 1)
+      (def observed? #f)
+      (def observed
+        (call-with-slot-read-observer
+          (lambda (read)
+            (when (and (eq? (slot-read-receiver read) spec) (eq? (slot-read-key read) 'keys))
+              (set! observed? #t)))
+          (lambda () (graph.%capture-component-source spec register))))
+      (check observed? => #t)
+      (check (procedure? (%index-base (roster-positions (%component-source-roster observed)))) => #f)
+      (def reordered (.cc spec keys: '(b a)))
+      (def successor (%component-source-roster (graph.%capture-component-source reordered register)))
+      (check (procedure? (%index-base (roster-positions successor))) => #f)
+      (check-equal? (%roster-position successor 'b) 0)
+      (check-equal? (%roster-position successor 'a) 1))
+    (test-case "owned SCC borrows the captured source table and leaves repaired rosters private"
+      (def spec (graph.declaration '(a b outside)
+        (list (cons 'a (code.need 'b identity)) (cons 'b (code.need 'a identity)))))
+      (def source (graph.%capture-component-source spec (lambda (action) (action))))
+      (def (capture source)
+        (graph.%with-component-source source
+          (lambda ()
+            (%with-component-source-rows source
+              (lambda (keys rows roster) (capture-partition-rows keys rows #t #f roster))))))
+      (def partition (capture source))
+      (check-eq? (owned-partition-roster (%partition-owned partition)) (%component-source-roster source))
+      (check-equal? (scc.partition-groups partition) '((a b) (outside)))
+      (def seen [])
+      (def refusal
+        (caught (lambda ()
+          (graph.%with-component-source source
+            (lambda ()
+              (%with-component-source-rows source
+                (lambda (keys _rows roster)
+                  (capture-partition-rows keys
+                    (lambda (key)
+                      (set! seen (cons key seen))
+                      '(unknown))
+                    #t #f roster))))))))
+      (check-equal? (Error-message refusal) "unsupported component read")
+      (check-equal? seen '(a))
+      (def edited
+        (vector-ref (graph.%edit-component-source source [] [] (lambda (action) (action))
+                      added: '(new)) 0))
+      (def with-new (capture edited))
+      (check-equal? (scc.partition-groups with-new) '((a b) (outside) (new)))
+      (check-equal? (scc.partition-groups partition) '((a b) (outside))))
     (test-case "owned ordinal publication checks only changed SCC ranks and split groups"
       (def names '(a b c d e f))
       (def keys (list->vector names))

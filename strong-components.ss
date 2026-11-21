@@ -21,7 +21,7 @@
         (only-in ./support/base %graph-table-seed)
         (only-in ./support/index %roster %roster-width %roster-position %roster-keys %roster-for-each %roster-project
                  %index %index-base %index-ref %index-fork %index-write! %index-retire! %index-overridden?
-                 %make-ordinal-buckets %ordinal-bucket-ref %ordinal-roster)
+                 %make-ordinal-buckets %ordinal-bucket-ref %ordinal-roster %roster-cold-index)
         (only-in ./generalized-graph %reverse-bucket-remove %reverse-bucket-add %for-each-reverse-bucket)
         (only-in ./read-route gc-table-route-current? standard-symbol-table-writes?)
         ./object)
@@ -273,7 +273,8 @@
         (lookup key empty-default?))))
 
 (def (capture-graph keys read-owner (symbolic-rows? #t) (edge-word-ceiling 4294967295)
-                    (ordered-rows? 'adjacent) (stable-rows? #f) (compact-rows? #f) (declared-rows #f))
+                    (ordered-rows? 'adjacent) (stable-rows? #f) (compact-rows? #f) (declared-rows #f)
+                    (admitted-positions #f))
   ;; The private reduced ceiling exercises exactly the native wide fallback in
   ;; bounded tests. Production always uses the full u32 range; it cannot expand.
   (unless (and (exact-integer? edge-word-ceiling) (<= 0 edge-word-ceiling 4294967295))
@@ -283,18 +284,18 @@
   (def buckets (and word-support? symbolic-rows? (not stable-rows?) (vector? keys)
                     (%ordinal-index-routes-current?) (%make-ordinal-buckets keys)))
   (def positions
-    (if buckets
+    (if (or admitted-positions buckets)
       (begin
-        ;; Preserve the native constructor's seed transition. Discovery
-        ;; does not need a separate key table when capture used buckets.
+        ;; Preserve the native constructor's seed transition without allocating
+        ;; a second table sized for the entire graph.
         (make-hash-table-symbolic seed: (%graph-table-seed))
-        #f)
+        admitted-positions)
       (make-hash-table-symbolic size: count seed: (%graph-table-seed))))
   (def raw (and positions (interface-instance-object positions)))
   (def (assign! key at)
     (unless (symbol? key) (error "symbolic captured owner required" key))
     (symbolic-table-set! raw key at))
-  (when positions
+  (when (and positions (not admitted-positions))
     (unless (symbol-hash-table? raw) (error "captured owner index representation"))
     (if (vector? keys)
       (for ((key (in-vector keys)) (at (in-range count)))
@@ -321,6 +322,8 @@
   (def row-backend (and small-table (gc-table-route-current? small-table)
                         (interface-instance-object small-table)))
   (def deferred-rows? (and row-backend #t))
+  (when (and admitted-positions (not symbolic-rows?) packed?)
+    (make-hash-table-symbolic seed: (%graph-table-seed)))
   (def reads (or (and deferred-rows? small-table)
                  (and (or symbolic-rows? (not packed?))
                       (if stable-rows? (make-hash-table-symbolic size: count seed: (%graph-table-seed))
@@ -348,7 +351,8 @@
             (vector-ref owner-names (next-id)))))))
   (def (restore-symbolic-prefix! completed)
     (unless reads
-      (set! reads (make-hash-table-eq size: count))
+      (set! reads (if stable-rows? (make-hash-table-symbolic size: count seed: (%graph-table-seed))
+                    (make-hash-table-eq size: count)))
       (visit-packed-prefix completed (lambda (key row) (hash-put! reads key row)))))
   (def (retire-ordinal-rows! completed)
     (when deferred-rows?
@@ -943,11 +947,17 @@
           (lambda (key)
             (let (code (.call spec .code key)) (if code (.@ code reads) [])))
           owned? declared)))))
-(def (capture-partition-rows keys read-owner owned? (declared-rows #f))
+(def (capture-partition-rows keys read-owner owned? (declared-rows #f) (roster #f))
   ;; The encoding index admits symbols and uniqueness before any author.
   ;; Keep finite-list admission here, then own the roster; do not build a
   ;; second duplicate table (empty_owner_index_admits_exactly_nodup).
   (unless (list? keys) (error "distinct finite component keys required"))
+  (def admitted
+    (and owned? roster (%ordinal-index-routes-current?) (%gc-scratch-routes-current?)
+         (let (positions (%roster-cold-index roster keys))
+           (and positions (not (procedure? positions))
+                (standard-symbol-table-writes? positions) (%standard-symbol-table-lookup? positions)
+                positions))))
   ;; Own the admitted roster before the first independent author callback.
   ;; The public cold path can use the same private ordered vector for owner
   ;; admission, CSR naming and certificate traversal. The published revision
@@ -956,20 +966,22 @@
   ;; the existing size-based admission policy.
   (set! keys (if (and (not owned?) (or declared-rows (>= (length keys) 4194304)))
                (list->vector keys)
-               (append keys [])))
+               (if admitted keys (append keys []))))
   (let-values (((reads index declared-edges captured-edges)
-                 (capture-graph keys read-owner #t 4294967295 'adjacent owned? #t declared-rows)))
-    ;; Retain only the ownership fields across discovery/certification. Keeping
-    ;; index in this continuation also keeps its packed edges and capture arrays.
-    (def complete
-      (if owned?
-        (let ((positions (and index (compact-graph-positions index)))
-              (direction (and index (compact-graph-direction index))))
-          (lambda (part inverse cycle?)
-            (own-partition keys reads positions direction part inverse cycle?)))
-        values))
-    (partition-captured keys reads captured-edges (capture-roster-length keys)
-      declared-edges index owned? complete owned? (and declared-rows #t))))
+                 (capture-graph keys read-owner (not admitted) 4294967295 (and (not admitted) 'adjacent)
+                   owned? #t declared-rows admitted)))
+    (if (and admitted index)
+      (finish-ordinal-owned index #f roster declared-edges)
+      (let (complete
+             (if owned?
+               (let ((positions (or admitted (and index (compact-graph-positions index))))
+                     (direction (and index (compact-graph-direction index))))
+                 (lambda (part inverse cycle?)
+                   (own-partition keys reads positions direction part inverse cycle? (and admitted roster))))
+               values))
+        (partition-captured keys reads captured-edges (capture-roster-length keys)
+          declared-edges index owned? complete owned? (and declared-rows #t))))))
+
 
 ;; Compute SCCs from KEYS and validated READS. VALIDATION-OWNERS and
 ;; DECLARED-EDGES report the work already spent capturing those rows.
@@ -1414,7 +1426,7 @@
   (project (or (sparse-ordinal-backward keys offsets targets)
                (dense-ordinal-backward keys offsets targets))))
 
-(def (finish-ordinal-owned index buckets)
+(def (finish-ordinal-owned index buckets (roster #f) (declared-edges #f))
   (def keys (compact-graph-names index))
   (def count (vector-length keys))
   (def offsets (compact-graph-offsets index))
@@ -1425,7 +1437,9 @@
   (defvalues (ranks roots sizes span-buckets span-edges singletons reverse-count)
     (certified-ordinal-components index result))
   (def components (u32vector-length roots))
-  (def (position key) (and (symbol? key) (%ordinal-bucket-ref buckets key)))
+  (def (position key)
+    (and (symbol? key)
+         (if buckets (%ordinal-bucket-ref buckets key) (%roster-position roster key))))
   (def (project read)
     (%index (lambda (key default)
       (let (node (position key))
@@ -1463,13 +1477,13 @@
   ;; The rank is issued only after independent coverage and the original
   ;; boundary-edge checks. Its address is stable across row replacements.
   (owned-snapshot
-    (make-owned-partition (%ordinal-roster keys buckets) forward backward owner members
+    (make-owned-partition (or roster (%ordinal-roster keys buckets)) forward backward owner members
       (cond ((positive? direction) direction)
             ((and (fx= components 1) (fx> count 1) (fx= edges count)) 'cycle)
             (else #f)) #f
       (and (zero? direction)
            (lambda (key) (let (node (position key)) (and node (rank node))))))
-    (work-receipt count edges (vector-ref result 1) (vector-ref result 3)
+    (work-receipt count (or declared-edges edges) (vector-ref result 1) (vector-ref result 3)
       (vector-ref result 4) (vector-ref result 5) count components span-buckets span-edges
       edges singletons reverse-count 0 0) groups))
 
@@ -1792,7 +1806,8 @@
     (lambda (key) (list-copy (lookup (owned-partition-forward owned) key)))
     #f work #f owned))
 
-(def (own-partition keys reads captured-positions direction part (inverse #f) (certified-cycle? #f))
+(def (own-partition keys reads captured-positions direction part (inverse #f) (certified-cycle? #f)
+                       (roster #f))
   (def positions (or captured-positions (make-hash-table-symbolic seed: (%graph-table-seed))))
   (def backward (or inverse (make-hash-table-symbolic seed: (%graph-table-seed))))
   (def cycle? (if inverse certified-cycle?
@@ -1806,7 +1821,7 @@
       (unless inverse
         (for (provider row)
           (hash-put! backward provider (cons key (hash-ref backward provider [])))))))
-  (owned-snapshot (make-owned-partition (%roster keys positions) (%index reads) (%index backward)
+  (owned-snapshot (make-owned-partition (or roster (%roster keys positions)) (%index reads) (%index backward)
                     (%index (%partition-owners part)) (%index (%partition-members part))
                     ;; Capture already authenticated both rank-direction bits.
                     ;; Carry that structural evidence instead of scanning again.

@@ -52,7 +52,9 @@ package GraphForwardRows {
     }
     requirement def OwnedComponentRepair {
         doc /* Publish stable owner ordinals, checked block ranks and original
-               reader rows through the existing persistent indexes. Apply exact
+               reader rows through the existing persistent indexes. Reuse the live
+               dense roster only after the original keys read. Pass admitted
+               ordinal rows to independent certification. Apply exact
                boundary-edge edits to their reader buckets. Only an internal
                removal requires rechecking a block when no addition can merge
                old components. A split may retain its coarse descending rank. */
