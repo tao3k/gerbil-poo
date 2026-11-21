@@ -5,12 +5,12 @@
         :clan/poo/object
         (only-in "closure-measure.ss" run-child)
         (prefix-in "recursive-cases.ss" study.)
-        (runtime: :clan/poo/recursive)
-        (prefix-in (only-in :clan/poo/recursive value-result) recursive.)
-        (runtime: :clan/poo/recursive-cache)
-        (prefix-in (only-in :clan/poo/recursive-cache empty receipt-result receipt? run) cached.)
-        (runtime: :clan/poo/recursive-handling)
-        (prefix-in (only-in :clan/poo/recursive-handling call-batch call-slot failure-stage
+        (runtime: :clan/poo/recursive/evaluation)
+        (prefix-in (only-in :clan/poo/recursive/evaluation value-result) recursive.)
+        (runtime: :clan/poo/recursive/cache)
+        (prefix-in (only-in :clan/poo/recursive/cache empty receipt-result receipt? run) cached.)
+        (runtime: :clan/poo/recursive/handling)
+        (prefix-in (only-in :clan/poo/recursive/handling call-batch call-slot failure-stage
                    result-failure result-next result-value session) handling.)
         (prefix-in :clan/poo/examples/recursive-catalog catalog.)
         (runtime: :clan/poo/examples/cyclic-access)

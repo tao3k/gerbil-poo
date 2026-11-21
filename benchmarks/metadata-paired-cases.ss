@@ -30,10 +30,10 @@
   (if (memv round '(0 3)) pair (reverse pair)))
 ;; Bind all runtime/example/driver inputs used by this study. Changes make old
 ;; receipts historical; source identity is checked before and after the complete run.
-(def sources '("recursive.ss" "recursive-cache.ss" "fun.ss" "proto.ss" "contract-family.ss" "generic-family.ss" "staged-publication.ss" "cyclic-publication.ss"
+(def sources '("recursive/evaluation.ss" "recursive/cache.ss" "fun.ss" "proto.ss" "contract-family.ss" "generic-family.ss" "staged-publication.ss" "cyclic-publication.ss"
   "method-combination.ss" "method-declaration.ss" "generalized-declaration.ss" "generalized-closure.ss" "focused-closure.ss" "graph/feedback/closure.ss" "graph/feedback/cache.ss" "graph/feedback.ss" "graph/scc.ss" "examples/component-services.ss" "graph/feedback/builder.ss" "examples/service-revisions.ss" "examples/component-membership.ss" "graph/component/revision.ss" "graph/component/publication.ss" "joint-publication.ss" "examples/component-migration.ss" "examples/component-rounds.ss" "examples/component-requests.ss" "examples/shared-approvals.ss" "examples/joint-services.ss" "examples/joint-topology.ss" "examples/joint-receipts.ss" "examples/joint-coordination.ss" "examples/coordinator-rejoining.ss" "examples/joint-coordination-rounds.ss" "examples/joint-workers.ss" "examples/joint-concurrency.ss" "lens-laws.ss" "examples/feedback-services.ss" "examples/shared-feedback.ss" "examples/cached-feedback.ss" "examples/focused-services.ss" "examples/closed-declarations.ss" "examples/generalized-declarations.ss" "examples/service-combination.ss" "examples/declared-methods.ss" "declarative-metadata.ss" "dispatch-extension.ss" "multimethod.ss" "closure.ss"
   "dependency-analysis.ss" "graph/schedule.ss" "graph/construction.ss"
-  "object.ss" "object/observation.ss" "slot-observation.ss" "object-state.ss" "reflection.ss" "meta-prototype.ss" "declaration.ss" "recursive-declaration.ss" "mop.ss" "type.ss" "number.ss" "build.ss" "justfile"
+  "object.ss" "object/observation.ss" "slot-observation.ss" "object-state.ss" "reflection.ss" "meta-prototype.ss" "declaration.ss" "recursive/declaration.ss" "mop.ss" "type.ss" "number.ss" "build.ss" "justfile"
   "examples/shared-contracts.ss" "examples/service-metadata.ss" "examples/service-bundle.ss"
   "examples/construction-workflow.ss" "examples/protected-dispatch.ss" "examples/cyclic-access.ss"
   "benchmarks/closure-measure.ss" "benchmarks/closure-benchmark-support.ss" "benchmarks/metadata-paired-cases.ss"

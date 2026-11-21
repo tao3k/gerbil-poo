@@ -13,7 +13,7 @@
   (prefix-in :clan/poo/declarative-metadata metadata.)
   (prefix-in :clan/poo/examples/contract-publication class-validation.publication.)
   (prefix-in :clan/poo/examples/object-contracts config.)
-  (prefix-in :clan/poo/recursive-validation graph.)
+  (prefix-in :clan/poo/recursive/validation graph.)
   (prefix-in :clan/poo/examples/computed-publication pipeline.)
   (prefix-in :clan/poo/examples/contract-publication computed-validation.publication.)
   (prefix-in :clan/poo/examples/container-publication batch.)

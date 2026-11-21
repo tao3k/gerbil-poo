@@ -7,10 +7,10 @@
         ../closure
         ../meta-prototype
         ../declaration
-        ../recursive-declaration
+        ../recursive/declaration
         ../reflection
-        (runtime: :clan/poo/recursive)
-        (prefix-in (only-in ../recursive Interaction. request source-error value) recursive.))
+        (runtime: :clan/poo/recursive/evaluation)
+        (prefix-in (only-in ../recursive/evaluation Interaction. request source-error value) recursive.))
 ;; A real cyclic metadata component: typed expansion and reflection mutually
 ;; depend on each other, grounded by explicit seed. An unsupported cycle stays false.
 ;; cook selects the kernel from that least solution before self-hosted construction.

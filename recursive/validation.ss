@@ -3,13 +3,13 @@
         validation-failure? validation-failure-kind validation-failure-cause
         validation-node revise-validation revision-action closed-evaluated closed-reused
         reconfigure-validation reconfiguration-action closed-reads validation-checkpoint)
-(import (only-in ./graph/schedule affected-owners)
+(import (only-in ../graph/schedule affected-owners)
         (only-in :std/list/list delete-duplicates/hash filter)
         (only-in :std/hash/misc hash-ensure-ref)
-        (only-in ./graph/scc capture-reachability-procedure)
-        ./object (only-in ./mop/prototype Type. Type validate raise-type-error)
-        (only-in ./value-diagnostics diagnose-structure)
-        (only-in ./validation-rebinding prepare-rebinding force-rebinding with-deferred-validation))
+        (only-in ../graph/scc capture-reachability-procedure)
+        ../object (only-in ../mop/prototype Type. Type validate raise-type-error)
+        (only-in ../value-diagnostics diagnose-structure)
+        (only-in ../validation-rebinding prepare-rebinding force-rebinding with-deferred-validation))
 
 ;; No partially allocated graph is a public closed value. Runtime provenance is
 ;; separate from Lean's finite proof; callbacks remain trusted terminating code.

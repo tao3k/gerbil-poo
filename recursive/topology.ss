@@ -1,9 +1,9 @@
 ;;; On-demand SCC receipts over the actual declared recursive validation catalog.
 (export partition changed-members)
 (import (only-in :std/list/list filter append-map delete-duplicates/hash)
-        ./object (prefix-in ./recursive-validation validation.)
-        (prefix-in ./graph/scc scc.) (prefix-in ./graph/schedule graph.)
-        (prefix-in ./dependency-analysis computation.))
+        ../object (prefix-in ./validation validation.)
+        (prefix-in ../graph/scc scc.) (prefix-in ../graph/schedule graph.)
+        (prefix-in ../dependency-analysis computation.))
 
 ;; Reuse the existing checked SCC algorithm without invoking node builders,
 ;; validators, getters or the dummy computation evaluator. Ordinary revision does

@@ -2,10 +2,10 @@
 (export publish-continuously!)
 (import ../object
         ../mop
-        (runtime: :clan/poo/recursive-approvals)
-        (prefix-in (only-in ../recursive-approvals call-with-submissions) approvals.)
-        (runtime: :clan/poo/recursive-publication)
-        (prefix-in (only-in ../recursive-publication snapshot snapshot-metadata) publication.)
+        (runtime: :clan/poo/recursive/approvals)
+        (prefix-in (only-in ../recursive/approvals call-with-submissions) approvals.)
+        (runtime: :clan/poo/recursive/publication)
+        (prefix-in (only-in ../recursive/publication snapshot snapshot-metadata) publication.)
         (prefix-in ./recursive-approvals service.))
 
 ;; observer-for maps an entry/round to an existing FUN snapshot observer; report

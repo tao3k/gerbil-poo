@@ -3,13 +3,13 @@
 (import ../object
         ../mop
         ../object-contract
-        (runtime: :clan/poo/recursive-validation)
-        (prefix-in (only-in ../recursive-validation closed-ref) graph.)
-        (runtime: :clan/poo/recursive-publication)
-        (prefix-in (only-in ../recursive-publication snapshot-graph
+        (runtime: :clan/poo/recursive/validation)
+        (prefix-in (only-in ../recursive/validation closed-ref) graph.)
+        (runtime: :clan/poo/recursive/publication)
+        (prefix-in (only-in ../recursive/publication snapshot-graph
                    snapshot-metadata) publication.)
-        (runtime: :clan/poo/recursive-approvals)
-        (prefix-in (only-in ../recursive-approvals stage-with) approvals.)
+        (runtime: :clan/poo/recursive/approvals)
+        (prefix-in (only-in ../recursive/approvals stage-with) approvals.)
         (prefix-in ./recursive-restaging restaging.)
         (prefix-in ./recursive-publication entry.)
         (runtime: :clan/poo/examples/recursive-topology)

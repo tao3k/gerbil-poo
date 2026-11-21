@@ -7,8 +7,8 @@
         ../number
         ../object-contract
         (only-in ../type Record Tuple)
-        (runtime: :clan/poo/recursive-validation)
-        (prefix-in (only-in ../recursive-validation closed-ref closed-type
+        (runtime: :clan/poo/recursive/validation)
+        (prefix-in (only-in ../recursive/validation closed-ref closed-type
                    revise-validation validation-node) graph.)
         (runtime: :clan/poo/fun)
         (prefix-in ./recursive-migration service.)

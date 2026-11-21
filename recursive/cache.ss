@@ -1,7 +1,7 @@
 ;;; Recursive.Cached: source-bound memo, bounded machine depth and atomic diagnostics.
 (export empty run memo? memo-has? memo-size memo-hits memo-misses memo-steps receipt? receipt-program receipt-input receipt-result
         diagnostic? diagnostic-kind diagnostic-path)
-(import :std/iter ./object (only-in ./mop/prototype element?) (prefix-in ./recursive recursive.))
+(import :std/iter ../object (only-in ../mop/prototype element?) (prefix-in ./evaluation recursive.))
 ;; Only this module constructs evaluation receipts; it exports no constructor/setter.
 ;; These are runtime provenance records, not transported Lean kernel proofs.
 (defstruct receipt (program input result) final: #t)

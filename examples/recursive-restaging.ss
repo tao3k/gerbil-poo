@@ -2,9 +2,9 @@
 (export transition-action)
 (import (only-in :std/list/list filter)
         ../object
-        (runtime: :clan/poo/recursive-validation)
-        (prefix-in (only-in ../recursive-validation closed-names) graph.)
-        (prefix-in ../recursive-staging staging.)
+        (runtime: :clan/poo/recursive/validation)
+        (prefix-in (only-in ../recursive/validation closed-names) graph.)
+        (prefix-in ../recursive/staging staging.)
         (runtime: :clan/poo/examples/recursive-topology)
         (prefix-in (only-in ./recursive-topology peer-recipes primary secondary) service.)
         (prefix-in ./recursive-migration migration.))

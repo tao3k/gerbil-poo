@@ -1,7 +1,7 @@
 ;;; Named recursive coordinators fence requests by their current scoped incarnation.
 (export coordination call-with-coordinator)
-(import (prefix-in ./recursive-approvals approvals.)
-        (prefix-in ./recursive-publication publication.))
+(import (prefix-in ./approvals approvals.)
+        (prefix-in ./publication publication.))
 
 ;; Private per-name identity prevents a closed generation from becoming live again.
 (defstruct %incarnation (generation active?) final: #t)

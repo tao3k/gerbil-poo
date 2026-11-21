@@ -5,14 +5,14 @@
         ../number
         ../object-contract
         (only-in ../type Record String Fun Any Bool)
-        (runtime: :clan/poo/recursive)
-        (prefix-in (only-in ../recursive Generator. Interaction. request source-error
+        (runtime: :clan/poo/recursive/evaluation)
+        (prefix-in (only-in ../recursive/evaluation Generator. Interaction. request source-error
                    value) recursive.)
-        (runtime: :clan/poo/recursive-handling)
-        (prefix-in (only-in ../recursive-handling Signature. call-slot result-failure
+        (runtime: :clan/poo/recursive/handling)
+        (prefix-in (only-in ../recursive/handling Signature. call-slot result-failure
                    result-next result-reused result-value) handling.)
-        (runtime: :clan/poo/recursive-validation)
-        (prefix-in (only-in ../recursive-validation closed-ref closed-type
+        (runtime: :clan/poo/recursive/validation)
+        (prefix-in (only-in ../recursive/validation closed-ref closed-type
                    validation-action) validation.)
         (runtime: :clan/poo/closure)
         (prefix-in (only-in ../closure closure-ref compile-closure either fact literal

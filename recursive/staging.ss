@@ -1,6 +1,6 @@
 ;;; Deferred recursive catalog edits over the existing sequential closure engine.
 (export stage-reconfiguration restaging-action)
-(import (prefix-in ./recursive-validation validation.))
+(import (prefix-in ./validation validation.))
 
 ;; A staged request is an ordinary FUN Reader action. Copy edit list spines so
 ;; callers cannot replace contributions after staging. Recipe bodies/metadata are

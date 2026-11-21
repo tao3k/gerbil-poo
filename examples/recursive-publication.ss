@@ -1,8 +1,8 @@
 ;;; Several entry points share one graph and keep their own effect contexts.
 (export entry-action)
 (import ../object
-        (runtime: :clan/poo/recursive-validation)
-        (prefix-in (only-in ../recursive-validation closed-ref) graph.)
+        (runtime: :clan/poo/recursive/validation)
+        (prefix-in (only-in ../recursive/validation closed-ref) graph.)
         (runtime: :clan/poo/examples/recursive-topology)
         (prefix-in (only-in ./recursive-topology publish-action) service.))
 

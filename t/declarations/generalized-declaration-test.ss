@@ -28,8 +28,8 @@
   :clan/poo/reflection
   (prefix-in :clan/poo/examples/metaprotocol-services meta-prototype.service.)
   :clan/poo/closure
-  :clan/poo/recursive-declaration
-  (prefix-in :clan/poo/recursive recursive.)
+  :clan/poo/recursive/declaration
+  (prefix-in :clan/poo/recursive/evaluation recursive.)
   (prefix-in :clan/poo/examples/recursive-metaprotocol recursive-declaration.service.))
 
 ;; Construct once with the original private helper scope and declaration order.

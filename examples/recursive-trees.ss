@@ -9,8 +9,8 @@
         ../type
         ../number
         ../testing/type
-        (runtime: :clan/poo/recursive)
-        (prefix-in (only-in ../recursive Generator. bind map-interaction request
+        (runtime: :clan/poo/recursive/evaluation)
+        (prefix-in (only-in ../recursive/evaluation Generator. bind map-interaction request
                    solve value value-result value?) recursive.))
 
 ;; Integer leaves and recursive lists admit a base even at shallow depth. The

@@ -23,7 +23,7 @@
   :clan/poo/declaration
   :clan/poo/method-declaration
   :clan/poo/reflection
-  :clan/poo/recursive-declaration
+  :clan/poo/recursive/declaration
   (prefix-in :clan/poo/proto proto.)
   (prefix-in :clan/poo/examples/declared-methods service.)
   (only-in :std/list/list-builder with-list-builder)

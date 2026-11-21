@@ -1,7 +1,7 @@
 ;;; Repeated approval invalidation and competing joint revisions over actual SCCs.
 (export transitions compete!)
-(import (runtime: :clan/poo/recursive-approvals)
-        (prefix-in (only-in ../recursive-approvals submit-sequence!) approvals.)
+(import (runtime: :clan/poo/recursive/approvals)
+        (prefix-in (only-in ../recursive/approvals submit-sequence!) approvals.)
         (prefix-in ./recursive-approvals service.)
         (runtime: :clan/poo/examples/recursive-topology)
         (prefix-in (only-in ./recursive-topology crossed merged original split) topology.))

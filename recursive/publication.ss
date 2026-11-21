@@ -1,7 +1,7 @@
 ;;; Shared sequential publication of checked recursive graphs across entry points.
 (export publication current stage-with submit! observe!
         snapshot snapshot-graph snapshot-metadata stage-joint-with submit-joint! observe-joint!)
-(import (prefix-in ./recursive-validation validation.))
+(import (prefix-in ./validation validation.))
 
 ;; One handle owns the authoritative current graph. The busy flag rejects nested
 ;; preparation/publication; it is not a thread lock or a concurrent CAS protocol.

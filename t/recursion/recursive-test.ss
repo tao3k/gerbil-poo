@@ -9,9 +9,9 @@
   (prefix-in :clan/poo/benchmarks/metadata-paired-suite paired.)
   (only-in :std/values first-value)
   :clan/poo/object
-  (prefix-in :clan/poo/recursive recursive.)
-  (prefix-in :clan/poo/recursive-cache cached.)
-  (prefix-in :clan/poo/recursive-handling handling.)
+  (prefix-in :clan/poo/recursive/evaluation recursive.)
+  (prefix-in :clan/poo/recursive/cache cached.)
+  (prefix-in :clan/poo/recursive/handling handling.)
   (prefix-in :clan/poo/examples/cyclic-access access.)
   (prefix-in :clan/poo/examples/recursive-catalog catalog.)
   (prefix-in :clan/poo/cyclic-publication publication.)

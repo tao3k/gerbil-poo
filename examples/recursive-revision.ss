@@ -5,8 +5,8 @@
         ../number
         ../object-contract
         (only-in ../type Record Fun Any)
-        (runtime: :clan/poo/recursive-validation)
-        (prefix-in (only-in ../recursive-validation closed-type validation-node) graph.)
+        (runtime: :clan/poo/recursive/validation)
+        (prefix-in (only-in ../recursive/validation closed-type validation-node) graph.)
         (runtime: :clan/poo/fun)
         (prefix-in ./contract-publication publication.)
         (prefix-in (only-in :clan/poo/fun Observation.) fun.))

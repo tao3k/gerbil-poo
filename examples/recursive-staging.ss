@@ -1,9 +1,9 @@
 ;;; Interleaved staged SCC edits composed with refinement and bound publication.
 (export stage-transition publication-action)
 (import ../object
-        (prefix-in ../recursive-staging staging.)
-        (runtime: :clan/poo/recursive-validation)
-        (prefix-in (only-in ../recursive-validation closed-ref) graph.)
+        (prefix-in ../recursive/staging staging.)
+        (runtime: :clan/poo/recursive/validation)
+        (prefix-in (only-in ../recursive/validation closed-ref) graph.)
         (runtime: :clan/poo/fun)
         (runtime: :clan/poo/examples/recursive-topology)
         (prefix-in (only-in ./recursive-topology names peer-recipes publish-action) service.)

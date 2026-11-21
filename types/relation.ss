@@ -3,7 +3,7 @@
 (import (only-in :std/list/alist plist->alist)
         (only-in :std/hash/misc hash-ensure-ref)
         (only-in :std/list/list append-map map-in-order) (prefix-in ../function-signature signature.) ./syntax
-        (prefix-in ../recursive recursive.) ../object
+        (prefix-in ../recursive/evaluation recursive.) ../object
         (only-in ../mop/prototype Any Bool Function CaseFunction Type. Object Class.)
         (only-in ../object-contract ObjectContract.)
         (only-in ../optional-validation type-value-catalog capture-type-values

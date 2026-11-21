@@ -15,7 +15,7 @@
         (prefix-in :clan/poo/graph/schedule graph.)
         (prefix-in :clan/poo/dependency-analysis code.)
         (prefix-in :clan/poo/graph/scc scc.)
-        (prefix-in :clan/poo/recursive-topology topology.)
+        (prefix-in :clan/poo/recursive/topology topology.)
         (prefix-in :clan/poo/graph/component/revision component.))
 ;; Graph receipts use the existing paired-study allocation admission rule.
 ;; Only the post-timer projection changes; workload, clocks and GC stay intact.
