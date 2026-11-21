@@ -323,7 +323,7 @@
         (write (list kind size (cons 'captured-partition-preparation preparation)
                      (cons 'indexed-comparison comparison))) (newline)))))
 
-(extern namespace: clan/poo/strong-components partition-captured finish-partition %partition-members)
+(extern namespace: clan/poo/strong-components partition-captured finish-partition %partition-members %partition-groups)
 
 (def (check-certificate-refusal)
   (test-case "independent SCC certificate reports the first bad owner"
@@ -523,6 +523,9 @@
 (extern namespace: clan/poo/strong-components
   certify-active-tour certify-ordinal-whole certify-ordinal-components certify-ordinal-return)
 
+(extern namespace: clan/poo/support/index probe-ordinal-roster ordinal-probe)
+(extern namespace: clan/poo/strong-components ordinal-backward sparse-ordinal-backward dense-ordinal-backward)
+
 (def (check-graph-projection)
     (test-case "multi-SCC ordinal queries retain source order and exposed owner mutations"
       ;; Both groups interleave in source order. A self edge makes the second
@@ -558,6 +561,20 @@
       (check-eq? (owner 'a) 'z)
       (check-eq? (scc.partition-group-of part 'a) (scc.partition-members part 'z))
       (check-eq? (scc.partition-members part 'b) first))
+    (test-case "owned root projection keeps source order and fresh member lists"
+      (def source (graph.declaration/rows '#(b z a x q) '#u32(0 2 4 5 6 6) values
+        targets: '#u32(2 1 1 3 0 1)))
+      (def prior (scc.partition-owned source))
+      (check (procedure? (%partition-groups prior)) => #t)
+      (def groups (scc.partition-groups prior))
+      (check-equal? groups '((b a) (z x) (q)))
+      (set-car! (car groups) 'mutated)
+      (def edited (scc.revise-partition prior '((b a x))))
+      (check-eq? (%partition-groups edited) (%partition-groups prior))
+      (check-equal? (scc.partition-groups edited) '((b a) (z x) (q)))
+      (def split (scc.revise-partition edited '((a))))
+      (check-equal? (scc.partition-groups split) '((b) (z x) (a) (q)))
+      (check-equal? (scc.partition-groups prior) '((b a) (z x) (q))))
     (test-case "multi-SCC certificate rejects bad quotient order and false cycles"
       (def keys '#(a b c d))
       (def offsets '#u32(0 1 3 4 5))
@@ -759,6 +776,35 @@
         (lambda (cause) (and (Error? cause)
           (equal? (Error-message cause) "invalid SCC quotient certificate")
           (equal? (Error-irritants cause) '(a b))))))
+    (test-case "probed ordinals retain exact symbol identity and reject an occupied key"
+      (def left (string->uninterned-symbol "owner"))
+      (def right (string->uninterned-symbol "owner"))
+      (def absent (string->uninterned-symbol "owner"))
+      (def keys (vector left right))
+      (def index (probe-ordinal-roster keys))
+      (check (%ordinal-bucket-ref index left) => 0)
+      (check (%ordinal-bucket-ref index right) => 1)
+      (check (%ordinal-bucket-ref index absent) => #f)
+      (check (probe-ordinal-roster (vector left left)) => #f)
+      (check (probe-ordinal-roster (vector left 7 right)) => #f)
+      ;; A saturated route must decline both insertion and an absent read.
+      (check (ordinal-probe keys '#u32(1) 0 right 1) => #f)
+      (check (ordinal-probe keys '#u32(1) 0 right) => #f))
+    (test-case "sparse and dense inverse signing agree on ordered reader buckets"
+      (def keys '#(a b c d e f g))
+      (def offsets '#u32(0 1 2 3 4 5 6 7))
+      (def sparse '#u32(1 2 0 0 5 6 4))
+      (def single (sparse-ordinal-backward keys offsets sparse))
+      (def dense (dense-ordinal-backward keys offsets sparse))
+      (check (procedure? single) => #t)
+      (check-equal? (single 0) '(d c))
+      (for (ordinal (in-range 7))
+        (check-equal? (single ordinal) (dense ordinal)))
+      (def saturated '#u32(0 0 0 0 0 0 0))
+      (check (sparse-ordinal-backward keys offsets saturated) => #f)
+      (def ordinary (ordinal-backward keys offsets saturated identity))
+      (check-equal? (ordinary 0) '(g f e d c b a))
+      (check-equal? (ordinary 1) []))
     (test-case "packed owner buckets preserve symbol identity and refusal order"
       (def left (string->uninterned-symbol "owner"))
       (def right (string->uninterned-symbol "owner"))

@@ -26,7 +26,37 @@
 (defstruct ordinal-buckets (keys offsets positions mask) final: #t)
 (def (ordinal-bucket key mask) (fxand (symbolic-hash key) mask))
 
+;; A successful probe publishes one slot vector. It replaces the count,
+;; scatter and final lookup passes for a large, normally distributed roster.
+;; The same bound applies to insertion and lookup. A long cluster declines
+;; admission so the existing bucketed path can process the original roster.
+(def (ordinal-probe keys slots mask key (insert #f))
+  (let scan ((slot (ordinal-bucket key mask)) (left 256))
+    (and (fx> left 0)
+         (let (entry (u32vector-ref slots slot))
+           (cond
+            ((fx= entry 0)
+             (and insert (begin (u32vector-set! slots slot (fx+ insert 1)) #t)))
+            ((eq? key (vector-ref keys (fx- entry 1)))
+             (and (not insert) (fx- entry 1)))
+            (else (scan (fxand (fx+ slot 1) mask) (fx- left 1))))))))
+
+(def (probe-ordinal-roster keys)
+  (def count (vector-length keys))
+  (def width (arithmetic-shift 1 (integer-length (fx+ count (fxquotient count 2)))))
+  (def mask (fx- width 1))
+  (def slots (make-u32vector width 0))
+  (let admit ((node 0))
+    (if (fx= node count) (make-ordinal-buckets keys #f slots mask)
+      (let (key (vector-ref keys node))
+        (and (symbol? key) (ordinal-probe keys slots mask key node)
+             (admit (fx+ node 1)))))))
+
 (def (%make-ordinal-buckets keys)
+  (or (and (fx>= (vector-length keys) 65536) (probe-ordinal-roster keys))
+      (bucket-ordinal-roster keys)))
+
+(def (bucket-ordinal-roster keys)
   (def count (vector-length keys))
   (def width (arithmetic-shift 1 (integer-length (fxquotient count 4))))
   (def mask (fx- width 1))
@@ -64,13 +94,15 @@
 
 (def (%ordinal-bucket-ref index key)
   (using (index :- ordinal-buckets)
-    (let* ((id (ordinal-bucket key index.mask))
-           (end (u32vector-ref index.offsets (fx+ id 1))))
-      (let scan ((at (u32vector-ref index.offsets id)))
-        (and (fx< at end)
-             (let (i (u32vector-ref index.positions at))
-               (if (eq? (vector-ref index.keys i) key) i
-                 (scan (fx+ at 1)))))))))
+    (if index.offsets
+      (let* ((id (ordinal-bucket key index.mask))
+             (end (u32vector-ref index.offsets (fx+ id 1))))
+        (let scan ((at (u32vector-ref index.offsets id)))
+          (and (fx< at end)
+               (let (i (u32vector-ref index.positions at))
+                 (if (eq? (vector-ref index.keys i) key) i
+                   (scan (fx+ at 1)))))))
+      (ordinal-probe index.keys index.positions index.mask key))))
 
 (def (%index base) (make-index base #f))
 (def (%index-fork source)

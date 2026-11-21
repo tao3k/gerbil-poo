@@ -37,18 +37,20 @@
 (defstruct quotient-support (added retired) final: #t)
 (def partition? %partition?)
 (def (partition-groups part)
-  (let (owned (%partition-owned part))
-    (if owned
-      (with-list-builder (add)
-        (if (eq? (owned-partition-shape owned) 'singletons)
-          (%roster-for-each (lambda (key)
-            (when (or (not (owned-partition-retired? owned)) (owned-active-owner owned key))
-              (add (list key)))) (owned-partition-roster owned))
-          (%roster-for-each (lambda (key)
-            (when (eq? key (owned-active-owner owned key))
-              (add (partition-members part key)))) (owned-partition-roster owned))))
-      (let (groups (%partition-groups part))
-        (if (procedure? groups) (groups) groups)))))
+  (def groups (%partition-groups part))
+  (cond
+   ((procedure? groups) (groups))
+   ((%partition-owned part)
+    => (lambda (owned)
+         (with-list-builder (add)
+           (if (eq? (owned-partition-shape owned) 'singletons)
+             (%roster-for-each (lambda (key)
+               (when (or (not (owned-partition-retired? owned)) (owned-active-owner owned key))
+                 (add (list key)))) (owned-partition-roster owned))
+             (%roster-for-each (lambda (key)
+               (when (eq? key (owned-active-owner owned key))
+                 (add (partition-members part key)))) (owned-partition-roster owned))))))
+   (else groups)))
 (def partition-owner %partition-owner)
 (def partition-reads %partition-reads)
 (def partition-work %partition-work)
@@ -1348,7 +1350,7 @@
 
 ;; Supply the existing reverse index from immutable ordinal rows. The
 ;; sparse index fork continues to own edits to individual reader buckets.
-(def (ordinal-backward keys offsets targets project)
+(def (dense-ordinal-backward keys offsets targets)
   (def count (vector-length keys))
   (def incoming (make-u32vector (fx+ count 1) 0))
   (def readers (make-u32vector (u32vector-length targets)))
@@ -1375,7 +1377,42 @@
             (u32vector-set! readers dst node)
             (row (fx+ at 1) end))))
       (fill (fx+ node 1))))
-  (project (cut %decode-ordinal-row keys incoming readers <>)))
+  (cut %decode-ordinal-row keys incoming readers <>))
+
+;; Most narrow rows have at most one reader. Keep the latest source ordinal
+;; inline and spill only additional readers, with the latest reader first.
+;; Bound the number of spill entries before switching to the dense CSR base.
+(def (sparse-ordinal-backward keys offsets targets)
+  (let/cc decline
+    (def count (vector-length keys))
+    (def latest (make-u32vector count count))
+    (def remaining (fxmax 4 (fxquotient count 32)))
+    (def spill #f)
+    (let fill ((node 0))
+      (unless (fx= node count)
+        (let row ((at (u32vector-ref offsets node))
+                  (end (u32vector-ref offsets (fx+ node 1))))
+          (unless (fx= at end)
+            (let* ((provider (u32vector-ref targets at))
+                   (prior (u32vector-ref latest provider)))
+              (unless (fx= prior count)
+                (when (fx= remaining 0) (decline #f))
+                (set! remaining (fx- remaining 1))
+                (unless spill (set! spill (make-gc-table 0 gc-hash-table::t)))
+                (gc-table-set! spill provider
+                  (cons (vector-ref keys prior) (gc-table-ref spill provider []))))
+              (u32vector-set! latest provider node)
+              (row (fx+ at 1) end))))
+        (fill (fx+ node 1))))
+    (lambda (provider)
+      (let (reader (u32vector-ref latest provider))
+        (if (fx= reader count) []
+          (cons (vector-ref keys reader)
+            (if spill (list-copy (gc-table-ref spill provider [])) [])))))))
+
+(def (ordinal-backward keys offsets targets project)
+  (project (or (sparse-ordinal-backward keys offsets targets)
+               (dense-ordinal-backward keys offsets targets))))
 
 (def (finish-ordinal-owned index buckets)
   (def keys (compact-graph-names index))
@@ -1415,6 +1452,14 @@
     (let (id (rank node))
       (and (fx= node (u32vector-ref roots id))
            (cons (u32vector-ref sizes id) (cut member-list node)))))))
+  ;; When the certified root array is small, enumerate just those ordinals
+  ;; in source order. Every call constructs fresh member lists.
+  (def groups
+    (and (fx< components count) (fx<= components 4096)
+         (lambda ()
+           (with-list-builder (add)
+             (for (root (list-sort < (u32vector->list roots)))
+               (add (member-list root)))))))
   ;; The rank is issued only after independent coverage and the original
   ;; boundary-edge checks. Its address is stable across row replacements.
   (owned-snapshot
@@ -1426,7 +1471,7 @@
            (lambda (key) (let (node (position key)) (and node (rank node))))))
     (work-receipt count edges (vector-ref result 1) (vector-ref result 3)
       (vector-ref result 4) (vector-ref result 5) count components span-buckets span-edges
-      edges singletons reverse-count 0 0)))
+      edges singletons reverse-count 0 0) groups))
 
 (def (finish-ordinal-components keys reads index buckets owners validation-owners declared-edges result complete)
   (def count (vector-length keys))
@@ -1731,7 +1776,7 @@
 ;; Owned partition keeps the existing SCC result and only adds the indexes
 ;; required to revise that result without rereading a declaration.
 (def absent-owned-entry (gensym 'absent-owned-entry))
-(def (owned-snapshot owned work)
+(def (owned-snapshot owned work (groups #f))
   (def (require-active! key)
     (when (and (owned-partition-retired? owned) (not (owned-active-owner owned key)))
       (raise-unbound-key partition-owner key)))
@@ -1742,7 +1787,7 @@
       (let (value (%index-ref index key absent-owned-entry))
         (if (eq? value absent-owned-entry) (raise-unbound-key partition-owner key) value))
       (%index-ref index key)))
-  (make-%partition #f
+  (make-%partition groups
     (cut lookup (owned-partition-owner owned) <>)
     (lambda (key) (list-copy (lookup (owned-partition-forward owned) key)))
     #f work #f owned))
@@ -2157,7 +2202,8 @@
       member-writes: member-assignments rebased-owners: (if whole? width 0)
         projected-singletons: (if functional-cut? width 0)
         quotient-reader-edges: quotient-readers
-        local: (and local-part (partition-work local-part)))))
+        local: (and local-part (partition-work local-part)))
+      (and (eq? members old-members) (%partition-groups prior))))
   (if quotient?
     (values result (if functional-cut? 'all-representatives changed-groups)
       (cond (functional-cut? 'complete)

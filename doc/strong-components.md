@@ -50,7 +50,12 @@ the original owner-table error contract.
 
 An owned publication can borrow the same admitted roster and forward rows.
 It publishes the independently checked ranks and the compact reader rows as
-bases of the existing persistent indexes. An edit updates the reverse buckets
+bases of the existing persistent indexes. Large well-distributed rosters admit
+and check each symbol in one bounded probe. Single-reader reverse buckets store
+an ordinal inline, with a bounded spill for additional readers. Saturation uses
+the ordinary bucketed roster or transpose. Group enumeration can order the
+certified roots directly and still returns fresh member lists. An edit updates
+the reverse buckets
 of its changed edges. A new edge within the current component or strictly down
 a published rank cannot merge old components. In that case, only groups that
 lost a non-self internal edge run the independent checker again. A split may
