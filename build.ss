@@ -114,7 +114,7 @@
     "staged-publication"
     "number"
     "prototype-map"
-    ,(apply production-module "slot-layout" [] "" (include-gambit-sharp))
+    ,(apply production-module "object/slot-layout" [] "" (include-gambit-sharp))
     "read-route"
     "slot-observation"
     "object/state"

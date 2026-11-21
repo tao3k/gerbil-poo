@@ -5,7 +5,7 @@
 (import :std/iter :clan/poo/object
         :clan/poo/prototype-map
         (only-in :clan/poo/io module-action)
-        (only-in :clan/poo/slot-layout slot-value-storage make-slot-cache
+        (only-in :clan/poo/object/slot-layout slot-value-storage make-slot-cache
                  make-slot-layout slot-layout-index slot-layout-ref)
         (only-in :clan/poo/slot-observation call-with-slot-read-observer slot-read-key)
         (only-in :gerbil/runtime/loader load-module)

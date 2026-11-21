@@ -1,6 +1,6 @@
 ;;; Replay runtime-issued Slot reads and reject fabricated or stale records.
 (export issued-read-test test-cleanup!)
-(import (only-in :clan/poo/slot-layout make-slot-cache slot-cache-layout slot-layout-put!
+(import (only-in :clan/poo/object/slot-layout make-slot-cache slot-cache-layout slot-layout-put!
                  slot-value-storage slot-values-layout)
         :std/iter :std/test :clan/poo/object :clan/poo/slot-observation
         (only-in :clan/poo/examples/representation-service replay-workflow)

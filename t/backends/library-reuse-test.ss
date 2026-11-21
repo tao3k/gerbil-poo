@@ -15,7 +15,7 @@
         (only-in :std/hash/misc hash-ref/default hash-ensure-ref)
         (only-in :std/list/plist alist->plist)
         (only-in :std/list/alist plist->alist aremq arem)
-        :clan/poo/object :clan/poo/mop :clan/poo/number :clan/poo/object-contract :clan/poo/support/option :clan/poo/slot-layout
+        :clan/poo/object :clan/poo/mop :clan/poo/number :clan/poo/object-contract :clan/poo/support/option :clan/poo/object/slot-layout
         (only-in :clan/poo/type Record List Tuple Any Type. validate TypeError? Fun)
         (prefix-in :clan/poo/types/validation containers.)
         (prefix-in :clan/poo/examples/service-collection service.)

@@ -7,7 +7,7 @@ Gerbil 1cfb032 already returns the head directly for zero parent lists in
 =gerbil/runtime/c3.ss=. Do not replace the POO outer cycle/construction/hook
 protocol on the assumption that C4 itself scans a large Graph in this case.
 
-=slot-layout.ss= owns one weak =shapes= index. The former no-hint path always
+=object/slot-layout.ss= owns one weak =shapes= index. The former no-hint path always
 built a symbolic deduplication table before querying it. The guarded scalar
 path now avoids that scratch table on an existing-index hit. General requests
 and unrecognized routes retain ordinary admission. Cells remain receiver-local.

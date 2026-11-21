@@ -149,7 +149,7 @@ and `.cc` use these snapshots. `.cc` shares unaffected tree paths and rebinds
 formulas to the new receiver; it does not retain an evaluated parent instance.
 `.removeslot!` and `.removedefault!` expose inherited contributions again.
 
-`slot-layout.ss` weakly interns a sorted unique symbolic shape. Full construction
+`object/slot-layout.ss` weakly interns a sorted unique symbolic shape. Full construction
 and incremental growth use the same identity order as the private name indices.
 Identity is checked first, then the stored symbol hash. Distinct symbols that
 share a hash use their process-local serial order. Offsets and serials are
@@ -1424,7 +1424,7 @@ Internal preparation retains the authoritative layout. The explicit `hash`
 qualification remains a single symbolic value table; inline requests fall back
 to ordinary lookup and never create an auxiliary value vector.
 
-`slot-layout.ss` implements the actual core `HashTable` methods using the same
+`object/slot-layout.ss` implements the actual core `HashTable` methods using the same
 `bind-method!` convention as Gerbil runtime/hash. Unknown successful delegation
 prepares a complete new shape/cell arrangement before installing it. Sites retain
 the old immutable shape identity separately from the mutable layout. Evaluation

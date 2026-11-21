@@ -12,7 +12,7 @@
         (only-in ../object/state invalidate-state!)
         ../mop
         ../number
-        ../slot-layout
+        ../object/slot-layout
         ../object-contract
         (only-in ../io module-action)
         (only-in ../slot-observation call-with-slot-read-observer slot-read-key slot-read-receiver)
@@ -1032,4 +1032,4 @@
 
 (extern namespace: clan/poo/object %live-object-layout)
 
-(extern namespace: clan/poo/slot-layout access-cache-layout)
+(extern namespace: clan/poo/object/slot-layout access-cache-layout)

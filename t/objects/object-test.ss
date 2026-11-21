@@ -26,7 +26,7 @@
   (prefix-in :clan/poo/mop/methods/declaration methods.)
   (prefix-in :clan/poo/mop/methods/combination combination.)
   :clan/poo/slot-observation
-  :clan/poo/slot-layout
+  :clan/poo/object/slot-layout
   (only-in :clan/poo/meta-prototype bootstrap-protocol)
   (only-in :clan/poo/support/object-syntax deduplicate-slot-identifiers)
   (for-syntax (only-in :std/list/list delete-duplicates/hash))

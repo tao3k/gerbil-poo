@@ -5,7 +5,7 @@
 
 Small shape preparation allocated a fresh symbolic membership table even
 when all receiver shapes reused the existing canonical index. For at most
-eight names, =slot-layout.ss= now uses Std =foldr= with Scheme =memq=.
+eight names, =object/slot-layout.ss= now uses Std =foldr= with Scheme =memq=.
 Larger name sets and hint-based updates retain their original hash algorithm.
 The bounded path performs at most 28 membership comparisons; no quadratic
 algorithm is applied to a large directory.

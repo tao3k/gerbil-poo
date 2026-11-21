@@ -9,7 +9,7 @@
                             find-method bind-method! class-slot-offset &class-type-slot-table
                             &class-type-interface) runtime.)
         (only-in :gerbil/runtime/table symbolic-table-set!)
-        (only-in :clan/poo/slot-layout make-slot-cache)
+        (only-in :clan/poo/object/slot-layout make-slot-cache)
         (only-in :clan/poo/examples/representation-service topology-workflow)
         :std/test :std/iter :clan/poo/object :clan/poo/mop :clan/poo/brace :clan/poo/number (only-in :clan/poo/type String define-type) :clan/poo/reflection
         (prefix-in :clan/poo/examples/inherited-services services.))

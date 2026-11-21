@@ -36,7 +36,7 @@
 (extern namespace: clan/poo/object %ref-owned-list %prepared-vector-slot-ref compute-object-precedence!
         object-construction-current? %call-with-fresh-slot-read-group)
 (extern namespace: clan/poo/read-projection %owned-private-registration?)
-(extern namespace: clan/poo/slot-layout %fresh-vector-seeds-available? %advance-fresh-vector-seeds!)
+(extern namespace: clan/poo/object/slot-layout %fresh-vector-seeds-available? %advance-fresh-vector-seeds!)
 (extern namespace: clan/poo/slot-observation
         %with-slot-read-registration-interval %without-slot-read-registration-interval
         %revoke-slot-read-registration-interval!)

@@ -1,6 +1,6 @@
 ;;; Closed scalar metadata admission; ordinary methods retain their effects.
 (export shape-admission-test)
-(import :std/test :std/error :std/iter :clan/poo/object :clan/poo/slot-layout
+(import :std/test :std/error :std/iter :clan/poo/object :clan/poo/object/slot-layout
         (only-in :clan/poo/support/base %graph-table-seed %with-graph-table-seeds
                  %with-application-table-seeds)
         (prefix-in (only-in :gerbil/runtime/mop slot-ref slot-set! object-class
@@ -12,7 +12,7 @@
         (only-in :gerbil/runtime/gambit default-random-source
                  string->uninterned-symbol))
 (extern namespace: #f random-source-state-ref random-source-state-set!)
-(extern namespace: clan/poo/slot-layout scalar-shape-routes-current? ordinary-shape-for-names
+(extern namespace: clan/poo/object/slot-layout scalar-shape-routes-current? ordinary-shape-for-names
   intern-ordered-shape shapes shape-names shape-indices)
 (extern namespace: clan/poo/object compute-slot-funs! plain-root-slot-entries)
 (extern namespace: clan/poo/read-route %fixed-symbol-table-order?)

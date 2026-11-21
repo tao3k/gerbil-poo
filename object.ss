@@ -43,7 +43,7 @@
            %issued-read? %read-issuance)
   ./object/state
   ./prototype-map
-  ./slot-layout
+  ./object/slot-layout
   (only-in :std/list/list-builder with-list-builder)
   (only-in :std/list/list flatten delete-duplicates/hash map-in-order)
   (only-in :std/string/symbol symbol<?)

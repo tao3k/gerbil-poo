@@ -11,9 +11,9 @@
         (only-in :gerbil/runtime/table raw-table? symbolic-table-ref symbolic-table-set!)
         (only-in :gerbil/runtime/gambit table? table-ref table-set! macro-table-test macro-table-hash macro-table-flags
                  random-integer macro-max-fixnum32)
-        (only-in ./support/base %compare-symbol-identity %graph-table-seed)
-        (only-in ./object/state object-state-revision)
-        ./slot-observation
+        (only-in ../support/base %compare-symbol-identity %graph-table-seed)
+        (only-in ./state object-state-revision)
+        ../slot-observation
         (only-in :std/hash/misc hash-ensure-ref) :std/iter (only-in :std/list/list delete-duplicates/hash find foldr length<=n?))
 
 ;; Carry Gambit's macro definitions in this module's static source as well as

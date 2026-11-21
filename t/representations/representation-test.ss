@@ -12,7 +12,7 @@
         (only-in :clan/poo/read-route make-read-issuer)
         (only-in :clan/poo/mop Slot .new) (only-in :clan/poo/number Integer)
         (only-in :clan/poo/reflection reflect-slots read-slot write-slot!)
-        :clan/poo/object :clan/poo/prototype-map :clan/poo/slot-layout :clan/poo/slot-observation :clan/poo/meta-prototype
+        :clan/poo/object :clan/poo/prototype-map :clan/poo/object/slot-layout :clan/poo/slot-observation :clan/poo/meta-prototype
         (prefix-in :clan/poo/examples/representation-service service.)
         (prefix-in (only-in :clan/poo/examples/generalized-checkout prepare-checkout report) checkout.)
         (prefix-in (only-in :clan/poo/fun Observation.) fun.))
@@ -1174,4 +1174,4 @@
 
 (extern namespace: clan/poo/object %live-object-layout)
 
-(extern namespace: clan/poo/slot-layout access-cache-layout)
+(extern namespace: clan/poo/object/slot-layout access-cache-layout)

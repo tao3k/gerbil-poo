@@ -42,7 +42,7 @@
 
 ;; Expose the existing primary vector by identity, without seeding another store.
 ;; The explicit hash qualification stays symbolic and never allocates a second cache.
-(extern namespace: clan/poo/slot-layout %layout-snapshot access-cache-layout)
+(extern namespace: clan/poo/object/slot-layout %layout-snapshot access-cache-layout)
 (def (%live-object-layout self previous: (previous #f))
   (instantiate-object! self previous: previous)
   (or (object-%layout self)

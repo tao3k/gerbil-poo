@@ -5,7 +5,7 @@
         (only-in :gerbil/runtime/c3 c4-linearize*)
         (only-in :gerbil/runtime/loader list-modules)
         (only-in :std/values first-value)
-        (only-in :clan/poo/slot-layout make-slot-layout slot-layout-shape slot-layout-index slot-layout-set!)
+        (only-in :clan/poo/object/slot-layout make-slot-layout slot-layout-shape slot-layout-index slot-layout-set!)
         (only-in :clan/poo/object/state object-state-revision)
         (only-in :gerbil/runtime/gambit string->uninterned-symbol)
         (prefix-in (only-in :gerbil/runtime/mop object-class make-class-slot-accessor class-slot-offset slot-ref) assembly.)
@@ -22,7 +22,7 @@
         (only-in :clan/poo/support/index %index %index-ref))
 (extern namespace: clan/poo/graph/schedule reverse-bucket-members)
 (extern namespace: #f random-source-state-ref random-source-state-set!)
-(extern namespace: clan/poo/slot-layout shape-for-names intern-ordered-shape make-layout
+(extern namespace: clan/poo/object/slot-layout shape-for-names intern-ordered-shape make-layout
         ordinary-shape-for-names same-shape-names? shape-names scalar-shape-routes-current?)
 (extern namespace: clan/poo/object
   compile-slot-specs slot-spec-discards-super? prepare-declaration-specifications)
