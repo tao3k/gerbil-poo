@@ -104,7 +104,10 @@
 (def (partition-group-of part node)
   (observe-group part node #f))
 (def (partition-group-size part node)
-  (observe-group part node #t))
+  (let (members (%partition-members part))
+    (if (and (procedure? members) (%partition-owned part))
+      (members node #t)
+      (observe-group part node #t))))
 (def (work-receipt owner-count input-edges discoveries-count edges-count finish-count
                    pop-count normalized-count group-count span-buckets span-edges quotient-count
                    singleton-count reverse-count ranked-count rank-edge-count)
@@ -1519,10 +1522,11 @@
                (if visit (visit-members node id visit) (member-list node id)))))))))
   (def (member key size? (visit #f))
     (let* ((node (position key)) (id (and node (rank node))))
-      (and id (fx= node (u32vector-ref roots id))
-           (cond (size? (u32vector-ref sizes id))
-                 (visit (visit-members node id visit))
-                 (else (member-list node id))))))
+      (and id
+           ;; Size accepts any member. Listing and visiting require its root.
+           (if size? (u32vector-ref sizes id)
+             (and (fx= node (u32vector-ref roots id))
+                  (if visit (visit-members node id visit) (member-list node id)))))))
   ;; When the certified root array is small, enumerate just those ordinals
   ;; in source order. Every call constructs fresh member lists.
   (def groups
@@ -2282,7 +2286,7 @@
         quotient-reader-edges: quotient-readers
         local: (and local-part (partition-work local-part)))
       (and (eq? members old-members) (%partition-groups prior))
-      (and (eq? members old-members) (%partition-members prior))))
+      (and (eq? owner old-owner) (eq? members old-members) (%partition-members prior))))
   (if quotient?
     (values result (if functional-cut? 'all-representatives changed-groups)
       (cond (functional-cut? 'complete)
