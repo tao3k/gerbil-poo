@@ -953,7 +953,7 @@ Custom callback termination and lens/compiler laws remain premises. See
 ### Controlled non-record closure and custom lens laws
 
 Racket's generalized raw/cooked construction now has a bounded adjacent-state
-closure API in `generalized-closure.ss`, reusing source-guarded fragment steps and
+closure API in `mop/generalized-closure.ss`, reusing source-guarded fragment steps and
 existing cooking. Lean `Generalized.closeWithin_fixed/bound/reached/forever`
 proves actual fixedness, transition bound, original-seed provenance and later
 stability. Finite observations or equal sampled function calls cannot establish

@@ -3,7 +3,7 @@
 (import :std/test :std/iter
         (only-in :clan/poo/mop/prototype .lens)
         (only-in :clan/poo/graph/feedback/builder component-group-builder)
-        (only-in :clan/poo/generalized-closure closed-raw)
+        (only-in :clan/poo/mop/generalized-closure closed-raw)
         (only-in :clan/poo/graph/feedback/cache group-closed)
         (only-in :clan/poo/graph/feedback publish-owned-feedback-graph graph-cache-ref graph-cache-partition)
         (prefix-in :clan/poo/graph/schedule graph.)

@@ -3,7 +3,7 @@
         feedback-cache-action publish-feedback-cache %admit-feedback-cache %feedback-cache-current!
         %start-feedback-guard %revise-feedback-guard %feedback-guard-current! %admit-guarded-feedback-cache)
 (import (only-in :std/list/list foldr list-sort delete-duplicates/hash) ../../object ../../mop/prototype ../../support/option
-        ../../mop/generalized-declaration ../../generalized-closure ./closure ../../lens-laws
+        ../../mop/generalized-declaration ../../mop/generalized-closure ./closure ../../lens-laws
         (only-in ../schedule %splice-witness-tree %witness-span %witness-tree-current? %witness-tree-stamp
                  %witness-tree-left %witness-tree-right %witness-tree-evidence)
         (prefix-in ../construction cache.) (prefix-in ../computation code.)

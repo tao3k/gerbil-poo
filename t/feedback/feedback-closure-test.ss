@@ -17,7 +17,7 @@
   (prefix-in :clan/poo/graph/schedule graph.)
   (prefix-in :clan/poo/examples/cached-feedback service.)
   (prefix-in (only-in :clan/poo/fun Observation.) fun.)
-  :clan/poo/generalized-closure
+  :clan/poo/mop/generalized-closure
   :clan/poo/graph/feedback/closure
   (prefix-in :clan/poo/examples/feedback-services services.))
 

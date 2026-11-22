@@ -5,7 +5,7 @@
         ../mop
         ../brace
         ../mop/generalized-declaration
-        ../generalized-closure
+        ../mop/generalized-closure
         ../lens-laws
         (runtime: :clan/poo/mop/methods/combination)
         (prefix-in (only-in ../mop/methods/combination around prepare-standard primary) combination.)

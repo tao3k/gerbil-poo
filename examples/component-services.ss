@@ -7,7 +7,7 @@
         ../support/option
         ../graph/feedback/builder
         ../mop/generalized-declaration
-        ../generalized-closure
+        ../mop/generalized-closure
         ../graph/feedback/cache
         ../graph/feedback
         ../lens-laws

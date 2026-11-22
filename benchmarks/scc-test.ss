@@ -75,7 +75,7 @@
 (export owned-quotient-benchmark-test)
 (import :std/iter :clan/poo/object :clan/poo/mop :clan/poo/support/option
         (only-in :clan/poo/graph/feedback/builder component-group-builder)
-        (only-in :clan/poo/generalized-closure closed-raw)
+        (only-in :clan/poo/mop/generalized-closure closed-raw)
         (only-in :clan/poo/graph/feedback/cache group-closed)
         (only-in :clan/poo/graph/feedback publish-owned-feedback-graph graph-cache-values graph-cache-ref graph-cache-partition)
         (only-in :clan/poo/benchmarks/closure-measure measure qualified-metrics)

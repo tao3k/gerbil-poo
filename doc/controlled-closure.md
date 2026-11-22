@@ -7,7 +7,7 @@ proof of arbitrary Scheme callback termination.
 
 ## Actual raw closure
 
-`generalized-closure.ss` exports `close-fragments`, `publish-closure`,
+`mop/generalized-closure.ss` exports `close-fragments`, `publish-closure`,
 `closure-action`, closed receipt inspectors and failure inspectors.
 
 ```scheme

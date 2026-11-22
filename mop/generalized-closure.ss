@@ -1,8 +1,8 @@
 ;;; Bounded adjacent-raw stabilization of existing generalized fragment programs.
 (export close-fragments publish-closure closure-action closed-fragments? closed-raw closed-interface closed-steps
         closure-failure? closure-failure-kind closure-failure-steps closure-failure-cause)
-(import (only-in ./support/base %with-application-table-seeds)
-        ./mop/generalized-declaration ./lens-laws)
+(import (only-in ../support/base %with-application-table-seeds)
+        ./generalized-declaration ../lens-laws)
 ;; Only a completed equality check followed by cooking constructs this receipt.
 ;; Returned raw data must remain immutable; this Gerbil provenance is not a proof seal.
 (defstruct closed-fragments (owner base raw interface steps) final: #t)

@@ -1,6 +1,6 @@
 ;;; Lens-based complete component equations, reusable on any comparable carrier.
 (export component-group-builder %component-member-builder? %with-member-fragment-seeds)
-(import (only-in :std/list/list delete-duplicates/hash) ../../object ../../mop/prototype ../../support/option ../../mop/generalized-declaration ../../generalized-closure ./cache
+(import (only-in :std/list/list delete-duplicates/hash) ../../object ../../mop/prototype ../../support/option ../../mop/generalized-declaration ../../mop/generalized-closure ./cache
         ../../lens-laws
         (only-in :gerbil/runtime/thread with-lock)
         (only-in ../../support/base %graph-table-seed %with-graph-table-seeds %with-application-table-seeds)

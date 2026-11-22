@@ -6,7 +6,7 @@
         ../brace
         ../support/option
         ../graph/feedback/builder
-        ../generalized-closure
+        ../mop/generalized-closure
         ../graph/feedback/cache
         ../graph/feedback
         ../lens-laws

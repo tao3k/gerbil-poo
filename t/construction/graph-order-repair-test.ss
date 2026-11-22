@@ -11,7 +11,7 @@
         (only-in :clan/poo/lens-laws lens-check)
         (only-in :clan/poo/mop lens-of-get-set)
         (only-in :clan/poo/graph/feedback/builder component-group-builder)
-        (only-in :clan/poo/generalized-closure closed-raw)
+        (only-in :clan/poo/mop/generalized-closure closed-raw)
         (only-in :clan/poo/graph/feedback/cache group-closed)
         (only-in :clan/poo/graph/feedback publish-owned-feedback-graph graph-cache-partition graph-cache-ref graph-cache-values)
         (prefix-in :clan/poo/graph/component/publication publication.)

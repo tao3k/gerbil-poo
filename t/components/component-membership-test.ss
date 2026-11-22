@@ -14,7 +14,7 @@
   :clan/poo/support/option
   :clan/poo/graph/feedback
   :clan/poo/graph/feedback/cache
-  (only-in :clan/poo/generalized-closure closed-raw)
+  (only-in :clan/poo/mop/generalized-closure closed-raw)
   (only-in :clan/poo/graph/feedback/builder component-group-builder)
   (prefix-in :clan/poo/graph/construction cache.)
   (prefix-in :clan/poo/graph/scc scc.)

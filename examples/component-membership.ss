@@ -4,7 +4,7 @@
         ../mop
         ../brace
         ../support/option
-        ../generalized-closure
+        ../mop/generalized-closure
         ../graph/feedback/cache
         ../graph/feedback
         ../lens-laws

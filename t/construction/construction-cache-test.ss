@@ -24,7 +24,7 @@
   :clan/poo/brace
   :clan/poo/lens-laws
   :clan/poo/focused-closure
-  :clan/poo/generalized-closure
+  :clan/poo/mop/generalized-closure
   :clan/poo/mop/generalized-declaration
   (prefix-in :clan/poo/examples/closed-declarations service.)
   (prefix-in :clan/poo/examples/focused-services family.)
