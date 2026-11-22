@@ -1,7 +1,7 @@
 ;;; Key-preserving bulk maps retain snapshot order, types and ownership.
 (export table-mapping-test)
 (import :std/test :std/error :std/iter (only-in :clan/poo/brace @@method)
-        :clan/poo/object :clan/poo/mop :clan/poo/type :clan/poo/number :clan/poo/table :clan/poo/rationaldict :clan/poo/support/option
+        :clan/poo/object :clan/poo/mop :clan/poo/type :clan/poo/number :clan/poo/table :clan/poo/table/rationaldict :clan/poo/support/option
         (only-in :clan/poo/trie SimpleTrie) (only-in :clan/poo/t/table-testing box-table borrowing-table) (only-in :clan/poo/t/table-testing alist-table)
         (prefix-in :clan/poo/examples/service-collection service.))
 

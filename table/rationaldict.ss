@@ -3,17 +3,17 @@
 (export #t)
 
 (import
-  (only-in ./support/base λ number-comparer)
-  (only-in ./support/rationaldict
+  (only-in ../support/base λ number-comparer)
+  (only-in ../support/rationaldict
            rationaldict-empty? empty-rationaldict
            rationaldict-put rationaldict-ref rationaldict-has-key? rationaldict-remove
            list->rationaldict rationaldict->list rationaldict-fold rationaldict-foldr
            rationaldict? rationaldict=? rationaldict-iter)
-  (only-in ./type Rational Unit)
-  (only-in ./object .@)
-  (only-in ./brace @method)
-  (only-in ./mop/prototype define-type Any raise-type-error)
-  (only-in ./table Set<-Table. methods.table table-key-space table-comparer table-ordered-cursor))
+  (only-in ../type Rational Unit)
+  (only-in ../object .@)
+  (only-in ../brace @method)
+  (only-in ../mop/prototype define-type Any raise-type-error)
+  (only-in ../table Set<-Table. methods.table table-key-space table-comparer table-ordered-cursor))
 
 (define-type (RationalDict. @ [methods.table] Value)
    ;; This backend's tree operations are payload-parametric and retain key equality.

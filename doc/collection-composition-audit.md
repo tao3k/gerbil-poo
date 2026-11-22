@@ -82,7 +82,7 @@ The core counterexample is reproducible in the normal built package environment:
 
 ```scheme
 (import :clan/poo/object :clan/poo/mop :clan/poo/type
-        :clan/poo/table :clan/poo/rationaldict :std/error)
+        :clan/poo/table :clan/poo/table/rationaldict :std/error)
 
 ;; Observe only this known refusal; unexpected exceptions must remain failures.
 (let* ((refusal (list 'singleton-refused))

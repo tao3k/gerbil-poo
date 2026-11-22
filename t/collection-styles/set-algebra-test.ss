@@ -12,7 +12,7 @@
   :clan/poo/number
   :clan/poo/type
   :clan/poo/table
-  :clan/poo/rationaldict
+  :clan/poo/table/rationaldict
   :clan/poo/support/option
   (only-in :clan/poo/trie SimpleTrie SimpleTrieSet)
   (only-in :clan/poo/t/table-testing alist-table box-table)

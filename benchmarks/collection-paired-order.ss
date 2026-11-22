@@ -1,7 +1,7 @@
 ;;; Ordered collection and publication workloads.
 (export workload order-workload order-shape-work)
 (import :std/iter :clan/poo/object
-        :clan/poo/mop :clan/poo/number :clan/poo/type :clan/poo/table :clan/poo/rationaldict
+        :clan/poo/mop :clan/poo/number :clan/poo/type :clan/poo/table :clan/poo/table/rationaldict
         (only-in :clan/poo/support/base number-comparer)
         :clan/poo/support/option
         (only-in :clan/poo/fun Wrapper. IdWrap)

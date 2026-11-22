@@ -8,13 +8,13 @@
            list->rationaldict rationaldict-ref rationaldict-fold rationaldict-foldr
            rationaldict=?)
   (only-in :clan/poo/object .call)
-  :clan/poo/mop :clan/poo/rationaldict :clan/poo/type
+  :clan/poo/mop :clan/poo/table/rationaldict :clan/poo/type
   :clan/poo/t/table-testing)
 
 (def T (RationalDict String))
 
 (def rationaldict-test
-  (test-suite "test suite for clan/poo/rationaldict"
+  (test-suite "test suite for clan/poo/table/rationaldict"
     (init-test-random-source!)
     (test-case "native RBTree folds preserve table order"
       (def dict (list->rationaldict '((3 . "three") (1 . "one") (2 . "two"))))

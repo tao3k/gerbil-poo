@@ -2,7 +2,7 @@
 (export Command model lifecycle collection-model with-collection-system collection-property collection-tests)
 (import :std/error :std/iter (only-in :std/list/list filter-map)
         ../object ../mop ../type ../number ../testing/type ../support/option
-        ../table ../rationaldict (only-in ../trie SimpleTrie))
+        ../table ../table/rationaldict (only-in ../trie SimpleTrie))
 
 ;; Receipts are logical model data, never real TableDelta objects or owner handles.
 (defstruct ticket (epoch key before after) final: #t)

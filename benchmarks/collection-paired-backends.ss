@@ -1,7 +1,7 @@
 ;;; Rational dictionary and trie representation workloads.
 (export representation-workload representation-work)
 (import :std/iter :clan/poo/object
-        :clan/poo/mop :clan/poo/number :clan/poo/type :clan/poo/table :clan/poo/rationaldict
+        :clan/poo/mop :clan/poo/number :clan/poo/type :clan/poo/table :clan/poo/table/rationaldict
         :clan/poo/support/option
         (only-in :clan/poo/fun Wrapper.)
         (only-in :clan/poo/trie SimpleTrie))

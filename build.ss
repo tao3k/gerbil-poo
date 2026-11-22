@@ -135,7 +135,7 @@
     ,(production-module "object" ["object/representation.scm" "object/construction.scm" "object/slot-values.scm" "object/observation.ss" "object/slot-access.scm" "object/operations.scm" "object/syntax.scm" "object/mutation.scm"])
     "polynomial"
     "proto"
-    "rationaldict"
+    "table/rationaldict"
     ;; std/make tracks the standard include as an explicit compiler input.
     ;; Gambit's built-in host limit splits large generated C procedures instead
     ;; of making GCC optimize the entire collection module as one label graph.
