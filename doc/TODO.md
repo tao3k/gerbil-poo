@@ -823,7 +823,7 @@ remains inconclusive about divergence. See [controlled-closure.md](controlled-cl
 
 ### Focused recursive components and final family admission
 
-`focused-closure.ss` now closes narrow components inside a wider non-record raw
+`mop/focused-closure.ss` now closes narrow components inside a wider non-record raw
 carrier, using captured outer lens checks and the existing bounded local closure.
 Actual old/new child values extend the finite law domain. Ordered stages compose
 with Gerbil FUN Reader `.map` and standard `foldr`; every source stays guarded

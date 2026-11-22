@@ -977,7 +977,7 @@ and compiler/runtime verification remain outside scope. See
 ### Focused recursive components in a wider raw computation
 
 Racket's `$lens-gen` discussion explicitly permits a narrow component of a wider
-raw computation, followed by representation cooking. `focused-closure.ss` now
+raw computation, followed by representation cooking. `mop/focused-closure.ss` now
 combines existing local closure, captured custom lenses, FUN Reader composition
 and final whole-family cooking. Sources for ALL stages remain guarded; actual
 replacement values extend finite law domains, and final admission checks every

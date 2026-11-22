@@ -125,7 +125,7 @@
     "mop/generalized-declaration"
     "lens-laws"
     "mop/generalized-closure"
-    "focused-closure"
+    "mop/focused-closure"
     "graph/feedback/closure"
     "graph/feedback/cache"
     "graph/feedback/builder"

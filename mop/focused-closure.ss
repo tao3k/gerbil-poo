@@ -1,8 +1,8 @@
 ;;; Close narrow raw components inside a wider non-record computation.
 (export closure-focus focus-closure-action focused-closures-action publish-focused-closures)
-(import (only-in :std/list/list foldr) ./object ./mop/prototype ./lens-laws
-        ./mop/generalized-declaration ./mop/generalized-closure
-        (prefix-in (only-in ./fun Observation.) fun.))
+(import (only-in :std/list/list foldr) ../object ./prototype ../lens-laws
+        ./generalized-declaration ./generalized-closure
+        (prefix-in (only-in ../fun Observation.) fun.))
 ;; A stage retains one existing preparation, captured outer lens, immutable local
 ;; base, transition budget and local law checks. Sources are guarded as one family.
 (defstruct focused-program (prepared check base budget checks) final: #t)
