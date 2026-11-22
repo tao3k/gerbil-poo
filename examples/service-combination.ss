@@ -21,7 +21,7 @@
         (runtime: :clan/poo/declarative-metadata)
         (prefix-in (only-in ../declarative-metadata compile contribute install
                    predicate replace) metadata.)
-        (prefix-in ../staged-publication staged.)
+        (prefix-in ../graph/staged-publication staged.)
         (runtime: :clan/poo/generic-family)
         (prefix-in (only-in ../generic-family methods.refresh<-empty-storage
                    methods.refresh<-sized-projection) family.)

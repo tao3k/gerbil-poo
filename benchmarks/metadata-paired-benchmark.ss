@@ -12,7 +12,7 @@
         (runtime: :clan/poo/generic-family)
         (prefix-in (only-in :clan/poo/generic-family family-built family-has? family-ref
                    refresh) generics.)
-        (prefix-in :clan/poo/staged-publication staged.)
+        (prefix-in :clan/poo/graph/staged-publication staged.)
         (runtime: :clan/poo/graph/cyclic-publication)
         (prefix-in (only-in :clan/poo/graph/cyclic-publication failure-stage invoke probe
                    version-cache version-contract-family version-family

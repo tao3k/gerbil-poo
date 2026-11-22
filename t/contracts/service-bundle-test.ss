@@ -10,7 +10,7 @@
   (prefix-in :clan/poo/examples/cyclic-access access.)
   (prefix-in :clan/poo/examples/protected-dispatch protected.)
   (prefix-in :clan/poo/generic-family family.)
-  (prefix-in :clan/poo/staged-publication staged.)
+  (prefix-in :clan/poo/graph/staged-publication staged.)
   (prefix-in :clan/poo/graph/cyclic-publication service-bundle.publication.)
   (prefix-in :clan/poo/declarative-metadata metadata.)
   (prefix-in :clan/poo/mop/methods/extension dispatch.)

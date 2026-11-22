@@ -10,7 +10,7 @@
         (runtime: :clan/poo/generic-family)
         (prefix-in (only-in ../generic-family Model. Projection.
                    methods.refresh<-projection) family.)
-        (prefix-in ../staged-publication staged.)
+        (prefix-in ../graph/staged-publication staged.)
         (runtime: :clan/poo/graph/cyclic-publication)
         (prefix-in (only-in ../graph/cyclic-publication probe same-service?
                    version-service version-view) publication.)

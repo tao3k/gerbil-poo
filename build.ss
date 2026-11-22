@@ -111,7 +111,7 @@
     "graph/component/joint"
     "generalized-prototype"
     "graph/construction"
-    "staged-publication"
+    "graph/staged-publication"
     "number"
     "object/prototype-map"
     ,(apply production-module "object/slot-layout" [] "" (include-gambit-sharp))

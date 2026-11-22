@@ -34,7 +34,7 @@
   (prefix-in :clan/poo/examples/service-bundle bundle.)
   (prefix-in :clan/poo/examples/cyclic-access access.)
   (prefix-in :clan/poo/examples/shared-contracts shared.)
-  (prefix-in :clan/poo/staged-publication staged.)
+  (prefix-in :clan/poo/graph/staged-publication staged.)
   (prefix-in :clan/poo/graph/cyclic-publication contract-family.publication.)
   (prefix-in :clan/poo/examples/object-contracts contract-publication.service.)
   (prefix-in :clan/poo/examples/contract-publication contract-publication.publication.)

@@ -88,7 +88,7 @@ cache, applies the complete edit batch, then checks negative assumptions. Repeat
 keys retain the first installation, matching Lean's ~Partial.build~. Failure
 payloads identify the service key and registration/negative phase.
 
-~staged-publication.ss~ implements ~StagedPublication.Model.~ with ~cook~,
+~graph/staged-publication.ss~ implements ~StagedPublication.Model.~ with ~cook~,
 ~generics~, ~contracts~, ~admit~ and derived ~.prepare / .publish~. These bind the
 existing finite cyclic lifecycle; they do not introduce another closure solver,
 dispatch index, certificate or cache representation. The correspondence is to the
