@@ -7,7 +7,7 @@
   :std/iter
   :clan/poo/graph/closure
   :clan/poo/object
-  (prefix-in :clan/poo/cyclic-publication cyclic-publication.)
+  (prefix-in :clan/poo/graph/cyclic-publication cyclic-publication.)
   (prefix-in :clan/poo/examples/cyclic-access access.)
   :clan/poo/mop
   :clan/poo/brace

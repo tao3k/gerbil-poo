@@ -14,8 +14,8 @@
         (prefix-in :clan/poo/examples/service-metadata service.)
         (runtime: :clan/poo/examples/cyclic-access)
         (prefix-in (only-in :clan/poo/examples/cyclic-access config equations) access.)
-        (runtime: :clan/poo/cyclic-publication)
-        (prefix-in (only-in :clan/poo/cyclic-publication failure-cause failure-stage
+        (runtime: :clan/poo/graph/cyclic-publication)
+        (prefix-in (only-in :clan/poo/graph/cyclic-publication failure-cause failure-stage
                    failure? invoke version-cache version-contract-family
                    version-contract-invoker version-family version-service
                    version-source version-view version?) publication.)

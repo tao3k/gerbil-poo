@@ -10,8 +10,8 @@
         :std/iter
         ../graph/closure
         ../object
-        (runtime: :clan/poo/cyclic-publication)
-        (prefix-in (only-in ../cyclic-publication invoke prepare publish
+        (runtime: :clan/poo/graph/cyclic-publication)
+        (prefix-in (only-in ../graph/cyclic-publication invoke prepare publish
                    version-view) cyclic-publication.))
 ;; Construct immutable trust, training, team and compliance policy.
 (def (config (trusted #t) (trained #t) (team-member #t) (compliant #t))

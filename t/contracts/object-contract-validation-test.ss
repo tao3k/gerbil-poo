@@ -19,7 +19,7 @@
   (prefix-in :clan/poo/graph/closure closure.)
   (prefix-in :clan/poo/mop/methods/dispatch multimethod.)
   (prefix-in :clan/poo/mop/methods/extension dispatch-extension.)
-  (prefix-in :clan/poo/cyclic-publication cyclic-publication.)
+  (prefix-in :clan/poo/graph/cyclic-publication cyclic-publication.)
   (prefix-in :clan/poo/examples/protected-dispatch protected-dispatch.))
 
 ;; Construct once with the original private helper scope and declaration order.

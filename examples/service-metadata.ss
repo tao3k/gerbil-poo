@@ -15,8 +15,8 @@
         (prefix-in (only-in ../mop/methods/dispatch make) multimethod.)
         (runtime: :clan/poo/mop/methods/extension)
         (prefix-in (only-in ../mop/methods/extension check) dispatch-extension.)
-        (runtime: :clan/poo/cyclic-publication)
-        (prefix-in (only-in ../cyclic-publication invoke prepare publish
+        (runtime: :clan/poo/graph/cyclic-publication)
+        (prefix-in (only-in ../graph/cyclic-publication invoke prepare publish
                    version-view) publication.)
         (runtime: :clan/poo/examples/cyclic-access)
         (prefix-in (only-in ./cyclic-access cook equations) access.))

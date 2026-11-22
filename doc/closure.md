@@ -30,7 +30,7 @@ The old published facts never bootstrap an unsupported new cycle.
 
 ## Unified construction/publication operations
 
-`cyclic-publication.ss` stages least closure, cooked view, heterogeneous named
+`graph/cyclic-publication.ss` stages least closure, cooked view, heterogeneous named
 procedures or checked typed generics, and candidate admission as one version. Duplicate/invalid services,
 cooking exceptions, negative-watch conflicts or admission refusal preserve the identical old version. A
 fresh compile is explicit when topology changes. Published views are immutable by

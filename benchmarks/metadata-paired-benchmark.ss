@@ -13,8 +13,8 @@
         (prefix-in (only-in :clan/poo/generic-family family-built family-has? family-ref
                    refresh) generics.)
         (prefix-in :clan/poo/staged-publication staged.)
-        (runtime: :clan/poo/cyclic-publication)
-        (prefix-in (only-in :clan/poo/cyclic-publication failure-stage invoke probe
+        (runtime: :clan/poo/graph/cyclic-publication)
+        (prefix-in (only-in :clan/poo/graph/cyclic-publication failure-stage invoke probe
                    version-cache version-contract-family version-family
                    version-view) publication.)
         (runtime: :clan/poo/examples/service-combination)

@@ -11,8 +11,8 @@
         (prefix-in (only-in ../generic-family Model. Projection.
                    methods.refresh<-projection) family.)
         (prefix-in ../staged-publication staged.)
-        (runtime: :clan/poo/cyclic-publication)
-        (prefix-in (only-in ../cyclic-publication probe same-service?
+        (runtime: :clan/poo/graph/cyclic-publication)
+        (prefix-in (only-in ../graph/cyclic-publication probe same-service?
                    version-service version-view) publication.)
         (runtime: :clan/poo/declarative-metadata)
         (prefix-in (only-in ../declarative-metadata atom both check contribute family

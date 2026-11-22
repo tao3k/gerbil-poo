@@ -11,7 +11,7 @@
         (runtime: :clan/poo/graph/construction)
         (prefix-in (only-in ../graph/construction Builder. cache-ref) cache.)
         (prefix-in ../staged-publication staged.)
-        (prefix-in ../cyclic-publication publication.)
+        (prefix-in ../graph/cyclic-publication publication.)
         (prefix-in ./service-bundle bundle.))
 (def keys '(total release invoice settlement tax risk reserve freight cover audit gate input discount blocked permit))
 (def (need key transform) (code.need key transform))

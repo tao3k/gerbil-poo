@@ -5,7 +5,7 @@
         (prefix-in ./contract-family contract-family.)
         (prefix-in ./generic-family generic-family.)
         (prefix-in ./graph/construction construction-cache.)
-        (prefix-in ./cyclic-publication cyclic-publication.))
+        (prefix-in ./graph/cyclic-publication cyclic-publication.))
 (define-type (methods.construction<-cache @ [] builder)
   .construct:
   (lambda (source)

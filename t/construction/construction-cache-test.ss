@@ -17,7 +17,7 @@
   (prefix-in :clan/poo/contract-family contracts.)
   (prefix-in :clan/poo/staged-publication staged.)
   (prefix-in :clan/poo/examples/protected-dispatch protected.)
-  (prefix-in :clan/poo/cyclic-publication publication.)
+  (prefix-in :clan/poo/graph/cyclic-publication publication.)
   (prefix-in :clan/poo/mop/methods/extension dispatch.)
   (prefix-in :clan/poo/mop/methods/dispatch multimethod.)
   :clan/poo/mop

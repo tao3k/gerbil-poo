@@ -46,7 +46,7 @@
     "support/object-syntax"
     "support/testing"
     "graph/closure"
-    "cyclic-publication"
+    "graph/cyclic-publication"
     "cli"
     "debug"
     ,+gerbil-poo-fq-spec+

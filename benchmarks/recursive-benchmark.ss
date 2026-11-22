@@ -16,8 +16,8 @@
         (runtime: :clan/poo/examples/cyclic-access)
         (prefix-in (only-in :clan/poo/examples/cyclic-access attestation attested-closure
                    config rebase-attested revise-attested start-attested) access.)
-        (runtime: :clan/poo/cyclic-publication)
-        (prefix-in (only-in :clan/poo/cyclic-publication version-view) publication.))
+        (runtime: :clan/poo/graph/cyclic-publication)
+        (prefix-in (only-in :clan/poo/graph/cyclic-publication version-view) publication.))
 ;; Each control constructs both programs/sessions/publication in identical order.
 ;; Completed errors/output refusals are expected observations, never timing failures.
 (def (workload scenario)
