@@ -50,7 +50,7 @@ writes as covariant or infer semantic relations from prototype ancestry.
 A negative judgment means no derivation here, not a counterexample to an arbitrary
 semantic implication. Unsupported descriptors are refused even against Any.
 
-`prototype-types.ss` connects that algebra to `parameters.ss`:
+`types/prototype-types.ss` connects that algebra to `parameters.ss`:
 
 ```scheme
 (prototype-type prototype '(Self Super)

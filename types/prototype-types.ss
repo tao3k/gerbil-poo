@@ -1,10 +1,10 @@
 ;;; Bounded rank-one prototype polymorphism and finite-candidate inference.
 (export instantiate/checked infer-prototype/checked infer-prototype-calls/checked bound-parameters/checked with-bound-parameters/checked prototype-type specialize-prototype-type instantiate-prototype infer-prototype infer-prototype-calls bound-parameters)
-(import (only-in ./support/base require-value) :std/error (only-in :std/list/list delete-duplicates/hash take drop map-in-order)
-        ./object ./types/relation (only-in ./mop/prototype Type validate)
-        (only-in ./types/optional-validation call-with-current-catalogs)
-        (prefix-in ./parameters positional.)
-        (prefix-in ./types/function-signature signature.))
+(import (only-in ../support/base require-value) :std/error (only-in :std/list/list delete-duplicates/hash take drop map-in-order)
+        ../object ./relation (only-in ../mop/prototype Type validate)
+        (only-in ./optional-validation call-with-current-catalogs)
+        (prefix-in ../parameters positional.)
+        (prefix-in ./function-signature signature.))
 
 ;; An accepted finite assignment retains its own derived queries and normalized
 ;; layout. Private immutable transport prevents parallel lists from drifting apart.

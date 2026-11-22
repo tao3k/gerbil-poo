@@ -17,7 +17,7 @@
         ../types/relation
         ../object
         ../mop
-        ../prototype-types
+        ../types/prototype-types
         ../object-contract
         (runtime: :clan/poo/declarative-metadata)
         (prefix-in (only-in ../declarative-metadata bind-evidence contract contribute

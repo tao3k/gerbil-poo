@@ -10,7 +10,7 @@
         ../testing/function
         ../testing/type
         (only-in ../types/relation expression-type)
-        (only-in ../prototype-types prototype-type specialize-prototype-type)
+        (only-in ../types/prototype-types prototype-type specialize-prototype-type)
         ../mop/methods/declaration
         ../object/declaration
         ../object-contract

@@ -87,7 +87,7 @@
     "parameters"
     "types/syntax"
     "types/relation"
-    "prototype-types"
+    "types/prototype-types"
     "mop/methods/combination"
     "mop/methods/dispatch"
     "mop/methods/extension"

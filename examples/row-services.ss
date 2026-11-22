@@ -3,7 +3,7 @@
 (import (only-in ../type Object Function) ../object
         ../mop
         ../types/relation
-        ../prototype-types
+        ../types/prototype-types
         ../object-contract
         (runtime: :clan/poo/examples/polymorphic-services)
         (prefix-in (only-in ./polymorphic-services publish-service) publication.))

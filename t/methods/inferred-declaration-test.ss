@@ -1,6 +1,6 @@
 (export inferred-declaration-test)
 (import (only-in :clan/poo/type Function Object Bool TypeError? Any CaseFunction)
-        :std/test :std/error :clan/poo/object :clan/poo/mop :clan/poo/number :clan/poo/parameters :clan/poo/prototype-types :clan/poo/types/relation
+        :std/test :std/error :clan/poo/object :clan/poo/mop :clan/poo/number :clan/poo/parameters :clan/poo/types/prototype-types :clan/poo/types/relation
         :clan/poo/object/declaration :clan/poo/mop/methods/declaration
         (prefix-in :clan/poo/examples/polymorphic-services service.)
         (prefix-in :clan/poo/mop/methods/dispatch dispatch.) (prefix-in :clan/poo/mop/methods/extension extension.)

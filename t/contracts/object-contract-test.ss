@@ -22,7 +22,7 @@
   :std/error
   :clan/poo/types/relation
   :clan/poo/types/syntax
-  :clan/poo/prototype-types
+  :clan/poo/types/prototype-types
   (only-in :clan/poo/support/base require-value)
   (prefix-in :clan/poo/types/function-signature signatures.)
   (prefix-in :clan/poo/examples/row-services rows.)

@@ -6,7 +6,7 @@
   :std/error
   :clan/poo/object
   :clan/poo/mop
-  :clan/poo/prototype-types
+  :clan/poo/types/prototype-types
   :clan/poo/types/relation
   (only-in :clan/poo/types/syntax map-type-children)
   :clan/poo/object/declaration

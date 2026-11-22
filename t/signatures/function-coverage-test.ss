@@ -8,7 +8,7 @@
   :clan/poo/mop
   (only-in :clan/poo/type Any Bool Object Function CaseFunction validate TypeError?)
   :clan/poo/types/relation
-  :clan/poo/prototype-types
+  :clan/poo/types/prototype-types
   :clan/poo/mop/methods/declaration
   (prefix-in :clan/poo/examples/polymorphic-services service.)
   (prefix-in :clan/poo/examples/signature-service fixture.)

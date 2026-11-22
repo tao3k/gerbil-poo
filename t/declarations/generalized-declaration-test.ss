@@ -7,7 +7,7 @@
   :clan/poo/object
   :clan/poo/mop
   :clan/poo/number
-  :clan/poo/prototype-types
+  :clan/poo/types/prototype-types
   :clan/poo/types/relation
   :clan/poo/mop/methods/declaration
   (only-in :clan/poo/type RecordSlot Bool Function Type Type. element? validate TypeError?)
