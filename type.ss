@@ -11,7 +11,7 @@
   :std/iter
   ./types/value-diagnostics
   ./types/validation
-  ./variant-validation
+  ./types/variant-validation
   ./optional-validation
   (only-in :std/vector/u8vector big uint->u8vector u8vector->uint)
   (only-in :std/vector/vector vector-for-each/index)

@@ -954,7 +954,7 @@ Types, including their wrapper and failure protocols.
 Joint range/Enum-to-Union coverage uses std/list/list.ss append-map (ordered
 callback traversal and concatenation) and the runtime foldl, following the same
 composition protocol as validate-bindings and existing variant diagnostics.
-Interval projection is private analysis data; Type Union and variant-validation.ss
+Interval projection is private analysis data; Type Union and types/variant-validation.ss
 still own branch selection, committed validation and error propagation. The
 complete literal inclusion entry feeds containers, Function variance, inference,
 parameter binding and original method declarations; no second normalizer,

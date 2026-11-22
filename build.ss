@@ -93,7 +93,7 @@
     "mop/methods/extension"
     "declarative-metadata"
     "types/validation"
-    "variant-validation"
+    "types/variant-validation"
     "optional-validation"
     "object-contract"
     "recursive/validation"

@@ -575,7 +575,7 @@ Backends supply carrier-only `.validate-shape` and their existing snapshot,
 `.empty`, `.key?` and persistent `.acons` operations. `table-element?` recognizes
 without creating wrappers; `validate-table` admits shape, normalizes every key
 then value, privately rebuilds changed entries, and checks final membership.
-The shared `validate-bindings` in `variant-validation.ss` also serves Map, using
+The shared `validate-bindings` in `types/variant-validation.ss` also serves Map, using
 standard ordered traversal. There is no Value=Any bypass of Key validation.
 
 RationalDict retains RBTree carrier admission. Trie separates full structural
