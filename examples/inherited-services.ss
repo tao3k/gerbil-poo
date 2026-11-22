@@ -6,7 +6,7 @@
         ../mop
         ../number
         ../brace
-        ../reflection
+        ../object/reflection
         (only-in ../type List Fun)
         (runtime: :clan/poo/fun)
         (runtime: :clan/poo/mop/methods/combination)

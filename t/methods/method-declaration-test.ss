@@ -22,7 +22,7 @@
   :clan/poo/brace
   :clan/poo/declaration
   :clan/poo/mop/methods/declaration
-  :clan/poo/reflection
+  :clan/poo/object/reflection
   :clan/poo/recursive/declaration
   (prefix-in :clan/poo/proto proto.)
   (prefix-in :clan/poo/examples/declared-methods service.)

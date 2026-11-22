@@ -167,7 +167,7 @@ proofs of Gerbil or GC. Resource guards and complete checks remain unchanged.
 This follow-up inspects runtime `c3.ss` (`c4-linearize`, `c4-linearize*`,
 `c4-compute-class-slots`), expander `stx.ss` (`identifier-list?`), core
 `mop.ss` / `contract.ss`, and standard list deduplication against `object.ss`,
-`reflection.ss`, `.defgeneric`, method combination and sparse multi-dispatch.
+`object/reflection.ss`, `.defgeneric`, method combination and sparse multi-dispatch.
 
 Confirmed repetitions removed:
 

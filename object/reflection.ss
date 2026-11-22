@@ -1,8 +1,8 @@
 ;;; Declaration and reflection reuse the existing Slot / Class metadata protocol.
 (export object<-declarations make-declared-instance reflect-slots read-slot write-slot!)
 (import :std/iter (only-in :std/list/list delete-duplicates/hash foldr)
-        ./object ./mop/prototype ./object/prototype-map
-        (only-in ./slot-observation %slot-read-active?) (only-in ./type element? validate))
+        ../object ../mop/prototype ./prototype-map
+        (only-in ../slot-observation %slot-read-active?) (only-in ../type element? validate))
 ;; Compile named Slot descriptors through their existing .slot.define method.
 ;; Validate the whole declaration list before creating any externally visible value.
 ;; The common object constructor owns descriptor edges for this path and clones.

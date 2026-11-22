@@ -5,7 +5,7 @@
         (for-syntax :gerbil/expander)
         (only-in :gerbil/runtime/gambit string->uninterned-symbol)
         (only-in :gerbil/runtime/c3 c4-linearize c4-linearize*)
-        (prefix-in :clan/poo/reflection reflection.)
+        (prefix-in :clan/poo/object/reflection reflection.)
         (only-in :clan/poo/brace @method @@method)
         (rename-in (only-in :clan/poo/brace @method) (@method object-form))
         (prefix-in :clan/poo/examples/declared-methods declared.)

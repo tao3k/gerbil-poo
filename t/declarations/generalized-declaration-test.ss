@@ -25,7 +25,7 @@
   (prefix-in :clan/poo/generalized-prototype gp.)
   (prefix-in :clan/poo/examples/generalized-declarations generalized-declaration.service.)
   :clan/poo/meta-prototype
-  :clan/poo/reflection
+  :clan/poo/object/reflection
   (prefix-in :clan/poo/examples/metaprotocol-services meta-prototype.service.)
   :clan/poo/closure
   :clan/poo/recursive/declaration

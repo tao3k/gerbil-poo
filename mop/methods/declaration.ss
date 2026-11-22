@@ -4,7 +4,7 @@
         typed-method-fragment invoke-declared declared-snapshot
         instantiate-declared infer-declared infer-declared-calls instance-signature)
 (import :std/iter (only-in :std/list/list foldr) (only-in :std/list/alist aremq) ../../object ../prototype ../../declaration
-        (only-in ../../reflection reflect-slots)
+        (only-in ../../object/reflection reflect-slots)
         (only-in ../../optional-validation call-with-current-catalogs)
         (only-in ../../prototype-types instantiate/checked infer-prototype/checked infer-prototype-calls/checked bound-parameters/checked with-bound-parameters/checked)
         (prefix-in ../../parameters positional.)

@@ -88,7 +88,7 @@ caller serialization; the implementation does not claim a concurrent transaction
 
 ## Declarations and reflection
 
-`reflection.ss` exports `object<-declarations`, `make-declared-instance`,
+`object/reflection.ss` exports `object<-declarations`, `make-declared-instance`,
 `reflect-slots`, `read-slot` and `write-slot!`.
 
 ```scheme

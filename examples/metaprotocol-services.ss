@@ -4,7 +4,7 @@
         ../mop
         ../number
         ../brace
-        ../reflection
+        ../object/reflection
         ../meta-prototype
         ../declaration
         (runtime: :clan/poo/fun)

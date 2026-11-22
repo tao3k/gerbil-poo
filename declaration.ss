@@ -2,7 +2,7 @@
 (export Declaration. declaration-form declaration-action expand-declarations object<-declaration-forms
         object<-expanded-declarations declaration-forms .declare)
 (import :std/iter 
-        (only-in :std/list/list foldr map-in-order) ./object ./mop/prototype ./reflection (only-in ./type element?)
+        (only-in :std/list/list foldr map-in-order) ./object ./mop/prototype ./object/reflection (only-in ./type element?)
         (prefix-in (only-in ./fun Observation.) fun.))
 ;; A declaration is ordinary typed-by-convention metadata, not a second AST engine.
 ;; Runtime construction supports computed names; .declare provides static syntax.

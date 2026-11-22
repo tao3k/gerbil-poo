@@ -8,7 +8,7 @@
         (prefix-in (only-in :clan/poo/examples/declared-methods make-account
                    make-reporting-family typed-summary-action) service.)
         (prefix-in :clan/poo/generalized-prototype gp.)
-        (only-in :clan/poo/reflection read-slot)
+        (only-in :clan/poo/object/reflection read-slot)
         :std/iter
         (only-in :std/list/list foldr)
         (only-in :std/func compose1)

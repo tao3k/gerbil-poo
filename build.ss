@@ -131,7 +131,7 @@
     "graph/feedback/builder"
     "graph/scc"
     "graph/feedback"
-    "reflection"
+    "object/reflection"
     ,(production-module "object" ["object/representation.scm" "object/construction.scm" "object/slot-values.scm" "object/observation.ss" "object/slot-access.scm" "object/operations.scm" "object/syntax.scm" "object/mutation.scm"])
     "polynomial"
     "proto"

@@ -8,7 +8,7 @@
         ../meta-prototype
         ../declaration
         ../recursive/declaration
-        ../reflection
+        ../object/reflection
         (runtime: :clan/poo/recursive/evaluation)
         (prefix-in (only-in ../recursive/evaluation Interaction. request source-error value) recursive.))
 ;; A real cyclic metadata component: typed expansion and reflection mutually

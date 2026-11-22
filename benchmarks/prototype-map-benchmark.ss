@@ -10,7 +10,7 @@
         (only-in :clan/poo/object-contract checked-action)
         (only-in :clan/poo/object/slot-layout make-slot-cache slot-value-storage make-slot-values make-slot-layout slot-layout-index slot-layout-ref
           slot-values-layout slot-cache-bind! slot-cache-index)
-        (only-in :clan/poo/reflection reflect-slots read-slot)
+        (only-in :clan/poo/object/reflection reflect-slots read-slot)
         (prefix-in :clan/poo/examples/representation-service service.)
         (only-in :clan/poo/examples/inherited-services precedence-cache-workflow))
 
