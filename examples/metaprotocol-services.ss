@@ -5,7 +5,7 @@
         ../number
         ../brace
         ../object/reflection
-        ../meta-prototype
+        ../mop/meta-prototype
         ../object/declaration
         (runtime: :clan/poo/fun)
         (prefix-in (only-in :clan/poo/fun Observation.) fun.))

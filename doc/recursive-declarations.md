@@ -9,7 +9,7 @@ They do not claim that the original Racket code already has these APIs.
 
 ## Two distinct recursive protocols
 
-`meta-prototype.ss` exports `close-protocol`. Its ordinary source supplies:
+`mop/meta-prototype.ss` exports `close-protocol`. Its ordinary source supplies:
 
 - `equations`: finite vector using existing `literal`, `fact`, `both`, `either`.
 - `cook`: a function from the resulting closure to an ordinary protocol source.

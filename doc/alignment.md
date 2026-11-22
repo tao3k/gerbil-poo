@@ -867,7 +867,7 @@ transformed values, then verify recovery after protocol correction.
 
 | Source / Lean | Native counterpart |
 | --- | --- |
-| Racket “A prototype is more than a function”: ordinary metadata objects and an explicit constant base | `meta-prototype.ss`: sealed self-protocol root with two constant operation anchors; other metadata uses the root's own compiler |
+| Racket “A prototype is more than a function”: ordinary metadata objects and an explicit constant base | `mop/meta-prototype.ss`: sealed self-protocol root with two constant operation anchors; other metadata uses the root's own compiler |
 | `MetaPrototype.bootstrapLookup_order/slot/field`, `bootstrapReflect_fixed` | Ordinary reflection of pinned operations without an infinite meta lookup; non-anchor construction keeps normal guards |
 | `DeclarativeMetadata.expandForms_append/refused` | `declaration-action`: native Reader/FUN bind/map chain, source-order expansion, same current context and first-error stop |
 | `DeclarativeMetadata.elaborate_source`, `Catalog.names_valid` | Inherited expansion/finalization followed by complete descriptor/name checking and reserved public/private catalogs |

@@ -1,6 +1,6 @@
 ;;; Explicit constant-base bootstrapping for self-describing inheritance protocols.
 (export bootstrap-protocol bootstrap-protocol? close-protocol)
-(import ./object ./graph/closure)
+(import ../object ../graph/closure)
 ;; Recognize the explicit self-hosted root, not any object with a protocol cycle.
 ;; This is Gerbil representation provenance, not a proof seal or security predicate.
 (def (bootstrap-protocol? value)

@@ -118,7 +118,7 @@
     "read-route"
     "slot-observation"
     "object/state"
-    "meta-prototype"
+    "mop/meta-prototype"
     "object/declaration"
     "recursive/declaration"
     "mop/methods/declaration"

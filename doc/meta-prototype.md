@@ -7,7 +7,7 @@ construction principle; the hook/elaboration APIs here are new concrete work.
 
 ## A self-describing protocol root
 
-`meta-prototype.ss` exports `bootstrap-protocol` and `bootstrap-protocol?`.
+`mop/meta-prototype.ss` exports `bootstrap-protocol` and `bootstrap-protocol?`.
 The input is an ordinary POO object supplying `compute-precedence-list` and
 `compute-slot`. The constructor reads inherited hook values, validates they are
 procedures and pins them as constant slots on a fresh root. That root's protocol
