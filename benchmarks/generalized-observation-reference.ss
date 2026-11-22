@@ -1,8 +1,8 @@
 ;;; Test-only control for the pre-optimization b14c15d finite-observation algorithm.
 (export prepare observe step eager-cook eager-service profile)
 (import :clan/poo/object
-        (runtime: :clan/poo/generalized-prototype)
-        (prefix-in (only-in :clan/poo/generalized-prototype assemble bind-observer cook-fields
+        (runtime: :clan/poo/mop/generalized-prototype)
+        (prefix-in (only-in :clan/poo/mop/generalized-prototype assemble bind-observer cook-fields
                    prepare-inheritance) gp.)
         (runtime: :clan/poo/mop/methods/combination)
         (prefix-in (only-in :clan/poo/mop/methods/combination prepare-simple sum) combination.)

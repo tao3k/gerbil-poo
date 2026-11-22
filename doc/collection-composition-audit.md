@@ -35,7 +35,7 @@ labelled separately from requirements of the original paper.
    copying insertion and lookup.
 3. Appendix B's `$lens-gen` (`poof.scrbl:2130–2133`) separates getter, setter and
    method wrapper while delaying inherited method access. Existing
-   `generalized-prototype.ss:18–25` reuses this construction and the existing
+   `mop/generalized-prototype.ss:18–25` reuses this construction and the existing
    Lens protocol; Lean `Prototype/Lens.lean:15` and
    `Prototype/GeneralizedPrototype.lean:15` expose the corresponding ingredients.
 4. The separate collection proposal asks for incremental definitions and useful

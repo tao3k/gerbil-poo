@@ -22,7 +22,7 @@
   :clan/poo/brace
   :clan/poo/object/declaration
   :clan/poo/generalized-declaration
-  (prefix-in :clan/poo/generalized-prototype gp.)
+  (prefix-in :clan/poo/mop/generalized-prototype gp.)
   (prefix-in :clan/poo/examples/generalized-declarations generalized-declaration.service.)
   :clan/poo/meta-prototype
   :clan/poo/object/reflection

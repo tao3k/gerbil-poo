@@ -2,8 +2,8 @@
 (export main workload)
 (import :std/iter
         :clan/poo/object
-        (runtime: :clan/poo/generalized-prototype)
-        (prefix-in (only-in :clan/poo/generalized-prototype Prepared? Protocol. bind-context-observer bind-observer observe prepare) gp.)
+        (runtime: :clan/poo/mop/generalized-prototype)
+        (prefix-in (only-in :clan/poo/mop/generalized-prototype Prepared? Protocol. bind-context-observer bind-observer observe prepare) gp.)
         (runtime: :clan/poo/examples/generalized-checkout)
         (prefix-in (only-in :clan/poo/examples/generalized-checkout bind-envelope-report
                    envelope-base prepare-envelope) checkout.)

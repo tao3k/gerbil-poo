@@ -2,8 +2,8 @@
 (export Protocol. Prepared? prepare prepare-inheritance prepared-protocol prepared-fragments
         lens-compiler focus-compiler focus-protocol prepare-focused prepare-focused-inheritance sum-compiler reindex-self cook-fields bind-observer bind-context-observer
         assemble step approximate observe observation-action)
-(import (only-in :std/list/list foldr delete-duplicates/hash) ./object (only-in ./mop/prototype define-type)
-        (only-in ./support/base %graph-table-seed %with-application-table-seeds))
+(import (only-in :std/list/list foldr delete-duplicates/hash) ../object (only-in ./prototype define-type)
+        (only-in ../support/base %graph-table-seed %with-application-table-seeds))
 ;; Public immutable-in-practice descriptor: compile returns (delayed self, delayed
 ;; raw parent) -> raw. Cook is the sole raw -> public interface boundary.
 (define-type (Protocol. @ [] cook compile))

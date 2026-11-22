@@ -3,7 +3,7 @@
 This advances the paper's generalized-prototype **future work**. Racket Appendix B
 supplies `$lens-gen`: a getter, setter, wrapper and method compile into a delayed
 prototype; cooking supplies a separate consumed self interface. The native
-implementation reuses `generalized-prototype.ss`'s existing lens compiler and
+implementation reuses `mop/generalized-prototype.ss`'s existing lens compiler and
 assembler, adding a common declaration front end and extensible descriptors.
 
 ## Protocol and macro

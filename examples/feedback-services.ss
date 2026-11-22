@@ -8,8 +8,8 @@
         ../graph/feedback/closure
         (runtime: :clan/poo/examples/closed-declarations)
         (prefix-in (only-in ./closed-declarations vector-focus) product.)
-        (runtime: :clan/poo/generalized-prototype)
-        (prefix-in (only-in ../generalized-prototype cook-fields) gp.)
+        (runtime: :clan/poo/mop/generalized-prototype)
+        (prefix-in (only-in ../mop/generalized-prototype cook-fields) gp.)
         (runtime: :clan/poo/mop/methods/combination)
         (prefix-in (only-in ../mop/methods/combination around prepare-standard primary) combination.))
 ;; Comparable raw data stores three allocations, joint approval and an audit frame.

@@ -5,8 +5,8 @@
         (prefix-in (only-in :clan/poo/examples/generalized-checkout envelope-base
                    envelope-report nested-base prepare-envelope prepare-nested
                    prepare-nested-unfused) checkout.)
-        (runtime: :clan/poo/generalized-prototype)
-        (prefix-in (only-in :clan/poo/generalized-prototype approximate bind-observer observe prepared-protocol step) gp.)
+        (runtime: :clan/poo/mop/generalized-prototype)
+        (prefix-in (only-in :clan/poo/mop/generalized-prototype approximate bind-observer observe prepared-protocol step) gp.)
         (prefix-in "focused-cases.ss" study.)
         (only-in "closure-measure.ss" run-child)
         (prefix-in (only-in :clan/poo/fun Observation.) fun.))

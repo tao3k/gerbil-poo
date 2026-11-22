@@ -9,8 +9,8 @@
         ../lens-laws
         (runtime: :clan/poo/mop/methods/combination)
         (prefix-in (only-in ../mop/methods/combination around prepare-standard primary) combination.)
-        (runtime: :clan/poo/generalized-prototype)
-        (prefix-in (only-in ../generalized-prototype cook-fields) gp.))
+        (runtime: :clan/poo/mop/generalized-prototype)
+        (prefix-in (only-in ../mop/generalized-prototype cook-fields) gp.))
 ;; Custom vector getters/setters use functional copying; their product analogues
 ;; have universal Lean laws, while Gerbil checks cover supplied immutable points.
 (def (vector-focus index)

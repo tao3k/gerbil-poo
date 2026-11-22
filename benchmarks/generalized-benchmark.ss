@@ -7,8 +7,8 @@
         (only-in "closure-measure.ss" run-child)
         (prefix-in "generalized-cases.ss" study.)
         (prefix-in "generalized-observation-reference.ss" reference.)
-        (runtime: :clan/poo/generalized-prototype)
-        (prefix-in (only-in :clan/poo/generalized-prototype bind-observer observe
+        (runtime: :clan/poo/mop/generalized-prototype)
+        (prefix-in (only-in :clan/poo/mop/generalized-prototype bind-observer observe
                    prepare-inheritance step) gp.))
 ;; Use actual old/new public interfaces; phase ablations change one construction
 ;; choice at a time. Instrumented callback counters are tested outside timed loops.

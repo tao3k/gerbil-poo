@@ -109,7 +109,7 @@
     "graph/component/revision"
     "graph/component/publication"
     "graph/component/joint"
-    "generalized-prototype"
+    "mop/generalized-prototype"
     "graph/construction"
     "graph/staged-publication"
     "number"

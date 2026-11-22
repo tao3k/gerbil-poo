@@ -3,8 +3,8 @@
         envelope-base envelope-root envelope-declarations prepare-envelope envelope-report bind-envelope-report prepare-envelope-items bind-envelope-items-report)
 (import (only-in ../type define-type) ../object
         (only-in ../mop Lens lens-of-get-set slot-lens)
-        (runtime: :clan/poo/generalized-prototype)
-        (prefix-in (only-in ../generalized-prototype Protocol. bind-context-observer cook-fields focus-compiler focus-protocol lens-compiler observation-action observe prepare-focused-inheritance prepare-inheritance sum-compiler) gp.)
+        (runtime: :clan/poo/mop/generalized-prototype)
+        (prefix-in (only-in ../mop/generalized-prototype Protocol. bind-context-observer cook-fields focus-compiler focus-protocol lens-compiler observation-action observe prepare-focused-inheritance prepare-inheritance sum-compiler) gp.)
         (runtime: :clan/poo/mop/methods/combination)
         (prefix-in (only-in ../mop/methods/combination item prepare-simple
                    prepare-simple-items sum) combination.)

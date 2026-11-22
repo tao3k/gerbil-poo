@@ -61,7 +61,7 @@ work. See performance/recursive-summary.org for reproduction and proof boundarie
 
 ### Generalized hooks: finite native bridge implemented, future work continues
 
-`generalized-prototype.ss` now composes checked native C3 local declarations,
+`mop/generalized-prototype.ss` now composes checked native C3 local declarations,
 lens wrapping, raw/cooked self, independent compiler families and compatible self
 adaptation. Prepared snapshots hoist compilation; FUN observations preserve one
 seed. Shared checkout tests cover audit frames, delayed ignored parents, callback
