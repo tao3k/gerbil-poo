@@ -1,7 +1,7 @@
 (export main)
 (import :gerbil/runtime/gambit :std/iter "closure-cases.ss" "closure-benchmark-support.ss")
 (def (main binary timeout output)
-  (def identities (source-digests '("closure.ss" "benchmarks/closure-cases.ss" "benchmarks/closure-measure.ss"
+  (def identities (source-digests '("graph/closure.ss" "benchmarks/closure-cases.ss" "benchmarks/closure-measure.ss"
                                     "benchmarks/closure-paired-benchmark.ss" "benchmarks/closure-paired-suite.ss"
                                     "benchmarks/closure-scale-benchmark.ss" "benchmarks/closure-benchmark-support.ss")))
   (def failed #f)

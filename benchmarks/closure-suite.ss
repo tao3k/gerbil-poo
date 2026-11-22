@@ -1,7 +1,7 @@
 ;;; Append one native datum per result; common identities/columns occur once.
 (export main read-study)
 (import :gerbil/runtime/gambit :std/iter "closure-cases.ss" "closure-benchmark-support.ss")
-(def scheme-sources '("closure.ss" "benchmarks/closure-scale-benchmark.ss" "benchmarks/closure-cases.ss"
+(def scheme-sources '("graph/closure.ss" "benchmarks/closure-scale-benchmark.ss" "benchmarks/closure-cases.ss"
                      "benchmarks/closure-measure.ss" "benchmarks/closure-benchmark-support.ss" "benchmarks/closure-suite.ss"))
 (def (main binary timeout output)
   (def identities (list (cons 'scheme (source-digests scheme-sources))))

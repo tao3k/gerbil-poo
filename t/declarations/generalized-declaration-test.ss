@@ -27,7 +27,7 @@
   :clan/poo/meta-prototype
   :clan/poo/object/reflection
   (prefix-in :clan/poo/examples/metaprotocol-services meta-prototype.service.)
-  :clan/poo/closure
+  :clan/poo/graph/closure
   :clan/poo/recursive/declaration
   (prefix-in :clan/poo/recursive/evaluation recursive.)
   (prefix-in :clan/poo/examples/recursive-metaprotocol recursive-declaration.service.))

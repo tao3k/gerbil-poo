@@ -750,7 +750,7 @@ Performance tuning of the earlier factory workflow is paused for functional work
 
 ### Recursive metalevel and declaration closure
 
-`meta-prototype.ss` `close-protocol` reuses `closure.ss`: inherited `equations`
+`meta-prototype.ss` `close-protocol` reuses `graph/closure.ss`: inherited `equations`
 are solved from false, then inherited `cook` receives that exact least solution
 and builds the ordinary kernel passed to `bootstrap-protocol`. Facts describe
 finite positive metalevel components; a supported mutual dependency is allowed,

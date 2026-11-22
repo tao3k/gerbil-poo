@@ -4,7 +4,7 @@
 (import
   :std/test
   :std/iter
-  :clan/poo/closure
+  :clan/poo/graph/closure
   :clan/poo/object
   :clan/poo/mop
   :clan/poo/brace

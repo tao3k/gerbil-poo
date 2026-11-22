@@ -74,7 +74,7 @@ the 20s deadline and Scheme's 1GiB heap bound; compile jobs keep 90s.
 # Closure lifecycle and standard-library implementation (v4)
 
 This advances the paper's generalized-protocol future work for finite positive
-Boolean equations. `closure.ss` now uses Gerbil's `for/fold`, `in-vector`, `iota`,
+Boolean equations. `graph/closure.ss` now uses Gerbil's `for/fold`, `in-vector`, `iota`,
 pattern matching and compiler-style private typed `using` contexts. Benchmark
 helpers share standard JSON, hash literals, `list->hash-table`, `map`, `cut`,
 `list-sort`, ports, digest and process libraries. Both native benchmark programs
@@ -137,7 +137,7 @@ terminate. There is no general reflective MOP, arbitrary effect handling or
 compiler/runtime verification claim.
 
 ```scheme
-(import :clan/poo/closure)
+(import :clan/poo/graph/closure)
 (def source (vector (literal #t) (either (fact 0) (fact 2)) (fact 1)))
 (def plan (compile-closure source))
 (def active (solve-closure plan))

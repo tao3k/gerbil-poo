@@ -5,7 +5,7 @@
   (only-in :std/values first-value)
   :std/test
   :std/iter
-  :clan/poo/closure
+  :clan/poo/graph/closure
   :clan/poo/object
   (prefix-in :clan/poo/cyclic-publication cyclic-publication.)
   (prefix-in :clan/poo/examples/cyclic-access access.)

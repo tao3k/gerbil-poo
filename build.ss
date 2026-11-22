@@ -45,7 +45,7 @@
     "support/syntax"
     "support/object-syntax"
     "support/testing"
-    "closure"
+    "graph/closure"
     "cyclic-publication"
     "cli"
     "debug"

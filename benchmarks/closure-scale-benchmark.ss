@@ -1,5 +1,5 @@
 (export main workload)
-(import :gerbil/runtime/gambit :std/iter "closure-measure.ss" :clan/poo/closure)
+(import :gerbil/runtime/gambit :std/iter "closure-measure.ss" :clan/poo/graph/closure)
 
 (def (workload family size width seed)
   (let ((equations (make-vector size)))

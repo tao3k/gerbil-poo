@@ -7,8 +7,8 @@ checks the runtime premises at its public boundary.
 
 | Construction/publication capability | Lean owner | Scheme owner | Alignment |
 |---|---|---|---|
-| Finite positive least closure; strict evaluation | PositiveEquations, IncrementalClosure | closure.ss | Implemented; exact core/native controls and independent scalar oracles |
-| Append/chunked/hybrid queues and topology selection | ClosurePolicy, QueueSelection, ClosureLifecycle | closure.ss | Implemented; same reference ceilings/threshold, explicit cold/fixed modes |
+| Finite positive least closure; strict evaluation | PositiveEquations, IncrementalClosure | graph/closure.ss | Implemented; exact core/native controls and independent scalar oracles |
+| Append/chunked/hybrid queues and topology selection | ClosurePolicy, QueueSelection, ClosureLifecycle | graph/closure.ss | Implemented; same reference ceilings/threshold, explicit cold/fixed modes |
 | Private syntax/index construction | ClosureConstruction | indexed/copy-only walkers | Implemented; fused index specification and declared layout saving |
 | Delayed and idempotent preparation | ensureAdaptive | prepare-closure | Implemented; cached calls preserve object identity and do no new scan |
 | Dependency-equal syntax reshaping | reshape / reconfigure | reconfigure-closure | Implemented; ordered occurrences, fresh solve, new size admission |

@@ -16,7 +16,7 @@
   (prefix-in :clan/poo/examples/optional-publication pipeline.)
   :std/iter
   (only-in :std/values first-value)
-  (prefix-in :clan/poo/closure closure.)
+  (prefix-in :clan/poo/graph/closure closure.)
   (prefix-in :clan/poo/mop/methods/dispatch multimethod.)
   (prefix-in :clan/poo/mop/methods/extension dispatch-extension.)
   (prefix-in :clan/poo/cyclic-publication cyclic-publication.)

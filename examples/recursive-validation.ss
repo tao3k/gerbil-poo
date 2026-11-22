@@ -14,8 +14,8 @@
         (runtime: :clan/poo/recursive/validation)
         (prefix-in (only-in ../recursive/validation closed-ref closed-type
                    validation-action) validation.)
-        (runtime: :clan/poo/closure)
-        (prefix-in (only-in ../closure closure-ref compile-closure either fact literal
+        (runtime: :clan/poo/graph/closure)
+        (prefix-in (only-in ../graph/closure closure-ref compile-closure either fact literal
                    solve-closure) closure.)
         (runtime: :clan/poo/fun)
         (prefix-in ./object-contracts config.)

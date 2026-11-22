@@ -4,7 +4,7 @@
         ../mop
         ../number
         ../brace
-        ../closure
+        ../graph/closure
         ../meta-prototype
         ../object/declaration
         ../recursive/declaration

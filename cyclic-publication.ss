@@ -3,7 +3,7 @@
 (export prepare publish finish stage-from version?
         version-contract-family version-contract version-contract-invoker version-family version-admission-source same-service? version-view version-facts version-cache version-source version-service invoke probe
         failure? failure-stage failure-cause)
-(import :std/iter ./closure (prefix-in ./contract-family contract-family.) (prefix-in ./generic-family generic-family.) (prefix-in ./mop/methods/extension dispatch-extension.)
+(import :std/iter ./graph/closure (prefix-in ./contract-family contract-family.) (prefix-in ./generic-family generic-family.) (prefix-in ./mop/methods/extension dispatch-extension.)
         (prefix-in ./declarative-metadata declarative-metadata.))
 (defstruct version (plan result view services invokers contracts contract-builder readmit admission-source) final: #t)
 (defstruct failure (stage cause) final: #t)

@@ -8,7 +8,7 @@
         (prefix-in (only-in ../recursive/cache diagnostic? empty receipt-result run) cached.)
         (only-in :std/values first-value)
         :std/iter
-        ../closure
+        ../graph/closure
         ../object
         (runtime: :clan/poo/cyclic-publication)
         (prefix-in (only-in ../cyclic-publication invoke prepare publish
