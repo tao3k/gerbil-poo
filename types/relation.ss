@@ -6,7 +6,7 @@
         (prefix-in ../recursive/evaluation recursive.) ../object
         (only-in ../mop/prototype Any Bool Function CaseFunction Type. Object Class.)
         (only-in ../object-contract ObjectContract.)
-        (only-in ../optional-validation type-value-catalog capture-type-values
+        (only-in ./optional-validation type-value-catalog capture-type-values
                  catalog-type? catalog-current! catalog-descriptor catalog-contract link-catalog-sources! call-with-current-catalogs)
         (only-in ../number Number Real Float Z/ Integer UInt IntegerRange UIntN IntN UInt256 JsInt)
         (only-in ../type Rational TypeValuePair first-index-hash<-vector List Tuple Maybe OrFalse Pair Map Sum Union Or RecordSlot String Symbol Keyword Null Unit Bytes BytesN Bytes32 Bytes64 Exactly Enum.))

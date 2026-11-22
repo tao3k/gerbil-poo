@@ -9,7 +9,7 @@
   :clan/poo/type
   :clan/poo/types/relation
   :clan/poo/prototype-types
-  (only-in :clan/poo/optional-validation type-value-catalog)
+  (only-in :clan/poo/types/optional-validation type-value-catalog)
   (only-in :clan/poo/object-contract ObjectContract. refine)
   (only-in :clan/poo/slot-observation call-with-slot-read-observer slot-read-receiver slot-read-key)
   :clan/poo/mop/methods/declaration

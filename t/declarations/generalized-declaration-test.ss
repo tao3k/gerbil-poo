@@ -11,7 +11,7 @@
   :clan/poo/types/relation
   :clan/poo/mop/methods/declaration
   (only-in :clan/poo/type RecordSlot Bool Function Type Type. element? validate TypeError?)
-  (only-in :clan/poo/optional-validation call-with-current-catalogs)
+  (only-in :clan/poo/types/optional-validation call-with-current-catalogs)
   (only-in :clan/poo/slot-observation call-with-slot-read-observer slot-read-receiver slot-read-key)
   (prefix-in :clan/poo/examples/signature-service signature.)
   :std/iter

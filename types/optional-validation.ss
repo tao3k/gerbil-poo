@@ -2,12 +2,12 @@
 (export optional-shape validate-optional type-value-shape validate-type-value type-value-catalog
         capture-type-values catalog-type? catalog-current! catalog-descriptor catalog-contract link-catalog-sources!
         call-with-current-catalogs)
-(import (only-in ./object .o .cc .ref .get .slot? .all-slots object?
+(import (only-in ../object .o .cc .ref .get .slot? .all-slots object?
                  depend-on-object! replay-slot-reads! reobserve-slot-reads!)
         (only-in :std/list/list delete-duplicates/hash map-in-order)
-        ./slot-observation ./types/value-diagnostics
-        (only-in ./mop/prototype Type Class element? validate raise-type-error)
-        (only-in ./types/validation validate-container))
+        ../slot-observation ./value-diagnostics
+        (only-in ../mop/prototype Type Class element? validate raise-type-error)
+        (only-in ./validation validate-container))
 
 ;; Absent values bypass even child descriptor lookup. Present values keep the
 ;; supplied recursive checker, so nested refinements wait until wrapping.

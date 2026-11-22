@@ -119,7 +119,7 @@ TypeError before any payload callback, not a request to infer another Type.
 Malformed/unsupported syntax, exhausted work, no solution and ambiguity remain
 different results. A duplicate name or nonliteral entry refuses admission.
 
-`optional-validation.ss` supplies the shared `type-value-catalog` lowering helper,
+`types/optional-validation.ss` supplies the shared `type-value-catalog` lowering helper,
 with a bounded caller-supplied Type list (at most 64). This runtime helper may
 capture explicit Function or custom Types; that does not extend the finite
 inference grammar. It snapshots the list, uses Gerbil's eq? membership and reuses

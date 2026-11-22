@@ -5,7 +5,7 @@
         instantiate-declared infer-declared infer-declared-calls instance-signature)
 (import :std/iter (only-in :std/list/list foldr) (only-in :std/list/alist aremq) ../../object ../prototype ../../object/declaration
         (only-in ../../object/reflection reflect-slots)
-        (only-in ../../optional-validation call-with-current-catalogs)
+        (only-in ../../types/optional-validation call-with-current-catalogs)
         (only-in ../../prototype-types instantiate/checked infer-prototype/checked infer-prototype-calls/checked bound-parameters/checked with-bound-parameters/checked)
         (prefix-in ../../parameters positional.)
         (only-in ../../types/relation type-work bounded-type-data type-expression normalize-type compile-expression function-expression check-function-path copy-type refuse-type)

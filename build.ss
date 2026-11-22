@@ -94,7 +94,7 @@
     "declarative-metadata"
     "types/validation"
     "types/variant-validation"
-    "optional-validation"
+    "types/optional-validation"
     "object-contract"
     "recursive/validation"
     "recursive/topology"

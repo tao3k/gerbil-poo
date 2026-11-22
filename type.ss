@@ -12,7 +12,7 @@
   ./types/value-diagnostics
   ./types/validation
   ./types/variant-validation
-  ./optional-validation
+  ./types/optional-validation
   (only-in :std/vector/u8vector big uint->u8vector u8vector->uint)
   (only-in :std/vector/vector vector-for-each/index)
   (only-in :std/hash/misc hash-key-value-map hash-ensure-ref)
