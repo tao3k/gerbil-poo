@@ -428,7 +428,7 @@ capabilities/limitations, including executable value serialization, are unchange
 
 ## Record / Class recursive initialization
 
-`class-validation.ss` reuses the effective Slot protocols and recursive structure
+`types/class-validation.ss` reuses the effective Slot protocols and recursive structure
 visitor. `.slot.shape` checks required/optional fields and constants; the complete
 structure pass precedes all `.slot.validate` calls. Present fields normalize
 through their selected child Type on one persistent derived receiver, retaining

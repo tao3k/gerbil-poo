@@ -15,7 +15,7 @@
 (import ../slot-observation
         ../types/value-diagnostics
         ../function-signature
-        ../class-validation
+        ../types/class-validation
         (only-in :std/error deferror-class defraise/context)
         (only-in :std/list/list-builder with-list-builder)
         (only-in :std/list/list pop! append-map foldr delete-duplicates/hash)

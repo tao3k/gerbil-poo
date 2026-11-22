@@ -1031,7 +1031,7 @@ future work and retains the distinction between recognition and wrapping.
 
 | Responsibility | Lean | Gerbil |
 | --- | --- | --- |
-| Selected effective Slot optional/constant policy and child normalization | `Functional.ClassValidation.Slot`, `normalize` | `class-validation.ss`, Slot `.slot.shape` / `.slot.validate` |
+| Selected effective Slot optional/constant policy and child normalization | `Functional.ClassValidation.Slot`, `normalize` | `types/class-validation.ss`, Slot `.slot.shape` / `.slot.validate` |
 | Global structure, complete field batch, final membership/refinement | `Functional.ObjectContract.validateObject`, `validateFields`, `ClassValidation.initialized_membership`, `initialized_refinement` | Class `.validate`, `.diagnose-shape`, `.diagnose`; persistent derived replacement |
 | Inherited descriptor choice | `ClassValidation.resolve`, override/inherited selection laws, with supplied linearization | Existing Record/C3 effective-slots; single/multiple/diamond controls |
 | Checked hook lifecycle | `ClassValidation.instantiate` and hook sequencing/error/final laws | Existing `instantiate`, `make-instance`, `.new/checked`; same-reference mutation control |

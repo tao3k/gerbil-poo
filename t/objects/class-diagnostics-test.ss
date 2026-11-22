@@ -1,7 +1,7 @@
 ;;; Ordered open Slot callbacks and diagnostic-group admission.
 (import :std/test :std/error
         (only-in :clan/poo/object .o .get .all-slots .put!)
-        (only-in :clan/poo/class-validation class-shape))
+        (only-in :clan/poo/types/class-validation class-shape))
 (export class-diagnostics-test)
 
 (def (fixture callback)

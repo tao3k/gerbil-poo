@@ -8,7 +8,7 @@
         (only-in :clan/poo/clos/objects require-clos-generic make-invocation-frame)
         (only-in :clan/poo/benchmarks/closure-measure measure median))
 (export clos-dispatch-test)
-(extern namespace: clan/poo/class-validation %prepared-local-slot?)
+(extern namespace: clan/poo/types/class-validation %prepared-local-slot?)
 (extern namespace: clan/poo/object %prepared-slot-present?)
 (extern namespace: clan/poo/slot-observation %delivery-observers)
 

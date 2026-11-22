@@ -57,7 +57,7 @@
     ,(apply production-module "io" [] "" (include-gambit-sharp))
     "types/validation-rebinding"
     "types/value-diagnostics"
-    "class-validation"
+    "types/class-validation"
     "function-signature"
     "mop/prototype"
     "read-projection"

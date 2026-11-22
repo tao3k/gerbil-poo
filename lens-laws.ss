@@ -2,7 +2,7 @@
 (export check-lens-laws lens-check lens-check? lens-check-focus run-lens-check with-lens-checks
         lens-law-failure? lens-law-failure-law %watch-lens-sources)
 (import :std/iter ./object ./mop/prototype
-        (only-in ./class-validation required-slots?))
+        (only-in ./types/class-validation required-slots?))
 
 ;; Component construction may reuse a focus whose callbacks are already stored.
 (def (%prepared-vector-lens? focus)

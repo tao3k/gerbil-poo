@@ -26,7 +26,7 @@
   (prefix-in :clan/poo/examples/component-migration component-migration.service.)
   :std/sync/channel
   :clan/poo/lens-laws
-  (only-in :clan/poo/class-validation required-slots?)
+  (only-in :clan/poo/types/class-validation required-slots?)
   (only-in :clan/poo/slot-observation slot-read-key slot-read-receiver)
   (prefix-in :clan/poo/graph/component/publication publication.)
   (prefix-in :clan/poo/examples/component-requests component-requests.service.)

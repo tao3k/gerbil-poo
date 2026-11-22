@@ -1,7 +1,7 @@
 (export inheritance-hooks-test)
 (import (only-in :clan/poo/slot-observation %call-with-recorded-slot-reads
                  slot-read-key slot-read-receiver)
-        (only-in :clan/poo/class-validation required-slots?)
+        (only-in :clan/poo/types/class-validation required-slots?)
         (only-in :clan/poo/read-route standard-symbol-table-writes?)
         (only-in :gerbil/runtime/hash HashTable::interface)
         (only-in :gerbil/runtime/interface &interface-descriptor-index prototype-table-table)

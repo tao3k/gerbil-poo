@@ -10,7 +10,7 @@
 
 (import :clan/poo/object
         :clan/poo/read-projection
-        (only-in :clan/poo/class-validation required-slots? with-present-slot)
+        (only-in :clan/poo/types/class-validation required-slots? with-present-slot)
         (only-in :clan/poo/mop/prototype prototype-instance?)
         (only-in :clan/poo/mop/prototype define-type Type. Class. Slot Bool Type element? raise-type-error)
         (only-in "funcs.ss"
