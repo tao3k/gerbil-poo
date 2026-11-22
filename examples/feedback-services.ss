@@ -3,7 +3,7 @@
 (import ../object
         ../mop
         ../brace
-        ../generalized-declaration
+        ../mop/generalized-declaration
         ../generalized-closure
         ../graph/feedback/closure
         (runtime: :clan/poo/examples/closed-declarations)

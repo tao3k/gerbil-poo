@@ -929,7 +929,7 @@ admission/invalidation and macro/compiler behavior are distinct evidence. See
 ### Generic fragments on non-record representations
 
 Racket `$lens-gen` and its raw/cooked/wrapper decomposition are implemented by
-the existing lens compiler. `generalized-declaration.ss` now layers ordinary
+the existing lens compiler. `mop/generalized-declaration.ss` now layers ordinary
 `Fragment.` objects and `.prototype` over the same declaration grammar and
 Reader/FUN finalizer. Each fragment independently packages its focus, method
 and wrapper; nested vectors and procedure carriers are executable instances.

@@ -6,7 +6,7 @@
         ../brace
         ../support/option
         ../graph/feedback/builder
-        ../generalized-declaration
+        ../mop/generalized-declaration
         ../generalized-closure
         ../graph/feedback/cache
         ../graph/feedback

@@ -4,7 +4,7 @@
         ../object
         ../mop
         ../brace
-        ../generalized-declaration
+        ../mop/generalized-declaration
         ../generalized-closure
         ../lens-laws
         (runtime: :clan/poo/mop/methods/combination)

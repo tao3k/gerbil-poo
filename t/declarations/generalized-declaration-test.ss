@@ -21,7 +21,7 @@
   (prefix-in :clan/poo/mop/methods/extension dispatch-extension.)
   :clan/poo/brace
   :clan/poo/object/declaration
-  :clan/poo/generalized-declaration
+  :clan/poo/mop/generalized-declaration
   (prefix-in :clan/poo/mop/generalized-prototype gp.)
   (prefix-in :clan/poo/examples/generalized-declarations generalized-declaration.service.)
   :clan/poo/meta-prototype

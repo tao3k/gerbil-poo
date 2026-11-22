@@ -8,7 +8,7 @@ assembler, adding a common declaration front end and extensible descriptors.
 
 ## Protocol and macro
 
-`generalized-declaration.ss` exports `Fragment`, `Fragment.`, `lens-fragment`,
+`mop/generalized-declaration.ss` exports `Fragment`, `Fragment.`, `lens-fragment`,
 `GeneralizedDeclaration.`, `prepare-fragments`, `.prototype`,
 `prepared-fragments?`, `fragment-names`, `observe-fragments` and `bind-fragments`.
 

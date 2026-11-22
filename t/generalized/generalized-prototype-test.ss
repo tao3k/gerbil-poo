@@ -19,7 +19,7 @@
   :clan/poo/mop
   :clan/poo/brace
   :clan/poo/lens-laws
-  :clan/poo/generalized-declaration
+  :clan/poo/mop/generalized-declaration
   :clan/poo/generalized-closure
   (prefix-in :clan/poo/examples/closed-declarations service.)
   (prefix-in :clan/poo/examples/generalized-declarations finite.)
