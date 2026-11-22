@@ -48,7 +48,7 @@ there is no implicit global capability revocation or external-I/O rollback.
 
 ## Custom lens laws
 
-`lens-laws.ss` provides:
+`mop/lens-laws.ss` provides:
 
 - `check-lens-laws lens states values`: finite get-put, put-get and put-put checks.
 - `lens-check lens values sources: [...]`: capture a nonempty value domain, the

@@ -22,7 +22,7 @@
   (prefix-in :clan/poo/examples/component-rounds rounds.)
   (prefix-in :clan/poo/examples/joint-topology joint-admission.service.)
   (prefix-in :clan/poo/examples/joint-topology joint-installation.service.)
-  :clan/poo/lens-laws
+  :clan/poo/mop/lens-laws
   (prefix-in :clan/poo/examples/joint-services joint-publication.service.)
   (prefix-in :clan/poo/examples/joint-topology joint-receipts.service.)
   (prefix-in :clan/poo/examples/joint-receipts receipts.))

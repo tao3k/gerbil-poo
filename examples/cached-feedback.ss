@@ -3,7 +3,7 @@
 (import ../object
         ../mop
         ../support/option
-        ../lens-laws
+        ../mop/lens-laws
         ../graph/feedback/cache
         ../mop/generalized-closure
         (runtime: :clan/poo/graph/schedule)

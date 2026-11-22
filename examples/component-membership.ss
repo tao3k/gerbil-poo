@@ -7,7 +7,7 @@
         ../mop/generalized-closure
         ../graph/feedback/cache
         ../graph/feedback
-        ../lens-laws
+        ../mop/lens-laws
         (runtime: :clan/poo/graph/schedule)
         (prefix-in (only-in ../graph/schedule reconfigure) graph.)
         (prefix-in ../examples/service-revisions service.))

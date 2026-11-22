@@ -1,6 +1,6 @@
 ;;; Two recursively closed non-record services in one audited wider carrier.
 (export base left-focus right-focus stages cook publish)
-(import ../object ../mop ../lens-laws ../mop/focused-closure
+(import ../object ../mop ../mop/lens-laws ../mop/focused-closure
         (prefix-in ./closed-declarations service.))
 ;; The wider computation has two comparable service states and one shared frame.
 ;; Persistent setters never mutate these nested vectors or the shared base.

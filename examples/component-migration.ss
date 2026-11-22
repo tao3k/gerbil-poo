@@ -4,7 +4,7 @@
         ../mop
         ../brace
         ../graph/feedback
-        ../lens-laws
+        ../mop/lens-laws
         (prefix-in ../graph/component/revision revision.)
         (runtime: :clan/poo/examples/service-revisions)
         (prefix-in (only-in ./service-revisions recipe) recipes.)

@@ -123,7 +123,7 @@
     "recursive/declaration"
     "mop/methods/declaration"
     "mop/generalized-declaration"
-    "lens-laws"
+    "mop/lens-laws"
     "mop/generalized-closure"
     "mop/focused-closure"
     "graph/feedback/closure"

@@ -22,7 +22,7 @@
   :clan/poo/support/option
   :clan/poo/graph/feedback
   :clan/poo/graph/feedback/cache
-  :clan/poo/lens-laws
+  :clan/poo/mop/lens-laws
   (prefix-in :clan/poo/graph/schedule graph.)
   (prefix-in :clan/poo/graph/scc scc.)
   (prefix-in :clan/poo/graph/computation code.)

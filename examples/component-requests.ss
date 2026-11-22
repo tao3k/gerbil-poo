@@ -3,7 +3,7 @@
 (import ../object
         ../mop
         ../brace
-        ../lens-laws
+        ../mop/lens-laws
         (prefix-in ../graph/component/publication publication.)
         (runtime: :clan/poo/graph/construction)
         (prefix-in (only-in ../graph/construction Builder.) cache.)

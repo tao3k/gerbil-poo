@@ -22,7 +22,7 @@
   (prefix-in :clan/poo/mop/methods/dispatch multimethod.)
   :clan/poo/mop
   :clan/poo/brace
-  :clan/poo/lens-laws
+  :clan/poo/mop/lens-laws
   :clan/poo/mop/focused-closure
   :clan/poo/mop/generalized-closure
   :clan/poo/mop/generalized-declaration

@@ -8,7 +8,7 @@
                  %index-changes %index-base %index-retire! %roster %roster-append %roster-retire %roster-keys
                  %roster-width %roster-position)
         (only-in :std/struct/rbtree rbtree-size)
-        (only-in :clan/poo/lens-laws lens-check)
+        (only-in :clan/poo/mop/lens-laws lens-check)
         (only-in :clan/poo/mop lens-of-get-set)
         (only-in :clan/poo/graph/feedback/builder component-group-builder)
         (only-in :clan/poo/mop/generalized-closure closed-raw)

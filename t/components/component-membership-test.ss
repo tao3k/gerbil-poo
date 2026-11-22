@@ -25,7 +25,7 @@
   (prefix-in :clan/poo/examples/component-membership initial.)
   (prefix-in :clan/poo/examples/component-migration component-migration.service.)
   :std/sync/channel
-  :clan/poo/lens-laws
+  :clan/poo/mop/lens-laws
   (only-in :clan/poo/types/class-validation required-slots?)
   (only-in :clan/poo/slot-observation slot-read-key slot-read-receiver)
   (prefix-in :clan/poo/graph/component/publication publication.)
@@ -37,7 +37,7 @@
 (extern namespace: clan/poo/graph/component/publication %request-lineage %lineage-invalidation
   %request-action %request-action-set!)
 (extern namespace: clan/poo/graph/schedule %invalidation-work affected-work-marked)
-(extern namespace: clan/poo/lens-laws %prepared-vector-lens?)
+(extern namespace: clan/poo/mop/lens-laws %prepared-vector-lens?)
 (extern namespace: clan/poo/object object-%instance)
 
 ;; Construct once with the original private helper scope and declaration order.

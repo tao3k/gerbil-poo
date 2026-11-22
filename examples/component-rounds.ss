@@ -1,6 +1,6 @@
 ;;; Multi-round SCC merge/split with component replacement and shared migration.
 (export source build-group value report contributions admit revision-action)
-(import (only-in :std/list/list filter) ../object ../mop ../brace ../graph/feedback ../lens-laws
+(import (only-in :std/list/list filter) ../object ../mop ../brace ../graph/feedback ../mop/lens-laws
         (prefix-in ../graph/component/revision revision.)
         (prefix-in ./component-membership membership.) (prefix-in ./component-migration migration.))
 ;; Initial compact publication and the fixed lawful lens family are reused.

@@ -1,6 +1,6 @@
 ;;; Close narrow raw components inside a wider non-record computation.
 (export closure-focus focus-closure-action focused-closures-action publish-focused-closures)
-(import (only-in :std/list/list foldr) ../object ./prototype ../lens-laws
+(import (only-in :std/list/list foldr) ../object ./prototype ./lens-laws
         ./generalized-declaration ./generalized-closure
         (prefix-in (only-in ../fun Observation.) fun.))
 ;; A stage retains one existing preparation, captured outer lens, immutable local

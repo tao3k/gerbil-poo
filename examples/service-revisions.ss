@@ -9,7 +9,7 @@
         ../mop/generalized-closure
         ../graph/feedback/cache
         ../graph/feedback
-        ../lens-laws
+        ../mop/lens-laws
         (runtime: :clan/poo/graph/schedule)
         (prefix-in (only-in ../graph/schedule declaration revise) graph.)
         (runtime: :clan/poo/graph/computation)

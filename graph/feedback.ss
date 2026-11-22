@@ -8,7 +8,7 @@
         (only-in ./feedback/builder %component-member-builder? %with-member-fragment-seeds)
         (only-in ../slot-observation slot-read-observers-compatible? %slot-read-active?)
         (only-in ../support/base %graph-table-seed %with-graph-table-seeds %with-application-table-seeds)
-        ../object ../mop/prototype ../support/option ./feedback/cache ../lens-laws
+        ../object ../mop/prototype ../support/option ./feedback/cache ../mop/lens-laws
         (prefix-in ./scc scc.) (prefix-in ./schedule graph.)
         (prefix-in ./construction cache.) (prefix-in ./computation code.)
         (prefix-in (only-in ../fun Observation.) fun.))

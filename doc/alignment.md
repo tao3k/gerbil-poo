@@ -960,7 +960,7 @@ stability. Finite observations or equal sampled function calls cannot establish
 that raw equation. Native budget/law/source refusal retains the old publication.
 
 `Prototype.LensLaws` states universal getter/setter laws and proves composition
-and the existing MonoLens bridge. `lens-laws.ss` supplies corresponding finite
+and the existing MonoLens bridge. `mop/lens-laws.ss` supplies corresponding finite
 counterexample checks on visited immutable states and declared focus values;
 native passes are NOT imported as universal Lean witnesses. Check dependencies
 stay protected through the entire staged closure, including cooking.
