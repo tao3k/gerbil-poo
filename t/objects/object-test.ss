@@ -21,7 +21,7 @@
   (rename-in (only-in :clan/poo/object with-prefixed-slots def-prefixed-slots) (with-prefixed-slots renamed-fields) (def-prefixed-slots renamed-snapshots))
   :std/error
   (for-syntax :gerbil/expander)
-  (prefix-in :clan/poo/parameters parameters.)
+  (prefix-in :clan/poo/types/parameters parameters.)
   (prefix-in :clan/poo/examples/parameter-service service.)
   (prefix-in :clan/poo/mop/methods/declaration methods.)
   (prefix-in :clan/poo/mop/methods/combination combination.)

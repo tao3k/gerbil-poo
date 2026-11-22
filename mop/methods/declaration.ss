@@ -7,7 +7,7 @@
         (only-in ../../object/reflection reflect-slots)
         (only-in ../../types/optional-validation call-with-current-catalogs)
         (only-in ../../types/prototype-types instantiate/checked infer-prototype/checked infer-prototype-calls/checked bound-parameters/checked with-bound-parameters/checked)
-        (prefix-in ../../parameters positional.)
+        (prefix-in ../../types/parameters positional.)
         (only-in ../../types/relation type-work bounded-type-data type-expression normalize-type compile-expression function-expression check-function-path copy-type refuse-type)
         (prefix-in ./dispatch dispatch.)
         (prefix-in ./combination combination.)

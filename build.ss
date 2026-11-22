@@ -84,7 +84,7 @@
     "clos/syntax"
     "clos/types"
     "mop"
-    "parameters"
+    "types/parameters"
     "types/syntax"
     "types/relation"
     "types/prototype-types"

@@ -627,7 +627,7 @@
 (defrule (.lens slot ...) (slots-lens '(slot ...)))
 
 ;; Explicit .parameters metadata and persistent prefix binding are implemented in
-;; parameters.ss; validation/effect execution remains a separate checked consumer.
+;; types/parameters.ss; validation/effect execution remains a separate checked consumer.
 
 ;; Attach an ordinary protocol object to an ordinary object; protocol methods can
 ;; themselves use C3 inheritance, before/after behavior and inherited continuations.

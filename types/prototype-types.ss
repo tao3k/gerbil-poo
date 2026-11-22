@@ -3,7 +3,7 @@
 (import (only-in ../support/base require-value) :std/error (only-in :std/list/list delete-duplicates/hash take drop map-in-order)
         ../object ./relation (only-in ../mop/prototype Type validate)
         (only-in ./optional-validation call-with-current-catalogs)
-        (prefix-in ../parameters positional.)
+        (prefix-in ./parameters positional.)
         (prefix-in ./function-signature signature.))
 
 ;; An accepted finite assignment retains its own derived queries and normalized

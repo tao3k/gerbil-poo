@@ -1,7 +1,7 @@
 ;;; Persistent positional prefix specialization reuses ordinary receiver cloning.
 (export parameters specialize specialize/checked)
 (import (only-in :std/list/list take drop delete-duplicates/hash)
-        ./object)
+        ../object)
 
 ;; Snapshot and check the remaining positional names before allocating a receiver.
 ;; Metadata is explicit: names are unique symbols and cannot replace .parameters.
