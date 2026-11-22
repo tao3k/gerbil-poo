@@ -6,7 +6,7 @@
         ../brace
         ../object/reflection
         ../meta-prototype
-        ../declaration
+        ../object/declaration
         (runtime: :clan/poo/fun)
         (prefix-in (only-in :clan/poo/fun Observation.) fun.))
 ;; One property expands nonlocally into its public slot/getter and private revision

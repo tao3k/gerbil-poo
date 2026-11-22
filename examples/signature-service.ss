@@ -12,7 +12,7 @@
         (only-in ../types/relation expression-type)
         (only-in ../prototype-types prototype-type specialize-prototype-type)
         ../mop/methods/declaration
-        ../declaration
+        ../object/declaration
         ../object-contract
         (runtime: :clan/poo/mop/methods/dispatch)
         (prefix-in (only-in ../mop/methods/dispatch prototype) dispatch.)

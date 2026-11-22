@@ -4,7 +4,7 @@
         with-fragment-sources step-fragments fragment-descriptors %watch-fragment-sources)
 (import :std/iter (only-in :std/list/list delete-duplicates/hash)
         (only-in ./support/base %graph-table-seed %with-application-table-seeds)
-        ./object ./mop/prototype ./declaration (prefix-in ./generalized-prototype gp.))
+        ./object ./mop/prototype ./object/declaration (prefix-in ./generalized-prototype gp.))
 ;; The public descriptor is ordinary extensible POO metadata. Lens laws and local
 ;; pure callback termination are premises; admission checks only executable shape.
 (define-type (Fragment @ Type.)

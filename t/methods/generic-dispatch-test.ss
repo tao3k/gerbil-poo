@@ -6,7 +6,7 @@
 (import (only-in :clan/poo/type Any)
         (only-in :std/test test-suite test-case check check-equal? check-exception)
         (only-in :clan/poo/object .o .get .ref)
-        (only-in :clan/poo/declaration .declare declaration-forms object<-declaration-forms)
+        (only-in :clan/poo/object/declaration .declare declaration-forms object<-declaration-forms)
         (only-in :clan/poo/mop .defgeneric)
         (only-in :clan/poo/mop/methods/declaration MethodDeclaration. standard-combination)
         (prefix-in :clan/poo/mop/methods/combination combination.)

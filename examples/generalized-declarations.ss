@@ -4,7 +4,7 @@
         ../object
         ../mop
         ../brace
-        ../declaration
+        ../object/declaration
         ../generalized-declaration
         (runtime: :clan/poo/generalized-prototype)
         (prefix-in (only-in ../generalized-prototype cook-fields) gp.)

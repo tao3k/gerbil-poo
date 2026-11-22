@@ -9,7 +9,7 @@
   :clan/poo/prototype-types
   :clan/poo/types/relation
   (only-in :clan/poo/types/syntax map-type-children)
-  :clan/poo/declaration
+  :clan/poo/object/declaration
   (only-in :clan/poo/slot-observation call-with-slot-read-observer slot-read-key slot-read-receiver)
   (prefix-in :clan/poo/mop/methods/dispatch dispatch.)
   (prefix-in :clan/poo/declarative-metadata metadata.)

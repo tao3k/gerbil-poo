@@ -35,7 +35,7 @@ Raw struct/table mutation remains trusted, outside supported sealing/invalidatio
 
 ## Nonlocal declaration protocol
 
-`declaration.ss` exports `Declaration.`, `declaration-form`, `declaration-action`,
+`object/declaration.ss` exports `Declaration.`, `declaration-form`, `declaration-action`,
 `expand-declarations`, `object<-declaration-forms` and `.declare`.
 
 `Declaration.` is an ordinary inherited object with two operations:

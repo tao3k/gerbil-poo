@@ -20,7 +20,7 @@
   (prefix-in :clan/poo/mop/methods/dispatch multimethod.)
   (prefix-in :clan/poo/mop/methods/extension dispatch-extension.)
   :clan/poo/brace
-  :clan/poo/declaration
+  :clan/poo/object/declaration
   :clan/poo/generalized-declaration
   (prefix-in :clan/poo/generalized-prototype gp.)
   (prefix-in :clan/poo/examples/generalized-declarations generalized-declaration.service.)

@@ -20,7 +20,7 @@
   :clan/poo/mop
   (only-in :clan/poo/type Any Bool Object define-type)
   :clan/poo/brace
-  :clan/poo/declaration
+  :clan/poo/object/declaration
   :clan/poo/mop/methods/declaration
   :clan/poo/object/reflection
   :clan/poo/recursive/declaration

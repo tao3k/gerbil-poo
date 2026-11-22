@@ -119,7 +119,7 @@
     "slot-observation"
     "object/state"
     "meta-prototype"
-    "declaration"
+    "object/declaration"
     "recursive/declaration"
     "mop/methods/declaration"
     "generalized-declaration"

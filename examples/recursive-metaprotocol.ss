@@ -6,7 +6,7 @@
         ../brace
         ../closure
         ../meta-prototype
-        ../declaration
+        ../object/declaration
         ../recursive/declaration
         ../object/reflection
         (runtime: :clan/poo/recursive/evaluation)
