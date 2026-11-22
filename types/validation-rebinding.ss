@@ -2,7 +2,7 @@
 (export prepare-rebinding force-rebinding rebind-validation
         finish-validation with-deferred-validation)
 (import (only-in :std/list/list any)
-        (only-in ./object make-object object-override-specifications $computed-slot-spec .ref))
+        (only-in ../object make-object object-override-specifications $computed-slot-spec .ref))
 
 ;; A dynamically scoped obligation collector belongs to one closure attempt.
 ;; No pending object or accepted-value memo is retained globally.

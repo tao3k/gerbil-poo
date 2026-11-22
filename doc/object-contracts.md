@@ -465,7 +465,7 @@ keyword Function arities remain open. Executable-value serialization is unchange
 
 ## Receiver-bound computed validation
 
-`validation-rebinding.ss` now supplies one higher-order normalizer for Class and
+`types/validation-rebinding.ss` now supplies one higher-order normalizer for Class and
 ObjectContract. Each selected field is an ordinary `$computed-slot-spec` layer:
 its inherited result is validated with the final receiver. Inherited formulas,
 computed closure capture and custom Slot dependencies all use checked siblings.

@@ -55,7 +55,7 @@
     "recursive/handling"
     "fun"
     ,(apply production-module "io" [] "" (include-gambit-sharp))
-    "validation-rebinding"
+    "types/validation-rebinding"
     "types/value-diagnostics"
     "class-validation"
     "function-signature"

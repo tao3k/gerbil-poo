@@ -191,7 +191,7 @@ combines initialization, refinement, FUN and exact evidence publication. Bootstr
 Type validation preserves descriptor identity. Lean `ClassValidation` proves the
 finite Slot, selected-metadata and initialization/refinement laws. This advances
 generalized-prototype future work; C3 and host correspondence are premises.
-Receiver-bound computed dependencies now use `validation-rebinding.ss` shared
+Receiver-bound computed dependencies now use `types/validation-rebinding.ss` shared
 by Class and ObjectContract, with inherited formula/override, hook mutation,
 computed Function lists, nested result Function and exact publication controls.
 Existing caches share checked dependencies; explicit instance assignments are

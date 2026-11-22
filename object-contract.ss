@@ -4,7 +4,7 @@
         checked-issues diagnostic-all diagnostic-then checked-action)
 (import (only-in ./support/base require-value) (only-in :std/list/list foldl append-map filter-map)
         (only-in ./types/value-diagnostics diagnose-structure)
-        (only-in ./validation-rebinding rebind-validation finish-validation)
+        (only-in ./types/validation-rebinding rebind-validation finish-validation)
         (prefix-in (only-in ./fun Observation.) fun.)
         (only-in ./object .o .cc .get .ref .slot? .all-slots .call object?
                  compute-precedence-list!)

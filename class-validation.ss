@@ -4,7 +4,7 @@
 (import (only-in :std/list/list filter-map)
         (only-in ./object .o .slot? .get .ref .call .all-slots object?)
         (only-in ./slot-observation %slot-read-active?)
-        (only-in ./validation-rebinding rebind-validation finish-validation)
+        (only-in ./types/validation-rebinding rebind-validation finish-validation)
         (only-in ./types/value-diagnostics diagnose-structure diagnose-value))
 
 (extern namespace: clan/poo/object %prepared-slot-present? %prepared-vector-slot-ref)

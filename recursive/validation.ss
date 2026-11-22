@@ -9,7 +9,7 @@
         (only-in ../graph/scc capture-reachability-procedure)
         ../object (only-in ../mop/prototype Type. Type validate raise-type-error)
         (only-in ../types/value-diagnostics diagnose-structure)
-        (only-in ../validation-rebinding prepare-rebinding force-rebinding with-deferred-validation))
+        (only-in ../types/validation-rebinding prepare-rebinding force-rebinding with-deferred-validation))
 
 ;; No partially allocated graph is a public closed value. Runtime provenance is
 ;; separate from Lean's finite proof; callbacks remain trusted terminating code.
