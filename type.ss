@@ -9,7 +9,7 @@
 (import
   (only-in :std/assert assert!)
   :std/iter
-  ./value-diagnostics
+  ./types/value-diagnostics
   ./types/validation
   ./variant-validation
   ./optional-validation

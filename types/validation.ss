@@ -3,7 +3,7 @@
 (import (only-in :std/list/list-builder with-list-builder) :std/iter
         (only-in :std/list/list map-in-order foldl)
         (only-in :std/vector/vector vector-for-each/index)
-        ../value-diagnostics
+        ./value-diagnostics
         (only-in ../slot-observation %call-with-recorded-slot-reads %record-slot-reads!)
         (only-in ../object replay-slot-reads!)
         (only-in ../object .o .slot? .get)

@@ -8,7 +8,7 @@
         (only-in :std/hash/misc hash-ensure-ref)
         (only-in ../graph/scc capture-reachability-procedure)
         ../object (only-in ../mop/prototype Type. Type validate raise-type-error)
-        (only-in ../value-diagnostics diagnose-structure)
+        (only-in ../types/value-diagnostics diagnose-structure)
         (only-in ../validation-rebinding prepare-rebinding force-rebinding with-deferred-validation))
 
 ;; No partially allocated graph is a public closed value. Runtime provenance is

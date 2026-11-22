@@ -13,7 +13,7 @@
         replay-slot-reads! reobserve-slot-reads! call-with-current-slot-reads object-read-issued? object-read-issuance)
 
 (import ../slot-observation
-        ../value-diagnostics
+        ../types/value-diagnostics
         ../function-signature
         ../class-validation
         (only-in :std/error deferror-class defraise/context)

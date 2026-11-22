@@ -1,6 +1,6 @@
 ;;; Type diagnostics below the MOP bootstrap, shared by Class and containers.
 (export diagnose-value diagnose-structure)
-(import (only-in ./object .o .slot? .get .call))
+(import (only-in ../object .o .slot? .get .call))
 
 ;; Active structural pairs are per-thread and per-call, not accepted memo entries.
 ;; Repeated sharing after return is legal; an unannotated active backedge refuses.

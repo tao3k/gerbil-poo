@@ -434,7 +434,7 @@ structure pass precedes all `.slot.validate` calls. Present fields normalize
 through their selected child Type on one persistent derived receiver, retaining
 computed dependencies rather than installing frozen getter results. Final Class membership retains custom Slot checks, sealing and
 constant equality. Unknown sealed fields are rejected by inventory without forcing
-their getters. `value-diagnostics.ss` keeps this protocol below the MOP dependency.
+their getters. `types/value-diagnostics.ss` keeps this protocol below the MOP dependency.
 
 `make-instance` / `.new/checked` receive prototype defaults and overrides, validate
 them, invoke `.instantiate` with the checked instance, then validate its result.

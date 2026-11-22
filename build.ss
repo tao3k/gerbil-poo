@@ -56,7 +56,7 @@
     "fun"
     ,(apply production-module "io" [] "" (include-gambit-sharp))
     "validation-rebinding"
-    "value-diagnostics"
+    "types/value-diagnostics"
     "class-validation"
     "function-signature"
     "mop/prototype"
