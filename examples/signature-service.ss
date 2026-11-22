@@ -1,6 +1,6 @@
 ;;; Seeded service checks combine nested callbacks, optional and keyword defaults.
 (export inspection-request-test prepared-service-tests failure-preparation-test signature-preparation-test service-admission-tests RetiredCallServiceType retired-call-target retired-call-view retired-call-callback retired-call-action staged-service-action catalog-service-type checked-operation-action callback-service-action specialized-action selected-declarations selected-action Callback ServiceSignature service checked-service service-property service-tests)
-(import (only-in ../function-signature decode-arguments) (prefix-in ../testing/property property.) :std/test :std/error :std/iter
+(import (only-in ../types/function-signature decode-arguments) (prefix-in ../testing/property property.) :std/test :std/error :std/iter
         (only-in ../testing/generation-graph generation-refusal? refuse-generation)
         (prefix-in :clan/poo/testing/property/generator core.)
         ../object

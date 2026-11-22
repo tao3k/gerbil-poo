@@ -14,7 +14,7 @@
 
 (import ../slot-observation
         ../types/value-diagnostics
-        ../function-signature
+        ../types/function-signature
         ../types/class-validation
         (only-in :std/error deferror-class defraise/context)
         (only-in :std/list/list-builder with-list-builder)

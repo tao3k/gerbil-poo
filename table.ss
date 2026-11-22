@@ -26,7 +26,7 @@
   (only-in ./io marshal)
   (only-in ./mop/prototype define-type Type. Function. Any validate element? raise-type-error TypeError? Lens lens-of-get-set)
   (only-in ./fun Wrapper. Wrap.)
-  (only-in ./function-signature signature-shape?)
+  (only-in ./types/function-signature signature-shape?)
   (only-in ./object .o object<-alist .all-slots .@ .ref .slot? .call .cc .mix .has? object-revision active-object-constructions instantiate-object!)
   (only-in ./type List Pair Sum Unit Bool))
 

@@ -6,7 +6,7 @@
         inspect)
 (import (only-in :std/list/alist arem) (only-in ../../support/base require-value) :std/iter (only-in :std/list/list-builder with-list-builder)
         (only-in ../prototype Type Any validate define-type raise-type-error)
-        (prefix-in ../../function-signature signature.) ../../object
+        (prefix-in ../../types/function-signature signature.) ../../object
         (only-in ../../object compute-precedence-list!) (only-in ../../type Unit)
         (prefix-in ./combination combination.))
 

@@ -1522,7 +1522,7 @@ it does not drop these rows or become a value-sensitive replacement certificate.
 
 This is a finite decidable omission in the existing protocol, not arbitrary
 predicate emptiness. `types/relation.ss` reuses `empty-type?`, the shared quota,
-standard presence-aware hash lookup and `function-signature.ss` normalization.
+standard presence-aware hash lookup and `types/function-signature.ss` normalization.
 Positive and negative witnesses are cached only inside one replacement request;
 exceptions/exhaustion cannot install a partial witness. Empty Lists/Maps/vectors,
 Maybe/OrFalse sentinels and procedures remain inhabited or unknown. A Never

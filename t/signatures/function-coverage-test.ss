@@ -12,7 +12,7 @@
   :clan/poo/mop/methods/declaration
   (prefix-in :clan/poo/examples/polymorphic-services service.)
   (prefix-in :clan/poo/examples/signature-service fixture.)
-  (prefix-in :clan/poo/function-signature signature.)
+  (prefix-in :clan/poo/types/function-signature signature.)
   :std/iter
   :std/list/list-builder
   (only-in :std/list/list delete-duplicates/hash))

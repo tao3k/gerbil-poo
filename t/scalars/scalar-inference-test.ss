@@ -13,7 +13,7 @@
   (only-in :std/number/misc uint-below?)
   (only-in :gerbil/runtime/gambit string->uninterned-symbol)
   (prefix-in :clan/poo/examples/numeric-services numeric.)
-  (only-in :clan/poo/function-signature encode-arguments)
+  (only-in :clan/poo/types/function-signature encode-arguments)
   :clan/poo/type)
 (import (only-in "scalar-inference/union.ss" union-inference-test))
 

@@ -24,7 +24,7 @@
   :clan/poo/types/syntax
   :clan/poo/prototype-types
   (only-in :clan/poo/support/base require-value)
-  (prefix-in :clan/poo/function-signature signatures.)
+  (prefix-in :clan/poo/types/function-signature signatures.)
   (prefix-in :clan/poo/examples/row-services rows.)
   (prefix-in :clan/poo/examples/contract-interop interop.)
   :std/iter

@@ -4,7 +4,7 @@
         ./object ./types/relation (only-in ./mop/prototype Type validate)
         (only-in ./types/optional-validation call-with-current-catalogs)
         (prefix-in ./parameters positional.)
-        (prefix-in ./function-signature signature.))
+        (prefix-in ./types/function-signature signature.))
 
 ;; An accepted finite assignment retains its own derived queries and normalized
 ;; layout. Private immutable transport prevents parallel lists from drifting apart.

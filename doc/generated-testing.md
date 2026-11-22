@@ -10,7 +10,7 @@ as an implementation already supplied by the Racket listings.
 
 | Concern | Gerbil | Lean |
 | --- | --- | --- |
-| Required / optional positions, rest, declared and required keywords | `mop.ss` Function descriptors; `function-signature.ss` uses the host keyword escapes | `Functional.FunctionSignature.Signature`, `Call`, `accepts` |
+| Required / optional positions, rest, declared and required keywords | `mop.ss` Function descriptors; `types/function-signature.ss` uses the host keyword escapes | `Functional.FunctionSignature.Signature`, `Call`, `accepts` |
 | Ordered case-lambda shapes | `CaseFunction` selects first structural match; no fallback on type/body failure | `select_first`, `select_sound`, `invoke_type_error` |
 | Supplied-only normalization | Child Types wrap nested Function values before one target invocation; defaults stay in the target | `supplied_length`, `invoke_shape_error` |
 | Descriptor generation | `testing/type.ss`, explicit `.generator` extension, higher-order products | `samples`, `samples_length` under stable draw premises |

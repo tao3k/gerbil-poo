@@ -2,7 +2,7 @@
 (export check-function-path capture-type-catalog capture-type-data function-covers? function-signatures type-refusal? type-refusal-kind refuse-type bounded-type-data type-work scalar-recognizer type-constructor? type-expression substitute-type subtype-expression? subtype/checked? expression-type compile-expression normalize-type function-options function-expression function-template copy-type canonical-type)
 (import (only-in :std/list/alist plist->alist)
         (only-in :std/hash/misc hash-ensure-ref)
-        (only-in :std/list/list append-map map-in-order) (prefix-in ../function-signature signature.) ./syntax
+        (only-in :std/list/list append-map map-in-order) (prefix-in ./function-signature signature.) ./syntax
         (prefix-in ../recursive/evaluation recursive.) ../object
         (only-in ../mop/prototype Any Bool Function CaseFunction Type. Object Class.)
         (only-in ../object-contract ObjectContract.)

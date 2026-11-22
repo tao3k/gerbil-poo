@@ -11,7 +11,7 @@
         infer-shared-service shared-service-action invoke-signature-service invoke-report-service SignatureServiceType
         signature-service-declarations instantiate-signature-service infer-signature-service signature-service-action convert conversion-declarations instantiate-conversion infer-conversion conversion-action FunctionPrototypeType Service ServiceType service-action publish-service)
 (import (only-in :std/list/list delete-duplicates/hash)
-        (only-in ../function-signature encode-arguments)
+        (only-in ../types/function-signature encode-arguments)
         (only-in ../type Record validate Function Object CaseFunction Bool Any)
         ../number
         ../types/relation

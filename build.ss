@@ -58,7 +58,7 @@
     "types/validation-rebinding"
     "types/value-diagnostics"
     "types/class-validation"
-    "function-signature"
+    "types/function-signature"
     "mop/prototype"
     "read-projection"
     "clos/class-declaration-ir"
