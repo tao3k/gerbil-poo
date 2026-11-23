@@ -1,7 +1,7 @@
 ;;; Shared POO foundation with standard on-demand business-module initialization.
 (export main)
 (import (only-in :gerbil/runtime/loader list-modules)
-        (only-in ../io module-action)
+        (only-in :clan/poo/io module-action)
         (runtime: :clan/poo/fun)
         (runtime: :clan/poo/types/object-contract)
         (runtime: :std/crypto/digest))

@@ -22,7 +22,7 @@
         (gxc: "benchmarks/collection-paired-backends" "-cc-options" "-O2")
         (gxc: "benchmarks/collection-paired-benchmark" "-cc-options" "-O2")
         (gxc: "benchmarks/generation-benchmark" "-cc-options" "-O2")
-        (exe: "examples/representation-main" bin: "representation-main"
+        (exe: "benchmarks/representation-startup/entry" bin: "representation-main"
          "-cc-options" "-O2 -D___SINGLE_HOST_LIMIT=10000" "-ld-options" ,links)
         (exe: "benchmarks/representation-startup/main" bin: "representation-startup"
         "-cc-options" "-O2 -D___SINGLE_HOST_LIMIT=10000" "-ld-options" ,links))) main))
