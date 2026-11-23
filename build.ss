@@ -149,7 +149,9 @@
        "table/protocol.ss" "table/focus.ss" "table/mapping.ss" "table/styles.ss" "table/sets.ss" "table/indexes.ss" "table/order.ss"]
       +gerbil-poo-cc-options+)
     ,(production-module "trie" ["trie/changes.ss" "trie/protocol.ss"])
-    ,(production-module "type" ["types/sum.ss"])
+    ,(production-module "type"
+      ["types/sequences.ss" "types/scalar-codecs.ss" "types/combinations.ss"
+       "types/pairs.ss" "types/optional.ss" "types/associative.ss" "types/sum.ss"])
     "testing/generation-graph"
     "testing/recursive-generation"
     "testing/property/generator"
