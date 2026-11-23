@@ -5,7 +5,7 @@
         (prefix-in :clan/poo/examples/variant-publication routing.)
         (prefix-in :clan/poo/examples/object-contracts service.)
         (prefix-in :clan/poo/examples/contract-publication publication.)
-        (prefix-in :clan/poo/declarative-metadata metadata.))
+        (prefix-in :clan/poo/mop/declarative-metadata metadata.))
 
 ;; Application-owned admission remains independent of subject/context binding.
 (def Call

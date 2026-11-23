@@ -4,7 +4,7 @@
         (only-in ../number Integer) ../object ../mop ../brace ../object/declaration ../mop/methods/declaration
         (prefix-in ../mop/methods/combination combination.)
         (prefix-in ../mop/methods/dispatch dispatch.) (prefix-in ../mop/methods/extension extension.)
-        (prefix-in ../declarative-metadata metadata.) (only-in ../object/reflection read-slot) (only-in ../proto compose-proto*)
+        (prefix-in ../mop/declarative-metadata metadata.) (only-in ../object/reflection read-slot) (only-in ../proto compose-proto*)
         (prefix-in (only-in ../fun Observation.) fun.))
 ;; Type-provided methods receive the original account exactly once, then units.
 (.defgeneric (charge account units) from: type slot: .charge combination: standard-combination)

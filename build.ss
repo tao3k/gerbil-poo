@@ -91,7 +91,7 @@
     "mop/methods/combination"
     "mop/methods/dispatch"
     "mop/methods/extension"
-    "declarative-metadata"
+    "mop/declarative-metadata"
     "types/validation"
     "types/variant-validation"
     "types/optional-validation"

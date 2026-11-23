@@ -11,7 +11,7 @@
         (only-in ../../types/relation type-work bounded-type-data type-expression normalize-type compile-expression function-expression check-function-path copy-type refuse-type)
         (prefix-in ./dispatch dispatch.)
         (prefix-in ./combination combination.)
-        (prefix-in ../../declarative-metadata metadata.) (prefix-in ./extension extension.))
+        (prefix-in ../declarative-metadata metadata.) (prefix-in ./extension extension.))
 ;; A private marker distinguishes method metadata from arbitrary user Slot fields.
 ;; Public descriptors remain extensible POO objects; no second declaration AST exists.
 (def method-marker (list 'method-fragment))

@@ -2,8 +2,8 @@
 (export CapacityContract publication-action evidence-view)
 (import ../object
         ../object-contract
-        (runtime: :clan/poo/declarative-metadata)
-        (prefix-in (only-in ../declarative-metadata bind-evidence publish) metadata.)
+        (runtime: :clan/poo/mop/declarative-metadata)
+        (prefix-in (only-in ../mop/declarative-metadata bind-evidence publish) metadata.)
         (prefix-in ./object-contracts service.))
 
 ;; Keep all five service fields and both original relations, then add a local

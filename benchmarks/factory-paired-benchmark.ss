@@ -3,8 +3,8 @@
 (import (only-in :clan/poo/type Function) :clan/poo/object
         :clan/poo/mop
         :clan/poo/types/prototype-types
-        (runtime: :clan/poo/declarative-metadata)
-        (prefix-in (only-in :clan/poo/declarative-metadata bind-evidence contract predicate
+        (runtime: :clan/poo/mop/declarative-metadata)
+        (prefix-in (only-in :clan/poo/mop/declarative-metadata bind-evidence contract predicate
                    truth) metadata.)
         (runtime: :clan/poo/examples/polymorphic-services)
         (prefix-in (only-in :clan/poo/examples/polymorphic-services DescriptorServiceType
@@ -82,7 +82,7 @@
       (and (list? phases) (= (length phases) 1) (memq (car phases) '(0 1 2 3 4 5 6)))))
     (error "invalid fixed factory horizon or phase"))
   (def expected (* 4 (length phases) 9))
-  (def sources '("types/prototype-types.ss" "mop/methods/declaration.ss" "declarative-metadata.ss" "examples/polymorphic-services.ss"))
+  (def sources '("types/prototype-types.ss" "mop/methods/declaration.ss" "mop/declarative-metadata.ss" "examples/polymorphic-services.ss"))
   (def current (source-digests (append sources '("benchmarks/factory-paired-benchmark.ss" "benchmarks/closure-measure.ss"))))
   (def original (source-digests sources baseline-source))
   (def binaries (source-digests (list baseline candidate)))

@@ -1,6 +1,6 @@
 # Binding existing invocation results
 
-`clan/poo/declarative-metadata` exports `bind-evidence`:
+`clan/poo/mop/declarative-metadata` exports `bind-evidence`:
 
 ```scheme
 (metadata.bind-evidence invocation subject descriptor context evidence-view)

@@ -16,7 +16,7 @@
   (prefix-in :clan/poo/examples/signature-service signature.)
   :std/iter
   (only-in :std/values first-value)
-  (prefix-in :clan/poo/declarative-metadata metadata.)
+  (prefix-in :clan/poo/mop/declarative-metadata metadata.)
   (prefix-in :clan/poo/mop/methods/dispatch multimethod.)
   (prefix-in :clan/poo/mop/methods/extension dispatch-extension.)
   :clan/poo/brace

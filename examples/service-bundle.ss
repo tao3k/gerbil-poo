@@ -14,8 +14,8 @@
         (runtime: :clan/poo/graph/cyclic-publication)
         (prefix-in (only-in ../graph/cyclic-publication probe same-service?
                    version-service version-view) publication.)
-        (runtime: :clan/poo/declarative-metadata)
-        (prefix-in (only-in ../declarative-metadata atom both check contribute family
+        (runtime: :clan/poo/mop/declarative-metadata)
+        (prefix-in (only-in ../mop/declarative-metadata atom both check contribute family
                    guarded remove replace) metadata.)
         (runtime: :clan/poo/mop/methods/dispatch)
         (prefix-in (only-in ../mop/methods/dispatch cache-size make prototype) multimethod.)

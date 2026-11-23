@@ -64,7 +64,7 @@ consumers must use that returned value. Untouched scalar objects keep identity.
 The existing `declarative-metadata` invocation Contract composes directly:
 
 ```scheme
-(import (prefix-in :clan/poo/declarative-metadata metadata.))
+(import (prefix-in :clan/poo/mop/declarative-metadata metadata.))
 (def ServiceCall
   (metadata.contract (metadata.typed "service input" ServiceContract)
                      (metadata.typed "boolean output" Bool)

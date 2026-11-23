@@ -18,7 +18,7 @@
   (only-in :clan/poo/t/table-testing alist-table box-table)
   (prefix-in :clan/poo/examples/service-collection service.)
   (prefix-in (only-in :clan/poo/examples/contract-publication publication-action) publication.)
-  (prefix-in :clan/poo/declarative-metadata metadata.))
+  (prefix-in :clan/poo/mop/declarative-metadata metadata.))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (set-algebra-test)

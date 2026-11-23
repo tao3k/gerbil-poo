@@ -9,8 +9,8 @@
                    methods.inputs<-selection methods.inputs<-shared) family.)
         (runtime: :clan/poo/mop/generic-family)
         (prefix-in (only-in ../mop/generic-family methods.instantiate<-shared-expansion) generics.)
-        (runtime: :clan/poo/declarative-metadata)
-        (prefix-in (only-in ../declarative-metadata atom contract predicate
+        (runtime: :clan/poo/mop/declarative-metadata)
+        (prefix-in (only-in ../mop/declarative-metadata atom contract predicate
                    with-meaning) metadata.)
         (prefix-in ./construction-workflow workflow.)
         (prefix-in ./service-metadata service.)

@@ -18,8 +18,8 @@
                    compile-simula compile-simula-context forward-around
                    forward-primary item prepare-simula primary simula-body
                    simula-body?) combination.)
-        (runtime: :clan/poo/declarative-metadata)
-        (prefix-in (only-in ../declarative-metadata compile contribute install
+        (runtime: :clan/poo/mop/declarative-metadata)
+        (prefix-in (only-in ../mop/declarative-metadata compile contribute install
                    predicate replace) metadata.)
         (prefix-in ../graph/staged-publication staged.)
         (runtime: :clan/poo/mop/generic-family)

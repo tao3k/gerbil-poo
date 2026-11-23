@@ -11,7 +11,7 @@
   (prefix-in :clan/poo/mop/methods/combination combination.)
   (prefix-in :clan/poo/mop/methods/dispatch dispatch.)
   (prefix-in :clan/poo/mop/methods/extension extension.)
-  (prefix-in :clan/poo/declarative-metadata metadata.)
+  (prefix-in :clan/poo/mop/declarative-metadata metadata.)
   (prefix-in :clan/poo/graph/cyclic-publication publication.)
   (prefix-in :clan/poo/mop/generic-family family.)
   (prefix-in :clan/poo/examples/service-combination combined.)

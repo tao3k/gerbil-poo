@@ -13,7 +13,7 @@
   (prefix-in :clan/poo/examples/recursive-topology recursive-staging.service.)
   (prefix-in :clan/poo/examples/recursive-staging recursive-staging.workflow.)
   (prefix-in :clan/poo/examples/recursive-migration migration.)
-  (prefix-in :clan/poo/declarative-metadata metadata.)
+  (prefix-in :clan/poo/mop/declarative-metadata metadata.)
   (prefix-in :clan/poo/examples/contract-publication recursive-staging.publication.)
   :std/error
   (prefix-in :clan/poo/recursive/approvals approvals.)

@@ -10,7 +10,7 @@
   (only-in :clan/poo/type Record List Tuple Maybe TypeValuePair String Json
            Any Bool Object Function CaseFunction Fun Type Type. define-type element? validate TypeError?)
   (prefix-in :clan/poo/examples/class-publication class-validation.service.)
-  (prefix-in :clan/poo/declarative-metadata metadata.)
+  (prefix-in :clan/poo/mop/declarative-metadata metadata.)
   (prefix-in :clan/poo/examples/contract-publication class-validation.publication.)
   (prefix-in :clan/poo/examples/object-contracts config.)
   (prefix-in :clan/poo/recursive/validation graph.)

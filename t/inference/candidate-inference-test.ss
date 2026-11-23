@@ -12,7 +12,7 @@
   :clan/poo/object/declaration
   (only-in :clan/poo/slot-observation call-with-slot-read-observer slot-read-key slot-read-receiver)
   (prefix-in :clan/poo/mop/methods/dispatch dispatch.)
-  (prefix-in :clan/poo/declarative-metadata metadata.)
+  (prefix-in :clan/poo/mop/declarative-metadata metadata.)
   (prefix-in :clan/poo/mop/methods/extension extension.)
   (prefix-in :clan/poo/mop/methods/combination combination.)
   :clan/poo/mop/methods/declaration

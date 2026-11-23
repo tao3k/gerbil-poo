@@ -7,8 +7,8 @@
         :clan/poo/support/option
         (only-in :std/values first-value)
         "closure-measure.ss"
-        (runtime: :clan/poo/declarative-metadata)
-        (prefix-in (only-in :clan/poo/declarative-metadata atom both contract contract?
+        (runtime: :clan/poo/mop/declarative-metadata)
+        (prefix-in (only-in :clan/poo/mop/declarative-metadata atom both contract contract?
                    failure-phase failure? invoke predicate publish wrap) metadata.)
         (only-in :clan/poo/number IntegerRange)
         (prefix-in :clan/poo/examples/service-metadata service.)

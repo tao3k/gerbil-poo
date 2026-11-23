@@ -10,7 +10,7 @@
   (prefix-in :clan/poo/examples/function-publication workflow.)
   (prefix-in :clan/poo/examples/object-contracts service.)
   (prefix-in :clan/poo/examples/contract-publication publication.)
-  (prefix-in :clan/poo/declarative-metadata metadata.)
+  (prefix-in :clan/poo/mop/declarative-metadata metadata.)
   (only-in :clan/poo/type Maybe Maybe. OrFalse OrFalse. TypeValuePair List Tuple String
            Any Bool Fun Type. element? validate TypeError?)
   (prefix-in :clan/poo/examples/optional-publication pipeline.)

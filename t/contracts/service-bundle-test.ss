@@ -12,7 +12,7 @@
   (prefix-in :clan/poo/mop/generic-family family.)
   (prefix-in :clan/poo/graph/staged-publication staged.)
   (prefix-in :clan/poo/graph/cyclic-publication service-bundle.publication.)
-  (prefix-in :clan/poo/declarative-metadata metadata.)
+  (prefix-in :clan/poo/mop/declarative-metadata metadata.)
   (prefix-in :clan/poo/mop/methods/extension dispatch.)
   (prefix-in :clan/poo/mop/methods/dispatch multimethod.)
   (prefix-in :clan/poo/examples/service-metadata service-metadata.service.)

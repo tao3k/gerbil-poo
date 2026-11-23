@@ -14,7 +14,7 @@
   (prefix-in :clan/poo/recursive/approvals approvals.)
   (prefix-in :clan/poo/examples/recursive-approvals recursive-approvals.service.)
   (prefix-in :clan/poo/examples/recursive-topology recursive-approvals.topology.)
-  (prefix-in :clan/poo/declarative-metadata metadata.)
+  (prefix-in :clan/poo/mop/declarative-metadata metadata.)
   (only-in :std/list/list take drop)
   (prefix-in :clan/poo/recursive/publication recursive-competition.publication.)
   (prefix-in :clan/poo/examples/recursive-approvals recursive-competition.service.)

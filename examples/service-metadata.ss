@@ -8,8 +8,8 @@
         ../object
         (only-in ../number Integer IntegerRange)
         (only-in ../type String List element? Any Bool)
-        (runtime: :clan/poo/declarative-metadata)
-        (prefix-in (only-in ../declarative-metadata atom both check contract
+        (runtime: :clan/poo/mop/declarative-metadata)
+        (prefix-in (only-in ../mop/declarative-metadata atom both check contract
                    declaration-name install predicate replace with-meaning) metadata.)
         (runtime: :clan/poo/mop/methods/dispatch)
         (prefix-in (only-in ../mop/methods/dispatch make) multimethod.)

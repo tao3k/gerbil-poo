@@ -4,7 +4,7 @@
         :clan/poo/object/declaration :clan/poo/mop/methods/declaration
         (prefix-in :clan/poo/examples/polymorphic-services service.)
         (prefix-in :clan/poo/mop/methods/dispatch dispatch.) (prefix-in :clan/poo/mop/methods/extension extension.)
-        (prefix-in :clan/poo/declarative-metadata metadata.) (prefix-in :clan/poo/mop/methods/combination combination.))
+        (prefix-in :clan/poo/mop/declarative-metadata metadata.) (prefix-in :clan/poo/mop/methods/combination combination.))
 ;; Match typed refusal categories independently of prose or unrelated exceptions.
 (def (refusal kind) (lambda (cause) (and (type-refusal? cause) (eq? (type-refusal-kind cause) kind))))
 ;; Capture exact exception identity so source callback errors cannot masquerade as

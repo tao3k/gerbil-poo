@@ -5,9 +5,9 @@
         truth atom both either implies deny formula? holds check
         predicate typed predicate? contract contract? with-meaning bind-evidence wrap invoke publish
         failure? failure-phase failure-name failure-cause)
-(import (only-in ./support/base require-value) :std/iter (only-in :std/func compose)
-        ./object (only-in ./mop/prototype define-type .defgeneric Type Type. validate element?)
-        (prefix-in ./mop/methods/extension dispatch-extension.))
+(import (only-in ../support/base require-value) :std/iter (only-in :std/func compose)
+        ../object (only-in ./prototype define-type .defgeneric Type Type. validate element?)
+        (prefix-in ./methods/extension dispatch-extension.))
 
 ;; Open descriptors and derived methods follow fun.ss and io.ss. Private records
 ;; are reserved for failure payloads; public metadata is extensible POO data.
