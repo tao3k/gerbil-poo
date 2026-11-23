@@ -14,7 +14,7 @@
   (prefix-in :clan/poo/examples/construction-workflow workflow.)
   (prefix-in :clan/poo/examples/service-bundle bundle.)
   (prefix-in :clan/poo/examples/shared-contracts shared.)
-  (prefix-in :clan/poo/contract-family contracts.)
+  (prefix-in :clan/poo/mop/contract-family contracts.)
   (prefix-in :clan/poo/graph/staged-publication staged.)
   (prefix-in :clan/poo/examples/protected-dispatch protected.)
   (prefix-in :clan/poo/graph/cyclic-publication publication.)

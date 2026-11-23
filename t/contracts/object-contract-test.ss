@@ -29,7 +29,7 @@
   (prefix-in :clan/poo/examples/contract-interop interop.)
   :std/iter
   (only-in :std/values first-value)
-  (prefix-in :clan/poo/contract-family family.)
+  (prefix-in :clan/poo/mop/contract-family family.)
   (prefix-in :clan/poo/examples/service-metadata contract-family.service.)
   (prefix-in :clan/poo/examples/service-bundle bundle.)
   (prefix-in :clan/poo/examples/cyclic-access access.)

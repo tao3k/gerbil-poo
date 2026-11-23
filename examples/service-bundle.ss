@@ -5,8 +5,8 @@
         ../object
         (only-in ../number IntegerRange)
         (only-in ../type String define-type Any Bool)
-        (runtime: :clan/poo/contract-family)
-        (prefix-in (only-in ../contract-family Source.) contract-family.)
+        (runtime: :clan/poo/mop/contract-family)
+        (prefix-in (only-in ../mop/contract-family Source.) contract-family.)
         (runtime: :clan/poo/mop/generic-family)
         (prefix-in (only-in ../mop/generic-family Model. Projection.
                    methods.refresh<-projection) family.)

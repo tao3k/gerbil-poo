@@ -1,8 +1,8 @@
 ;;; ContractFamily: closed contract inputs and late-bound invocation wrappers.
 (export Source. PreparationCosts. SelectionCache. SelectionCacheCosts. TemplateCosts. choose-checks choose-selection choose-source choose-preparation cached-choice methods.inputs<-cached-selection methods.inputs<-selection methods.inputs<-shared prepare refresh family? family-keys family-ref family-invoker
         family-built family-bound family-reused family-prepared? family-preparation)
-(import :std/iter (only-in :std/func compose1) ./object (only-in ./mop/prototype define-type .defgeneric)
-        (prefix-in ./declarative-metadata metadata.))
+(import :std/iter (only-in :std/func compose1) ../object (only-in ./prototype define-type .defgeneric)
+        (prefix-in ../declarative-metadata metadata.))
 ;; Private tables/records never escape. Pure immutable source/input premises are
 ;; the same as GenericFamily; labels and sampled outputs cannot authorize reuse.
 ;; Closed preparation result: context is the reuse premise; lookup exposes only

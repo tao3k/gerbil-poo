@@ -21,8 +21,8 @@
                    version-source version-view version?) publication.)
         (prefix-in :clan/poo/examples/service-bundle bundle.)
         (prefix-in :clan/poo/examples/protected-dispatch protected.)
-        (runtime: :clan/poo/contract-family)
-        (prefix-in (only-in :clan/poo/contract-family choose-preparation family-bound
+        (runtime: :clan/poo/mop/contract-family)
+        (prefix-in (only-in :clan/poo/mop/contract-family choose-preparation family-bound
                    family-built family-invoker family-prepared? family-ref prepare
                    refresh) contracts.)
         (runtime: :clan/poo/examples/shared-contracts)

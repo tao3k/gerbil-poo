@@ -2,8 +2,8 @@
 ;;; Generalized-prototype future work: immutable closed inputs, Gerbil mixins.
 (export configured-source repeated-source selection-prices source independent-source selected-source cached-source model selected-model cached-model workflow-model cached-workflow-model expanded-generics expanded-cached-model expanded-cached-workflow-model budgeted-source budgeted-model budgeted-workflow-model shared-checks-source shared-checks-model shared-checks-workflow-model shared-checks-cached-model shared-checks-cached-workflow-model specialized-construct expanded-model expanded-workflow-model project-direct cancellation shared-input prepare-shared project-shared construct)
 (import ../object
-        (runtime: :clan/poo/contract-family)
-        (prefix-in (only-in ../contract-family PreparationCosts. SelectionCache.
+        (runtime: :clan/poo/mop/contract-family)
+        (prefix-in (only-in ../mop/contract-family PreparationCosts. SelectionCache.
                    SelectionCacheCosts. Source. TemplateCosts. choose-checks
                    choose-source methods.inputs<-cached-selection
                    methods.inputs<-selection methods.inputs<-shared) family.)

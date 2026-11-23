@@ -103,7 +103,7 @@
     "recursive/approvals"
     "recursive/coordination"
     "mop/generic-family"
-    "contract-family"
+    "mop/contract-family"
     "graph/computation"
     "graph/schedule"
     "graph/component/revision"

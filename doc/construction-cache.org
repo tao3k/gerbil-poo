@@ -263,7 +263,7 @@ This is executable alignment with explicit premises, not compiler refinement.
 
 * Contract-family preparation
 
-~contract-family.ss~ supplies native ~Source.~ with keys/project/construct and
+~mop/contract-family.ss~ supplies native ~Source.~ with keys/project/construct and
 derived ~.prepare / .refresh~. Only projected inputs reach construction. Source
 identity changes force reconstruction; equal names/results cannot authorize reuse.
 Every requested key is checked against current service support before projection
