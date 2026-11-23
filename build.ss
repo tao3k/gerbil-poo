@@ -146,7 +146,7 @@
        "table/delta.ss" "table/fold.ss" "table/translation.ss"
        "table/protocol.ss" "table/focus.ss" "table/mapping.ss" "table/styles.ss" "table/sets.ss" "table/indexes.ss" "table/order.ss"]
       +gerbil-poo-cc-options+)
-    ,(production-module "trie" ["trie/changes.ss"])
+    ,(production-module "trie" ["trie/changes.ss" "trie/protocol.ss"])
     ,(production-module "type" ["types/sum.ss"])
     "testing/generation-graph"
     "testing/recursive-generation"
