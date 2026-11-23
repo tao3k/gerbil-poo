@@ -10,9 +10,9 @@
    (call-with-processed-command-line std:call-with-processed-command-line))
   (only-in :std/hash/misc hash-ensure-removed!)
   (only-in :std/list/list flatten)
-  (only-in ./support/list pair-tree-for-each!)
-  (only-in ./object .has? .@ object?)
-  (only-in ./brace @method))
+  (only-in ./list pair-tree-for-each!)
+  (only-in ../object .has? .@ object?)
+  (only-in ../brace @method))
 
 (def getopt-spec/backtrace
   [(flag 'backtrace "--backtrace" help: "enable backtraces for debugging purposes")])

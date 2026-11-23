@@ -47,7 +47,7 @@
     "support/testing"
     "graph/closure"
     "graph/cyclic-publication"
-    "cli"
+    "support/cli"
     "debug"
     ,+gerbil-poo-fq-spec+
     "recursive/evaluation"
