@@ -142,7 +142,7 @@
     ;; Standard compiler inputs, object caching and all stage limits remain owned
     ;; by std/make; this is a code-generation choice, not a larger resource budget.
     ,(production-module "table"
-      ["table/observation.ss" "table/io.ss" "table/fold.ss" "table/focus.ss"
+      ["table/observation.ss" "table/io.ss" "table/fold.ss" "table/translation.ss" "table/focus.ss"
        "table/mapping.ss" "table/styles.ss" "table/sets.ss" "table/indexes.ss" "table/order.ss"]
       +gerbil-poo-cc-options+)
     ,(production-module "trie" ["trie/changes.scm"])
