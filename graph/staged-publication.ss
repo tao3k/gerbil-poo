@@ -3,7 +3,7 @@
 (export Model. methods.construction<-cache methods.contracts<-projection prepare publish)
 (import ./closure ../object (only-in ../mop/prototype define-type .defgeneric)
         (prefix-in ../contract-family contract-family.)
-        (prefix-in ../generic-family generic-family.)
+        (prefix-in ../mop/generic-family generic-family.)
         (prefix-in ./construction construction-cache.)
         (prefix-in ./cyclic-publication cyclic-publication.))
 (define-type (methods.construction<-cache @ [] builder)

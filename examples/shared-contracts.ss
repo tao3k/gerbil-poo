@@ -7,8 +7,8 @@
                    SelectionCacheCosts. Source. TemplateCosts. choose-checks
                    choose-source methods.inputs<-cached-selection
                    methods.inputs<-selection methods.inputs<-shared) family.)
-        (runtime: :clan/poo/generic-family)
-        (prefix-in (only-in ../generic-family methods.instantiate<-shared-expansion) generics.)
+        (runtime: :clan/poo/mop/generic-family)
+        (prefix-in (only-in ../mop/generic-family methods.instantiate<-shared-expansion) generics.)
         (runtime: :clan/poo/declarative-metadata)
         (prefix-in (only-in ../declarative-metadata atom contract predicate
                    with-meaning) metadata.)

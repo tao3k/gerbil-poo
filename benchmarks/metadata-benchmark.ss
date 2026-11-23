@@ -29,8 +29,8 @@
         (prefix-in (only-in :clan/poo/examples/shared-contracts construct independent-source
                    model prepare-shared project-direct project-shared selected-model
                    selected-source shared-input source workflow-model) shared.)
-        (runtime: :clan/poo/generic-family)
-        (prefix-in (only-in :clan/poo/generic-family failure-stage family-built family-reused
+        (runtime: :clan/poo/mop/generic-family)
+        (prefix-in (only-in :clan/poo/mop/generic-family failure-stage family-built family-reused
                    prepare refresh) family.)
         (prefix-in :clan/poo/graph/staged-publication staged.)
         (runtime: :clan/poo/mop/methods/dispatch)

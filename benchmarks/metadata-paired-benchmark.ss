@@ -9,8 +9,8 @@
         (prefix-in "metadata-paired-cases.ss" study.)
         (runtime: :clan/poo/contract-family)
         (prefix-in (only-in :clan/poo/contract-family family-bound family-built) contracts.)
-        (runtime: :clan/poo/generic-family)
-        (prefix-in (only-in :clan/poo/generic-family family-built family-has? family-ref
+        (runtime: :clan/poo/mop/generic-family)
+        (prefix-in (only-in :clan/poo/mop/generic-family family-built family-has? family-ref
                    refresh) generics.)
         (prefix-in :clan/poo/graph/staged-publication staged.)
         (runtime: :clan/poo/graph/cyclic-publication)

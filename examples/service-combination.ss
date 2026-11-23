@@ -22,8 +22,8 @@
         (prefix-in (only-in ../declarative-metadata compile contribute install
                    predicate replace) metadata.)
         (prefix-in ../graph/staged-publication staged.)
-        (runtime: :clan/poo/generic-family)
-        (prefix-in (only-in ../generic-family methods.refresh<-empty-storage
+        (runtime: :clan/poo/mop/generic-family)
+        (prefix-in (only-in ../mop/generic-family methods.refresh<-empty-storage
                    methods.refresh<-sized-projection) family.)
         (runtime: :clan/poo/examples/shared-contracts)
         (prefix-in (only-in ./shared-contracts budgeted-model expanded-generics

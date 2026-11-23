@@ -2,9 +2,9 @@
 (export Model. Projection. methods.instantiate<-shared-expansion methods.refresh<-projection methods.refresh<-sized-projection methods.refresh<-empty-storage build prepare refresh
         family? family-ref family-has? family-keys family-built family-reused invoke failure? failure-key failure-stage failure-cause)
 (import (only-in :gerbil/runtime/hash HashTable HashTable-new) :std/iter (only-in :std/list/list-builder with-list-builder) (only-in :std/list/list delete-duplicates/hash)
-        ./object (only-in ./mop/prototype define-type .defgeneric)
-        (prefix-in ./mop/methods/dispatch multimethod.)
-        (prefix-in ./mop/methods/extension dispatch-extension.))
+        ../object (only-in ./prototype define-type .defgeneric)
+        (prefix-in ./methods/dispatch multimethod.)
+        (prefix-in ./methods/extension dispatch-extension.))
 ;; Families own provenance and warm certificates; tables never escape.
 ;; Private owner-bound generic collection. Contexts justify reuse, services retain
 ;; warm certificates, and built/reused record actual selected constructor branches.

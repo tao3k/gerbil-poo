@@ -80,7 +80,7 @@ to their original sources.
 
 * Composed GenericFamily and StagedPublication models
 
-~generic-family.ss~ implements the native ~GenericFamily.Model.~ protocol:
+~mop/generic-family.ss~ implements the native ~GenericFamily.Model.~ protocol:
 ~keys~, ~seed~, ~methods~, ~watches~ and derived ~.build~. The default method batch
 is empty. ~metadata.family~ rebinds that batch from declarations while preserving
 inherited keys, seed, watches and custom methods. Build validates an empty seed
