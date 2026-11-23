@@ -48,18 +48,18 @@
     ;; Use the same source-only standard compiler declaration as the root build.
     ;; No POO module, compiler checkout or runtime registry enters the package.
     (create-directory* (path-expand "testing/property" project))
-    (copy-file (path-expand "testing/property/build.scm" source-root)
-      (path-expand "testing/property/build.scm" project))
+    (copy-file (path-expand "testing/property/build.ss" source-root)
+      (path-expand "testing/property/build.ss" project))
     (create-directory* (path-expand "examples" project))
     (for-each (lambda (file)
       (copy-file (path-expand file source-root) (path-expand file project)))
       '("examples/property-products.ss" "examples/property-numbers.ss" "examples/property-filters.ss" "examples/property-scopes.ss" "examples/property-replay.ss" "examples/property-sizes.ss" "examples/property-traces.ss" "examples/property-kernel.ss"))
     (create-directory* (path-expand "examples/property-kernel" project))
-    (copy-file (path-expand "examples/property-kernel/cases.scm" source-root)
-      (path-expand "examples/property-kernel/cases.scm" project))
+    (copy-file (path-expand "examples/property-kernel/cases.ss" source-root)
+      (path-expand "examples/property-kernel/cases.ss" project))
     (write-program (path-expand "build.ss" project)
       '((import :std/build-script)
-        (include "testing/property/build.scm")
+        (include "testing/property/build.ss")
         (defbuild-script `("property/generator" "property" "property/model" "property/replay" "property/test"
                           ,@property-example-build-specs ,property-kernel-build-spec))))
     ;; The package manager executes build.ss; the standard script owns its argv.

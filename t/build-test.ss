@@ -14,7 +14,7 @@
 ;; a separate assertion checks each root has one tracked compiler policy.
 (def (build-inputs specs) (map (cut take <> 3) specs))
 
-(include "../testing/property/build.scm")
+(include "../testing/property/build.ss")
 
 ;; Re-enter standard make after the fixture's CLI build. Bound its backend
 ;; children and drain them before restoring the caller's options, on success
@@ -31,24 +31,24 @@
 (def build-test
   (test-suite "standard test package declarations"
     (test-case "kernel host policy is a tracked standard compiler input"
-      (def policy (path-expand "testing/property/build.scm"))
+      (def policy (path-expand "testing/property/build.ss"))
       (def policy-source (call-with-input-file policy read-all-as-string))
       (call-with-temporary-directory "kernel-input-" (lambda (project)
         (create-directory* (path-expand "examples/property-kernel" project))
         (create-directory* (path-expand "testing/property" project))
-        (copy-file policy (path-expand "testing/property/build.scm" project))
+        (copy-file policy (path-expand "testing/property/build.ss" project))
         (call-with-output-file (path-expand "gerbil.pkg" project)
           (lambda (port) (write '(package: clan/poo/testing) port)))
         (call-with-output-file (path-expand "examples/property-kernel.ss" project)
           (lambda (port) (write '(export value) port) (newline port)
-            (write '(include "property-kernel/cases.scm") port) (newline port)))
-        (call-with-output-file (path-expand "examples/property-kernel/cases.scm" project)
+            (write '(include "property-kernel/cases.ss") port) (newline port)))
+        (call-with-output-file (path-expand "examples/property-kernel/cases.ss" project)
           (lambda (port) (write '(def value 7) port) (newline port)))
         (call-with-output-file (path-expand "build.ss" project)
           (lambda (port)
             (display "#!/usr/bin/env -S gxi -:max-heap=1G,debug=q\n" port)
             (for-each (lambda (form) (write form port) (newline port))
-              '((import :std/build-script) (include "testing/property/build.scm")
+              '((import :std/build-script) (include "testing/property/build.ss")
                 (defbuild-script (list property-kernel-build-spec))))))
         (run-process ["chmod" "755" (path-expand "build.ss" project)])
         (def options (getenv "GAMBOPT" #f))
@@ -70,10 +70,10 @@
         ;; a filesystem timestamp is not an absolute VM sleep deadline. The
         ;; strict timestamp assertion below still admits the actual ordering.
         (thread-sleep! 1.1)
-        (call-with-output-file (path-expand "testing/property/build.scm" project)
+        (call-with-output-file (path-expand "testing/property/build.ss" project)
           (lambda (port) (display policy-source port) (display "\n;; changed compiler-policy source\n" port)))
         (check (> (time->seconds (file-info-last-modification-time
-          (file-info (path-expand "testing/property/build.scm" project))))
+          (file-info (path-expand "testing/property/build.ss" project))))
           (time->seconds before)) => #t)
         (build)
         (check (> (time->seconds (file-info-last-modification-time (file-info target)))

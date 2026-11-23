@@ -68,7 +68,7 @@
         (lambda (values) (mutate) values)))))
     (else (error "unknown callback stage" stage))))
 ;; Keep bounded named registration groups in this module, without extra images.
-(include "property-kernel/cases.scm")
+(include "property-kernel/cases.ss")
 
 ;; This suite can be copied with testing/property.ss and testing/property/{generator,model,replay,test}.ss into a
 ;; fresh Gerbil project and run without POO modules, descriptors or object hooks.

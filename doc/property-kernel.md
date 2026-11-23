@@ -693,7 +693,7 @@ No per-value wrapping or extra generator call is introduced; see [Constructor-bo
 The isolated package still builds all twelve modules with `gerbil build` and runs
 all 140 current ordered cases through `gerbil test`. Its 60-second build and test limits,
 1 GiB Scheme heaps and inherited machine concurrency are unchanged. The root
-build and isolated build include one source-only `testing/property/build.scm`
+build and isolated build include one source-only `testing/property/build.ss`
 declaration; standard make tracks both that policy and the case include as
 `extra-inputs`. A source regression performs fresh standard builds to verify an
 unchanged input reuses its artifact and a changed policy rebuilds it.

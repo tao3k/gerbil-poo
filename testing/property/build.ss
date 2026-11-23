@@ -5,12 +5,12 @@
 ;; Declare one bounded host graph through standard make, retaining every extra
 ;; input and invalidating compiled outputs when this shared policy changes.
 (def (property-build-spec module inputs)
-  [gxc: module [extra-inputs: (cons "testing/property/build.scm" inputs)]
+  [gxc: module [extra-inputs: (cons "testing/property/build.ss" inputs)]
     "-cc-options" "-Og -D___SINGLE_HOST_LIMIT=4096"])
 
 ;; The kernel's included body remains an explicit standard make dependency.
 (def property-kernel-build-spec
-  (property-build-spec "examples/property-kernel" ["examples/property-kernel/cases.scm"]))
+  (property-build-spec "examples/property-kernel" ["examples/property-kernel/cases.ss"]))
 
 ;; All seven modules export test-case registration procedures. Share their exact
 ;; compiler declarations between the root project and isolated library consumer.
