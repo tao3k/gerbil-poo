@@ -6,7 +6,7 @@
   :clan/poo/object
   :clan/poo/mop
   :clan/poo/number
-  :clan/poo/object-contract
+  :clan/poo/types/object-contract
   (prefix-in :clan/poo/examples/function-publication workflow.)
   (prefix-in :clan/poo/examples/object-contracts service.)
   (prefix-in :clan/poo/examples/contract-publication publication.)

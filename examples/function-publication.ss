@@ -4,7 +4,7 @@
         ../mop
         ../number
         ../io
-        ../object-contract
+        ../types/object-contract
         (only-in ../type String Json Fun Bool)
         (runtime: :clan/poo/fun)
         (prefix-in ./object-contracts service.)

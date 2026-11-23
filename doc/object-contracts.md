@@ -1,6 +1,6 @@
 # Structural value contracts
 
-`clan/poo/object-contract` exports `ObjectContract.`, `TypeContract.`,
+`clan/poo/types/object-contract` exports `ObjectContract.`, `TypeContract.`,
 `as-value-contract` and `diagnose`. These are ordinary POO Types and slot methods.
 They have no dependency on POO Flow, module publication, graphs, provider schemas
 or an admission-receipt framework.
@@ -14,7 +14,7 @@ see [invocation evidence binding](evidence-binding.md). That operation belongs t
 ```scheme
 (import :clan/poo/object
         (only-in :clan/poo/type String Type. define-type)
-        :clan/poo/object-contract)
+        :clan/poo/types/object-contract)
 
 (define-type (Port @ Type.)
   .element?: (lambda (value) (and (exact-integer? value) (<= 1 value 65535))))

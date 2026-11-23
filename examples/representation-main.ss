@@ -3,7 +3,7 @@
 (import (only-in :gerbil/runtime/loader list-modules)
         (only-in ../io module-action)
         (runtime: :clan/poo/fun)
-        (runtime: :clan/poo/object-contract)
+        (runtime: :clan/poo/types/object-contract)
         (runtime: :std/crypto/digest))
 ;; Link the common observation and value-admission foundation. Business modules remain ordinary compiled
 ;; plugins: the same module and explicit binding can be called by gxi or this exe.

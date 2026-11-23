@@ -4,7 +4,7 @@
         ../object
         ../mop
         ../number
-        ../object-contract
+        ../types/object-contract
         (only-in ../type Maybe OrFalse TypeValuePair Tuple List String Fun)
         (runtime: :clan/poo/fun)
         (prefix-in ./object-contracts service.)

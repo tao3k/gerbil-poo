@@ -19,7 +19,7 @@
   (prefix-in :clan/poo/examples/service-collection service.)
   (only-in :gerbil/runtime/mop slot-ref slot-set!)
   (only-in :std/list/alist aset arem alist?)
-  (only-in :clan/poo/object-contract checked-action))
+  (only-in :clan/poo/types/object-contract checked-action))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (table-selection-test)

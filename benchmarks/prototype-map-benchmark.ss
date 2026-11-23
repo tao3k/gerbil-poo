@@ -7,7 +7,7 @@
         (only-in :clan/poo/slot-observation %slot-read-active? call-with-slot-read-observer %call-with-recorded-slot-reads without-observation slot-read-receiver) :clan/poo/object :clan/poo/object/prototype-map :clan/poo/mop :clan/poo/number
         (only-in :clan/poo/io module-action)
         (only-in :gerbil/runtime/loader load-module)
-        (only-in :clan/poo/object-contract checked-action)
+        (only-in :clan/poo/types/object-contract checked-action)
         (only-in :clan/poo/object/slot-layout make-slot-cache slot-value-storage make-slot-values make-slot-layout slot-layout-index slot-layout-ref
           slot-values-layout slot-cache-bind! slot-cache-index)
         (only-in :clan/poo/object/reflection reflect-slots read-slot)

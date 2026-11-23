@@ -4,7 +4,7 @@
         ../mop
         ../types/relation
         ../types/prototype-types
-        ../object-contract
+        ../types/object-contract
         (runtime: :clan/poo/examples/polymorphic-services)
         (prefix-in (only-in ./polymorphic-services publish-service) publication.))
 ;; A finite guarded approximation accepts leaves with no children. Three unfoldings

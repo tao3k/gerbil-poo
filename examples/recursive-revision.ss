@@ -3,7 +3,7 @@
 (import ../object
         ../mop
         ../number
-        ../object-contract
+        ../types/object-contract
         (only-in ../type Record Fun Any)
         (runtime: :clan/poo/recursive/validation)
         (prefix-in (only-in ../recursive/validation closed-type validation-node) graph.)

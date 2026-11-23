@@ -40,7 +40,7 @@
   (prefix-in :clan/poo/recursive/topology recursive-restaging.topology.)
   (prefix-in :clan/poo/examples/recursive-topology recursive-restaging.service.)
   (prefix-in :clan/poo/examples/recursive-staging recursive-restaging.workflow.)
-  :clan/poo/object-contract
+  :clan/poo/types/object-contract
   (prefix-in :clan/poo/examples/recursive-revision recursive-revision.service.)
   (prefix-in :clan/poo/examples/contract-publication recursive-revision.publication.))
 

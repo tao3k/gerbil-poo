@@ -1,6 +1,6 @@
 ;;; Recursive Pair/Map/Sum/Union validation and bound routing publication.
 (export variant-validation-test)
-(import :std/test :clan/poo/object :clan/poo/mop :clan/poo/number :clan/poo/object-contract
+(import :std/test :clan/poo/object :clan/poo/mop :clan/poo/number :clan/poo/types/object-contract
         (only-in :clan/poo/type Pair Map Sum Union Or List String Type. validate Bool TypeError? Function Fun element? Any)
         (prefix-in :clan/poo/examples/variant-publication routing.)
         (prefix-in :clan/poo/examples/object-contracts service.)

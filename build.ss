@@ -95,7 +95,7 @@
     "types/validation"
     "types/variant-validation"
     "types/optional-validation"
-    "object-contract"
+    "types/object-contract"
     "recursive/validation"
     "recursive/topology"
     "recursive/staging"

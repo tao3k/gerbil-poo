@@ -3,7 +3,7 @@
 (import ../object
         ../mop
         ../number
-        ../object-contract
+        ../types/object-contract
         (only-in ../type Record String Fun Any Bool)
         (runtime: :clan/poo/recursive/evaluation)
         (prefix-in (only-in ../recursive/evaluation Generator. Interaction. request source-error

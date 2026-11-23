@@ -2,7 +2,7 @@
 (export policy local-admit? joint-admit? stage-transition entry-action)
 (import ../object
         ../mop
-        ../object-contract
+        ../types/object-contract
         (runtime: :clan/poo/recursive/validation)
         (prefix-in (only-in ../recursive/validation closed-ref) graph.)
         (runtime: :clan/poo/recursive/publication)

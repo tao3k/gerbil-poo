@@ -13,7 +13,7 @@
         (only-in ../types/prototype-types prototype-type specialize-prototype-type)
         ../mop/methods/declaration
         ../object/declaration
-        ../object-contract
+        ../types/object-contract
         (runtime: :clan/poo/mop/methods/dispatch)
         (prefix-in (only-in ../mop/methods/dispatch prototype) dispatch.)
         (runtime: :clan/poo/mop/methods/combination)

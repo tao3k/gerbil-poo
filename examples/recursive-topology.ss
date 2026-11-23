@@ -5,7 +5,7 @@
         ../object
         ../mop
         ../number
-        ../object-contract
+        ../types/object-contract
         (only-in ../type Record Tuple)
         (runtime: :clan/poo/recursive/validation)
         (prefix-in (only-in ../recursive/validation closed-ref closed-type

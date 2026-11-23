@@ -13,10 +13,10 @@
         ../mop
         ../number
         ../object/slot-layout
-        ../object-contract
+        ../types/object-contract
         (only-in ../io module-action)
         (only-in ../slot-observation call-with-slot-read-observer slot-read-key slot-read-receiver)
-        (prefix-in ../object-contract contract.)
+        (prefix-in ../types/object-contract contract.)
         (runtime: :clan/poo/fun)
         (prefix-in (only-in :clan/poo/fun Observation.) fun.))
 

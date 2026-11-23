@@ -6,7 +6,7 @@
         (only-in ../brace @@method) (only-in ../fun Wrapper.) (only-in ../number UInt Integer)
         (only-in ../type Fun Tuple Pair List validate Type Bool Type. element? raise-type-error) (only-in ../table/rationaldict RationalDict)
         (only-in ../trie SimpleTrie)
-        ../object ../mop ../object-contract ../support/option
+        ../object ../mop ../types/object-contract ../support/option
         (prefix-in ../graph/construction cache.)
         (prefix-in ../graph/computation code.)
         (only-in ../fun Observation.))

@@ -4,7 +4,7 @@
         ../object
         ../mop
         ../number
-        ../object-contract
+        ../types/object-contract
         (only-in ../type String List Tuple Fun Bool)
         (runtime: :clan/poo/fun)
         (prefix-in ./object-contracts service.)

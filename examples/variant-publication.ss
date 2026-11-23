@@ -3,7 +3,7 @@
 (import ../object
         ../mop
         ../number
-        ../object-contract
+        ../types/object-contract
         (only-in ../type Pair Map Sum Union String Fun Bool)
         (runtime: :clan/poo/fun)
         (prefix-in ./object-contracts service.)

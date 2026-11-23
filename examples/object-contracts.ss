@@ -6,7 +6,7 @@
         ../number
         ../io
         (only-in ../type String Json define-type Type. Bool)
-        ../object-contract
+        ../types/object-contract
         (runtime: :clan/poo/fun)
         (prefix-in (only-in :clan/poo/fun Observation.) fun.))
 ;; Reuse the Type recognizer protocol for the finite port domain.

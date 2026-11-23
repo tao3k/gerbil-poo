@@ -6,7 +6,7 @@
   :clan/poo/object
   :clan/poo/mop
   :clan/poo/number
-  :clan/poo/object-contract
+  :clan/poo/types/object-contract
   (only-in :clan/poo/type Record List Tuple Maybe TypeValuePair String Json
            Any Bool Object Function CaseFunction Fun Type Type. define-type element? validate TypeError?)
   (prefix-in :clan/poo/examples/class-publication class-validation.service.)

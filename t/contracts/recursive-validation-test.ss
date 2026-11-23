@@ -27,7 +27,7 @@
   (prefix-in :clan/poo/graph/scc scc.)
   (prefix-in :clan/poo/examples/recursive-topology recursive-topology.service.)
   (prefix-in :clan/poo/examples/contract-publication recursive-topology.publication.)
-  :clan/poo/object-contract
+  :clan/poo/types/object-contract
   (prefix-in :clan/poo/examples/recursive-validation recursive-validation.service.)
   (prefix-in :clan/poo/examples/object-contracts config.)
   (prefix-in :clan/poo/examples/contract-publication recursive-validation.publication.)

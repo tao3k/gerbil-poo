@@ -18,7 +18,7 @@
         ../object
         ../mop
         ../types/prototype-types
-        ../object-contract
+        ../types/object-contract
         (runtime: :clan/poo/mop/declarative-metadata)
         (prefix-in (only-in ../mop/declarative-metadata bind-evidence contract contribute
                    predicate publish replace truth) metadata.)

@@ -3,8 +3,8 @@
 (import (only-in ../type Object) ../object
         ../mop
         ../number
-        (prefix-in ../object-contract contract.)
-        ../object-contract
+        (prefix-in ../types/object-contract contract.)
+        ../types/object-contract
         (prefix-in ../types/parameters parameters.)
         (runtime: :clan/poo/fun)
         (prefix-in (only-in :clan/poo/fun Observation.) fun.))

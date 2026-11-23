@@ -2,13 +2,13 @@
 ;;; No configuration domain, module publication or admission context belongs here.
 (export ObjectContract. TypeContract. diagnose as-value-contract refine
         checked-issues diagnostic-all diagnostic-then checked-action)
-(import (only-in ./support/base require-value) (only-in :std/list/list foldl append-map filter-map)
-        (only-in ./types/value-diagnostics diagnose-structure)
-        (only-in ./types/validation-rebinding rebind-validation finish-validation)
-        (prefix-in (only-in ./fun Observation.) fun.)
-        (only-in ./object .o .cc .get .ref .slot? .all-slots .call object?
+(import (only-in ../support/base require-value) (only-in :std/list/list foldl append-map filter-map)
+        (only-in ./value-diagnostics diagnose-structure)
+        (only-in ./validation-rebinding rebind-validation finish-validation)
+        (prefix-in (only-in ../fun Observation.) fun.)
+        (only-in ../object .o .cc .get .ref .slot? .all-slots .call object?
                  compute-precedence-list!)
-        (only-in ./mop/prototype Type Type. define-type .defgeneric element? validate raise-type-error))
+        (only-in ../mop/prototype Type Type. define-type .defgeneric element? validate raise-type-error))
 
 ;; Reject malformed callback results as programming errors, preserving exceptions.
 ;; A diagnostic records a symbolic kind and a path, without copying user values.
