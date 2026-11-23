@@ -5,7 +5,7 @@
         (rename-in (only-in "../../build.ss" project-build-source)
           (project-build-source this-source-file))
         (only-in :std/make pkg-config-libs)
-        (only-in "../../t/build.ss" call-with-build-jobs))
+        (only-in "../../support/compile-jobs.ss" call-with-build-jobs))
 ;; Preserve the compiler backend bound in this standard package entry.
 (let (options (getenv "GAMBOPT" #f))
   (setenv "GAMBOPT" (string-append (if options (string-append options ",") "") "max-heap=2G,debug=q")))

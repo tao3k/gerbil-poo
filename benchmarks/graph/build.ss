@@ -3,7 +3,8 @@
         (rename-in (only-in "../../build.ss" project-build-source)
           (project-build-source this-source-file))
         (only-in :std/list/list filter)
-        (only-in "../../t/build.ss" call-with-build-jobs test-build-spec prefix-test-spec))
+        (only-in "../../t/build.ss" test-build-spec prefix-test-spec)
+        (only-in "../../support/compile-jobs.ss" call-with-build-jobs))
 
 (let (options (getenv "GAMBOPT" #f))
   (setenv "GAMBOPT" (string-append (if options (string-append options ",") "") "max-heap=2G,debug=q")))

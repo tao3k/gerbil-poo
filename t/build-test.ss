@@ -8,7 +8,8 @@
         (only-in :std/misc/ports read-all-as-string)
         (prefix-in (only-in "../build.ss" main) root.)
         (prefix-in (only-in "../benchmarks/representation-startup/build.ss" main) startup.)
-        (only-in :std/encoding/json string->json JSONReadOptions) (only-in :std/list/list delete-duplicates/hash take drop) (only-in "build.ss" test-build-spec test-build-partitions call-with-build-jobs))
+        (only-in :std/encoding/json string->json JSONReadOptions) (only-in :std/list/list delete-duplicates/hash take drop) (only-in "build.ss" test-build-spec test-build-partitions)
+        (only-in "../support/compile-jobs.ss" call-with-build-jobs))
 
 ;; Preserve the declaration/input projection independently of backend flags;
 ;; a separate assertion checks each root has one tracked compiler policy.
@@ -256,6 +257,8 @@
         (def policy (path-expand "t/build.ss" project))
         (create-directory* directory)
         (copy-file "t/build.ss" policy)
+        (create-directory* (path-expand "support" project))
+        (copy-file "support/compile-jobs.ss" (path-expand "support/compile-jobs.ss" project))
         (copy-file "t/recovery/build.ss" (path-expand "build.ss" directory))
         (run-process ["chmod" "755" (path-expand "build.ss" directory)])
         (call-with-output-file (path-expand "gerbil.pkg" directory)

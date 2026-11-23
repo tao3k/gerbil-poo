@@ -38,7 +38,7 @@ jobs:
         id: shared-cache
         with:
           path: .ci-library/lib
-          key: scheme-core-${{ runner.os }}-${{ runner.arch }}-${{ steps.gerbil.outputs.compiler-key }}-${{ hashFiles('**/*.ss', '**/*.scm', '**/gerbil.pkg', 'justfile', '.github/actions/setup-gerbil/action.yml', '!examples/**', '!benchmarks/**', '!t/**') }}-${{ hashFiles('t/build.ss') }}
+          key: scheme-core-${{ runner.os }}-${{ runner.arch }}-${{ steps.gerbil.outputs.compiler-key }}-${{ hashFiles('**/*.ss', '**/*.scm', '**/gerbil.pkg', 'justfile', '.github/actions/setup-gerbil/action.yml', '!examples/**', '!benchmarks/**', '!t/**') }}
       - name: Check public module packaging
         run: just check-layout
       - name: Build the production libraries

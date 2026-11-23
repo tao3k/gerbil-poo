@@ -3,7 +3,7 @@
 (export main project-build-source)
 (import :std/build-script (only-in :std/source this-source-file)
         (only-in :std/make include-gambit-sharp append-options)
-        (only-in "t/build.ss" call-with-build-jobs))
+        (only-in "support/compile-jobs.ss" call-with-build-jobs))
 ;; Preserve the established compiler backend bound in the official entry.
 (let (options (getenv "GAMBOPT" #f))
   (setenv "GAMBOPT" (string-append (if options (string-append options ",") "") "max-heap=2G,debug=q")))
