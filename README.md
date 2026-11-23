@@ -83,7 +83,7 @@ ledger, manifest parser, copied source view or test runner.
 
 The default package build installs the POO libraries, including the public
 property-testing APIs. After building the package, run `just test-examples` for
-the `examples/*-test.ss` suites or `just test-group methods` for a test directory.
+all case directories under `examples/` or `just test-group methods` for a test directory.
 Gerbil discovers and runs the source tests. The benchmark packages declare their
 linked programs and compiled inputs.
 

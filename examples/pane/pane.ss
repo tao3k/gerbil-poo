@@ -1,9 +1,9 @@
-(export Pane InspectorPane Accessible render-pane)
+(export Pane InspectorPane Accessible ResizeEvent SelectSection render-pane handle-pane-event)
 (import (only-in :clan/poo/object .get)
-        (only-in :clan/poo/number IntegerRange)
-        (only-in :clan/poo/type String)
+        (only-in :clan/poo/number Integer IntegerRange)
+        (only-in :clan/poo/type String Symbol)
         (only-in :clan/poo/mop .defclass .defgeneric .defmethod
-                 call-next-method))
+                 call-next-method clos-reinitialize-instance))
 
 (def Width (IntegerRange min: 20 max: 400))
 
@@ -16,7 +16,7 @@
   ((description (initform "Object details") (type String))))
 
 (.defclass InspectorPane (Pane Accessible)
-  ((section (initform 'properties))))
+  ((section (initarg section:) (initform 'properties) (type Symbol))))
 
 (.defgeneric render-pane (pane target))
 
@@ -33,3 +33,19 @@
 (.defmethod (render-pane (pane Pane) target)
   (qualifier around)
   (cons (.get pane decoration) (call-next-method)))
+
+(.defclass ResizeEvent ()
+  ((requested-width (initarg width:) (type Integer))))
+
+(.defclass SelectSection ()
+  ((selected-section (initarg section:) (type Symbol))))
+
+(.defgeneric handle-pane-event (pane event))
+
+(.defmethod (handle-pane-event (pane Pane) (event ResizeEvent))
+  (clos-reinitialize-instance pane width: (.get event requested-width))
+  (render-pane pane 'terminal))
+
+(.defmethod (handle-pane-event (pane InspectorPane) (event SelectSection))
+  (clos-reinitialize-instance pane section: (.get event selected-section))
+  (render-pane pane 'terminal))

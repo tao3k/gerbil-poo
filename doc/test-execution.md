@@ -1,7 +1,7 @@
 # Standard build and test entrypoints
 
 Run `gerbil build` or `just build` for the production libraries.
-Run `just test-examples` for the `examples/*-test.ss` suites or pass a test file
+Run `just test-examples` for all example cases or pass a case directory
 to the same recipe. `just test-group methods` runs a directory.
 Both delegate discovery and execution to `gerbil test` with the existing
 2 GiB VM limit. `just test` runs the test groups using Just's parallel queue.

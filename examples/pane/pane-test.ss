@@ -3,8 +3,9 @@
         (only-in :clan/poo/mop clos-compose-method-bundle clos-make-instance
                  clos-reinitialize-instance clos-remove-method clos-change-class
                  clos-class-of clos-class-precedence-list clos-shared-initialize-generic)
-        (only-in :std/test test-suite test-case check check-equal?)
-        "./pane/pane.ss" "./pane/theme.ss")
+        (only-in :std/test test-suite test-case check check-equal? check-exception)
+        (only-in :clan/poo/type TypeError?)
+        "./pane.ss" "./theme.ss")
 
 (def pane-test
   (test-suite "Extend and migrate a pane across modules"
@@ -24,7 +25,14 @@
           (check-equal? (render-pane pane 'gui) '(light "Request trace" 120))
           (def precedence (clos-class-precedence-list (clos-class-of pane)))
           (check-equal? (list (car precedence) (cadr precedence) (caddr precedence))
-                        (list InspectorPane Pane Accessible)))
+                        (list InspectorPane Pane Accessible))
+          (check-equal? (handle-pane-event pane (clos-make-instance ResizeEvent width: 132))
+                        '(light terminal "Request trace" 132 properties "Object details"))
+          (check-equal? (handle-pane-event pane (clos-make-instance SelectSection section: 'timeline))
+                        '(light terminal "Request trace" 132 timeline "Object details"))
+          (check-exception (handle-pane-event pane (clos-make-instance ResizeEvent width: 500)) TypeError?)
+          (check-equal? (render-pane pane 'terminal)
+                        '(light terminal "Request trace" 132 timeline "Object details")))
         (lambda ()
           (for-each (lambda (method) (clos-remove-method shared method))
                     (.get pane-theme methods)))))))
