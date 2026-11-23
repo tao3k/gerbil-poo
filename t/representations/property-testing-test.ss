@@ -922,7 +922,7 @@
       (check (> callback-checks 0) => #t))))
 
 ;; Keep sampler preparation controls together without another module or runner.
-(include "property-testing/samplers.scm")
+(include "property-testing/samplers.ss")
 
 ;; Constructor declaration bindings and required sources are checked once at
 ;; preparation, before draw/diagnostic/portable consumers can use inherited hooks.

@@ -46,31 +46,31 @@
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (recursive-approvals-test)
-  (let () (include "recursive-approvals/cases.scm")))
+  (let () (include "recursive-approvals/cases.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (recursive-competition-test)
-  (let () (include "recursive-approvals/recursive-competition.scm")))
+  (let () (include "recursive-approvals/recursive-competition.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (recursive-coordination-test)
-  (let () (include "recursive-approvals/recursive-coordination.scm")))
+  (let () (include "recursive-approvals/recursive-coordination.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (recursive-migration-test)
-  (let () (include "recursive-approvals/recursive-migration.scm")))
+  (let () (include "recursive-approvals/recursive-migration.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (recursive-publication-test)
-  (let () (include "recursive-approvals/recursive-publication.scm")))
+  (let () (include "recursive-approvals/recursive-publication.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (recursive-recovery-test)
-  (let () (include "recursive-approvals/recursive-recovery.scm")))
+  (let () (include "recursive-approvals/recursive-recovery.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (recursive-restaging-test)
-  (let () (include "recursive-approvals/recursive-restaging.scm")))
+  (let () (include "recursive-approvals/recursive-restaging.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (recursive-revision-test)

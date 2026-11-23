@@ -17,4 +17,4 @@
 
 ;; Construct the same exported suite once; cases and callback scopes are unchanged.
 (defvalues (union-inference-test)
-  (let () (include "union-inference.scm")))
+  (let () (include "union-inference.ss")))

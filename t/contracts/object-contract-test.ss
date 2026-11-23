@@ -45,36 +45,36 @@
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (class-validation-test)
-  (let () (include "object-contract/class-validation.scm")))
+  (let () (include "object-contract/class-validation.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (computed-validation-test)
-  (let () (include "object-contract/computed-validation.scm")))
+  (let () (include "object-contract/computed-validation.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (container-validation-test)
-  (let () (include "object-contract/container-validation.scm")))
+  (let () (include "object-contract/container-validation.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (contract-checks-test)
-  (let () (include "object-contract/contract-checks.scm")))
+  (let () (include "object-contract/contract-checks.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (contract-family-test)
-  (let () (include "object-contract/contract-family.scm")))
+  (let () (include "object-contract/contract-family.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (contract-publication-test)
-  (let () (include "object-contract/contract-publication.scm")))
+  (let () (include "object-contract/contract-publication.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (evidence-binding-test)
-  (let () (include "object-contract/evidence-binding.scm")))
+  (let () (include "object-contract/evidence-binding.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (object-contract-flow-test)
-  (let () (include "object-contract/object-contract-flow.scm")))
+  (let () (include "object-contract/object-contract-flow.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (object-contract-test)
-  (let () (include "object-contract/cases.scm")))
+  (let () (include "object-contract/cases.ss")))

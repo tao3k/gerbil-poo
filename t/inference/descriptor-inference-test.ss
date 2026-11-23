@@ -22,12 +22,12 @@
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (empty-inference-test)
-  (let () (include "descriptor-inference/empty-inference.scm")))
+  (let () (include "descriptor-inference/empty-inference.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (optional-inference-test)
-  (let () (include "descriptor-inference/optional-inference.scm")))
+  (let () (include "descriptor-inference/optional-inference.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (record-inference-test)
-  (let () (include "descriptor-inference/record-inference.scm")))
+  (let () (include "descriptor-inference/record-inference.ss")))

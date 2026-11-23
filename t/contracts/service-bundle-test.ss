@@ -36,16 +36,16 @@
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (service-bundle-test)
-  (let () (include "service-bundle/cases.scm")))
+  (let () (include "service-bundle/cases.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (service-metadata-test)
-  (let () (include "service-bundle/service-metadata.scm")))
+  (let () (include "service-bundle/service-metadata.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (service-revisions-test)
-  (let () (include "service-bundle/service-revisions.scm")))
+  (let () (include "service-bundle/service-revisions.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (shared-approvals-test)
-  (let () (include "service-bundle/shared-approvals.scm")))
+  (let () (include "service-bundle/shared-approvals.ss")))

@@ -319,10 +319,10 @@
       (check-equal? (.call target-fold .get (.call mapping .apply-delta updated retry)) 70))))
 
 ;; Retain the next original Suite and its case order in the same module.
-(include "table-batch/capture.scm")
+(include "table-batch/capture.ss")
 
 ;; Retain the next original Suite and its case order in the same module.
-(include "table-batch/origins.scm")
+(include "table-batch/origins.ss")
 
 ;; Retain the next original Suite and its case order in the same module.
-(include "table-batch/transport.scm")
+(include "table-batch/transport.ss")

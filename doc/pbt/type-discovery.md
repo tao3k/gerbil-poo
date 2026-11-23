@@ -298,7 +298,7 @@ while retaining Function wrappers, replays seed/concrete/corpus witnesses, rejec
 a later Key revision and explicitly prepares a new report. No fixture parser or
 new framework is involved.
 
-The sampler suite is moved intact to `t/representations/property-testing/samplers.scm`,
+The sampler suite is moved intact to `t/representations/property-testing/samplers.ss`,
 with standard `extra-inputs` tracking. All old cases remain, and controls cover
 effective-Type ordering, known roots/dependencies, sampler-validation side effects,
 request-spine mutation, false exceptions, observer re-entry and fresh repair.

@@ -32,24 +32,24 @@
 
 ;; Give method-combination-test its own compiler function and private fixture scope.
 (def (make-method-combination-test)
-  (include "method-declaration/method-combination.scm"))
+  (include "method-declaration/method-combination.ss"))
 
 (def method-combination-test (make-method-combination-test))
 
 ;; Give method-declaration-test its own compiler function and private fixture scope.
 (def (make-method-declaration-test)
-  (include "method-declaration/cases.scm"))
+  (include "method-declaration/cases.ss"))
 
 (def method-declaration-test (make-method-declaration-test))
 
 ;; Give multimethod-test its own compiler function and private fixture scope.
 (def (make-multimethod-test)
-  (include "method-declaration/multimethod.scm"))
+  (include "method-declaration/multimethod.ss"))
 
 (def multimethod-test (make-multimethod-test))
 
 ;; Give typed-method-declaration-test its own compiler function and private fixture scope.
 (def (make-typed-method-declaration-test)
-  (include "method-declaration/typed-method-declaration.scm"))
+  (include "method-declaration/typed-method-declaration.ss"))
 
 (def typed-method-declaration-test (make-typed-method-declaration-test))

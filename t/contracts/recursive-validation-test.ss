@@ -36,16 +36,16 @@
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (recursive-staging-test)
-  (let () (include "recursive-validation/recursive-staging.scm")))
+  (let () (include "recursive-validation/recursive-staging.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (recursive-submissions-test)
-  (let () (include "recursive-validation/recursive-submissions.scm")))
+  (let () (include "recursive-validation/recursive-submissions.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (recursive-topology-test)
-  (let () (include "recursive-validation/recursive-topology.scm")))
+  (let () (include "recursive-validation/recursive-topology.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (recursive-validation-test)
-  (let () (include "recursive-validation/cases.scm")))
+  (let () (include "recursive-validation/cases.ss")))

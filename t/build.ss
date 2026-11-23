@@ -31,18 +31,18 @@
     ("backends"
     "fq-test"
     "library-reuse-test"
-    (gxc: "number-test" (extra-inputs: ("number/cases.scm" "number/polynomial.scm")))
+    (gxc: "number-test" (extra-inputs: ("number/cases.ss" "number/polynomial.ss")))
     "rationaldict-test"
     "trie-test")
     ("closure"
-    (gxc: "closure-test" (extra-inputs: ("closure/closure-alignment.scm" "closure/cases.scm" "closure/component-closure.scm"))))
+    (gxc: "closure-test" (extra-inputs: ("closure/closure-alignment.ss" "closure/cases.ss" "closure/component-closure.ss"))))
     ("collection-deltas"
-    (gxc: "table-batch-test" (extra-inputs: ("table-batch/capture.scm"
-      "table-batch/origins.scm" "table-batch/transport.scm"))))
+    (gxc: "table-batch-test" (extra-inputs: ("table-batch/capture.ss"
+      "table-batch/origins.ss" "table-batch/transport.ss"))))
     ("collection-order"
     "rationaldict-order-test"
     "table-cursor-test"
-    (gxc: "table-order-test" (extra-inputs: ("table-order/observations.scm")))
+    (gxc: "table-order-test" (extra-inputs: ("table-order/observations.ss")))
     "table-split-test")
     ("collection-styles"
     (gxc: "set-algebra-test" (extra-inputs: ("set-algebra/cases.ss" "set-algebra/set-observation.ss")))
@@ -51,46 +51,46 @@
     ("collection-updates"
     "table-fold-test"
     "table-index/revisions"
-    (gxc: "table-index-test" (extra-inputs: ("table-index/table-group-join.scm" "table-index/table-index-equivalence.scm" "table-index/cases.scm")))
-    (gxc: "table-mapping-test" (extra-inputs: ("table-mapping/composition.scm" "table-mapping/retraction.scm")))
+    (gxc: "table-index-test" (extra-inputs: ("table-index/table-group-join.ss" "table-index/table-index-equivalence.ss" "table-index/cases.ss")))
+    (gxc: "table-mapping-test" (extra-inputs: ("table-mapping/composition.ss" "table-mapping/retraction.ss")))
     "table-merge-test")
     ("collections"
-    (gxc: "table-construction-test" (extra-inputs: ("table-construction/cases.scm" "table-construction/table-focus.scm" "table-construction/table-io.scm" "table-construction/table-normalization.scm")))
-    (gxc: "table-validation-test" (extra-inputs: ("table-validation/table-selection.scm" "table-validation/cases.scm")))
+    (gxc: "table-construction-test" (extra-inputs: ("table-construction/cases.ss" "table-construction/table-focus.ss" "table-construction/table-io.ss" "table-construction/table-normalization.ss")))
+    (gxc: "table-validation-test" (extra-inputs: ("table-validation/table-selection.ss" "table-validation/cases.ss")))
     "table-wrapper-test")
     ("components"
-    (gxc: "component-membership-test" (extra-inputs: ("component-membership/cases.scm" "component-membership/component-migration.scm" "component-membership/component-requests.ss" "component-membership/component-rounds.scm"))))
+    (gxc: "component-membership-test" (extra-inputs: ("component-membership/cases.ss" "component-membership/component-migration.ss" "component-membership/component-requests.ss" "component-membership/component-rounds.ss"))))
     ("construction"
     ;; The owned inverse study imports this kernel through the standard root.
     (gxc: "graph-order-repair-test" (extra-inputs: ())
       "-cc-options" "-O2 -D___SINGLE_HOST_LIMIT=4096")
-    (gxc: "construction-cache-test" (extra-inputs: ("construction-cache/cases.scm" "construction-cache/construction-workflow.scm" "construction-cache/focused-closure.scm"))))
+    (gxc: "construction-cache-test" (extra-inputs: ("construction-cache/cases.ss" "construction-cache/construction-workflow.ss" "construction-cache/focused-closure.ss"))))
     ("contracts"
-    (gxc: "object-contract-test" (extra-inputs: ("object-contract/class-validation.scm" "object-contract/computed-validation.scm" "object-contract/container-validation.scm" "object-contract/contract-checks.scm" "object-contract/contract-family.scm" "object-contract/contract-publication.scm" "object-contract/evidence-binding.scm" "object-contract/object-contract-flow.scm" "object-contract/cases.scm")))
-    (gxc: "object-contract-validation-test" (extra-inputs: ("object-contract-validation/cases.scm" "object-contract-validation/optional-validation.scm" "object-contract-validation/protected-dispatch.scm")))
-    (gxc: "recursive-approvals-test" (extra-inputs: ("recursive-approvals/cases.scm" "recursive-approvals/recursive-competition.scm" "recursive-approvals/recursive-coordination.scm" "recursive-approvals/recursive-migration.scm" "recursive-approvals/recursive-publication.scm" "recursive-approvals/recursive-recovery.scm" "recursive-approvals/recursive-restaging.scm" "recursive-approvals/recursive-revision.ss")))
-    (gxc: "recursive-validation-test" (extra-inputs: ("recursive-validation/recursive-staging.scm" "recursive-validation/recursive-submissions.scm" "recursive-validation/recursive-topology.scm" "recursive-validation/cases.scm")))
-    (gxc: "service-bundle-test" (extra-inputs: ("service-bundle/cases.scm" "service-bundle/service-metadata.scm" "service-bundle/service-revisions.scm" "service-bundle/shared-approvals.scm")))
+    (gxc: "object-contract-test" (extra-inputs: ("object-contract/class-validation.ss" "object-contract/computed-validation.ss" "object-contract/container-validation.ss" "object-contract/contract-checks.ss" "object-contract/contract-family.ss" "object-contract/contract-publication.ss" "object-contract/evidence-binding.ss" "object-contract/object-contract-flow.ss" "object-contract/cases.ss")))
+    (gxc: "object-contract-validation-test" (extra-inputs: ("object-contract-validation/cases.ss" "object-contract-validation/optional-validation.ss" "object-contract-validation/protected-dispatch.ss")))
+    (gxc: "recursive-approvals-test" (extra-inputs: ("recursive-approvals/cases.ss" "recursive-approvals/recursive-competition.ss" "recursive-approvals/recursive-coordination.ss" "recursive-approvals/recursive-migration.ss" "recursive-approvals/recursive-publication.ss" "recursive-approvals/recursive-recovery.ss" "recursive-approvals/recursive-restaging.ss" "recursive-approvals/recursive-revision.ss")))
+    (gxc: "recursive-validation-test" (extra-inputs: ("recursive-validation/recursive-staging.ss" "recursive-validation/recursive-submissions.ss" "recursive-validation/recursive-topology.ss" "recursive-validation/cases.ss")))
+    (gxc: "service-bundle-test" (extra-inputs: ("service-bundle/cases.ss" "service-bundle/service-metadata.ss" "service-bundle/service-revisions.ss" "service-bundle/shared-approvals.ss")))
     "variant-validation-test")
     ("coordination"
-    (gxc: "joint-coordination-test" (extra-inputs: ("joint-coordination/coordinator-recovery.scm" "joint-coordination/coordinator-rejoining.scm" "joint-coordination/joint-concurrency.scm" "joint-coordination/cases.scm"))))
+    (gxc: "joint-coordination-test" (extra-inputs: ("joint-coordination/coordinator-recovery.ss" "joint-coordination/coordinator-rejoining.ss" "joint-coordination/joint-concurrency.ss" "joint-coordination/cases.ss"))))
     ("declarations"
-    (gxc: "generalized-declaration-test" (extra-inputs: ("generalized-declaration/catalog-inference.scm" "generalized-declaration/declarative-metadata.scm" "generalized-declaration/cases.scm" "generalized-declaration/meta-prototype.scm" "generalized-declaration/recursive-declaration.scm"))))
+    (gxc: "generalized-declaration-test" (extra-inputs: ("generalized-declaration/catalog-inference.ss" "generalized-declaration/declarative-metadata.ss" "generalized-declaration/cases.ss" "generalized-declaration/meta-prototype.ss" "generalized-declaration/recursive-declaration.ss"))))
     ("feedback"
     (gxc: "graph-algorithms-test" (extra-inputs: ("graph-algorithms/baseline.ss"
       "graph-algorithms/discovery-study.ss"
       "graph-algorithms/compact.ss"))
       ;; This root contains frozen kernels used for timed production comparisons.
       "-cc-options" "-O2 -D___SINGLE_HOST_LIMIT=4096")
-    (gxc: "feedback-closure-test" (extra-inputs: ("feedback-closure/cyclic-access.scm" "feedback-closure/feedback-cache.scm" "feedback-closure/cases.ss")))
+    (gxc: "feedback-closure-test" (extra-inputs: ("feedback-closure/cyclic-access.ss" "feedback-closure/feedback-cache.ss" "feedback-closure/cases.ss")))
     "feedback-graph-test"
     "feedback-revision-test")
     ("generalized"
-    (gxc: "generalized-prototype-test" (extra-inputs: ("generalized-prototype/binding-benchmark.scm" "generalized-prototype/factory-benchmark.scm" "generalized-prototype/focused-benchmark.scm" "generalized-prototype/generalized-benchmark.scm" "generalized-prototype/generalized-closure.scm" "generalized-prototype/cases.scm"))))
+    (gxc: "generalized-prototype-test" (extra-inputs: ("generalized-prototype/binding-benchmark.ss" "generalized-prototype/factory-benchmark.ss" "generalized-prototype/focused-benchmark.ss" "generalized-prototype/generalized-benchmark.ss" "generalized-prototype/generalized-closure.ss" "generalized-prototype/cases.ss"))))
     ("inference"
-    (gxc: "candidate-inference-test" (extra-inputs: ("candidate-inference/cases.scm" "candidate-inference/container-inference.scm")))
-    (gxc: "descriptor-inference/intrinsic" (extra-inputs: ("descriptor-inference/cases.scm")))
-    (gxc: "descriptor-inference-test" (extra-inputs: ( "descriptor-inference/empty-inference.scm" "descriptor-inference/optional-inference.scm" "descriptor-inference/record-inference.scm"))))
+    (gxc: "candidate-inference-test" (extra-inputs: ("candidate-inference/cases.ss" "candidate-inference/container-inference.ss")))
+    (gxc: "descriptor-inference/intrinsic" (extra-inputs: ("descriptor-inference/cases.ss")))
+    (gxc: "descriptor-inference-test" (extra-inputs: ( "descriptor-inference/empty-inference.ss" "descriptor-inference/optional-inference.ss" "descriptor-inference/record-inference.ss"))))
     ("methods"
     "clause-ledger"
     "duim-pane"
@@ -108,39 +108,39 @@
     "clos-syntax-test"
     "generic-dispatch-test"
     "inferred-declaration-test"
-    (gxc: "method-declaration-test" (extra-inputs: ("method-declaration/method-combination.scm" "method-declaration/cases.scm" "method-declaration/multimethod.scm" "method-declaration/typed-method-declaration.scm"))))
+    (gxc: "method-declaration-test" (extra-inputs: ("method-declaration/method-combination.ss" "method-declaration/cases.ss" "method-declaration/multimethod.ss" "method-declaration/typed-method-declaration.ss"))))
     ("objects"
     "shape-admission-test"
     "class-diagnostics-test"
     "inheritance-hooks-test"
     "issued-read-test"
-    (gxc: "object-test" (extra-inputs: ("object/lifecycle.scm" "object/mop.scm" "object/cases.scm" "object/parameters.scm" "object/slot-observation.ss" "object/support.scm"))))
+    (gxc: "object-test" (extra-inputs: ("object/lifecycle.ss" "object/mop.ss" "object/cases.ss" "object/parameters.ss" "object/slot-observation.ss" "object/support.ss"))))
     ("publication"
-    (gxc: "joint-publication-test" (extra-inputs: ("joint-publication/approval-revision.ss" "joint-publication/joint-admission.scm" "joint-publication/joint-installation.scm" "joint-publication/cases.scm" "joint-publication/joint-receipts.scm"))))
+    (gxc: "joint-publication-test" (extra-inputs: ("joint-publication/approval-revision.ss" "joint-publication/joint-admission.ss" "joint-publication/joint-installation.ss" "joint-publication/cases.ss" "joint-publication/joint-receipts.ss"))))
     ("recovery"
     "coordinator-interleaving-test")
     ("recursion"
-    (gxc: "recursive-test" (extra-inputs: ("recursive/recursive-benchmark.scm" "recursive/cases.scm"))))
+    (gxc: "recursive-test" (extra-inputs: ("recursive/recursive-benchmark.ss" "recursive/cases.ss"))))
     ("representations"
     "collection-testing-test"
     "declaration-index-test"
     "function-signature-test"
     "property-testing/preparation"
-    (gxc: "property-testing-test" (extra-inputs: ("property-testing/samplers.scm")))
+    (gxc: "property-testing-test" (extra-inputs: ("property-testing/samplers.ss")))
     "prototype-types-test"
     "recursive-generation-test"
-    (gxc: "representation-test" (extra-inputs: ("representation/growth.scm" "representation/admission.scm" "representation/seed.scm")))
+    (gxc: "representation-test" (extra-inputs: ("representation/growth.ss" "representation/admission.ss" "representation/seed.ss")))
     "row-types-test"
-    (gxc: "type-test" (extra-inputs: ("type/tuple-json-performance.scm" "type/tuple-unmarshal-performance.scm" "type/type-performance.scm" "type/cases.scm"))))
+    (gxc: "type-test" (extra-inputs: ("type/tuple-json-performance.ss" "type/tuple-unmarshal-performance.ss" "type/type-performance.ss" "type/cases.ss"))))
     ("revisions"
     "joint-generations-test"
     "joint-restaging-test"
-    (gxc: "joint-rounds-test" (extra-inputs: ("joint-rounds/cases.scm" "joint-rounds/joint-topology.scm"))))
+    (gxc: "joint-rounds-test" (extra-inputs: ("joint-rounds/cases.ss" "joint-rounds/joint-topology.ss"))))
     ("scalars"
-    (gxc: "scalar-inference/union" (extra-inputs: ("scalar-inference/union-inference.scm")))
-    (gxc: "scalar-inference-test" (extra-inputs: ("scalar-inference/range-inference.scm" "scalar-inference/cases.scm"))))
+    (gxc: "scalar-inference/union" (extra-inputs: ("scalar-inference/union-inference.ss")))
+    (gxc: "scalar-inference-test" (extra-inputs: ("scalar-inference/range-inference.ss" "scalar-inference/cases.ss"))))
     ("signatures"
-    (gxc: "function-coverage-test" (extra-inputs: ("function-coverage/cases.scm" "function-coverage/function-options.scm" "function-coverage/keyword-coverage.scm" "function-coverage/keyword-prefix.scm" "function-coverage/keyword-rest.scm" "function-coverage/keyword-values.scm"))))
+    (gxc: "function-coverage-test" (extra-inputs: ("function-coverage/cases.ss" "function-coverage/function-options.ss" "function-coverage/keyword-coverage.ss" "function-coverage/keyword-prefix.ss" "function-coverage/keyword-rest.ss" "function-coverage/keyword-values.ss"))))
     ("tools"
     "cli-test"
     "io-test"

@@ -24,12 +24,12 @@
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (object-contract-validation-test)
-  (let () (include "object-contract-validation/cases.scm")))
+  (let () (include "object-contract-validation/cases.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (optional-validation-test)
-  (let () (include "object-contract-validation/optional-validation.scm")))
+  (let () (include "object-contract-validation/optional-validation.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (protected-dispatch-test)
-  (let () (include "object-contract-validation/protected-dispatch.scm")))
+  (let () (include "object-contract-validation/protected-dispatch.ss")))

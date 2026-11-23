@@ -49,7 +49,7 @@
                 (error "entry initialization refused"))) port)
       (newline port))))
 
-(include "representation/seed.scm")
+(include "representation/seed.ss")
 
 ;; Every case composes storage, inheritance and invalidation instead of testing an
 ;; independent cache model that the object engine does not actually use.
@@ -1157,13 +1157,13 @@
 ;; Keep every case in the original suite and registration order.
 (def representation-test
   (test-suite "persistent prototype maps and coherent access sites"
-    (include "representation/admission.scm")
+    (include "representation/admission.ss")
     (register-prototype-map-cases)
     (register-structural-read-cases)
     (register-runtime-entry-cases)
     (register-slot-shape-cases)
     (register-representation-policy-cases)
-    (include "representation/growth.scm")
+    (include "representation/growth.ss")
     (test-case "cycle refusal leaves no successful value and permits a corrected retry"
       (let* ((obj (.o self: self (x (.get self x)))) (site (make-slot-cache 'x)))
         (check-exception (.ref/inline obj site) CyclicSlot?)

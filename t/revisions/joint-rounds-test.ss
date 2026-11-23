@@ -20,8 +20,8 @@
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (joint-rounds-test)
-  (let () (include "joint-rounds/cases.scm")))
+  (let () (include "joint-rounds/cases.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (joint-topology-test)
-  (let () (include "joint-rounds/joint-topology.scm")))
+  (let () (include "joint-rounds/joint-topology.ss")))

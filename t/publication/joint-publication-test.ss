@@ -33,16 +33,16 @@
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (joint-admission-test)
-  (let () (include "joint-publication/joint-admission.scm")))
+  (let () (include "joint-publication/joint-admission.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (joint-installation-test)
-  (let () (include "joint-publication/joint-installation.scm")))
+  (let () (include "joint-publication/joint-installation.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (joint-publication-test)
-  (let () (include "joint-publication/cases.scm")))
+  (let () (include "joint-publication/cases.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (joint-receipts-test)
-  (let () (include "joint-publication/joint-receipts.scm")))
+  (let () (include "joint-publication/joint-receipts.ss")))

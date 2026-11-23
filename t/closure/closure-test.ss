@@ -20,12 +20,12 @@
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (closure-alignment-test)
-  (let () (include "closure/closure-alignment.scm")))
+  (let () (include "closure/closure-alignment.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (closure-test)
-  (let () (include "closure/cases.scm")))
+  (let () (include "closure/cases.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (component-closure-test)
-  (let () (include "closure/component-closure.scm")))
+  (let () (include "closure/component-closure.ss")))

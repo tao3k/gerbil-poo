@@ -35,25 +35,25 @@
 
 ;; Give lifecycle-test its own compiler function and private fixture scope.
 (def (make-lifecycle-test)
-  (include "object/lifecycle.scm"))
+  (include "object/lifecycle.ss"))
 
 (def lifecycle-test (make-lifecycle-test))
 
 ;; Give mop-test its own compiler function and private fixture scope.
 (def (make-mop-test)
-  (include "object/mop.scm"))
+  (include "object/mop.ss"))
 
 (def mop-test (make-mop-test))
 
 ;; Give object-test its own compiler function and private fixture scope.
 (def (make-object-test)
-  (include "object/cases.scm"))
+  (include "object/cases.ss"))
 
 (def object-test (make-object-test))
 
 ;; Give parameters-test its own compiler function and private fixture scope.
 (def (make-parameters-test)
-  (include "object/parameters.scm"))
+  (include "object/parameters.ss"))
 
 (def parameters-test (make-parameters-test))
 
@@ -65,6 +65,6 @@
 
 ;; Give support-test its own compiler function and private fixture scope.
 (def (make-support-test)
-  (include "object/support.scm"))
+  (include "object/support.ss"))
 
 (def support-test (make-support-test))

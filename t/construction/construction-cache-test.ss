@@ -32,12 +32,12 @@
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (construction-cache-test)
-  (let () (include "construction-cache/cases.scm")))
+  (let () (include "construction-cache/cases.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (construction-workflow-test)
-  (let () (include "construction-cache/construction-workflow.scm")))
+  (let () (include "construction-cache/construction-workflow.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (focused-closure-test)
-  (let () (include "construction-cache/focused-closure.scm")))
+  (let () (include "construction-cache/focused-closure.ss")))

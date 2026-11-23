@@ -34,20 +34,20 @@
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (catalog-inference-test)
-  (let () (include "generalized-declaration/catalog-inference.scm")))
+  (let () (include "generalized-declaration/catalog-inference.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (declarative-metadata-test)
-  (let () (include "generalized-declaration/declarative-metadata.scm")))
+  (let () (include "generalized-declaration/declarative-metadata.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (generalized-declaration-test)
-  (let () (include "generalized-declaration/cases.scm")))
+  (let () (include "generalized-declaration/cases.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (meta-prototype-test)
-  (let () (include "generalized-declaration/meta-prototype.scm")))
+  (let () (include "generalized-declaration/meta-prototype.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (recursive-declaration-test)
-  (let () (include "generalized-declaration/recursive-declaration.scm")))
+  (let () (include "generalized-declaration/recursive-declaration.ss")))

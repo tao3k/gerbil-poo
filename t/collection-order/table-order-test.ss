@@ -46,7 +46,7 @@
 ;; A whole lifecycle includes changed order, conflict retry and inverse recovery.
 (def table-order-test
   (test-suite "explicit transported table order"
-    (include "table-order/observations.scm")
+    (include "table-order/observations.ss")
     (test-case "all finite presence and Bool values agree across structural and cursor comparison"
       (def fixtures (for/collect (code (in-range 27))
         (with-list-builder (emit) (for (key (in-range 3))

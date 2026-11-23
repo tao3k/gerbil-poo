@@ -19,8 +19,8 @@
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (recursive-benchmark-test)
-  (let () (include "recursive/recursive-benchmark.scm")))
+  (let () (include "recursive/recursive-benchmark.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (recursive-test)
-  (let () (include "recursive/cases.scm")))
+  (let () (include "recursive/cases.ss")))

@@ -29,24 +29,24 @@
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (binding-benchmark-test)
-  (let () (include "generalized-prototype/binding-benchmark.scm")))
+  (let () (include "generalized-prototype/binding-benchmark.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (factory-benchmark-test)
-  (let () (include "generalized-prototype/factory-benchmark.scm")))
+  (let () (include "generalized-prototype/factory-benchmark.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (focused-benchmark-test)
-  (let () (include "generalized-prototype/focused-benchmark.scm")))
+  (let () (include "generalized-prototype/focused-benchmark.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (generalized-benchmark-test)
-  (let () (include "generalized-prototype/generalized-benchmark.scm")))
+  (let () (include "generalized-prototype/generalized-benchmark.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (generalized-closure-test)
-  (let () (include "generalized-prototype/generalized-closure.scm")))
+  (let () (include "generalized-prototype/generalized-closure.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (generalized-prototype-test)
-  (let () (include "generalized-prototype/cases.scm")))
+  (let () (include "generalized-prototype/cases.ss")))

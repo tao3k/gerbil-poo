@@ -105,23 +105,23 @@
           (extra-inputs: ("collection-order/../build.ss"))) complete) #t) => #t)
         (check (and (member '(gxc: "collection-order/table-order-test"
           (extra-inputs: ("collection-order/../build.ss"
-                          "collection-order/table-order/observations.scm"))) complete) #t) => #t)
+                          "collection-order/table-order/observations.ss"))) complete) #t) => #t)
         (check (and (member '(gxc: "collection-updates/table-mapping-test"
           (extra-inputs: ("collection-updates/../build.ss"
-                          "collection-updates/table-mapping/composition.scm"
-                          "collection-updates/table-mapping/retraction.scm"))) complete) #t) => #t))
+                          "collection-updates/table-mapping/composition.ss"
+                          "collection-updates/table-mapping/retraction.ss"))) complete) #t) => #t))
       (check (build-inputs (test-build-spec "collection-order")) =>
         '((gxc: "rationaldict-order-test" (extra-inputs: ("../build.ss")))
           (gxc: "table-cursor-test" (extra-inputs: ("../build.ss")))
-          (gxc: "table-order-test" (extra-inputs: ("../build.ss" "table-order/observations.scm")))
+          (gxc: "table-order-test" (extra-inputs: ("../build.ss" "table-order/observations.ss")))
           (gxc: "table-split-test" (extra-inputs: ("../build.ss"))))))
     (test-case "compiler partitions cover every existing package exactly once"
       (let* ((parts (test-build-partitions))
              (groups (apply append (map cdr parts)))
              (all (test-build-spec)))
         (check (build-inputs (test-build-spec "collection-deltas")) =>
-          '((gxc: "table-batch-test" (extra-inputs: ("../build.ss" "table-batch/capture.scm"
-            "table-batch/origins.scm" "table-batch/transport.scm")))))
+          '((gxc: "table-batch-test" (extra-inputs: ("../build.ss" "table-batch/capture.ss"
+            "table-batch/origins.ss" "table-batch/transport.ss")))))
         (check (build-inputs (test-build-spec "recovery")) =>
           '((gxc: "coordinator-interleaving-test" (extra-inputs: ("../build.ss")))))
         (check (length parts) => 4)

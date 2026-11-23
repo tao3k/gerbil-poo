@@ -21,16 +21,16 @@
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (tuple-json-performance-test)
-  (let () (include "type/tuple-json-performance.scm")))
+  (let () (include "type/tuple-json-performance.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (tuple-unmarshal-performance-test)
-  (let () (include "type/tuple-unmarshal-performance.scm")))
+  (let () (include "type/tuple-unmarshal-performance.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (type-performance-test)
-  (let () (include "type/type-performance.scm")))
+  (let () (include "type/type-performance.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (type-test)
-  (let () (include "type/cases.scm")))
+  (let () (include "type/cases.ss")))

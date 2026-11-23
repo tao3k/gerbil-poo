@@ -23,16 +23,16 @@
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (table-construction-test)
-  (let () (include "table-construction/cases.scm")))
+  (let () (include "table-construction/cases.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (table-focus-test)
-  (let () (include "table-construction/table-focus.scm")))
+  (let () (include "table-construction/table-focus.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (table-io-test)
-  (let () (include "table-construction/table-io.scm")))
+  (let () (include "table-construction/table-io.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (table-normalization-test)
-  (let () (include "table-construction/table-normalization.scm")))
+  (let () (include "table-construction/table-normalization.ss")))

@@ -20,8 +20,8 @@
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (number-test)
-  (let () (include "number/cases.scm")))
+  (let () (include "number/cases.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (polynomial-test)
-  (let () (include "number/polynomial.scm")))
+  (let () (include "number/polynomial.ss")))

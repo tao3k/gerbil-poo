@@ -18,4 +18,4 @@
 
 ;; Construct the same exported suite once; cases and callback scopes are unchanged.
 (defvalues (descriptor-inference-test)
-  (let () (include "cases.scm")))
+  (let () (include "cases.ss")))

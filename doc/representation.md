@@ -23,7 +23,7 @@ Hints supply names only: the current seed owns all false/Function values and
 uncomputed cells. Successful dynamic growth publishes the new directory/cells
 together; source revision and read-provenance rules are unchanged.
 
-The included `representation/growth.scm` controls do not create another runtime
+The included `representation/growth.ss` controls do not create another runtime
 module. They compare hinted/full canonical shapes at every insertion position,
 including distinct uninterned symbols with the same spelling, and reject the
 cardinality-only shortcut. `shape-growth-workflow` combines lazy delegation,
@@ -2006,7 +2006,7 @@ allocation remain charged; the old layout supplies only names, never values.
 Even an empty request still pays existing hint/cardinality preparation; it does
 not filter an old directory merely to produce an empty list.
 
-`representation/growth.scm` checks every subset of six distinct uninterned
+`representation/growth.ss` checks every subset of six distinct uninterned
 same-spelling symbols, duplicate/reordered requests, complete-constructor shape
 and offset equality, stale offset refusal, current false seeding, Function cell
 identity and receiver independence. A smaller replacement set is a negative

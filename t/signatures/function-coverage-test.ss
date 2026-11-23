@@ -19,24 +19,24 @@
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (function-coverage-test)
-  (let () (include "function-coverage/cases.scm")))
+  (let () (include "function-coverage/cases.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (function-options-test)
-  (let () (include "function-coverage/function-options.scm")))
+  (let () (include "function-coverage/function-options.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (keyword-coverage-test)
-  (let () (include "function-coverage/keyword-coverage.scm")))
+  (let () (include "function-coverage/keyword-coverage.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (keyword-prefix-test)
-  (let () (include "function-coverage/keyword-prefix.scm")))
+  (let () (include "function-coverage/keyword-prefix.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (keyword-rest-test)
-  (let () (include "function-coverage/keyword-rest.scm")))
+  (let () (include "function-coverage/keyword-rest.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (keyword-values-test)
-  (let () (include "function-coverage/keyword-values.scm")))
+  (let () (include "function-coverage/keyword-values.ss")))

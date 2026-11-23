@@ -42,11 +42,11 @@
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (component-membership-test)
-  (let () (include "component-membership/cases.scm")))
+  (let () (include "component-membership/cases.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (component-migration-test)
-  (let () (include "component-membership/component-migration.scm")))
+  (let () (include "component-membership/component-migration.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (component-requests-test)
@@ -54,4 +54,4 @@
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (component-rounds-test)
-  (let () (include "component-membership/component-rounds.scm")))
+  (let () (include "component-membership/component-rounds.ss")))

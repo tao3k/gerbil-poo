@@ -23,11 +23,11 @@
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (cyclic-access-test)
-  (let () (include "feedback-closure/cyclic-access.scm")))
+  (let () (include "feedback-closure/cyclic-access.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (feedback-cache-test)
-  (let () (include "feedback-closure/feedback-cache.scm")))
+  (let () (include "feedback-closure/feedback-cache.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (feedback-closure-test)

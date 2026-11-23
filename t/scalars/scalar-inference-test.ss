@@ -19,8 +19,8 @@
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (range-inference-test)
-  (let () (include "scalar-inference/range-inference.scm")))
+  (let () (include "scalar-inference/range-inference.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (scalar-inference-test)
-  (let () (include "scalar-inference/cases.scm")))
+  (let () (include "scalar-inference/cases.ss")))

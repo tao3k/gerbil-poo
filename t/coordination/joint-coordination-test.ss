@@ -22,16 +22,16 @@
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (coordinator-recovery-test)
-  (let () (include "joint-coordination/coordinator-recovery.scm")))
+  (let () (include "joint-coordination/coordinator-recovery.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (coordinator-rejoining-test)
-  (let () (include "joint-coordination/coordinator-rejoining.scm")))
+  (let () (include "joint-coordination/coordinator-rejoining.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (joint-concurrency-test)
-  (let () (include "joint-coordination/joint-concurrency.scm")))
+  (let () (include "joint-coordination/joint-concurrency.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (joint-coordination-test)
-  (let () (include "joint-coordination/cases.scm")))
+  (let () (include "joint-coordination/cases.ss")))

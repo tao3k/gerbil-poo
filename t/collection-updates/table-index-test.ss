@@ -21,12 +21,12 @@
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (table-group-join-test)
-  (let () (include "table-index/table-group-join.scm")))
+  (let () (include "table-index/table-group-join.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (table-index-equivalence-test)
-  (let () (include "table-index/table-index-equivalence.scm")))
+  (let () (include "table-index/table-index-equivalence.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (table-index-test)
-  (let () (include "table-index/cases.scm")))
+  (let () (include "table-index/cases.ss")))

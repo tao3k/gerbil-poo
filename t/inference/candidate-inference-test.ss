@@ -22,8 +22,8 @@
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (candidate-inference-test)
-  (let () (include "candidate-inference/cases.scm")))
+  (let () (include "candidate-inference/cases.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (container-inference-test)
-  (let () (include "candidate-inference/container-inference.scm")))
+  (let () (include "candidate-inference/container-inference.ss")))
