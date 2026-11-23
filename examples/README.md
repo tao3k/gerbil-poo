@@ -1,26 +1,36 @@
 # Examples
 
-Run these commands from the repository root with the same Gerbil environment.
+Build Gerbil-POO once from the repository root.
 
 ```sh
 gerbil build
-gerbil -:max-heap=2G,debug=q test -v 5 examples/service-configuration-test.ss examples/pane-test.ss
 ```
 
-## Override one service setting
+## Override a service timeout
 
-[Service configuration](service-configuration.ss) uses `.o` to declare defaults
-and `.mix` to layer tenant settings. [The consumer](service-configuration-test.ss)
-uses `.get` to read the composed configuration. It gets a 250 ms timeout, inherits
-`https://api.example.org` and two retries, and sees 1000 ms on the base object.
+[Define the defaults and merge tenant settings](service-configuration.ss) with
+`.o` and `.mix`. [Read the result](service-configuration-test.ss) with `.get`.
 
-## Extend a pane from another module
+```sh
+gerbil test examples/service-configuration-test.ss
+```
 
-[Pane](pane/pane.ss) declares the width and decoration slots. The independent
-[theme module](pane/theme.ss) contributes a `shared-initialize` method that
-handles the `theme:` keyword. [The application](pane-test.ss) installs the
-method bundle when it wants the extension. A pane starts with the plain decoration.
-Creating a pane at width 120 with the dark theme yields `dark`. Reinitializing
-the same pane with the light theme yields `light` and keeps width 120.
+The tenant gets a 250 ms timeout and inherits the endpoint and two retries.
+The base timeout stays at 1000 ms.
 
-Both cases report `CASE-OK`, followed by `HARNESS-OK` and `OK`.
+## Add a theme to a pane
+
+[Define the pane](pane/pane.ss) and
+[add its theme initializer in a separate module](pane/theme.ss).
+[Install the method bundle and use the pane](pane-test.ss).
+
+```sh
+gerbil test examples/pane-test.ss
+```
+
+A pane starts with the `plain` decoration. Creating it with `theme: 'dark` sets
+the decoration to `dark`. Reinitializing with `theme: 'light` changes it to
+`light` and keeps the width at 120.
+
+Regression suites and their fixtures live in [`t/`](../t).
+Performance workloads and measurements live in [`benchmarks/`](../benchmarks).
