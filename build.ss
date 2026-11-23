@@ -136,7 +136,7 @@
     "object/reflection"
     ,(production-module "object" ["object/representation.ss" "object/construction.ss" "object/slot-values.ss" "object/observation.ss" "object/slot-access.ss" "object/operations.ss" "object/syntax.ss" "object/mutation.ss"])
     "number/polynomial"
-    "proto"
+    "mop/prototype-composition"
     "table/rationaldict"
     ;; std/make tracks the standard include as an explicit compiler input.
     ;; Gambit's built-in host limit splits large generated C procedures instead

@@ -2,7 +2,7 @@
 (export program registry expected run-service)
 (import (only-in ../../type Any Type. validate) ../../object
         (only-in ../../number IntegerRange)
-        (prefix-in ../../proto proto.)
+        (prefix-in ../../mop/prototype-composition proto.)
         (runtime: :clan/poo/recursive/evaluation)
         (prefix-in (only-in ../../recursive/evaluation Interaction. close source-error value) recursive.)
         (runtime: :clan/poo/recursive/handling)

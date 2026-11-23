@@ -24,7 +24,7 @@
   :clan/poo/mop/methods/declaration
   :clan/poo/object/reflection
   :clan/poo/recursive/declaration
-  (prefix-in :clan/poo/proto proto.)
+  (prefix-in :clan/poo/mop/prototype-composition proto.)
   (prefix-in :clan/poo/benchmarks/workloads/declared-methods service.)
   (only-in :std/list/list-builder with-list-builder)
   (prefix-in :clan/poo/mop/methods/dispatch multimethod.)

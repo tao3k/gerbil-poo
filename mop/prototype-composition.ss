@@ -1,7 +1,7 @@
 ;;; Prototypes, in the most universal sense.
 (export #t)
 
-(import (only-in ./support/base undefined)
+(import (only-in ../support/base undefined)
         (only-in :std/list/list reduce-right))
 
 ;; If we could define types with constraints, it would be:
