@@ -114,7 +114,7 @@
     "mop/generalized-prototype"
     "graph/construction"
     "graph/staged-publication"
-    "number"
+    ,(production-module "number" ["number/modular.ss" "number/exponentiation.ss"])
     "object/prototype-map"
     ,(apply production-module "object/slot-layout" [] "" (include-gambit-sharp))
     "object/read-route"
