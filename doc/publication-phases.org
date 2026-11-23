@@ -1,0 +1,9 @@
+#+title: Cold feedback publication costs
+
+The 10,000-group study runs the actual POO publication stages. Building
+group values dominated the two staged samples at 1.59 and 1.78 seconds CPU.
+SCC discovery and certification took 15.86 and 15.40 ms CPU. Each sample
+constructs all group values and runs final approval.
+
+[[file:graph-benchmark.org::*Cold publication by phase][Fixture, commands and phase results]] ·
+[[https://github.com/tao3k/gerbil-poo/blob/5d7715f18e707c885e16e1d99dc7b93fbac248df/doc/publication-phases.org][original diagnostic and controls]]

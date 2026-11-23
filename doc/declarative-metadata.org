@@ -49,7 +49,7 @@ External mutation and arbitrary effects cannot be undone by retaining a value.
 
 * Service composition
 
-~examples/service-metadata.ss~ reuses CyclicAccess's ten Boolean equations and
+~benchmarks/workloads/service-metadata.ss~ reuses CyclicAccess's ten Boolean equations and
 cooked view. It declares heterogeneous quote/reserve/cancel signatures, compiles
 existing dispatch edits, attaches a positive-units/output refinement and the
 permission/conservation rule, and probes the completed family before publication.
@@ -80,7 +80,7 @@ to their original sources.
 
 * Composed GenericFamily and StagedPublication models
 
-~generic-family.ss~ implements the native ~GenericFamily.Model.~ protocol:
+~mop/generic-family.ss~ implements the native ~GenericFamily.Model.~ protocol:
 ~keys~, ~seed~, ~methods~, ~watches~ and derived ~.build~. The default method batch
 is empty. ~metadata.family~ rebinds that batch from declarations while preserving
 inherited keys, seed, watches and custom methods. Build validates an empty seed
@@ -88,7 +88,7 @@ cache, applies the complete edit batch, then checks negative assumptions. Repeat
 keys retain the first installation, matching Lean's ~Partial.build~. Failure
 payloads identify the service key and registration/negative phase.
 
-~staged-publication.ss~ implements ~StagedPublication.Model.~ with ~cook~,
+~graph/staged-publication.ss~ implements ~StagedPublication.Model.~ with ~cook~,
 ~generics~, ~contracts~, ~admit~ and derived ~.prepare / .publish~. These bind the
 existing finite cyclic lifecycle; they do not introduce another closure solver,
 dispatch index, certificate or cache representation. The correspondence is to the
@@ -118,7 +118,7 @@ without one it retains its documented construction-only admission semantics.
 Native staged models always supply one. A caller cannot claim cache-sensitive
 approval for the lower-level construction-only form.
 
-~examples/service-bundle.ss~ composes the actual C4 diamond, Financial/Card
+~benchmarks/workloads/service-bundle.ss~ composes the actual C4 diamond, Financial/Card
 contributions, a current-argument Invoice/Bank guard, shape/call absence watches,
 reservation refinements, relational conservation, quote/cancel coherence and a
 joint cache budget. A first quote may pass while a successful reservation is

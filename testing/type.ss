@@ -1,7 +1,7 @@
 ;;; Descriptor-driven finite testing; pseudo-random sources belong to one run.
 (export snapshot with-source-stamps source-guard retain-source-stamps! write-counterexample read-counterexample PropertyConfiguration inspect-generator report-diagnostics make-generator from-generator generator-core generator product-generator map-generator check-property replay-property replay-counterexample trace-generator valid-trace? repair-trace check-trace trace-property property-action TraceModel TraceGenerator TraceSystem)
 (import (only-in :std/func compose) (only-in ../support/base require-value) :std/error :std/iter (only-in :std/list/list map-in-order delete-duplicates/hash length=n?)
-        ../object ../mop (only-in ../type Rational String Symbol Keyword Bytes BytesN. Exactly. Enum. List Record OrFalse Or Map.)
+        ../object ../mop/prototype (only-in ../type Rational String Symbol Keyword Bytes BytesN. Exactly. Enum. List Record OrFalse Or Map.)
         ./generation-graph ./recursive-generation ../support/option
         (only-in ../number Integer UInt IntegerRange. Z/.)
         (prefix-in :clan/poo/testing/property testing.)

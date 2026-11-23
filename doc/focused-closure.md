@@ -54,7 +54,7 @@ law-checking work, allocation or host GC. No performance result is claimed.
 
 ## Complex example and proof scope
 
-`examples/focused-services.ss` stores two recursively dependent services and one
+`benchmarks/workloads/focused-services.ss` stores two recursively dependent services and one
 shared tenant/audit frame in a wider vector. Each service has a three-component
 rate → fee → reserve chain, closed using existing generalized declarations and
 four raw steps including verification. Different rates (10,20) retain existing

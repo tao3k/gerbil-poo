@@ -11,7 +11,7 @@ opaque approval receipts and the owner installation mutex remain reused.
 
 ## Bounded standard-library thread composition
 
-`examples/joint-concurrency.install-concurrently` starts real Gerbil worker threads
+`benchmarks/workloads/joint-concurrency.install-concurrently` starts real Gerbil worker threads
 for receipts whose local and joint approvals have already returned. Each announces
 readiness through a standard `:std/sync/channel`, then waits for a release token.
 Only after ALL workers announce readiness does the caller run `before-release` and

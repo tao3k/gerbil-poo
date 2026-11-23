@@ -2,16 +2,17 @@
 (export +slot-index-phases+ slot-index-workload +slot-value-phases+ slot-values-workload +traversal-phases+ traversal-workload +catalog-phases+ catalog-workload
         +declaration-phases+ declaration-workload declaration-preparation-workload reference-reflection reference-read-slot
         layout-admission-workload dependency-workload shape-workload)
-(import (only-in :gerbil/runtime/hash HashTable) (only-in :gerbil/runtime/gambit string->uninterned-symbol) :std/error :std/iter (only-in :std/list/list delete-duplicates/hash foldr take drop)
-        (only-in :clan/poo/slot-observation %slot-read-active? call-with-slot-read-observer %call-with-recorded-slot-reads without-observation slot-read-receiver) :clan/poo/object :clan/poo/prototype-map :clan/poo/mop :clan/poo/number
+(import (only-in :clan/poo/type TypeError?)
+        (only-in :gerbil/runtime/hash HashTable) (only-in :gerbil/runtime/gambit string->uninterned-symbol) :std/error :std/iter (only-in :std/list/list delete-duplicates/hash foldr take drop)
+        (only-in :clan/poo/object/slot-observation %slot-read-active? call-with-slot-read-observer %call-with-recorded-slot-reads without-observation slot-read-receiver) :clan/poo/object :clan/poo/object/prototype-map :clan/poo/mop :clan/poo/number
         (only-in :clan/poo/io module-action)
         (only-in :gerbil/runtime/loader load-module)
-        (only-in :clan/poo/object-contract checked-action)
-        (only-in :clan/poo/slot-layout make-slot-cache slot-value-storage make-slot-values make-slot-layout slot-layout-index slot-layout-ref
+        (only-in :clan/poo/types/object-contract checked-action)
+        (only-in :clan/poo/object/slot-layout make-slot-cache slot-value-storage make-slot-values make-slot-layout slot-layout-index slot-layout-ref
           slot-values-layout slot-cache-bind! slot-cache-index)
-        (only-in :clan/poo/reflection reflect-slots read-slot)
-        (prefix-in :clan/poo/examples/representation-service service.)
-        (only-in :clan/poo/examples/inherited-services precedence-cache-workflow))
+        (only-in :clan/poo/object/reflection reflect-slots read-slot)
+        (prefix-in :clan/poo/benchmarks/workloads/representation-service service.)
+        (only-in :clan/poo/benchmarks/workloads/inherited-services precedence-cache-workflow))
 
 ;; These controls compare current safe public snapshot composition with direct
 ;; ordered traversal/root sharing, including single-field and complete workflows.
@@ -42,8 +43,8 @@
       (if single? (list (cons 'target identity)) entries)) policy: 'compact)
     defaults: (prototype-map (if single? [] (list (cons 'enabled #f) (cons 'callback identity))) policy: 'compact)))
   (.put! override 'total -999)
-  (def enter (module-action "clan/poo/examples/representation-service"
-    'clan/poo/examples/representation-service#composition-workflow))
+  (def enter (module-action "clan/poo/benchmarks/workloads/representation-service"
+    'clan/poo/benchmarks/workloads/representation-service#composition-workflow))
   ;; An admitted map callback sees ordered values, never a mutable private pair.
   (def (walk direct?)
     (def seen '())
@@ -110,8 +111,8 @@
       (for/collect (n (in-range size))
         (cons (make-symbol "field-" n) (.new Slot type: Integer constant: n))) policy: 'compact)))
   (def warm (template))
-  (def enter (module-action "clan/poo/examples/representation-service"
-    'clan/poo/examples/representation-service#catalog-workflow))
+  (def enter (module-action "clan/poo/benchmarks/workloads/representation-service"
+    'clan/poo/benchmarks/workloads/representation-service#catalog-workflow))
   ;; Both fresh receivers use identical metadata, policy and normal lazy admission.
   (def (copy source direct?)
     (make-object slots: (object-%slots source) defaults: (object-%defaults source)
@@ -188,8 +189,8 @@
       (cons (make-symbol "field-" n) (.new Slot type: Integer constant: n)))))
   (def owner (and (memq scenario '(declaration-hot-single declaration-hot declaration-missing declaration-observed)) (fresh)))
   (when owner (read-slot owner name) (reference-read-slot owner name))
-  (def enter (module-action "clan/poo/examples/representation-service"
-    'clan/poo/examples/representation-service#catalog-workflow))
+  (def enter (module-action "clan/poo/benchmarks/workloads/representation-service"
+    'clan/poo/benchmarks/workloads/representation-service#catalog-workflow))
   ;; The full publication's inspector demands every typed declared field before
   ;; returning ordinary values to the existing shared FUN/refinement pipeline.
   (def (inspect read)
@@ -334,13 +335,18 @@
                             (eq? (hash-ref store first absent) #f))
                  (error "Slot index refill"))
                (verify snapshot keys))))))))
-  ;; Resolve the same names and one same-spelling miss on independent layouts.
-  ;; Serial order establishes the positional oracle without using either lookup.
+  ;; Fix the hash order and allocate serials in reverse. Only the first two
+  ;; keys collide, so the expected order swaps that pair and keeps the rest.
+  ;; Neither lookup defines the oracle.
   (def (offset-action guarded?)
-    (def keys (names))
-    (for-each object->serial-number keys)
+    (def keys
+      (for/collect (i (in-range width))
+        (string->uninterned-symbol (number->string i) (if (= i 1) 0 i))))
+    (def miss (string->uninterned-symbol "0" 0))
+    (for-each object->serial-number (reverse keys))
     (let* ((layout (make-slot-layout keys #f missing))
-           (names (append keys (list sibling)))
+           (ordered (cons (cadr keys) (cons (car keys) (cddr keys))))
+           (names (append ordered (list miss)))
            (targets (if guarded? (map make-slot-cache names) names))
            (resolve (if guarded? (cut slot-cache-index <> layout)
                       (cut slot-layout-index layout <>))))
@@ -388,7 +394,7 @@
              ;; Evict only the value; unchanged shape/owner guards stay valid.
              ;; Both sides charge deletion, ordinary demand and the same oracle.
              (read owner)
-             (hash-remove! (object-instance owner) 'value)
+             (hash-remove! (%live-object-instance owner) 'value)
              (unless (not (read owner)) (error "guard redemand oracle")))
             ((slot-values-grow)
              ;; Each action owns fresh preparation and one absent-key insertion.
@@ -544,13 +550,13 @@
                 (unless (eq? (slot-layout-ref layout (slot-layout-index layout added)) absent-value)
                   (error "shape extension forced an uncomputed cell"))))
             (begin
-              (load-module "clan/poo/examples/representation-service")
+              (load-module "clan/poo/benchmarks/workloads/representation-service")
               (let* ((recipe (.o inherit: [service.Service (object<-alist entries)] tariff: 3))
                      (owners (for/collect (n (in-range 4)) (.o inherit: [recipe] capacity: n)))
                      (site (make-slot-cache 'total)) (delivered 0)
                      (consume (checked-action service.ValidService
                        (lambda (owner)
-                         (unless reuse? (object-layout owner))
+                         (unless reuse? (%live-object-layout owner))
                          (let (total (.ref/inline owner site))
                            (set! delivered (1+ delivered)) total)))))
                 ;; Exactly one checked boundary owns refinement. Only its admitted
@@ -603,3 +609,7 @@
                        (eq? (slot-layout-ref fresh (slot-layout-index fresh (cadr target))) identity))
             (error "batch preparation oracle")) #t))
       (values (action #f) (action #t)))))
+
+(extern namespace: clan/poo/object %live-object-instance)
+
+(extern namespace: clan/poo/object %live-object-layout)

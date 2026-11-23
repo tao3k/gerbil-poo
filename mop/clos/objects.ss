@@ -1,0 +1,1055 @@
+;;; -*- Gerbil -*-
+;;; SPDX-FileCopyrightText: 2026 tao3k team and Contributors
+;;;
+;;; SPDX-License-Identifier: Apache-2.0 AND LGPL-2.1-or-later
+
+;;; Checked construction and identity-preserving generic-function evolution.
+
+(import :clan/poo/object
+        (only-in :clan/poo/mop/prototype element? .defgeneric)
+        (only-in :std/hash/misc hash-ref/default)
+        (only-in :std/list/list iota map-in-order delete-duplicates/hash)
+        (only-in :clan/poo/object/prototype-map prototype-map-ref)
+        (only-in :clan/poo/object/read-route require-read-route!)
+        (only-in :clan/poo/object/slot-observation
+          %slot-read-active? %call-with-recorded-slot-reads
+          call-with-slot-read-observer slot-read-observers-compatible?)
+        "types.ss" "funcs.ss"
+        (only-in :clan/poo/object/read-projection
+          current-owned-read-open-guard owned-read-value! owned-read-open!))
+
+(export clos-any-specializer clos-class-specializer
+        clos-prototype-specializer
+        clos-eql-specializer clos-method clos-generic-function
+        clos-add-method clos-remove-method clos-failure?
+        clos-unbound-slot? clos-unbound-slot-instance
+        clos-lambda-list clos-lambda-lists-congruent?
+        clos-standard-method-combination
+        clos-built-in-method-combination
+        clos-short-method-combination
+        clos-method-group
+        clos-long-method-combination
+        clos-configure-method-combination
+        clos-resolve-method-combination
+        clos-method-combination-admits-qualifier?
+        clos-generic-protocol clos-default-generic-protocol
+        clos-method-bundle clos-compose-method-bundle
+        clos-compose-method-bundles
+        clos-generic-binding clos-generic-binding-current
+        clos-generic-binding-add-method!
+        clos-register-generic-function! clos-find-generic-function
+        clos-fail clos-unbound-slot-fail checked
+        require-clos-generic require-clos-method
+        method-qualifier-list same-specializers?
+        clos-class-precedence-list clos-class-precedence-position
+        make-synthetic-effective-method
+        make-effective-method make-invocation-frame clos-call-carrier-policy-guard
+        %prepare-effective-method)
+
+(extern namespace: clan/poo/object %with-slot-edit-protection %publish-slot-edits!
+        %prepared-vector-slot-ref %owned-list-slot-spec %depend-on-object-except-slot!
+        %prepared-slot-present? %call-with-fresh-slot-read-group %register-slot-dependencies!)
+(extern namespace: clan/poo/object/slot-observation %make-owned-list %borrow-owned-list owned-list?)
+(extern namespace: clan/poo/mop/clos/funcs clos-distances-before?)
+(extern namespace: clan/poo/object/read-route %standard-symbol-table-lookup?)
+(extern namespace: clan/poo/mop/clos/types %stock-call-validator?)
+(extern namespace: clan/poo/object/slot-observation slot-read-key slot-read-value slot-read-receiver)
+
+;; A position only addresses an already applicable row. Index membership
+;; never authorizes a method or replaces its original reads.
+(defstruct method-positions (lookup size) final: #t)
+
+;; The generation owns this projection in the same edit as the method roster.
+;; POO's reverse index advances the private revision if any input changes.
+(defstruct dispatch-publication (generic owner methods precedence positions order
+                                 after after-execution admission) final: #t)
+
+(def (%dispatch-publication-current? plan)
+  (= (object-revision (dispatch-publication-owner plan)) 1))
+
+(def (%published-dispatch generic)
+  (def overrides (object-%overrides generic))
+  (def plan
+    (and overrides (%standard-symbol-table-lookup? overrides)
+         (hash-get overrides '%method-positions)))
+  (and (dispatch-publication? plan)
+       (eq? generic (dispatch-publication-generic plan))
+       (%dispatch-publication-current? plan)
+       plan))
+
+(def (%published-method-positions generic)
+  (let (value (%prepared-vector-slot-ref generic '%method-positions))
+    (cond ((method-positions? value) value)
+          ((and (dispatch-publication? value)
+                (eq? generic (dispatch-publication-generic value)))
+           (dispatch-publication-positions value))
+          (else #f))))
+
+(def (%method-position index method)
+  ((method-positions-lookup index) method))
+
+;; The Class publisher assigns an owned CPL to this generation. Updating
+;; the direct-subclass roster leaves that assignment intact. Foreign or
+;; computed projections keep whole-owner invalidation.
+(def (class-publication-distance owner target)
+  (def overrides (object-%overrides target))
+  (def cpl (and overrides (%standard-symbol-table-lookup? overrides)
+                (hash-get overrides 'class-precedence-list)))
+  (if (owned-list? cpl)
+    (begin
+      (%depend-on-object-except-slot! owner target 'direct-subclasses)
+      (- (length (%borrow-owned-list cpl))))
+    (begin
+      (depend-on-object! owner target)
+      #f)))
+
+;; A deeper target comes before its ancestors. Incomparable C4 targets can
+;; have a different relative order on different receivers. Dispatch certifies
+;; the projection against this call's actual rank vectors before using it.
+(def (publication-distance owner specializer)
+  (def kind (and (object? specializer)
+                   (begin (depend-on-object! owner specializer)
+                          (%prepared-vector-slot-ref specializer 'kind))))
+  (case kind
+    ((eql) -inf.0)
+    ((any) +inf.0)
+    ((class)
+     (let (target (%prepared-vector-slot-ref specializer 'target))
+       (and (object? target) (class-publication-distance owner target))))
+    ((prototype)
+     (let (target (%prepared-vector-slot-ref specializer 'target))
+       (and (object? target)
+            (begin
+              (depend-on-object! owner target)
+              (let (cpl (object-%precedence-list target))
+                (and (list? cpl) (- (length cpl))))))))
+    (else #f)))
+
+(def (build-dispatch-publication generic methods precedence index)
+  (def owner (make-object))
+  (depend-on-object! owner generic)
+  (def rows
+    (map-in-order
+      (lambda (method)
+        (depend-on-object! owner method)
+        (let* ((specializers (%borrow-owned-list
+                               (%prepared-vector-slot-ref method 'specializers)))
+               (ranks (and (list? specializers)
+                           (map (cut publication-distance owner <>) specializers))))
+          (and ranks (= (length ranks) (length precedence))
+               (andmap number? ranks) (cons method (list->vector ranks)))))
+      methods))
+  (def order
+    (and (andmap pair? rows)
+         (map car (list-sort
+                   (lambda (a b) (clos-distances-before? (cdr a) (cdr b) precedence))
+                   rows))))
+  (def after
+    (and order
+         (filter (lambda (method)
+                   (eq? (clos-normalize-qualifier
+                         (%borrow-owned-list (%prepared-vector-slot-ref method 'qualifier)))
+                        'after))
+                 order)))
+  ;; The atomic edit invalidates its generic root and advances this owner
+  ;; once, including when a method is also an edit root.
+  (and (= (object-revision owner) 0)
+       (make-dispatch-publication generic owner methods (list-copy precedence)
+                                  index order after (and after (reverse after)) #f)))
+
+(def (%dispatch-generation-field generic methods precedence)
+  (def size (length methods))
+  (def index (and (positive? size)
+                  (make-method-positions (clos-position-lookup methods) size)))
+  ;; A position can address a whole roster only if each method occurs once.
+  ;; A directly edited roster still uses ordinary dispatch on duplicates.
+  (cons '%method-positions
+        (if (and index (list? precedence)
+                 (clos-natural-permutation? precedence (length precedence))
+                 (andmap (lambda (method position)
+                           (eqv? position (%method-position index method)))
+                         methods (iota size)))
+          (or (build-dispatch-publication generic methods precedence index) index)
+          index)))
+
+(def (method-generation-fields generic methods generation precedence)
+  (list (cons 'methods (%make-owned-list methods))
+        (cons 'generation generation)
+        (%dispatch-generation-field generic methods precedence)))
+
+;; Admission belongs to the committed plan. Its owner uses whole-object
+;; edges even where the order projection uses filtered Class edges.
+(defstruct dispatch-admission (publication owner generation roots replay) final: #t)
+
+(def (%quiet-dispatch-admission?)
+  (and (not (%slot-read-active?)) (slot-read-observers-compatible? '())
+       (not (current-owned-read-open-guard))))
+
+(def (%stock-dispatch-read? read (class? #f))
+  (let ((key (slot-read-key read)) (value (slot-read-value read)))
+    (cond
+     ((eq? key '.element?)
+      (%stock-call-validator? (slot-read-receiver read) value class?))
+     ((equal? key '(bootstrap .element?)) #f)
+     ((symbol? key) (not (pair? value)))
+     (else #t))))
+
+(def (%dispatch-admission-current? generic receipt)
+  (and (dispatch-admission? receipt)
+       (%quiet-dispatch-admission?)
+       (let (publication (%published-dispatch generic))
+         (and (eq? publication (dispatch-admission-publication receipt))
+              (eq? receipt (dispatch-publication-admission publication))
+              (zero? (object-revision (dispatch-admission-owner receipt)))
+              (eqv? (dispatch-admission-generation receipt)
+                    (%prepared-vector-slot-ref generic 'generation))
+              (with-catch (lambda (_) #f)
+                (dispatch-admission-replay receipt))))))
+
+;; Capture only over prepared cells. The read precheck runs before slot
+;; preparation or invocation of a Type predicate. Cold, foreign and
+;; callback-backed fields stay with the ordinary admission.
+(def (%capture-dispatch-admission! generic publication)
+  (and (%quiet-dispatch-admission?)
+       (eq? publication (%published-dispatch generic))
+       (object-construction-current?)
+       (let (generation (%prepared-vector-slot-ref generic 'generation))
+         (and (exact-integer? generation)
+              (with-catch (lambda (_) #f)
+                (lambda ()
+                  (def ancestry '())
+                  (def (check-ancestry! value)
+                    (when (object? value)
+                      (unless (object-precedence-ready? value)
+                        (error "unprepared Generic admission ancestry"))
+                      (set! ancestry (cons (cons value (object-revision value)) ancestry))))
+                  (def (check-read! receiver key)
+                    (def store (object-%instance receiver))
+                    (def reads (object-%reads receiver))
+                    (unless (and store reads (object-precedence-ready? receiver)
+                                 (not (object-protocol receiver)))
+                      (error "unprepared Generic admission receiver"))
+                    (require-read-route! key reads store #t)
+                    (cond
+                     ((symbol? key)
+                      (def value (%prepared-vector-slot-ref receiver key))
+                      (unless (and (not (eq? value absent-value)) (not (pair? value))
+                                   (case key
+                                     ((.element?) (%stock-call-validator? receiver value #t))
+                                     ((direct-slots) (null? (%borrow-owned-list value)))
+                                     (else #t)))
+                        (error "unqualified Generic admission slot" key))
+                      ;; prototype-instance? consults ancestry without a Slot
+                      ;; observation. Include these receivers in the same owner.
+                      (check-ancestry! value)
+                      (when (owned-list? value)
+                        (let (items (%borrow-owned-list value))
+                          (when (list? items) (for-each check-ancestry! items)))))
+                     ((and (eq? (car key) 'presence)
+                           (%prepared-slot-present? receiver (cadr key))))
+                     (else (error "unqualified Generic admission query" key))))
+                  (defvalues (admitted? roots)
+                    (call-with-slot-read-observer void
+                      (lambda ()
+                        (%call-with-recorded-slot-reads
+                          (lambda () (element? ClosGenericFunction generic))
+                          unique-roots?: #t))
+                      before: check-read!))
+                  (and admitted? (pair? roots)
+                       (%call-with-fresh-slot-read-group roots (cut %stock-dispatch-read? <> #t))
+                       (let* ((owner (make-object))
+                              (replay (%register-slot-dependencies! owner roots
+                                        (cut %stock-dispatch-read? <> #t))))
+                         (for-each (lambda (source) (depend-on-object! owner (car source))) ancestry)
+                         (and replay
+                              (eq? publication (%published-dispatch generic))
+                              (eqv? generation (%prepared-vector-slot-ref generic 'generation))
+                              (zero? (object-revision owner))
+                              (andmap (lambda (source)
+                                        (= (cdr source) (object-revision (car source)))) ancestry)
+                              (let (receipt (make-dispatch-admission publication owner generation roots replay))
+                                (set! (dispatch-publication-admission publication) receipt)
+                                receipt))))))))))
+
+;; Use prepared metadata for protocol selection. A cold hook is unknown;
+;; let its normal read take place at the original dispatch boundary.
+(def (standard-primary-publication? generic publication entry)
+  (let ((methods (dispatch-publication-methods publication))
+        (protocol (%prepared-vector-slot-ref generic 'protocol))
+        (combination (%prepared-vector-slot-ref generic 'method-combination)))
+    (and (pair? methods) (null? (cdr methods))
+         (eq? (%prepared-vector-slot-ref combination 'kind) 'standard)
+         (eq? (%prepared-vector-slot-ref protocol 'compute-applicable-methods) #f)
+         (eq? (%prepared-vector-slot-ref protocol 'compute-effective-method) #f)
+         (let* ((method (car methods))
+                (body (%prepared-vector-slot-ref method 'body)))
+           (and (eq? (%prepared-vector-slot-ref method 'qualifier) 'primary)
+                (eq? (%frameless-method-body method body) entry))))))
+
+(def (%published-dispatch-admission generic (entry #f))
+  (and (object? generic)
+       (%quiet-dispatch-admission?)
+       (let (publication (%published-dispatch generic))
+         (and publication
+              (or (not entry) (standard-primary-publication? generic publication entry))
+              (let (receipt (dispatch-publication-admission publication))
+                (if (%dispatch-admission-current? generic receipt)
+                  receipt
+                  (%capture-dispatch-admission! generic publication)))))))
+
+;;; Cached owner-local prototype avoids repeated descriptor demand in constructors.
+;; : POOObject
+(def ClosSpecializer. (.ref ClosSpecializer 'proto))
+;; : POOObject
+(def ClosLambdaList. (.ref ClosLambdaList 'proto))
+;;; Methods extend one stable POO prototype regardless of generic generation.
+;; : POOObject
+(def ClosMethod. (.ref ClosMethod 'proto))
+;; : POOObject
+(def ClosMethodCombination.
+  (.o (:: @ (.ref ClosMethodCombination 'proto) kind identity)
+    ;; Qualifier admission uses the combination object's slot dispatch.
+    ;; Derived combinations can refine it through inheritance.
+    .admits-qualifier?:
+    (lambda (qualifier)
+      (set! qualifier (clos-normalize-qualifier qualifier))
+      (case kind
+        ((standard) (if (memq qualifier '(around before primary after)) #t #f))
+        ((short) (or (eq? qualifier 'around)
+                     (equal? qualifier (clos-short-qualifier identity))))
+        ((long) #t)
+        (else #f)))))
+;; : POOObject
+(def ClosMethodGroup. (.ref ClosMethodGroup 'proto))
+;; : POOObject
+(def ClosGenericProtocol. (.ref ClosGenericProtocol 'proto))
+;; : POOObject
+(def ClosMethodBundle. (.ref ClosMethodBundle 'proto))
+;;; Generic clones preserve this prototype while changing methods and generation.
+;; : POOObject
+(def ClosGenericFunction. (.ref ClosGenericFunction 'proto))
+;; : POOObject
+(def ClosGenericBinding. (.ref ClosGenericBinding 'proto))
+;;; Effective methods have a separate prototype from authoring descriptors.
+;; : POOObject
+(def ClosEffectiveMethod. (.ref ClosEffectiveMethod 'proto))
+;;; Invocation frames are typed independently from reusable effective methods.
+;; : POOObject
+(def ClosInvocationFrame. (.ref ClosInvocationFrame 'proto))
+
+(def (clos-call-carrier-policy-guard)
+  (clos-carrier-policy-guard ClosEffectiveMethod. ClosInvocationFrame.))
+
+;;; Name lookup is a binding projection, not a second generic-function owner.
+;;; Two runtime identity tables preserve O(1) lookup for both symbols and fresh
+;;; `(setf name)` designators without an equal?-scanned alist.
+(def clos-generic-function-registry (make-hash-table-eq))
+(def clos-setf-generic-function-registry (make-hash-table-eq))
+
+(def (generic-function-registry+key name)
+  (cond
+   ((symbol? name)
+    (values clos-generic-function-registry name))
+   ((clos-setf-name? name)
+    (values clos-setf-generic-function-registry (cadr name)))
+   (else
+    (clos-fail 'invalid-generic-function-name generic: name))))
+
+(def (clos-register-generic-function! generic-source)
+  (let* ((generic-value (require-clos-generic generic-source))
+         (name (.ref generic-value 'identity)))
+    (let-values (((registry key) (generic-function-registry+key name)))
+      (hash-put! registry key generic-source)
+      generic-source)))
+
+(def (clos-find-generic-function name error?: (error-value #t))
+  (let-values (((registry key) (generic-function-registry+key name)))
+    (let (generic-source
+          (hash-ref/default registry key (lambda () #f)))
+      (when (and (not generic-source) error-value)
+        (clos-fail 'generic-function-not-found generic: name))
+      generic-source)))
+;;; Raised CLOS conditions share one payload-minimizing failure prototype.
+;; : POOObject
+(def ClosFailure. (.ref ClosFailure 'proto))
+;; : POOObject
+(def ClosUnboundSlotFailure. (.ref ClosUnboundSlotFailure 'proto))
+
+;; : (-> Symbol generic: (Maybe Symbol) qualifier: (Maybe Symbol)
+;;        method: (Maybe Symbol) class: (Maybe Symbol) slot: (Maybe Symbol)
+;;        operation: (Maybe Symbol) Bottom)
+(def (clos-fail code-value generic: (generic-value #f)
+                qualifier: (qualifier-value #f) method: (method-value #f)
+                class: (class-value #f) slot: (slot-value #f)
+                operation: (operation-value #f))
+  (raise
+   (.o (:: @ ClosFailure.)
+       code: code-value generic: generic-value
+       qualifier: qualifier-value method: method-value
+       class: class-value slot: slot-value operation: operation-value)))
+
+;;; Failure recognition uses the POO Type descriptor, not exception text.
+;; : (-> SchemeValue Boolean)
+(def (clos-failure? value)
+  (element? ClosFailure value))
+
+;; : (-> SchemeValue Boolean)
+(def (clos-unbound-slot? value)
+  (element? ClosUnboundSlotFailure value))
+
+;; : (-> ClosUnboundSlotFailure SchemeValue)
+(def (clos-unbound-slot-instance condition)
+  (unless (clos-unbound-slot? condition)
+    (clos-fail 'invalid-unbound-slot-condition))
+  (.ref condition 'instance))
+
+;; : (-> ClosClass ClosInstance Symbol Symbol Bottom)
+(def (clos-unbound-slot-fail class-value instance-value slot-value
+                             operation-value)
+  (raise
+   (.o (:: @ ClosUnboundSlotFailure.)
+       code: 'slot-unbound generic: #f qualifier: #f method: #f
+       class: class-value slot: slot-value operation: operation-value
+       instance: instance-value)))
+
+;; : (forall (a) (-> POOType a Symbol a))
+(def (checked type value code)
+  (unless (element? type value) (clos-fail code))
+  value)
+
+;;; Generic admission returns the original value to support functional pipelines.
+;; : (forall (a) (-> a ClosGenericFunction))
+(def (require-clos-generic value)
+  (cond
+   ((element? ClosGenericFunction value) value)
+   ((element? ClosGenericBinding value) (.ref value 'current))
+   (else (clos-fail 'invalid-generic-function))))
+
+;;; Method admission preserves descriptor identity for replacement comparison.
+;; : (forall (a) (-> a ClosMethod))
+(def (require-clos-method value)
+  (checked ClosMethod value 'invalid-method))
+
+;; Read-only runtime class projections belong with descriptor values. Dispatch
+;; must not import class construction/registration merely to query a CPL.
+;; Keep the same public Type checks and the class-owned runtime index.
+(def (clos-class-precedence-list class-value)
+  (unless (element? ClosClass class-value) (clos-fail 'invalid-class))
+  (.ref class-value 'class-precedence-list))
+
+(def (clos-class-precedence-position class-value target-value)
+  (unless (and (element? ClosClass class-value)
+               (element? ClosClass target-value))
+    (clos-fail 'invalid-class))
+  ((.ref class-value 'class-precedence-index) target-value))
+
+;;; The universal specializer has no target and ranks after applicable classes.
+;; : (-> ClosSpecializer)
+(def (clos-any-specializer)
+  (checked ClosSpecializer
+           (.o (:: @ ClosSpecializer.) kind: 'any target: #f)
+           'invalid-specializer))
+
+;;; A CLOS class target remains the identity-preserved class metaobject across
+;;; generations. Runtime prototypes use clos-prototype-specializer.
+;; : (-> ClosClass ClosSpecializer)
+(def (clos-class-specializer target-value)
+  (checked ClosSpecializer
+           (.o (:: @ ClosSpecializer.) kind: 'class target: target-value)
+           'invalid-specializer))
+
+;;; POO prototype dispatch is explicit instead of overloading class
+;;; terminology.  Applicability follows the prototype's runtime C4 ancestry;
+;;; no shadow hierarchy or marker CLOS class is introduced.
+;; : (-> POOObject ClosSpecializer)
+(def (clos-prototype-specializer prototype-value)
+  (checked ClosSpecializer
+           (.o (:: @ ClosSpecializer.)
+               kind: 'prototype target: prototype-value)
+           'invalid-specializer))
+
+;;; Eql retains the Scheme value itself; dispatch applies the documented
+;;; =eqv?= adaptation without serializing or canonicalizing that value.
+;; : (forall (a) (-> a ClosSpecializer))
+(def (clos-eql-specializer value)
+  (checked ClosSpecializer
+           (.o (:: @ ClosSpecializer.) kind: 'eql target: value)
+           'invalid-specializer))
+
+;;; Method construction is declarative; arity agreement is checked only when a
+;;; generic generation admits the method.
+;; : (-> FunctionName [ClosSpecializer] Procedure
+;;        qualifier: MethodQualifier ClosMethod)
+(def (clos-method identity-value specializer-values body-value
+                      qualifier: (qualifier-value 'primary)
+                      lambda-list: (lambda-list-value #f))
+  (%make-clos-method identity-value specializer-values body-value
+    qualifier: qualifier-value lambda-list: lambda-list-value))
+
+(def (%make-clos-method identity-value specializer-values body-value
+                         qualifier: (qualifier-value 'primary)
+                         lambda-list: (lambda-list-value #f)
+                         frameless: (invoke #f))
+  (def qualifier
+    (if (list? qualifier-value) (%make-owned-list qualifier-value) qualifier-value))
+  (checked ClosMethod
+           (let (method (.o (:: @ ClosMethod.)
+                          identity: identity-value specializers: specializer-values
+                          qualifier body: body-value
+                          lambda-list: lambda-list-value generic-function: #f
+                          synthetic-effective-method?: #f))
+             (.putslot! method 'identity
+               (%owned-list-slot-spec identity-value clos-copy-function-name))
+             (when (list? specializer-values)
+               (.putslot! method 'specializers (%owned-list-slot-spec specializer-values)))
+             (when invoke
+               (.putslot! method '%frameless-entry
+                 ($constant-slot-spec (make-frameless-entry body-value invoke))))
+             method)
+           'invalid-method))
+
+;; Eligible .defmethod expansions and the built-in lifecycle primaries issue
+;; this opaque entry. An edited body cannot use the previous entry.
+(defstruct frameless-entry (body invoke) final: #t)
+
+(def (%frameless-method-body method body)
+  (let* ((spec (prototype-map-ref (object-%slots method) '%frameless-entry))
+         (entry (and ($constant-slot-spec? spec) ($constant-slot-spec-value spec))))
+    (and (frameless-entry? entry) (eq? body (frameless-entry-body entry))
+         (frameless-entry-invoke entry))))
+
+;;; Synthetic methods are created only by the declarative combination
+;;; evaluator.  They are typed method values but never enter a generic's
+;;; persistent method set.
+;; : (-> Thunk ClosMethod)
+(def (make-synthetic-effective-method thunk)
+  (unless (procedure? thunk) (clos-fail 'invalid-make-method))
+  (checked ClosMethod
+           (.o (:: @ ClosMethod.)
+               identity: 'make-method specializers: '()
+               qualifier: 'primary
+               body: (lambda (_frame . _arguments) (thunk))
+               lambda-list: #f generic-function: #f
+               synthetic-effective-method?: #t)
+           'invalid-make-method))
+
+;; : (-> Natural Natural Boolean Boolean [InitargName] Boolean ClosLambdaList)
+(def (clos-lambda-list required-value optional-value rest-value key-value
+                           key-values allow-other-keys-value)
+  (unless (and (exact-integer? required-value) (>= required-value 0)
+               (exact-integer? optional-value) (>= optional-value 0)
+               (boolean? rest-value) (boolean? key-value)
+               (clos-initarg-name-list? key-values)
+               (boolean? allow-other-keys-value)
+               (or key-value (null? key-values))
+               (or key-value (not allow-other-keys-value)))
+    (clos-fail 'invalid-lambda-list))
+  (def keys (%make-owned-list key-values))
+  (checked ClosLambdaList
+           (.o (:: @ ClosLambdaList.)
+               required: required-value optional: optional-value
+               rest?: rest-value key?: key-value keys
+               allow-other-keys?: allow-other-keys-value)
+           'invalid-lambda-list))
+
+;; : (-> ClosLambdaList ClosLambdaList Boolean)
+(def (clos-lambda-lists-congruent? generic-list method-list)
+  (and (= (.ref generic-list 'required) (.ref method-list 'required))
+       (= (.ref generic-list 'optional) (.ref method-list 'optional))
+       (eq? (or (.ref generic-list 'rest?) (.ref generic-list 'key?))
+            (or (.ref method-list 'rest?) (.ref method-list 'key?)))
+       (or (not (.ref generic-list 'key?))
+           (andmap
+            (lambda (name)
+              (or (memq name (.ref method-list 'keys))
+                  (.ref method-list 'allow-other-keys?)
+                  (and (.ref method-list 'rest?)
+                       (not (.ref method-list 'key?)))))
+            (.ref generic-list 'keys)))))
+
+;;; Method-combination construction keeps execution policy in a checked POO
+;;; descriptor; the dispatch factor remains the sole invocation owner.
+;; : (-> Symbol Symbol (Maybe (U Symbol Procedure)) Symbol Boolean List
+;;        (Maybe Procedure) (Maybe String) ClosMethodCombination)
+(def (make-method-combination identity-value kind-value operator-value
+                              order-value identity-with-one-value groups-value
+                              builder-value configurer-value configuration-value
+                              documentation-value)
+  (checked ClosMethodCombination
+           (.o (:: @ ClosMethodCombination.)
+               identity: identity-value kind: kind-value
+               operator: operator-value order: order-value
+               identity-with-one-argument?: identity-with-one-value
+               groups: groups-value effective-builder: builder-value
+               configurer: configurer-value configuration: configuration-value
+               documentation: documentation-value)
+           'invalid-method-combination))
+
+;; : (-> ClosMethodCombination)
+(def (clos-standard-method-combination)
+  (make-method-combination 'standard 'standard #f 'most-specific-first
+                           #f '() #f #f '()
+                           "ANSI standard method combination"))
+
+;; : (-> Symbol (U Symbol Procedure) order: Symbol
+;;        identity-with-one-argument?: Boolean documentation: (Maybe String)
+;;        ClosMethodCombination)
+(def (clos-short-method-combination
+      identity-value operator-value
+      order: (order-value 'most-specific-first)
+      identity-with-one-argument?: (identity-with-one-value #f)
+      documentation: (documentation-value #f))
+  (unless (and (symbol? identity-value)
+               (or (symbol? operator-value) (procedure? operator-value))
+               (memq order-value
+                     '(most-specific-first most-specific-last))
+               (boolean? identity-with-one-value)
+               (or (not documentation-value) (string? documentation-value)))
+    (clos-fail 'invalid-method-combination))
+  (make-method-combination identity-value 'short operator-value order-value
+                           identity-with-one-value '() #f #f '()
+                           documentation-value))
+
+;; : (-> Symbol List order: Symbol required?: Boolean
+;;        description: (Maybe String) ClosMethodGroup)
+(def (clos-method-group
+      identity-value matcher-values
+      order: (order-value 'most-specific-first)
+      required?: (required-value #f)
+      description: (description-value #f))
+  (checked ClosMethodGroup
+           (.o (:: @ ClosMethodGroup.)
+               identity: identity-value matchers: matcher-values
+               order: order-value required?: required-value
+               description: description-value)
+           'invalid-method-group))
+
+;; : (-> Symbol List Procedure documentation: (Maybe String)
+;;        ClosMethodCombination)
+(def (clos-long-method-combination
+      identity-value group-values builder-value
+      configurer: (configurer-value #f)
+      configuration: (configuration-value '())
+      documentation: (documentation-value #f))
+  (unless (and (symbol? identity-value) (list? group-values)
+               (andmap (lambda (group) (element? ClosMethodGroup group))
+                       group-values)
+               (procedure? builder-value)
+               (or (not configurer-value) (procedure? configurer-value))
+               (list? configuration-value)
+               (or (not documentation-value) (string? documentation-value)))
+    (clos-fail 'invalid-method-combination))
+  (make-method-combination identity-value 'long #f 'most-specific-first #f
+                           group-values builder-value configurer-value
+                           configuration-value documentation-value))
+
+;;; Configuration creates a new inert descriptor; the declaration remains a
+;;; reusable method-combination type and no generic owns mutable option state.
+;; : (-> ClosMethodCombination SchemeValue ... ClosMethodCombination)
+(def (clos-configure-method-combination combination . values)
+  (unless (element? ClosMethodCombination combination)
+    (clos-fail 'invalid-method-combination))
+  (case (.ref combination 'kind)
+    ((short)
+     (unless (<= (length values) 1)
+       (clos-fail 'invalid-method-combination-options
+                  method: (.ref combination 'identity)))
+     (let (order (if (null? values)
+                   (.ref combination 'order)
+                   (car values)))
+       (clos-short-method-combination
+        (.ref combination 'identity) (.ref combination 'operator)
+        order: order
+        identity-with-one-argument?:
+        (.ref combination 'identity-with-one-argument?)
+        documentation: (.ref combination 'documentation))))
+    ((long)
+     (let (configurer (.ref combination 'configurer))
+       (unless configurer
+         (clos-fail 'method-combination-does-not-accept-options
+                    method: (.ref combination 'identity)))
+       (let (configured (apply configurer values))
+         (unless (and (element? ClosMethodCombination configured)
+                      (eq? (.ref configured 'kind) 'long)
+                      (eq? (.ref configured 'identity)
+                           (.ref combination 'identity)))
+           (clos-fail 'invalid-method-combination-configuration
+                      method: (.ref combination 'identity)))
+         configured)))
+    (else
+     (when (pair? values)
+       (clos-fail 'method-combination-does-not-accept-options
+                  method: (.ref combination 'identity)))
+     combination)))
+
+;;; Built-ins use Scheme operators under explicit CLOS identities.  Dispatch
+;;; supplies the ANSI evaluation order and one-argument identity behavior.
+;; : (-> Symbol ClosMethodCombination)
+(def (clos-built-in-method-combination identity-value)
+  (case identity-value
+    ((+) (clos-short-method-combination '+ '+))
+    ((and) (clos-short-method-combination 'and 'and))
+    ((append) (clos-short-method-combination 'append 'append))
+    ((list) (clos-short-method-combination 'list 'list))
+    ((max) (clos-short-method-combination 'max 'max))
+    ((min) (clos-short-method-combination 'min 'min))
+    ((nconc) (clos-short-method-combination 'nconc 'nconc))
+    ((or) (clos-short-method-combination 'or 'or))
+    ((progn) (clos-short-method-combination 'progn 'progn))
+    (else
+     (clos-fail 'unknown-method-combination method: identity-value))))
+
+;; : (forall (a) (-> a ClosMethodCombination))
+(def (clos-resolve-method-combination value)
+  (cond
+   ((element? ClosMethodCombination value) value)
+   ((eq? value 'standard) (clos-standard-method-combination))
+   ((and (symbol? value)
+         (memq value '(+ and append list max min nconc or progn)))
+    (clos-built-in-method-combination value))
+   (else (clos-fail 'unsupported-method-combination))))
+
+;; : (-> ClosMethodCombination SchemeValue Boolean)
+(.defgeneric (clos-method-combination-admits-qualifier? combination qualifier)
+  slot: .admits-qualifier?)
+
+;;; A default protocol has no override procedures; dispatch therefore follows
+;;; its closed built-in path and emits typed terminal failures.
+;; : (-> ClosGenericProtocol)
+(def (clos-default-generic-protocol)
+  (checked ClosGenericProtocol
+           (.o (:: @ ClosGenericProtocol.)
+               identity: 'default
+               no-applicable-method: #f no-next-method: #f
+               compute-applicable-methods: #f compute-effective-method: #f)
+           'invalid-generic-protocol))
+
+;; : (-> Symbol no-applicable-method: (Maybe Procedure)
+;;        no-next-method: (Maybe Procedure)
+;;        compute-applicable-methods: (Maybe Procedure)
+;;        compute-effective-method: (Maybe Procedure) ClosGenericProtocol)
+(def (clos-generic-protocol
+      identity-value
+      no-applicable-method: (no-applicable-value #f)
+      no-next-method: (no-next-value #f)
+      compute-applicable-methods: (compute-applicable-value #f)
+      compute-effective-method: (compute-effective-value #f))
+  (checked ClosGenericProtocol
+           (.o (:: @ ClosGenericProtocol.)
+               identity: identity-value
+               no-applicable-method: no-applicable-value
+               no-next-method: no-next-value
+               compute-applicable-methods: compute-applicable-value
+               compute-effective-method: compute-effective-value)
+           'invalid-generic-protocol))
+
+;;; Method families remain ordinary checked POO values.  The protocol object
+;;; is retained by identity so bundles cannot drift onto a generic configured
+;;; with a lookalike protocol.
+;; : (-> Symbol ClosGenericProtocol [ClosMethod]
+;;        documentation: (Maybe String) ClosMethodBundle)
+(def (clos-method-bundle identity-value protocol-value method-values
+                             documentation: (documentation-value #f))
+  (checked ClosMethodBundle
+           (.o (:: @ ClosMethodBundle.)
+               identity: identity-value
+               protocol: protocol-value
+               methods: method-values
+               documentation: documentation-value)
+           'invalid-method-bundle))
+
+;;; Check every bundle and build the replacement table before editing owners.
+;; : (-> ClosGenericFunction ClosMethodBundle ClosGenericFunction)
+(def (clos-compose-method-bundle generic-source bundle-value)
+  (clos-compose-method-bundles generic-source (list bundle-value)))
+
+;; : (-> ClosGenericFunction [ClosMethodBundle] ClosGenericFunction)
+(def (clos-compose-method-bundles generic-source bundle-values)
+  (def generic (require-clos-generic generic-source))
+  (def edits
+    (%with-slot-edit-protection (list generic)
+      (lambda ()
+        (unless (list? bundle-values)
+          (clos-fail 'invalid-method-bundle generic: (.ref generic 'identity)))
+        (def methods
+          (apply append
+            (map-in-order
+              (lambda (bundle)
+                (unless (element? ClosMethodBundle bundle)
+                  (clos-fail 'invalid-method-bundle generic: (.ref generic 'identity)))
+                (unless (eq? (.ref generic 'protocol) (.ref bundle 'protocol))
+                  (clos-fail 'method-bundle-protocol-mismatch generic: (.ref generic 'identity)))
+                (.ref bundle 'methods))
+              bundle-values)))
+        (and (pair? methods)
+             (plan-bundle-edits generic methods)))))
+  (when edits (%publish-slot-edits! edits))
+  generic)
+
+;; | ClosGenericFunction = POOObject
+;; clos-generic-function
+;;   : (-> Symbol Natural Boolean (Maybe (List Natural)) Symbol ClosGenericFunction)
+;;   | contract: creates generation zero only after arity, precedence, and
+;;     method-combination options are admitted.
+;;   | doc m%
+;;   | # Examples
+;;   | ```scheme
+;;   | (clos-generic-function
+;;   |  'route 2 argument-precedence-order: '(1 0))
+;;   | ```
+;;   | result: immutable POO generic-function descriptor with no methods.
+;; : (-> Symbol Natural Boolean (Maybe (List Natural)) Symbol
+;;        ClosGenericFunction)
+(def (clos-generic-function identity-value required-value
+                                rest?: (rest-value #f)
+                                optional: (optional-value 0)
+                                key?: (key-value #f)
+                                keys: (key-values '())
+                                allow-other-keys?:
+                                (allow-other-keys-value #f)
+                                argument-precedence-order:
+                                (precedence-order-value #f)
+                                method-combination: (combination-value 'standard)
+                                protocol: (protocol-value #f)
+                                documentation: (documentation-value #f)
+                                generic-function-class:
+                                (generic-class-value 'standard-generic-function)
+                                method-class: (method-class-value 'standard-method)
+                                declarations: (declaration-values '()))
+  (unless (and (exact-integer? required-value) (>= required-value 0))
+    (clos-fail 'invalid-required-argument-count generic: identity-value))
+  (let (precedence-order
+        (or precedence-order-value
+            (iota required-value)))
+    (unless (clos-natural-permutation? precedence-order required-value)
+      (clos-fail 'invalid-argument-precedence-order generic: identity-value))
+    (let* ((argument-precedence-order (%make-owned-list precedence-order))
+           (declarations
+            (if (list? declaration-values)
+              (%make-owned-list declaration-values)
+              declaration-values))
+           (combination-object
+            (clos-resolve-method-combination combination-value))
+           (protocol-object
+            (checked ClosGenericProtocol
+                     (or protocol-value (clos-default-generic-protocol))
+                     'invalid-generic-protocol))
+           (lambda-list-value
+           (clos-lambda-list required-value optional-value rest-value
+                                 key-value key-values
+                                 allow-other-keys-value))
+          (candidate
+          (.o (:: @ ClosGenericFunction.)
+              identity: identity-value required: required-value rest?: rest-value
+              argument-precedence-order
+              method-combination: combination-object
+              methods: '() generation: 0
+              lambda-list: lambda-list-value protocol: protocol-object
+              documentation: documentation-value
+              generic-function-class: generic-class-value
+              method-class: method-class-value
+              declarations)))
+      (.putslot! candidate 'identity
+        (%owned-list-slot-spec identity-value clos-copy-function-name))
+      (.putslot! candidate 'methods (%owned-list-slot-spec '()))
+      (checked ClosGenericFunction candidate 'invalid-generic-function))))
+
+;;; Scheme =eqv?= is the explicit kernel adaptation for CLOS =eql= values;
+;;; class and universal targets preserve POO identity with =eq?=.
+;; : (-> ClosSpecializer ClosSpecializer Boolean)
+(def (same-specializer? left right)
+  (and (eq? (.ref left 'kind) (.ref right 'kind))
+       (case (.ref left 'kind)
+         ((eql) (eqv? (.ref left 'target) (.ref right 'target)))
+         (else (eq? (.ref left 'target) (.ref right 'target))))))
+
+;;; Signature agreement is positional and requires the complete list length.
+;; : (-> [ClosSpecializer] [ClosSpecializer] Boolean)
+(def (same-specializers? left right)
+  (and (= (length left) (length right))
+       (andmap same-specializer? left right)))
+
+;; Map the kernel's primary marker and shorthand to the CLOS qualifier list.
+(def (method-qualifier-list qualifier)
+  (cond
+    ((eq? qualifier 'primary) '())
+    ((symbol? qualifier) (list qualifier))
+    (else qualifier)))
+
+;; CLOS §7.6.3 compares ordered qualifier lists by value.
+;; : (-> ClosMethod ClosMethod Boolean)
+(def (method-agrees? left right)
+  (and (equal? (method-qualifier-list (.ref left 'qualifier))
+               (method-qualifier-list (.ref right 'qualifier)))
+       (same-specializers? (.ref left 'specializers)
+                           (.ref right 'specializers))))
+
+;; : (-> ClosGenericFunction ClosMethod Unit)
+(def (admit-method! generic-value method-value)
+  (unless (clos-method-combination-admits-qualifier?
+           (.ref generic-value 'method-combination)
+           (.ref method-value 'qualifier))
+    (clos-fail 'invalid-method-qualifier
+               generic: (.ref generic-value 'identity)
+               qualifier: (.ref method-value 'qualifier)
+               method: (.ref method-value 'identity)))
+  (unless (= (length (.ref method-value 'specializers))
+             (.ref generic-value 'required))
+    (clos-fail 'method-required-argument-mismatch
+               generic: (.ref generic-value 'identity)
+               qualifier: (.ref method-value 'qualifier)
+               method: (.ref method-value 'identity)))
+  (when (and (.ref method-value 'lambda-list)
+             (not (clos-lambda-lists-congruent?
+                   (.ref generic-value 'lambda-list)
+                   (.ref method-value 'lambda-list))))
+    (clos-fail 'incongruent-method-lambda-list
+               generic: (.ref generic-value 'identity)
+               qualifier: (.ref method-value 'qualifier)
+               method: (.ref method-value 'identity)))
+  (let (owner (.ref method-value 'generic-function))
+    (when (and owner (not (eq? owner generic-value)))
+      (clos-fail 'method-owned-by-another-generic
+                 generic: (.ref generic-value 'identity)
+                 qualifier: (.ref method-value 'qualifier)
+                 method: (.ref method-value 'identity)))))
+
+(def (plan-bundle-edits generic methods)
+  (def original (.ref generic 'methods))
+  (%with-slot-edit-protection (append original methods)
+    (lambda ()
+      (def replaced '())
+      (def installed
+        (foldl (lambda (method current)
+                 (admit-method! generic (require-clos-method method))
+                 (defvalues (matching remaining)
+                   (partition (cut method-agrees? method <>) current))
+                 (set! replaced (append matching replaced))
+                 (cons method remaining))
+               original methods))
+      (def retained (make-hash-table-eq))
+      (for-each (lambda (method) (hash-put! retained method #t)) installed)
+      (cons (cons generic
+              (method-generation-fields generic installed
+                (+ (.ref generic 'generation) (length methods))
+                (%borrow-owned-list (%prepared-vector-slot-ref generic 'argument-precedence-order))))
+        (map (lambda (method)
+               (list method (cons 'generic-function
+                                  (and (hash-key? retained method) generic))))
+             (delete-duplicates/hash (append methods replaced)
+                                     table: (make-hash-table-eq)))))))
+
+;; | ClosGenericFunction = POOObject
+;; clos-add-method
+;;   : (-> ClosGenericFunction ClosMethod ClosGenericFunction)
+;;   | contract: associates the method with exactly one generic function,
+;;     replaces an agreeing method, and preserves generic-function identity.
+;;   | doc m%
+;;   | # Examples
+;;   | ```scheme
+;;   | (clos-add-method generic method)
+;;   | ```
+;;   | result: the same POO generic-function with generation + 1.
+(def (clos-add-method generic-value method-value)
+  (def generic (require-clos-generic generic-value))
+  (def edits
+    (%with-slot-edit-protection (list generic)
+      (lambda () (plan-bundle-edits generic (list method-value)))))
+  (%publish-slot-edits! edits)
+  generic)
+
+;;; Removing an absent method is identity preserving; a real removal alone
+;;; advances the generation.
+;; : (-> ClosGenericFunction ClosMethod ClosGenericFunction)
+(def (clos-remove-method generic-value method-value)
+  (set! generic-value (require-clos-generic generic-value))
+  (set! method-value (require-clos-method method-value))
+  (def edits
+    (%with-slot-edit-protection (list generic-value method-value)
+      (lambda ()
+        (let (installed (.ref generic-value 'methods))
+          (and (memq method-value installed)
+               (list (cons generic-value
+                       (method-generation-fields generic-value
+                         (filter (lambda (method) (not (eq? method method-value))) installed)
+                         (+ 1 (.ref generic-value 'generation))
+                         (%borrow-owned-list (%prepared-vector-slot-ref
+                                               generic-value 'argument-precedence-order))))
+                     (list method-value (cons 'generic-function #f))))))))
+  (when edits (%publish-slot-edits! edits))
+  generic-value)
+
+;; : (-> FunctionName ClosGenericFunction ClosGenericBinding)
+(def (clos-generic-binding identity-value generic-value)
+  (let (current-value (require-clos-generic generic-value))
+    (unless (equal? identity-value (.ref current-value 'identity))
+      (clos-fail 'generic-binding-identity-mismatch generic: identity-value))
+    (clos-register-generic-function!
+     (checked ClosGenericBinding
+              (let (binding (.o (:: @ ClosGenericBinding.)
+                                identity: identity-value current: current-value))
+                (.putslot! binding 'identity
+                  (%owned-list-slot-spec identity-value clos-copy-function-name))
+                binding)
+              'invalid-generic-binding))))
+
+;; : (-> ClosGenericBinding ClosGenericFunction)
+(def (clos-generic-binding-current binding-value)
+  (unless (element? ClosGenericBinding binding-value)
+    (clos-fail 'invalid-generic-binding))
+  (.ref binding-value 'current))
+
+;; : (-> ClosGenericBinding ClosMethod ClosMethod)
+(def (clos-generic-binding-add-method! binding-value method-value)
+  (let ((current-value (clos-generic-binding-current binding-value))
+        (admitted-method (require-clos-method method-value)))
+    (.put! binding-value 'current
+           (clos-add-method current-value admitted-method))
+    admitted-method))
+
+;; Both callers build their carrier from lexical constants. The private Slot
+;; map is persistent, so its original identity witnesses that no computed
+;; specifications were introduced during validation.
+(def (checked-constant-call-carrier type value code)
+  (def revision (object-revision value))
+  (def slots (object-%slots value))
+  (checked type value code)
+  ;; No mutation or source/MOP wrapper may hide inside the certified carrier.
+  ;; Runtime observers still receive every actual read; any edit during that
+  ;; observation/validation keeps this call's complete dependency trace.
+  (unless (and (= revision (object-revision value))
+               (eq? slots (object-%slots value)))
+    (owned-read-open!))
+  (owned-read-value! value))
+
+;; : (-> ClosGenericFunction [SchemeValue]
+;;        [ClosMethod] [ClosMethod] [ClosMethod] [ClosMethod]
+;;        ClosEffectiveMethod)
+(def (make-effective-method generic arguments around before primary after
+                          groups: (groups '()) executor: (executor #f))
+  (checked-constant-call-carrier ClosEffectiveMethod
+    (.o (:: @ ClosEffectiveMethod.)
+        generic arguments around before primary after groups executor)
+    'invalid-effective-method))
+
+;; Private dispatch staging retains payloads only. Each demand calls the
+;; existing public constructor, producing a FRESH checked object. Even an
+;; escaped/reused continuation cannot enroll a previously exposed receiver as
+;; a new owned value. No approval, receiver index or method cache is retained.
+(def (%prepare-effective-method generic arguments around before primary after
+                               groups: (groups '()) executor: (executor #f))
+  (lambda ()
+    (make-effective-method generic arguments around before primary after
+      groups: groups executor: executor)))
+
+;;; Frames bind one effective method, current argument set, continuation, qualifier, and
+;;; exact method descriptor into a POO value.
+;; : (-> ClosEffectiveMethod [SchemeValue] (Maybe Procedure)
+;;        MethodQualifier ClosMethod ClosInvocationFrame)
+(def (make-invocation-frame effective-method arguments next qualifier method)
+  (checked-constant-call-carrier ClosInvocationFrame
+           ;; Keep runtime inheritance and extensibility; these are value slots,
+           ;; not receiver-dependent formulas or deferred argument computations.
+           (.o (:: @ ClosInvocationFrame.)
+               effective-method arguments next qualifier method)
+           'invalid-invocation-frame))

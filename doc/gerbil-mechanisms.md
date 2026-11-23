@@ -21,14 +21,14 @@ future work; it does not turn those sketches into a proved host implementation.
 | Mechanism | Gerbil facility / inspected source | POO decision |
 | --- | --- | --- |
 | Predicate contracts | `gerbil/core/contract.ss`: `using`, `list-of?`, `one-of`, `in-range-inclusive?` | Replaced repeated checks in Function admission, diagnostics, refinement, metadata evidence binding, finite type admission and generator configuration. The existing support module preserves the published refusal policy. |
-| Classes and interfaces | Core class-aware `using`, generated accessors; `std/interface.ss`, `std/instance.ss` | Use generated host structures for private state, and direct class-aware `using` in `examples/contract-interop.ss`. Dynamic prototype rows, descriptor validation and checked Function results remain POO operations. A host class assertion cannot recursively wrap an object graph. |
+| Classes and interfaces | Core class-aware `using`, generated accessors; `std/interface.ss`, `std/instance.ss` | Use generated host structures for private state, and direct class-aware `using` in `t/fixtures/contract-interop.ss`. Dynamic prototype rows, descriptor validation and checked Function results remain POO operations. A host class assertion cannot recursively wrap an object graph. |
 | Inheritance | `gerbil/runtime/c3.ss`: `c4-linearize` | Already reused by `object.ss`; there is no additional C4 implementation in this Scheme layer. POO still supplies lazy prototype computation, mutation guards and metadata. |
 | Method dispatch | Core `defmethod` / class method machinery | Use it for host classes. `multimethod.ss` retains typed tuple dispatch, persistent revisions, negative applicability guards and selectable combinations; these are not replaced by a single host method lookup. |
 | Composition | `std/func.ss`: `compose`, `rcompose`; `std/list/list.ss`: `map-in-order`, folds | Already used in IO, generalized prototypes and metadata. Existing FUN/Observation bind composes normalization before observation; replacing it with plain composition would discard its environment and sequencing protocol. |
 | Named field replacement | Runtime `list->hash-table-eq`, `hash-get`/`hash-key?`; standard `map-in-order` | Object and Record inference share one finite shape/presence/read relation instead of separate field walks. No Class/Slot/ObjectContract validator is replaced: defaults, hooks, normalization and mutation policy stay in their existing protocols. Missing optional target fields need closed-source evidence. |
 | Finite type graph closure | `std/struct/dag.ss` arrow/target callbacks; `std/hash/misc.ss` `hash-ensure-ref`; runtime `hash-update!` | Shared one private cycle-tolerant traversal between forward construction and reverse closure. Completed-only standard memoization replaces both manual sentinel caches; standard updates collect shared predecessors. `walk-dag` itself rejects the cycles required by rest languages. Certificate checking and quota refusal remain POO-specific. |
-| Persistent collections | `std/struct/rbtree.ss`, `std/iter.ss` | Already used in `prototype-map.ss` and `support/rationaldict.ss`; persistent ordered mapping and iteration reuse those implementations. `support/list.ss` traverses arbitrary pair trees, not only proper lists. |
-| Tables and weak ownership | Runtime hash tables, weak keys/values | Already used by graph identity tables, `object-state.ss` and `slot-layout.ss`. POO retains source stamps, dependent invalidation and shape eligibility, rather than implementing another hash table. |
+| Persistent collections | `std/struct/rbtree.ss`, `std/iter.ss` | Already used in `object/prototype-map.ss` and `support/rationaldict.ss`; persistent ordered mapping and iteration reuse those implementations. `support/list.ss` traverses arbitrary pair trees, not only proper lists. |
+| Tables and weak ownership | Runtime hash tables, weak keys/values | Already used by graph identity tables, `object/state.ss` and `object/slot-layout.ss`. POO retains source stamps, dependent invalidation and shape eligibility, rather than implementing another hash table. |
 | Options / absence | Generated `some` struct in `support/option.ss` | Retain the small value protocol: `some #f` differs from absence. A default `#f` hash lookup or Boolean optional contract cannot replace it without changing callers. |
 | Promise and cache | Core promise support; `std/cache.ss` allocation pools, reset/size/flush registry | Use host storage and promises where applicable. Recursive request memo owns a program identity and budget; validation caches own active-cycle state, source revisions and checked wrappers. Allocation pools do not provide these semantic invalidation laws. No second general allocation-pool implementation is introduced. |
 | Concurrency and cleanup | Runtime `with-lock` / mutexes, `dynamic-wind`; `std/sync` facilities | Already used in component publication and scoped recursive coordination. Retain POO approval epochs, incarnation fences and stale-install refusal under those primitives. Generic thread helpers do not define the publication transaction. |
@@ -66,7 +66,7 @@ keeps its separate Boolean-only decision policy.
 
 ## Ordered integration
 
-`examples/contract-interop.ss` composes the existing inferred recursive service
+`t/fixtures/contract-interop.ss` composes the existing inferred recursive service
 row, nested Function wrappers and whole-object `refine` with a Gerbil typed
 consumer. The publication entry point creates evidence from the **current
 checked subject**, then uses the existing exact `bind-evidence` publisher.
@@ -114,7 +114,7 @@ Confirmed repetitions removed:
   lookup. The standard HashTable interface owns the lookup. Stored `#f` is a
   hit; only missing keys invoke the fallback. Unknown-source callbacks, original
   exceptions, same-owner retention and source-bound selective rebuild remain.
-- `slot-layout.ss` uses `hash-ensure-ref` for canonical shapes. Shape creation
+- `object/slot-layout.ss` uses `hash-ensure-ref` for canonical shapes. Shape creation
   and insertion use the standard missing-key operation; the table retains its
   weak values. Class-aware `using` handles generated accessors and field writes
   for the access-site record. Owner/revision/layout/index guards and per-receiver
@@ -131,7 +131,7 @@ Retained after source comparison:
 - Gerbil's iterator API in this runtime has no exported mapping combinator.
   `table.ss` already implements its small mapper with the standard `Iterator`
   interface. Keep it rather than inventing an `in-map` import or adding eager
-  collection/coroutine state. `examples/service-collection.ss` reuses it and
+  collection/coroutine state. `t/fixtures/service-collection.ss` reuses it and
   registers a generated host class with standard `std.instance` / `Iterable`.
   Each pull uses the existing checked FUN action; no second iterator engine.
 - `vector-map/index` explicitly leaves callback order unspecified and currently
@@ -167,7 +167,7 @@ proofs of Gerbil or GC. Resource guards and complete checks remain unchanged.
 This follow-up inspects runtime `c3.ss` (`c4-linearize`, `c4-linearize*`,
 `c4-compute-class-slots`), expander `stx.ss` (`identifier-list?`), core
 `mop.ss` / `contract.ss`, and standard list deduplication against `object.ss`,
-`reflection.ss`, `.defgeneric`, method combination and sparse multi-dispatch.
+`object/reflection.ss`, `.defgeneric`, method combination and sparse multi-dispatch.
 
 Confirmed repetitions removed:
 
@@ -222,7 +222,7 @@ Retained after comparison:
   callback order. A generic filter/map rewrite would need a separate effect-order
   argument; no body/default/guard is speculatively evaluated for reflection.
 
-`examples/declared-methods.ss` extends its existing shared inheritance family
+`benchmarks/workloads/declared-methods.ss` extends its existing shared inheritance family
 with a private label override and an optional/keyword/rest summary method. The
 existing FUN Reader returns both charge and summary from fresh receiver data;
 method effects stay ordered and current context is not cached. Nine additional
@@ -448,7 +448,7 @@ catalog evaluation must remain before a read; stopping at the first matching
 name would skip other observable metadata effects. This audit retains that
 protocol rather than implementing another one.
 
-`examples/inherited-services.ss` composes one retained Simula program with the
+`benchmarks/workloads/inherited-services.ss` composes one retained Simula program with the
 existing FUN Observation action across a shared-source diamond and independent
 service families. Every callback uses current `read-slot`, not cached admission.
 Tests edit shared defaults, visibility and Type; refusal prevents settlement,
@@ -475,7 +475,7 @@ The explicit `@@method` escape retains the original Gerbil host-method binding.
 Inspected host owners are `core/sugar.ss` (`defalias`), `expander/top.ss`
 (`core-expand-define-alias%`) and `core/match.ss` (`defsyntax-for-match`).
 
-`examples/declared-methods.ss` `inspected-action` composes brace construction,
+`benchmarks/workloads/declared-methods.ss` `inspected-action` composes brace construction,
 nested brace matching, captured outer/local receivers, inherited standard method
 combination and current public reflection in one FUN observation. It reads the
 current method declaration before invocation; hiding the declaration refuses
@@ -954,7 +954,7 @@ Types, including their wrapper and failure protocols.
 Joint range/Enum-to-Union coverage uses std/list/list.ss append-map (ordered
 callback traversal and concatenation) and the runtime foldl, following the same
 composition protocol as validate-bindings and existing variant diagnostics.
-Interval projection is private analysis data; Type Union and variant-validation.ss
+Interval projection is private analysis data; Type Union and types/variant-validation.ss
 still own branch selection, committed validation and error propagation. The
 complete literal inclusion entry feeds containers, Function variance, inference,
 parameter binding and original method declarations; no second normalizer,

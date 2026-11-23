@@ -8,7 +8,7 @@ The restart supervisor is an extension; it is not an algorithm supplied by Racke
 
 ## Explicit new operations
 
-`examples/joint-coordination.call-with-coordinators` accepts `restart:`. After a
+`benchmarks/workloads/joint-coordination.call-with-coordinators` accepts `restart:`. After a
 completed operation's children have been cleaned and its parent thread joined,
 the supervisor invokes `on-exit:` with the original outcome. If that handler returns,
 live `next` processing may call `restart(name)`. Return a fresh operation procedure

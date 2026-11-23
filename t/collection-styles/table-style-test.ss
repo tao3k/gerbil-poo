@@ -12,21 +12,21 @@
   :clan/poo/type
   :clan/poo/number
   :clan/poo/table
-  :clan/poo/rationaldict
+  :clan/poo/table/rationaldict
   :clan/poo/support/option
   (only-in :clan/poo/trie SimpleTrie SimpleTrieSet TrieSet.)
   (only-in :clan/poo/t/table-testing alist-table)
-  (prefix-in :clan/poo/examples/service-collection service.)
+  (prefix-in :clan/poo/t/fixtures/service-collection service.)
   :std/sync/channel)
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (set-style-test)
-  (let () (include "table-style/set-style.scm")))
+  (let () (include "table-style/set-style.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (table-receiver-test)
-  (let () (include "table-style/table-receiver.scm")))
+  (let () (include "table-style/table-receiver.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (table-style-test)
-  (let () (include "table-style/cases.scm")))
+  (let () (include "table-style/cases.ss")))

@@ -13,7 +13,7 @@
     ((cold envelope revision) 32) (else 128)))
 ;; Source identities cover runtime, native examples, shared I/O driver and this study.
 (def sources (delete-duplicates/hash (append metadata.sources
-  '("generalized-prototype.ss" "examples/generalized-checkout.ss" "benchmarks/focused-cases.ss"
+  '("mop/generalized-prototype.ss" "benchmarks/workloads/generalized-checkout.ss" "benchmarks/focused-cases.ss"
     "benchmarks/focused-benchmark.ss" "benchmarks/focused-suite.ss")) from-end?: #t))
 ;; Balanced ABBA process order; exact A/A duplicates share the same action closure.
 (def (side-order round pair) (if (memv round '(0 3)) pair (reverse pair)))

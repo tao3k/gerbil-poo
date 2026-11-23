@@ -1,14 +1,27 @@
 ;;; Concrete Identity and lawful wrapper operations under the shared FUN protocol.
 (export fun-test)
-(import :std/test
+(import (only-in :clan/poo/type validate TypeError? Function Bool) :std/test
+        (only-in :gerbil/expander core-import-module module-context-export module-export-name)
         (only-in :clan/poo/fun Identity Wrapper. Wrap. IdWrap)
         (only-in :clan/poo/object .cc .call .set!)
-        (only-in :clan/poo/mop validate TypeError? Function Bool)
         (only-in :clan/poo/number UInt Integer)
         (only-in :clan/poo/support/option some make-some some? some-value))
 
 (def fun-test
   (test-suite "FUN identity and wrappers"
+    (test-case "value types and metaobjects have distinct public exports"
+      (def (exports module)
+        (map module-export-name (module-context-export (core-import-module module))))
+      (def value-types (exports ':clan/poo/type))
+      (def metaobjects (exports ':clan/poo/mop))
+      (for-each (lambda (name)
+                  (check (and (memq name value-types) #t) => #t)
+                  (check-equal? (memq name metaobjects) #f))
+                '(Any Bool Object Function CaseFunction Fun Type. define-type validate))
+      (for-each (lambda (name)
+                  (check (and (memq name metaobjects) #t) => #t)
+                  (check-equal? (memq name value-types) #f))
+                '(Class Slot ClosClass ClosMethod ClosGenericFunction)))
     (test-case "Identity shares the two-argument map protocol and ordinary bind"
       (check-equal? (.call Identity .map 1+ 3) 4)
       (check-equal? (.call Identity .bind 3 (lambda (value) (+ value 2))) 5)

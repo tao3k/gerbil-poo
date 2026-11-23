@@ -1,0 +1,33 @@
+#+title: Selecting inherited slot hooks during assembly
+
+=compute-slot-funs!= in [[file:../../object.ss][object.ss]] compiles all retained slot definitions
+before running =compute-slot= hooks. With P prototypes and S slots, looking
+for an absent protocol on each slot can visit P × S prototypes.
+
+For multiple slots, the engine checks the actual Gerbil =HashTable= descriptor,
+wrapper fields and symbolic writer. An unlocked standard writer cannot
+install a protocol between slots, so one check for an inherited protocol
+suffices. With a custom writer or an installed protocol, the engine looks up
+the hook on every iteration.
+
+[[file:../../t/objects/inheritance-hooks-test.ss][Inheritance tests]] cover a writer that installs a protocol between slots and
+edits to the interface descriptor and wrapper offsets. The
+[[https://github.com/tao3k/lean-poo/blob/31b550d15e81b095795078efb8344442d8ba6edd/LeanPoo/Object/SlotPreparation.lean#L35-L75][LeanPoo proof]] gives the condition for preserving results, errors and final state.
+
+* Batch measurements
+
+Gerbil =2591dcd=, Gambit =dcd677c=, =gxc -O= and C =-O2=. The reference
+and candidate used the same compiled benchmark and 2 GiB heap fence.
+CPU milliseconds at 256 slots and 32 prototype layers:
+
+| Operation | Repetitions | Reference | Candidate |
+|-----------+-------------+-----------+-----------|
+| Cold construction and first read | 500 | 297.492 | 251.699 |
+| Cold construction, clone and first read | 500 | 354.356 | 273.613 |
+| Clone only | 5,000 | 10.021 | 10.310 |
+| Clone and first read | 5,000 | 1651.428 | 1128.061 |
+
+The 500-operation single-slot cold control took 3.579 ms and 3.799 ms CPU.
+Run =just test-file benchmarks/object-scale-test.ss= or
+=just benchmark-object-scale natural tree 256 32=.
+[[https://github.com/tao3k/gerbil-poo/blob/5d7715f18e707c885e16e1d99dc7b93fbac248df/doc/performance/protocol-selection.org][Original measurements, controls and ordered contribution study]]

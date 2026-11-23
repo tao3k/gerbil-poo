@@ -2,13 +2,13 @@
 (export declaration-index-test)
 (import (prefix-in (only-in :gerbil/runtime/mop slot-ref) runtime.) :std/test :std/error :std/iter
         (only-in :gerbil/runtime/gambit string->uninterned-symbol)
-        :clan/poo/object :clan/poo/mop :clan/poo/number :clan/poo/reflection
-        :clan/poo/prototype-map :clan/poo/slot-observation
-        (only-in :clan/poo/type List)
-        (only-in :clan/poo/slot-layout make-slot-cache)
+        :clan/poo/object :clan/poo/mop :clan/poo/number :clan/poo/object/reflection
+        :clan/poo/object/prototype-map :clan/poo/object/slot-observation
+        (only-in :clan/poo/type List Fun TypeError?)
+        (only-in :clan/poo/object/slot-layout make-slot-cache)
         (only-in :clan/poo/benchmarks/prototype-map-benchmark reference-reflection reference-read-slot)
-        (prefix-in :clan/poo/examples/representation-service service.)
-        (prefix-in :clan/poo/examples/inherited-services inherited.))
+        (prefix-in :clan/poo/benchmarks/workloads/representation-service service.)
+        (prefix-in :clan/poo/benchmarks/workloads/inherited-services inherited.))
 
 ;; Construct one current typed constant; source edits use the existing Slot protocol.
 (def (descriptor n (hidden? #f)) (.new Slot type: Integer constant: n hidden: hidden?))
@@ -390,6 +390,19 @@
         (check (object-%declaration-index owner) => #f)
         (check-equal? (read-slot owner 'value) 7)
         (check-equal? (.ref owner 'extra) 9)))
+    (test-case "compact maps own input entries without copying slot values"
+      (def payload (list 'kept))
+      (def entries (list (cons 'x #f) (cons 'x payload)))
+      (def root (prototype-map entries policy: 'compact))
+      (set-car! (car entries) 'changed)
+      (set-cdr! (cadr entries) 'replaced)
+      (def snapshot (prototype-map-list root))
+      (check-equal? (map car snapshot) '(x x))
+      (check-equal? (prototype-map-ref root 'x) #f)
+      (check-eq? (cdadr snapshot) payload)
+      (check-exception
+        (prototype-map (list (cons 'x #f) (cons #f 1)) policy: 'compact)
+        (message? "symbolic specification required")))
     (test-case "indexed map lookup preserves first duplicates false functions and symbol identity"
       (for (policy '(tree compact))
         (let* ((a (string->uninterned-symbol "same")) (b (string->uninterned-symbol "same"))

@@ -57,7 +57,7 @@ admission, normalization and source-current callbacks at the boundary. Generalit
 is parametric; it is not a fallback to an unconstrained POO `Any` descriptor.
 
 The independent-library acceptance copies these five generic source modules and
-`examples/property-kernel.ss` and its ordinary product/number/filter/scope/size/trace helpers
+`t/fixtures/property-kernel.ss` and its ordinary product/number/filter/scope/size/trace helpers
 into a temporary standard Gerbil package, declares
 `clan/poo/testing`, and compiles with `defbuild-script`. The compiled suite runs
 through `gerbil test`. It requires all 148 case receipts, an error-free result and
@@ -211,7 +211,7 @@ by a new callback wrapper. The fixture's actual-state contract may intentionally
 include expired snapshots; command preconditions and stale-version observations
 remain part of the domain model.
 
-The executable examples are `examples/collection-testing.ss` and
+The executable examples are `t/fixtures/collection-testing.ss` and
 `t/representations/collection-testing-test.ss`. They exercise both existing RationalDict and trie
 backends, including adapters deliberately broken at stale admission, index
 observation, inverse installation and atomic failure. Their reference oracle uses

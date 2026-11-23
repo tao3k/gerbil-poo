@@ -32,7 +32,7 @@ not imported or hardcoded into Scheme and do not establish runtime freshness.
 
 ## Interleaved practical scenario
 
-`examples/component-rounds.ss` and `Examples/ComponentRounds.lean` share the
+`benchmarks/workloads/component-rounds.ss` and `Examples/ComponentRounds.lean` share the
 existing twelve-position lens family and actual component recipes:
 
 1. Compact support starts with `(shared A B)` and `(C D)`, shared capped by quota=3.

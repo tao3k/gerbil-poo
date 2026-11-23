@@ -18,35 +18,35 @@
   :clan/poo/object
   :clan/poo/mop
   :clan/poo/brace
-  :clan/poo/lens-laws
-  :clan/poo/generalized-declaration
-  :clan/poo/generalized-closure
-  (prefix-in :clan/poo/examples/closed-declarations service.)
-  (prefix-in :clan/poo/examples/generalized-declarations finite.)
+  :clan/poo/mop/lens-laws
+  :clan/poo/mop/generalized-declaration
+  :clan/poo/mop/generalized-closure
+  (prefix-in :clan/poo/benchmarks/workloads/closed-declarations service.)
+  (prefix-in :clan/poo/benchmarks/workloads/generalized-declarations finite.)
   (prefix-in (only-in :clan/poo/fun Observation.) fun.)
-  (prefix-in :clan/poo/generalized-prototype gp.)
-  (prefix-in :clan/poo/examples/generalized-checkout checkout.))
+  (prefix-in :clan/poo/mop/generalized-prototype gp.)
+  (prefix-in :clan/poo/benchmarks/workloads/generalized-checkout checkout.))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (binding-benchmark-test)
-  (let () (include "generalized-prototype/binding-benchmark.scm")))
+  (let () (include "generalized-prototype/binding-benchmark.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (factory-benchmark-test)
-  (let () (include "generalized-prototype/factory-benchmark.scm")))
+  (let () (include "generalized-prototype/factory-benchmark.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (focused-benchmark-test)
-  (let () (include "generalized-prototype/focused-benchmark.scm")))
+  (let () (include "generalized-prototype/focused-benchmark.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (generalized-benchmark-test)
-  (let () (include "generalized-prototype/generalized-benchmark.scm")))
+  (let () (include "generalized-prototype/generalized-benchmark.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (generalized-closure-test)
-  (let () (include "generalized-prototype/generalized-closure.scm")))
+  (let () (include "generalized-prototype/generalized-closure.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (generalized-prototype-test)
-  (let () (include "generalized-prototype/cases.scm")))
+  (let () (include "generalized-prototype/cases.ss")))

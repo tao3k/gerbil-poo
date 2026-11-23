@@ -38,7 +38,7 @@ iteration as a fold/list, not all preparation work.
 
 ## Complete service flow
 
-`examples/service-collection.ss` exports `observe-ledger-first`, composed from the
+`t/fixtures/service-collection.ss` exports `observe-ledger-first`, composed from the
 existing observation map and standard Iterator interface. The cohort regression
 combines two correlated indexes, ordered traversal, an explicit representation
 Wrapper, Classy publication, a checked Function field and inverse restoration.

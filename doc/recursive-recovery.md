@@ -25,7 +25,7 @@ necessary. A post-install coordinator exception keeps the installed prefix and i
 receipt. The exit record is historical evidence, not a new approval or a deep frozen
 copy of mutable metadata. Already performed external effects are not rolled back.
 
-`examples/recursive-recovery.ss` runs eight actual SCC/provider/computed revisions.
+`t/fixtures/recursive-recovery.ss` runs eight actual SCC/provider/computed revisions.
 Each round a coordinator exits with two queued requests. A survivor invalidates
 proposed then installed approval metadata through ABA, replays historical requests
 and refuses a locally admissible but jointly over-budget candidate. Survivors win

@@ -4,31 +4,31 @@
 (import
   :std/test
   :std/iter
-  :clan/poo/closure
+  :clan/poo/graph/closure
   :clan/poo/object
   :clan/poo/mop
   :clan/poo/brace
   :clan/poo/support/option
-  :clan/poo/feedback-cache
-  :clan/poo/generalized-declaration
-  :clan/poo/lens-laws
-  (prefix-in :clan/poo/dependency-analysis code.)
-  (prefix-in :clan/poo/construction-cache cache.)
-  (prefix-in :clan/poo/generalized-graph graph.)
-  (prefix-in :clan/poo/examples/cached-feedback service.)
+  :clan/poo/graph/feedback/cache
+  :clan/poo/mop/generalized-declaration
+  :clan/poo/mop/lens-laws
+  (prefix-in :clan/poo/graph/computation code.)
+  (prefix-in :clan/poo/graph/construction cache.)
+  (prefix-in :clan/poo/graph/schedule graph.)
+  (prefix-in :clan/poo/benchmarks/workloads/cached-feedback service.)
   (prefix-in (only-in :clan/poo/fun Observation.) fun.)
-  :clan/poo/generalized-closure
-  :clan/poo/feedback-closure
-  (prefix-in :clan/poo/examples/feedback-services services.))
+  :clan/poo/mop/generalized-closure
+  :clan/poo/graph/feedback/closure
+  (prefix-in :clan/poo/benchmarks/workloads/feedback-services services.))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (cyclic-access-test)
-  (let () (include "feedback-closure/cyclic-access.scm")))
+  (let () (include "feedback-closure/cyclic-access.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (feedback-cache-test)
-  (let () (include "feedback-closure/feedback-cache.scm")))
+  (let () (include "feedback-closure/feedback-cache.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (feedback-closure-test)
-  (let () (include "feedback-closure/cases.scm")))
+  (let () (include "feedback-closure/cases.ss")))

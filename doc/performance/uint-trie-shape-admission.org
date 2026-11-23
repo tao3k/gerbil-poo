@@ -1,0 +1,73 @@
+#+title: Canonical UIntTrieSet shape admission
+
+* Scope and ownership
+
+=trie.ss: uint-trie-shape-height= replaces recursive MOP height queries only
+for the unchanged canonical =UIntTrieSet.Table= protocol. Each invocation
+walks the current tree. It does not remember successful admission, retain
+caller roots, or change key/value recognition.
+
+The guard captures every prototype in the precedence lists of the set, backing
+table, Height and Wrapper descriptors, and Type protocols. A changed revision
+or active dependency-capture/observer scope selects the original validator.
+Changing a method and later restoring it does not restore the old revision;
+the fallback remains conservative. Derived and custom descriptors use the
+original validator and retain their callback and refusal order.
+
+* Structural algorithm
+
+The worker returns =empty= for Empty, -1 for Leaf, and the checked height for
+Branch or Skip. A Branch accepts only nonnegative integral height and two
+nonempty children at height h-1. A Skip checks nonnegative integral height,
+bits-height and bits, its bit-length bound, and its nonempty child's height.
+Failure returns to the original validator, preserving the typed exception and
+validation order. Unit values and generated keys are still checked by ordinary
+table admission before a fold callback can run.
+
+The ordinary structural walk already visits each node once. This optimization
+removes the additional two height-method queries per Branch and one per Skip;
+it does not claim a different asymptotic complexity. Guard revision checks
+have a fixed cost depending on the canonical prototype closure.
+
+* Formal correspondence and limits
+
+The consuming ASCENT =TrieShapeAdmission.lean= model establishes equality of a
+recursive validator and the returned-height validator on the canonical carrier.
+It includes Empty-child rejection, Branch heights and Skip fields, and bounds
+the removed height queries by the node count. Scheme's integer-length
+primitive, MOP revision guards, runtime type decoding, exception delivery,
+compiler and allocator remain explicit implementation boundaries. That theorem
+alone is not a full Scheme-source refinement proof.
+
+* Semantic controls
+
+The existing native admission Suite retains its custom Set refinement, callback
+order, invalid Unit and observed admission controls. The added shape Suite
+covers all 512 subsets of nine keys, dependency capture, malformed heights and
+bits, mutation of a previously admitted root, and replacement of the canonical
+unwrap method. A failed check must occur before the first fold callback.
+
+Run these Suites with the existing =just test-file= entry and native
+=gerbil test=. Full package acceptance uses all existing groups, examples and
+build tests with their original heap fence. Large source groups can be selected
+through the existing =test-group= entry without dropping Suites or assertions.
+
+* Local qualification
+
+On the unchanged Homebrew Gerbil 1cfb032 / Gambit ea114fc release, all 25
+existing source groups passed: 84 modules and 3,061 Cases. The existing
+examples passed 54 Cases and the build declarations passed 10 Cases. The
+additional nine-Case shape/admission Suite also exited naturally, including the
+new dependency-capture control. Every source process kept the existing 2 GiB
+heap fence.
+
+The original two aggregate source contexts overflowed their 2 GiB heap before
+the first Case. That failed attempt is not a pass. Selecting the same complete
+inventory with existing native test-group commands was necessary to establish
+per-group results; aggregate-context memory remains a separate limitation.
+The initial build-declaration invocation lacked OpenSSL pkg-config metadata;
+setting the installed provider's standard PKG_CONFIG_PATH resolved that caller
+configuration failure without changing code or limits.
+
+These results establish local semantic controls. Consumer end-to-end timings
+and exact-commit upstream CI must be reported independently.

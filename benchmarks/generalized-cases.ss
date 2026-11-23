@@ -12,7 +12,7 @@
 (def (repetitions scenario) (case scenario ((cold-allocation observation-allocation nested-allocation) 1) ((cold nested) 32) (else 128)))
 ;; Every runtime/example/driver input participates in source admission; Lean is absent.
 (def sources (delete-duplicates/hash (append metadata.sources
-  '("generalized-prototype.ss" "examples/generalized-checkout.ss" "benchmarks/generalized-cases.ss"
+  '("mop/generalized-prototype.ss" "benchmarks/workloads/generalized-checkout.ss" "benchmarks/generalized-cases.ss"
     "benchmarks/generalized-observation-reference.ss" "benchmarks/generalized-benchmark.ss" "benchmarks/generalized-suite.ss")) from-end?: #t))
 ;; ABBA balances process order while warming all four actions identically in each child.
 (def (side-order round pair) (if (memv round '(0 3)) pair (reverse pair)))

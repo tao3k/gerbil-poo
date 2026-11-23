@@ -7,14 +7,15 @@
         (only-in :std/io/tempfile call-with-temporary-directory)
         (only-in :std/misc/ports read-all-as-string)
         (prefix-in (only-in "../build.ss" main) root.)
-        (prefix-in (only-in "../build-development.ss" main) development.)
-        (only-in :std/encoding/json string->json JSONReadOptions) (only-in :std/list/list delete-duplicates/hash take drop) (only-in "build.ss" test-build-spec test-build-partitions call-with-build-jobs))
+        (prefix-in (only-in "../benchmarks/representation-startup/build.ss" main) startup.)
+        (only-in :std/encoding/json string->json JSONReadOptions) (only-in :std/list/list delete-duplicates/hash take drop) (only-in "build.ss" test-build-spec test-build-partitions)
+        (only-in "../support/compile-jobs.ss" call-with-build-jobs))
 
 ;; Preserve the declaration/input projection independently of backend flags;
-;; a separate assertion checks one shared compiler option for every root.
+;; a separate assertion checks each root has one tracked compiler policy.
 (def (build-inputs specs) (map (cut take <> 3) specs))
 
-(include "../testing/property/build.scm")
+(include "../testing/property/build.ss")
 
 ;; Re-enter standard make after the fixture's CLI build. Bound its backend
 ;; children and drain them before restoring the caller's options, on success
@@ -31,24 +32,24 @@
 (def build-test
   (test-suite "standard test package declarations"
     (test-case "kernel host policy is a tracked standard compiler input"
-      (def policy (path-expand "testing/property/build.scm"))
+      (def policy (path-expand "testing/property/build.ss"))
       (def policy-source (call-with-input-file policy read-all-as-string))
       (call-with-temporary-directory "kernel-input-" (lambda (project)
         (create-directory* (path-expand "examples/property-kernel" project))
         (create-directory* (path-expand "testing/property" project))
-        (copy-file policy (path-expand "testing/property/build.scm" project))
+        (copy-file policy (path-expand "testing/property/build.ss" project))
         (call-with-output-file (path-expand "gerbil.pkg" project)
           (lambda (port) (write '(package: clan/poo/testing) port)))
         (call-with-output-file (path-expand "examples/property-kernel.ss" project)
           (lambda (port) (write '(export value) port) (newline port)
-            (write '(include "property-kernel/cases.scm") port) (newline port)))
-        (call-with-output-file (path-expand "examples/property-kernel/cases.scm" project)
+            (write '(include "property-kernel/cases.ss") port) (newline port)))
+        (call-with-output-file (path-expand "examples/property-kernel/cases.ss" project)
           (lambda (port) (write '(def value 7) port) (newline port)))
         (call-with-output-file (path-expand "build.ss" project)
           (lambda (port)
             (display "#!/usr/bin/env -S gxi -:max-heap=1G,debug=q\n" port)
             (for-each (lambda (form) (write form port) (newline port))
-              '((import :std/build-script) (include "testing/property/build.scm")
+              '((import :std/build-script) (include "testing/property/build.ss")
                 (defbuild-script (list property-kernel-build-spec))))))
         (run-process ["chmod" "755" (path-expand "build.ss" project)])
         (def options (getenv "GAMBOPT" #f))
@@ -70,10 +71,10 @@
         ;; a filesystem timestamp is not an absolute VM sleep deadline. The
         ;; strict timestamp assertion below still admits the actual ordering.
         (thread-sleep! 1.1)
-        (call-with-output-file (path-expand "testing/property/build.scm" project)
+        (call-with-output-file (path-expand "testing/property/build.ss" project)
           (lambda (port) (display policy-source port) (display "\n;; changed compiler-policy source\n" port)))
         (check (> (time->seconds (file-info-last-modification-time
-          (file-info (path-expand "testing/property/build.scm" project))))
+          (file-info (path-expand "testing/property/build.ss" project))))
           (time->seconds before)) => #t)
         (build)
         (check (> (time->seconds (file-info-last-modification-time (file-info target)))
@@ -81,78 +82,80 @@
     (test-case "standard build metadata exclude progress output"
       ;; Consume one datum from the generated build protocol; never evaluate it
       ;; or reconstruct the compiler's dependency graph.
-      (def (metadata entry command)
-        (call-with-input-string (with-output-to-string (cut entry command))
+      (def (metadata entry . commands)
+        (call-with-input-string (with-output-to-string (lambda () (apply entry commands)))
           (lambda (port)
             (def value (read port))
             (check (eof-object? (read port)) => #t)
             value)))
       (def (executables spec)
-        (map cadr (filter (lambda (entry)
-          (and (pair? entry) (eq? (car entry) exe:))) spec)))
+        (filter (lambda (entry) (and (pair? entry) (eq? (car entry) exe:))) spec))
       (for-each (lambda (entry)
         (check-equal? (metadata entry "meta") '("spec" "compile" "clean")))
-        (list root.main development.main))
+        (list root.main startup.main))
       (def core (metadata root.main "spec"))
-      (def development (metadata development.main "spec"))
-      (check (list? core) => #t)
-      (check (list? development) => #t)
+      (def startup (executables (metadata startup.main "spec")))
       (check-equal? (executables core) '())
-      ;; Darwin shares the executable's static objects in the development graph.
-      (check (executables development)
-        => (cond-expand (darwin '("examples/representation-main")) (else '())))
-      (check (member "examples/generated-batches" (map cadr core)) => #f)
-      (check (and (member "examples/generated-batches" (map cadr development)) #t) => #t))
+      (check-equal? (map cadr startup)
+        '("benchmarks/representation-startup/entry" "benchmarks/representation-startup/main"))
+      (check-equal? (pgetq bin: (cddar startup)) "representation-main")
+      (check-equal? (pgetq bin: (cddadr startup)) "representation-startup")
+      (for-each (lambda (program)
+        (check (member "-O2 -D___SINGLE_HOST_LIMIT=10000" program) ? pair?))
+        startup)
+      (for-each (lambda (directory)
+        (check (ormap (cut string-prefix? directory <>) (map cadr core)) => #f))
+        '("examples/" "t/fixtures/" "benchmarks/workloads/")))
     (test-case "shared graph preserves included-source dependencies and package order"
       (let (complete (build-inputs (test-build-spec)))
         (check (and (member '(gxc: "collection-order/table-cursor-test"
           (extra-inputs: ("collection-order/../build.ss"))) complete) #t) => #t)
         (check (and (member '(gxc: "collection-order/table-order-test"
           (extra-inputs: ("collection-order/../build.ss"
-                          "collection-order/table-order/observations.scm"))) complete) #t) => #t)
+                          "collection-order/table-order/observations.ss"))) complete) #t) => #t)
         (check (and (member '(gxc: "collection-updates/table-mapping-test"
           (extra-inputs: ("collection-updates/../build.ss"
-                          "collection-updates/table-mapping/composition.scm"
-                          "collection-updates/table-mapping/retraction.scm"))) complete) #t) => #t))
+                          "collection-updates/table-mapping/composition.ss"
+                          "collection-updates/table-mapping/retraction.ss"))) complete) #t) => #t))
       (check (build-inputs (test-build-spec "collection-order")) =>
         '((gxc: "rationaldict-order-test" (extra-inputs: ("../build.ss")))
           (gxc: "table-cursor-test" (extra-inputs: ("../build.ss")))
-          (gxc: "table-order-test" (extra-inputs: ("../build.ss" "table-order/observations.scm")))
+          (gxc: "table-order-test" (extra-inputs: ("../build.ss" "table-order/observations.ss")))
           (gxc: "table-split-test" (extra-inputs: ("../build.ss"))))))
     (test-case "compiler partitions cover every existing package exactly once"
       (let* ((parts (test-build-partitions))
              (groups (apply append (map cdr parts)))
              (all (test-build-spec)))
         (check (build-inputs (test-build-spec "collection-deltas")) =>
-          '((gxc: "table-batch-test" (extra-inputs: ("../build.ss" "table-batch/capture.scm"
-            "table-batch/origins.scm" "table-batch/transport.scm")))))
+          '((gxc: "table-batch-test" (extra-inputs: ("../build.ss" "table-batch/capture.ss"
+            "table-batch/origins.ss" "table-batch/transport.ss")))))
         (check (build-inputs (test-build-spec "recovery")) =>
           '((gxc: "coordinator-interleaving-test" (extra-inputs: ("../build.ss")))))
         (check (length parts) => 4)
-        (check (length all) => 68)
-        ;; Retain the 62 original roots plus the byte-I/O and FUN acceptance roots.
-        (check (length (filter (lambda (spec) (string-suffix? "-test" (cadr spec))) all)) => 64)
+        (check (length all) => 91)
+        (check (length (filter (lambda (spec) (string-suffix? "-test" (cadr spec))) all)) => 85)
+        (for (name '("construction/graph-order-repair-test" "feedback/graph-algorithms-test"
+                     "objects/class-diagnostics-test" "objects/shape-admission-test"
+                     "methods/duim-pane" "methods/duim-pane-test"
+                     "collection-styles/uint-trie-set-admission-test"))
+          (check (and (member name (map cadr all)) #t) => #t))
         ;; Grouping cannot leave any root unbounded or duplicate its policy.
         (for (spec all)
+          (check-equal? (length (filter (cut equal? <> "-cc-options") (drop spec 3))) 1)
           (check-equal? (drop spec 3)
-            '("-cc-options" "-Og -D___SINGLE_HOST_LIMIT=4096")))
-        (check (length groups) => 25)
+            (if (member (cadr spec)
+                  '("feedback/graph-algorithms-test" "construction/graph-order-repair-test"))
+              '("-cc-options" "-O2 -D___SINGLE_HOST_LIMIT=4096")
+              '("-cc-options" "-Og -D___SINGLE_HOST_LIMIT=4096"))))
+        (check (length groups) => 26)
         (check (length (delete-duplicates/hash groups)) => (length groups))
         (check (apply + (map (lambda (group) (length (test-build-spec group))) groups)) => (length all))))
-    (test-case "standard Just dependencies share four bounded graphs for build and cleanup"
+    (test-case "Just selects source test groups and keeps the core build independent"
       (def graph (string->json (run-process ["just" "--dump" "--dump-format" "json"])
         (JSONReadOptions key-as-symbol: #f array-as-vector: #f object-as-hash: #t)))
       (def recipes (hash-ref graph "recipes"))
-      (def entry (hash-ref recipes "_build-test-packages"))
-      (check (hash-ref entry "attributes") => '("parallel"))
-      (check (map (cut hash-ref <> "recipe") (hash-ref entry "dependencies")) =>
-        '("_build-test-package" "_build-test-package" "_build-test-package" "_build-test-package"))
-      ;; Build and failure cleanup share this one standard dependency graph.
-      (check (map (cut hash-ref <> "arguments") (hash-ref entry "dependencies")) =>
-        '(("contracts" ("variable" "action")) ("types" ("variable" "action"))
-          ("prototypes" ("variable" "action")) ("collections" ("variable" "action"))))
-      ;; The parallel runner uses the identical declared partitions, with every
-      ;; existing suite exactly once and no independently maintained inventory.
+      (def examples (hash-ref recipes "test-examples"))
+      (check (hash-ref examples "dependencies") => '())
       (def tests (hash-ref recipes "_test-packages"))
       (check (hash-ref tests "attributes") => '("parallel"))
       (check (map (cut hash-ref <> "recipe") (hash-ref tests "dependencies")) =>
@@ -256,6 +259,8 @@
         (def policy (path-expand "t/build.ss" project))
         (create-directory* directory)
         (copy-file "t/build.ss" policy)
+        (create-directory* (path-expand "support" project))
+        (copy-file "support/compile-jobs.ss" (path-expand "support/compile-jobs.ss" project))
         (copy-file "t/recovery/build.ss" (path-expand "build.ss" directory))
         (run-process ["chmod" "755" (path-expand "build.ss" directory)])
         (call-with-output-file (path-expand "gerbil.pkg" directory)

@@ -1,13 +1,13 @@
 ;;; Test-only control for the pre-optimization b14c15d finite-observation algorithm.
 (export prepare observe step eager-cook eager-service profile)
 (import :clan/poo/object
-        (runtime: :clan/poo/generalized-prototype)
-        (prefix-in (only-in :clan/poo/generalized-prototype assemble bind-observer cook-fields
+        (runtime: :clan/poo/mop/generalized-prototype)
+        (prefix-in (only-in :clan/poo/mop/generalized-prototype assemble bind-observer cook-fields
                    prepare-inheritance) gp.)
-        (runtime: :clan/poo/method-combination)
-        (prefix-in (only-in :clan/poo/method-combination prepare-simple sum) combination.)
-        (runtime: :clan/poo/examples/generalized-checkout)
-        (prefix-in (only-in :clan/poo/examples/generalized-checkout base declarations
+        (runtime: :clan/poo/mop/methods/combination)
+        (prefix-in (only-in :clan/poo/mop/methods/combination prepare-simple sum) combination.)
+        (runtime: :clan/poo/benchmarks/workloads/generalized-checkout)
+        (prefix-in (only-in :clan/poo/benchmarks/workloads/generalized-checkout base declarations
                    nested-base nested-declarations nested-protocol nested-root
                    protocol root) checkout.))
 ;; Keep the original three-field prepared representation private to the control.

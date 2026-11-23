@@ -6,7 +6,7 @@
   :clan/poo/object
   :clan/poo/number
   :clan/poo/type
-  :clan/poo/rationaldict
+  :clan/poo/table/rationaldict
   :clan/poo/trie)
 
 (def RationalTable (RationalDict String))

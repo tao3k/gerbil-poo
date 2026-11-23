@@ -1,7 +1,7 @@
 ;;; Related fixture-free suites share one standard runtime section.
 ;;; Gerbil retains export discovery, case order and all fixture boundaries.
 (export recursive-benchmark-test recursive-test)
-(import
+(import (only-in :clan/poo/type Any Bool)
   :std/test
   :std/iter
   (only-in :clan/poo/benchmarks/recursive-benchmark workload)
@@ -9,19 +9,18 @@
   (prefix-in :clan/poo/benchmarks/metadata-paired-suite paired.)
   (only-in :std/values first-value)
   :clan/poo/object
-  (only-in :clan/poo/mop Any Bool)
-  (prefix-in :clan/poo/recursive recursive.)
-  (prefix-in :clan/poo/recursive-cache cached.)
-  (prefix-in :clan/poo/recursive-handling handling.)
-  (prefix-in :clan/poo/examples/cyclic-access access.)
-  (prefix-in :clan/poo/examples/recursive-catalog catalog.)
-  (prefix-in :clan/poo/cyclic-publication publication.)
-  (prefix-in :clan/poo/multimethod dispatch.))
+  (prefix-in :clan/poo/recursive/evaluation recursive.)
+  (prefix-in :clan/poo/recursive/cache cached.)
+  (prefix-in :clan/poo/recursive/handling handling.)
+  (prefix-in :clan/poo/benchmarks/workloads/cyclic-access access.)
+  (prefix-in :clan/poo/benchmarks/workloads/recursive-catalog catalog.)
+  (prefix-in :clan/poo/graph/cyclic-publication publication.)
+  (prefix-in :clan/poo/mop/methods/dispatch dispatch.))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (recursive-benchmark-test)
-  (let () (include "recursive/recursive-benchmark.scm")))
+  (let () (include "recursive/recursive-benchmark.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (recursive-test)
-  (let () (include "recursive/cases.scm")))
+  (let () (include "recursive/cases.ss")))

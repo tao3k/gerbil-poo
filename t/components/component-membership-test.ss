@@ -3,40 +3,55 @@
 (export component-membership-test component-migration-test component-requests-test component-rounds-test)
 (import
   :std/test
+  (only-in :clan/poo/support/base %graph-table-seed %with-graph-table-seeds)
+  (only-in :std/error Error-message)
+  (only-in :gerbil/runtime/hash HashTable::interface)
+  (prefix-in (only-in :gerbil/runtime/mop slot-ref slot-set! object-class) runtime.)
+  (prefix-in :clan/poo/benchmarks/workloads/component-services owned-service.)
   :clan/poo/object
   :clan/poo/mop
   :clan/poo/brace
   :clan/poo/support/option
-  :clan/poo/feedback-graph
-  :clan/poo/feedback-cache
-  (prefix-in :clan/poo/construction-cache cache.)
-  (prefix-in :clan/poo/strong-components scc.)
-  (prefix-in :clan/poo/generalized-graph graph.)
-  (prefix-in :clan/poo/dependency-analysis code.)
-  (prefix-in :clan/poo/examples/component-membership component-membership.service.)
-  (prefix-in :clan/poo/component-revision revision.)
-  (prefix-in :clan/poo/examples/component-membership initial.)
-  (prefix-in :clan/poo/examples/component-migration component-migration.service.)
+  :clan/poo/graph/feedback
+  :clan/poo/graph/feedback/cache
+  (only-in :clan/poo/mop/generalized-closure closed-raw)
+  (only-in :clan/poo/graph/feedback/builder component-group-builder)
+  (prefix-in :clan/poo/graph/construction cache.)
+  (prefix-in :clan/poo/graph/scc scc.)
+  (prefix-in :clan/poo/graph/schedule graph.)
+  (prefix-in :clan/poo/graph/computation code.)
+  (prefix-in :clan/poo/benchmarks/workloads/component-membership component-membership.service.)
+  (prefix-in :clan/poo/graph/component/revision revision.)
+  (prefix-in :clan/poo/benchmarks/workloads/component-membership initial.)
+  (prefix-in :clan/poo/benchmarks/workloads/component-migration component-migration.service.)
   :std/sync/channel
-  :clan/poo/lens-laws
-  (prefix-in :clan/poo/component-publication publication.)
-  (prefix-in :clan/poo/examples/component-requests component-requests.service.)
-  (prefix-in :clan/poo/examples/component-rounds rounds.)
+  :clan/poo/mop/lens-laws
+  (only-in :clan/poo/types/class-validation required-slots?)
+  (only-in :clan/poo/object/slot-observation slot-read-key slot-read-receiver)
+  (prefix-in :clan/poo/graph/component/publication publication.)
+  (prefix-in :clan/poo/benchmarks/workloads/component-requests component-requests.service.)
+  (prefix-in :clan/poo/benchmarks/workloads/component-rounds rounds.)
   (only-in :std/list/list foldl find filter)
-  (prefix-in :clan/poo/examples/component-rounds component-rounds.service.))
+  (prefix-in :clan/poo/benchmarks/workloads/component-rounds component-rounds.service.))
+
+(extern namespace: clan/poo/graph/component/publication %request-lineage %lineage-invalidation
+  %request-action %request-action-set!)
+(extern namespace: clan/poo/graph/schedule %invalidation-work affected-work-marked)
+(extern namespace: clan/poo/mop/lens-laws %prepared-vector-lens?)
+(extern namespace: clan/poo/object object-%instance)
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (component-membership-test)
-  (let () (include "component-membership/cases.scm")))
+  (let () (include "component-membership/cases.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (component-migration-test)
-  (let () (include "component-membership/component-migration.scm")))
+  (let () (include "component-membership/component-migration.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (component-requests-test)
-  (let () (include "component-membership/component-requests.scm")))
+  (let () (include "component-membership/component-requests.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (component-rounds-test)
-  (let () (include "component-membership/component-rounds.scm")))
+  (let () (include "component-membership/component-rounds.ss")))

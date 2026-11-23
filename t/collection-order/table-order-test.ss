@@ -1,7 +1,7 @@
 ;;; Explicit order integrates index publication, inversion and ownership transfer.
 (export table-order-test)
-(import (only-in :clan/poo/support/base number-comparer) (only-in :std/list/list-builder with-list-builder) :std/test :std/error :std/iter :clan/poo/object :clan/poo/mop :clan/poo/type :clan/poo/number :clan/poo/table :clan/poo/rationaldict :clan/poo/support/option
-        (only-in :clan/poo/brace @@method) (only-in :clan/poo/t/table-testing alist-table) (only-in :clan/poo/t/table-testing box-table) (only-in :clan/poo/fun Wrapper. IdWrap) (only-in :clan/poo/trie SimpleTrie Trie. Branch Leaf trie-for-each-change) (prefix-in :clan/poo/examples/service-collection service.))
+(import (only-in :clan/poo/support/base number-comparer) (only-in :std/list/list-builder with-list-builder) :std/test :std/error :std/iter :clan/poo/object :clan/poo/mop :clan/poo/type :clan/poo/number :clan/poo/table :clan/poo/table/rationaldict :clan/poo/support/option
+        (only-in :clan/poo/brace @@method) (only-in :clan/poo/t/table-testing alist-table) (only-in :clan/poo/t/table-testing box-table) (only-in :clan/poo/fun Wrapper. IdWrap) (only-in :clan/poo/trie SimpleTrie Trie. Branch Leaf trie-for-each-change) (prefix-in :clan/poo/t/fixtures/service-collection service.))
 
 ;; Keep deliberate protocol refusal separate from arbitrary comparator failures.
 (def (message? text)
@@ -46,7 +46,7 @@
 ;; A whole lifecycle includes changed order, conflict retry and inverse recovery.
 (def table-order-test
   (test-suite "explicit transported table order"
-    (include "table-order/observations.scm")
+    (include "table-order/observations.ss")
     (test-case "all finite presence and Bool values agree across structural and cursor comparison"
       (def fixtures (for/collect (code (in-range 27))
         (with-list-builder (emit) (for (key (in-range 3))

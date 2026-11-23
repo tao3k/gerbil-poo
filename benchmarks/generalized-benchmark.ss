@@ -1,14 +1,14 @@
 (export main workload)
 (import :clan/poo/object
-        (runtime: :clan/poo/examples/generalized-checkout)
-        (prefix-in (only-in :clan/poo/examples/generalized-checkout base declarations
+        (runtime: :clan/poo/benchmarks/workloads/generalized-checkout)
+        (prefix-in (only-in :clan/poo/benchmarks/workloads/generalized-checkout base declarations
                    nested-base nested-declarations nested-protocol nested-root
                    prepare-checkout prepare-nested protocol root) checkout.)
         (only-in "closure-measure.ss" run-child)
         (prefix-in "generalized-cases.ss" study.)
         (prefix-in "generalized-observation-reference.ss" reference.)
-        (runtime: :clan/poo/generalized-prototype)
-        (prefix-in (only-in :clan/poo/generalized-prototype bind-observer observe
+        (runtime: :clan/poo/mop/generalized-prototype)
+        (prefix-in (only-in :clan/poo/mop/generalized-prototype bind-observer observe
                    prepare-inheritance step) gp.))
 ;; Use actual old/new public interfaces; phase ablations change one construction
 ;; choice at a time. Instrumented callback counters are tested outside timed loops.

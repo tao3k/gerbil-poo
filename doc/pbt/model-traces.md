@@ -37,7 +37,7 @@ Function wrappers without installing an additional wrapper chain in the kernel.
 Dependency repair uses the same model fold; shrinking and both replay forms use
 the ordinary property runner and fresh scoped fixtures.
 
-`examples/property-kernel.ss` combines shared producers, normalized contracted
+`t/fixtures/property-kernel.ss` combines shared producers, normalized contracted
 callbacks, dependency repair, a faulty consumer, shrinking and both replays.
 Separate late-domain/normalization-failure controls require zero fixture opens.
 The POO Record regression rejects an invalid callback argument before its body
@@ -212,7 +212,7 @@ Five independent cases exercise all six drawing stages, shared admission and
 retirement, reference/actual/equality/setup/teardown revisions, original causes,
 false data and multi-values, and transient specification refusal with balanced
 cleanup and a fresh retry. The independent standard-library package now runs 92
-cases. `examples/generated-traces.ss` adds one Record/FUN scenario across initial,
+cases. `t/property/generated-traces-test.ss` adds one Record/FUN scenario across initial,
 draw, precondition and advance revisions: no property is entered after refusal,
 repeat runs retain the same stage boundary, and a fresh preparation successfully
 checks commands whose nested Function fields still reject invalid arguments.

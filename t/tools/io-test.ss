@@ -3,7 +3,7 @@
 (import :std/test :std/error :std/iter
         (prefix-in :clan/poo/io io.)
         (only-in :clan/poo/object .o)
-        (only-in :clan/poo/examples/byte-io copy-bytes-action))
+        (only-in :clan/poo/t/fixtures/byte-io copy-bytes-action))
 
 ;; Count only actual reads; the underlying standard port owns byte transport.
 (defstruct counted-reader (port calls) final: #t)

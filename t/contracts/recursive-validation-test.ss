@@ -6,46 +6,46 @@
   :clan/poo/object
   :clan/poo/mop
   :clan/poo/number
-  (only-in :clan/poo/type Record List)
-  (prefix-in :clan/poo/recursive-validation graph.)
-  (prefix-in :clan/poo/recursive-staging staging.)
-  (prefix-in :clan/poo/recursive-topology recursive-staging.topology.)
-  (prefix-in :clan/poo/examples/recursive-topology recursive-staging.service.)
-  (prefix-in :clan/poo/examples/recursive-staging recursive-staging.workflow.)
-  (prefix-in :clan/poo/examples/recursive-migration migration.)
-  (prefix-in :clan/poo/declarative-metadata metadata.)
-  (prefix-in :clan/poo/examples/contract-publication recursive-staging.publication.)
+  (only-in :clan/poo/type Record List Any Fun define-type validate TypeError?)
+  (prefix-in :clan/poo/recursive/validation graph.)
+  (prefix-in :clan/poo/recursive/staging staging.)
+  (prefix-in :clan/poo/recursive/topology recursive-staging.topology.)
+  (prefix-in :clan/poo/t/fixtures/recursive-topology recursive-staging.service.)
+  (prefix-in :clan/poo/t/fixtures/recursive-staging recursive-staging.workflow.)
+  (prefix-in :clan/poo/t/fixtures/recursive-migration migration.)
+  (prefix-in :clan/poo/mop/declarative-metadata metadata.)
+  (prefix-in :clan/poo/benchmarks/workloads/contract-publication recursive-staging.publication.)
   :std/error
-  (prefix-in :clan/poo/recursive-approvals approvals.)
-  (prefix-in :clan/poo/recursive-publication recursive-submissions.publication.)
-  (prefix-in :clan/poo/examples/recursive-topology recursive-submissions.topology.)
-  (prefix-in :clan/poo/examples/recursive-approvals recursive-submissions.service.)
-  (prefix-in :clan/poo/examples/recursive-competition competition.)
-  (prefix-in :clan/poo/examples/recursive-submissions recursive-submissions.workflow.)
+  (prefix-in :clan/poo/recursive/approvals approvals.)
+  (prefix-in :clan/poo/recursive/publication recursive-submissions.publication.)
+  (prefix-in :clan/poo/t/fixtures/recursive-topology recursive-submissions.topology.)
+  (prefix-in :clan/poo/t/fixtures/recursive-approvals recursive-submissions.service.)
+  (prefix-in :clan/poo/t/fixtures/recursive-competition competition.)
+  (prefix-in :clan/poo/t/fixtures/recursive-submissions recursive-submissions.workflow.)
   (only-in :std/list/list filter)
-  (prefix-in :clan/poo/recursive-topology recursive-topology.topology.)
-  (prefix-in :clan/poo/strong-components scc.)
-  (prefix-in :clan/poo/examples/recursive-topology recursive-topology.service.)
-  (prefix-in :clan/poo/examples/contract-publication recursive-topology.publication.)
-  :clan/poo/object-contract
-  (prefix-in :clan/poo/examples/recursive-validation recursive-validation.service.)
-  (prefix-in :clan/poo/examples/object-contracts config.)
-  (prefix-in :clan/poo/examples/contract-publication recursive-validation.publication.)
-  (prefix-in :clan/poo/recursive-handling handling.)
-  (prefix-in :clan/poo/recursive-cache cached.))
+  (prefix-in :clan/poo/recursive/topology recursive-topology.topology.)
+  (prefix-in :clan/poo/graph/scc scc.)
+  (prefix-in :clan/poo/t/fixtures/recursive-topology recursive-topology.service.)
+  (prefix-in :clan/poo/benchmarks/workloads/contract-publication recursive-topology.publication.)
+  :clan/poo/types/object-contract
+  (prefix-in :clan/poo/t/fixtures/recursive-validation recursive-validation.service.)
+  (prefix-in :clan/poo/benchmarks/workloads/object-contracts config.)
+  (prefix-in :clan/poo/benchmarks/workloads/contract-publication recursive-validation.publication.)
+  (prefix-in :clan/poo/recursive/handling handling.)
+  (prefix-in :clan/poo/recursive/cache cached.))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (recursive-staging-test)
-  (let () (include "recursive-validation/recursive-staging.scm")))
+  (let () (include "recursive-validation/recursive-staging.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (recursive-submissions-test)
-  (let () (include "recursive-validation/recursive-submissions.scm")))
+  (let () (include "recursive-validation/recursive-submissions.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (recursive-topology-test)
-  (let () (include "recursive-validation/recursive-topology.scm")))
+  (let () (include "recursive-validation/recursive-topology.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (recursive-validation-test)
-  (let () (include "recursive-validation/cases.scm")))
+  (let () (include "recursive-validation/cases.ss")))

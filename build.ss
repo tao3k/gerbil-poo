@@ -1,12 +1,15 @@
 #!/usr/bin/env -S gxi -:max-heap=2G,debug=q
 ;;; Standard package declaration; Gerbil owns inputs, dependencies and freshness.
-(export main +gerbil-poo-build-spec+ production-spec)
+(export main project-build-source)
 (import :std/build-script (only-in :std/source this-source-file)
         (only-in :std/make include-gambit-sharp append-options)
-        (only-in "t/build.ss" call-with-build-jobs))
+        (only-in "support/compile-jobs.ss" call-with-build-jobs))
 ;; Preserve the established compiler backend bound in the official entry.
 (let (options (getenv "GAMBOPT" #f))
   (setenv "GAMBOPT" (string-append (if options (string-append options ",") "") "max-heap=2G,debug=q")))
+;; Use the package root for benchmark build specs that include sibling modules.
+(def project-build-file (this-source-file))
+(defrules project-build-source () ((_ . _) project-build-file))
 ;; Declare one production C policy through standard make. Explicit inputs keep
 ;; compiler policy and each module's existing included sources in freshness checks.
 (def (production-module name (inputs []) (cc-options "") . options)
@@ -25,12 +28,13 @@
    (darwin
     ;; Gambit loads this AOT module as a Mach-O bundle. Math symbols such as
     ;; pow are resolved from the host runtime when the bundle is loaded.
-    (production-module "fq" [] "" "-ld-options" "-Wl,-undefined,dynamic_lookup"))
-   (else "fq")))
+    (production-module "number/finite-field" [] "" "-ld-options" "-Wl,-undefined,dynamic_lookup"))
+   (else "number/finite-field")))
 
 (def +gerbil-poo-build-spec+
   `("brace"
     "support/base"
+    "support/index"
     "support/debug"
     "support/io"
     "support/json"
@@ -41,84 +45,113 @@
     "support/syntax"
     "support/object-syntax"
     "support/testing"
-    "closure"
-    "cyclic-publication"
-    "cli"
+    "graph/closure"
+    "graph/cyclic-publication"
+    "support/cli"
     "debug"
     ,+gerbil-poo-fq-spec+
-    "recursive"
-    "recursive-cache"
-    "recursive-handling"
+    "recursive/evaluation"
+    "recursive/cache"
+    "recursive/handling"
     "fun"
-    ,(apply production-module "io" [] "" (include-gambit-sharp))
-    "validation-rebinding"
-    "value-diagnostics"
-    "class-validation"
-    "function-signature"
+    ,(apply production-module "io"
+      ["io/bytes.ss" "io/representation.ss" "io/serialization.ss" "io/gambit-writer.ss"]
+      "" (include-gambit-sharp))
+    "types/validation-rebinding"
+    "types/value-diagnostics"
+    "types/class-validation"
+    "types/function-signature"
+    "mop/prototype"
+    "object/read-projection"
+    "mop/clos/class-declaration-ir"
+    "mop/clos/classes"
+    "mop/clos/declaration-ir"
+    "mop/clos/declaration-ir-core"
+    "mop/clos/dispatch"
+    "mop/clos/evolution"
+    "mop/clos/funcs"
+    "mop/clos/generic-evolution"
+    "mop/clos/generic-syntax"
+    "mop/clos/instance-state"
+    "mop/clos/lambda-list"
+    "mop/clos/lifecycle"
+    "mop/clos/load-form"
+    "mop/clos/method-bundle-syntax"
+    "mop/clos/method-combination"
+    "mop/clos/method-combination-declaration-ir"
+    "mop/clos/model"
+    "mop/clos/profile"
+    "mop/clos/objects"
+    "mop/clos/reflection"
+    "mop/clos/syntax"
+    "mop/clos/types"
     "mop"
-    "parameters"
+    "types/parameters"
     "types/syntax"
     "types/relation"
-    "prototype-types"
-    "method-combination"
-    "multimethod"
-    "dispatch-extension"
-    "declarative-metadata"
+    "types/prototype-types"
+    "mop/methods/combination"
+    "mop/methods/dispatch"
+    "mop/methods/extension"
+    "mop/declarative-metadata"
     "types/validation"
-    "variant-validation"
-    "optional-validation"
-    "object-contract"
-    "recursive-validation"
-    "recursive-topology"
-    "recursive-staging"
-    "recursive-publication"
-    "recursive-approvals"
-    "recursive-coordination"
-    "generic-family"
-    "contract-family"
-    "dependency-analysis"
-    "generalized-graph"
-    "component-revision"
-    "component-publication"
-    "joint-publication"
-    "generalized-prototype"
-    "construction-cache"
-    "staged-publication"
-    "number"
-    "prototype-map"
-    "slot-layout"
-    "read-route"
-    "slot-observation"
-    "object-state"
-    "meta-prototype"
-    "declaration"
-    "recursive-declaration"
-    "method-declaration"
-    "generalized-declaration"
-    "lens-laws"
-    "generalized-closure"
-    "focused-closure"
-    "feedback-closure"
-    "feedback-cache"
-    "component-closure"
-    "strong-components"
-    "feedback-graph"
-    "reflection"
-    ,(production-module "object" ["object/observation.scm"])
-    "polynomial"
-    "proto"
-    "rationaldict"
+    "types/variant-validation"
+    "types/optional-validation"
+    "types/object-contract"
+    "recursive/validation"
+    "recursive/topology"
+    "recursive/staging"
+    "recursive/publication"
+    "recursive/approvals"
+    "recursive/coordination"
+    "mop/generic-family"
+    "mop/contract-family"
+    "graph/computation"
+    "graph/schedule"
+    "graph/component/revision"
+    "graph/component/publication"
+    "graph/component/joint"
+    "mop/generalized-prototype"
+    "graph/construction"
+    "graph/staged-publication"
+    ,(production-module "number" ["number/modular.ss" "number/exponentiation.ss"])
+    "object/prototype-map"
+    ,(apply production-module "object/slot-layout" [] "" (include-gambit-sharp))
+    "object/read-route"
+    "object/slot-observation"
+    "object/state"
+    "mop/meta-prototype"
+    "object/declaration"
+    "recursive/declaration"
+    "mop/methods/declaration"
+    "mop/generalized-declaration"
+    "mop/lens-laws"
+    "mop/generalized-closure"
+    "mop/focused-closure"
+    "graph/feedback/closure"
+    "graph/feedback/cache"
+    "graph/feedback/builder"
+    "graph/scc"
+    "graph/feedback"
+    "object/reflection"
+    ,(production-module "object" ["object/representation.ss" "object/construction.ss" "object/slot-values.ss" "object/observation.ss" "object/slot-access.ss" "object/operations.ss" "object/syntax.ss" "object/mutation.ss"])
+    "number/polynomial"
+    "mop/prototype-composition"
+    "table/rationaldict"
     ;; std/make tracks the standard include as an explicit compiler input.
     ;; Gambit's built-in host limit splits large generated C procedures instead
     ;; of making GCC optimize the entire collection module as one label graph.
     ;; Standard compiler inputs, object caching and all stage limits remain owned
     ;; by std/make; this is a code-generation choice, not a larger resource budget.
     ,(production-module "table"
-      ["table/observation.scm" "table/io.scm" "table/fold.scm" "table/focus.scm"
-       "table/mapping.scm" "table/styles.scm" "table/sets.scm" "table/indexes.scm" "table/order.scm"]
+      ["table/iterator.ss" "table/observation.ss" "table/io.ss" "table/validation.ss"
+       "table/delta.ss" "table/fold.ss" "table/translation.ss"
+       "table/protocol.ss" "table/focus.ss" "table/mapping.ss" "table/styles.ss" "table/sets.ss" "table/indexes.ss" "table/order.ss"]
       +gerbil-poo-cc-options+)
-    ,(production-module "trie" ["trie/changes.scm"])
-    "type"
+    ,(production-module "trie" ["trie/representation.ss" "trie/changes.ss" "trie/protocol.ss" "trie/types.ss"])
+    ,(production-module "type"
+      ["types/sequences.ss" "types/scalar-codecs.ss" "types/combinations.ss"
+       "types/pairs.ss" "types/optional.ss" "types/associative.ss" "types/sum.ss"])
     "testing/generation-graph"
     "testing/recursive-generation"
     "testing/property/generator"

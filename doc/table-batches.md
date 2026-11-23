@@ -45,7 +45,7 @@ are rejected rather than inferred away.
 
 Fold updates finish all conflict checks before any contribution projection. A
 failed late batch therefore invokes neither projections nor the FUN consumer.
-`examples/service-collection.ss` exports `batch-ledger-action`, composing batch
+`t/fixtures/service-collection.ss` exports `batch-ledger-action`, composing batch
 admission with the existing fold/FUN continuation. Retain the old state, rediscover
 against the winning state after failure, and submit the complete new batch.
 Paired fold transport also retains live ownership for keys deleted and reinserted

@@ -1,9 +1,9 @@
 (export debug-test)
 
-(import
+(import (only-in :clan/poo/type Type)
   :std/test
   :clan/poo/debug
-  (only-in :clan/poo/mop Type))
+  )
 
 (def (capture-ddt type value)
   (with-output-to-string

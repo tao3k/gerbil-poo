@@ -552,7 +552,7 @@ future work; it proves neither arbitrary mutation/rollback nor Scheme compilatio
 its `capture_error`, `refresh_error`, `eq` and `sound` laws retain the original
 selection. `Examples/Parameters.lean` distinguishes run's two outputs from audit's
 single output and checks later-request selection and failure ordering. Scheme's
-`examples/signature-service.ss` and candidate-inference regressions execute the
+`t/fixtures/signature-service.ss` and candidate-inference regressions execute the
 corresponding nested publication chain. Direct source/binding revision checks
 remain in force; no Any fallback or transitive callback stability is introduced.
 

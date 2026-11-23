@@ -8,30 +8,30 @@
   :clan/poo/object
   :clan/poo/mop
   :clan/poo/brace
-  (prefix-in :clan/poo/joint-publication joint.)
-  (prefix-in :clan/poo/construction-cache cache.)
-  (prefix-in :clan/poo/examples/joint-topology service.)
-  (prefix-in :clan/poo/examples/joint-receipts receipts.)
-  (prefix-in :clan/poo/examples/joint-coordination coordination.)
-  :clan/poo/examples/joint-coordination-rounds
+  (prefix-in :clan/poo/graph/component/joint joint.)
+  (prefix-in :clan/poo/graph/construction cache.)
+  (prefix-in :clan/poo/benchmarks/workloads/joint-topology service.)
+  (prefix-in :clan/poo/benchmarks/workloads/joint-receipts receipts.)
+  (prefix-in :clan/poo/benchmarks/workloads/joint-coordination coordination.)
+  :clan/poo/benchmarks/workloads/joint-coordination-rounds
   :clan/poo/t/joint-coordination-cases
-  (prefix-in :clan/poo/examples/joint-workers workers.)
+  (prefix-in :clan/poo/benchmarks/workloads/joint-workers workers.)
   (only-in :std/list/list foldl filter)
-  :clan/poo/feedback-graph
-  (prefix-in :clan/poo/examples/joint-concurrency concurrent.))
+  :clan/poo/graph/feedback
+  (prefix-in :clan/poo/benchmarks/workloads/joint-concurrency concurrent.))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (coordinator-recovery-test)
-  (let () (include "joint-coordination/coordinator-recovery.scm")))
+  (let () (include "joint-coordination/coordinator-recovery.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (coordinator-rejoining-test)
-  (let () (include "joint-coordination/coordinator-rejoining.scm")))
+  (let () (include "joint-coordination/coordinator-rejoining.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (joint-concurrency-test)
-  (let () (include "joint-coordination/joint-concurrency.scm")))
+  (let () (include "joint-coordination/joint-concurrency.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (joint-coordination-test)
-  (let () (include "joint-coordination/cases.scm")))
+  (let () (include "joint-coordination/cases.ss")))

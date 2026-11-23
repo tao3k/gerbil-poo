@@ -372,20 +372,20 @@ further tuning of the corresponding workflow.
 
 | Original TODO | Implementation status and evidence | Remaining acceptance boundary |
 | --- | --- | --- |
-| Explicit instantiation assertions / side effects | Implemented explicitly: `mop.ss` `instantiate`, `make-instance`, `.new/checked`; `class-validation.ss` recursively wraps effective Slot fields before and after hooks; `t/objects/lifecycle-test.ss`, `t/contracts/class-validation-test.ss` | Existing `.new`/`instance` stay lazy. Custom validators and callback effects remain caller obligations; no effect rollback or automatic recursion into nested construction hooks. |
+| Explicit instantiation assertions / side effects | Implemented explicitly: `mop.ss` `instantiate`, `make-instance`, `.new/checked`; `types/class-validation.ss` recursively wraps effective Slot fields before and after hooks; `t/objects/lifecycle-test.ss`, `t/contracts/class-validation-test.ss` | Existing `.new`/`instance` stay lazy. Custom validators and callback effects remain caller obligations; no effect rollback or automatic recursion into nested construction hooks. |
 | Automatic lens path syntax | Implemented: `mop.ss` `.lens`, `slots-lens`; persistent nested update and empty-path tests | General lawful/dependent representation adapters and cross-type migration remain partial. |
 | Undefined method handling / lazy delegation | Implemented: `object.ss` `no-applicable-method`, `fallback-to`; receiver-local first-miss tests, cached false and refusal/recovery | Delegate changes need fresh receivers; this is not automatic discovery or mutable delegate invalidation. |
 | Circular slot diagnostics | Implemented for repeated receiver/slot computation: `CyclicSlot`, `compute-slot-value`; slot/delegate/hook cycle and retry tests | Not a termination checker for arbitrary callbacks or chains of fresh receivers. |
-| Multiple inheritance and method combination | Implemented concrete C3, standard/simple/forwarding/inner/Simula APIs, `MethodDeclaration.` record/method stream, certified typed declaration groups and `.defgeneric` `combination:` invocation with retained cache successors. `generalized-declaration.ss` now supplies extensible lens/wrapper/method descriptors and `.prototype` for arbitrary explicit raw/cooked carriers. | The generic lens-based fragment protocol/macro is implemented and tested on nested vectors and procedures. Automatic law discovery, unrestricted recursive closure, compile-time specialization and arbitrary inferred multi-dispatch syntax remain future work; explicit certified typed declarations now use the same method form, inheritance and generic invocation protocol. Generic optional/keyword/rest formals are now admitted by the existing Gerbil forwarding path and tested with from:type, defaults and method combinations; see parameters.md. |
-| General inheritance MOP | Concrete interception implemented: `mop.ss`, ordinary inherited protocol objects, `compute-precedence-list` and `compute-slot`; `t/objects/inheritance-hooks-test.ss`. `meta-prototype.ss` now closes finite positive recursive metalevel equations before cooking/bootstrap. | Accepted precedence retains checked C3; custom slot transformations need their own semantic laws. Constant-base self-hosting and finite Boolean least closure are implemented; arbitrary alternative orders, negative/nonmonotone recursion and unrestricted recursive meta fixed points remain open. |
-| User-selected storage and focused computation | Explicit lens/wrapper protocol accepts non-record raw/cooked storage. `lens-laws.ss` adds finite get-put/put-get/put-put counterexample checks, paired with universal custom/composed lens laws in Lean. `generalized-closure.ss` adds bounded actual-raw stabilization; `t/generalized/generalized-closure-test.ss`. | Arbitrary custom adapters still require laws; finite samples are not universal certificates. General callback termination, automatic storage/layout/law discovery and primitive proxies remain open. |
-| Record/class reflection | Concrete declaration protocol implemented: `reflection.ss` reuses Slot / Class, effective metadata, public read/write admission, `make-declared-instance`; metadata edits recompile declarations | Trusted raw `.ref` and generated struct setters can bypass this API. Nonlocal expansion/finalization and public/private catalogs are implemented in `declaration.ss`; global capability security and arbitrary lexical/compiler macro effects remain open. |
+| Multiple inheritance and method combination | Implemented concrete C3, standard/simple/forwarding/inner/Simula APIs, `MethodDeclaration.` record/method stream, certified typed declaration groups and `.defgeneric` `combination:` invocation with retained cache successors. `mop/generalized-declaration.ss` now supplies extensible lens/wrapper/method descriptors and `.prototype` for arbitrary explicit raw/cooked carriers. | The generic lens-based fragment protocol/macro is implemented and tested on nested vectors and procedures. Automatic law discovery, unrestricted recursive closure, compile-time specialization and arbitrary inferred multi-dispatch syntax remain future work; explicit certified typed declarations now use the same method form, inheritance and generic invocation protocol. Generic optional/keyword/rest formals are now admitted by the existing Gerbil forwarding path and tested with from:type, defaults and method combinations; see parameters.md. |
+| General inheritance MOP | Concrete interception implemented: `mop.ss`, ordinary inherited protocol objects, `compute-precedence-list` and `compute-slot`; `t/objects/inheritance-hooks-test.ss`. `mop/meta-prototype.ss` now closes finite positive recursive metalevel equations before cooking/bootstrap. | Accepted precedence retains checked C3; custom slot transformations need their own semantic laws. Constant-base self-hosting and finite Boolean least closure are implemented; arbitrary alternative orders, negative/nonmonotone recursion and unrestricted recursive meta fixed points remain open. |
+| User-selected storage and focused computation | Explicit lens/wrapper protocol accepts non-record raw/cooked storage. `mop/lens-laws.ss` adds finite get-put/put-get/put-put counterexample checks, paired with universal custom/composed lens laws in Lean. `mop/generalized-closure.ss` adds bounded actual-raw stabilization; `t/generalized/generalized-closure-test.ss`. | Arbitrary custom adapters still require laws; finite samples are not universal certificates. General callback termination, automatic storage/layout/law discovery and primitive proxies remain open. |
+| Record/class reflection | Concrete declaration protocol implemented: `object/reflection.ss` reuses Slot / Class, effective metadata, public read/write admission, `make-declared-instance`; metadata edits recompile declarations | Trusted raw `.ref` and generated struct setters can bypass this API. Nonlocal expansion/finalization and public/private catalogs are implemented in `declaration.ss`; global capability security and arbitrary lexical/compiler macro effects remain open. |
 | Conditional/computed slot names | Implemented concrete protocol: `.declare`, computed `declaration-form` / splicing, inherited Reader/FUN expansion/finalization, multiple-slot contributions and visibility catalogs; `t/declarations/meta-prototype-test.ss`. `recursive-declaration.ss` adds named forward/shared requests with owned memo and whole-object finalization; `t/declarations/recursive-declaration-test.ss`. | Form specifications are captured sources; fresh membership needs fresh elaboration. Positive metadata cycles use least closure; repeated active expansion requests refuse. Unrestricted lexical rewrites, arbitrary callback termination and I/O rollback remain outside this protocol. |
 | Object keyword syntax / lexical slot bindings | Implemented: `.o` leading self/super/inherit/bind/bind-these options lower through the existing slot engine; legacy forms and match patterns retained; `t/objects/parameters-test.ss` | Declared lexical grammar closed. Arbitrary lexical rewrites are not part of this grammar. See [parameters.md](parameters.md). |
 | Prototype mutability discipline | Explicit invalidating protocol implemented: registered weak reverse edges, once-per-owner clearing across diamonds, topology preflight, active-evaluation rejection and optional sealing; original parent-mutation tests retained | Sequential supported APIs only; external callback dependencies must be registered. Raw struct setters are internal escape hatches. Sealing locks direct source/instance edits, not all unsealed ancestors. |
 | Data representation / usual object optimizations | Implemented protocol: persistent ordered prototype maps, shared symbolic shapes, authoritative receiver-local vector values through Gerbil HashTable, and guarded inline sites integrated into ordinary reads/writes, provenance and descendant invalidation | Concrete protocol closed; full hash removal, Patricia layouts and automatic JIT/PIC policy remain optimization work. See [representation.md](representation.md). Historical speed measurements do not close these. |
-| Positional parameter specialization | Implemented: `parameters.ss` validates `.parameters` and performs persistent prefix binding with `.cc`; partial/full closure, malformed/excess refusal and checked FUN consumption tested | Explicit positional API closed with 13 Lean semantic laws. Specialization does not implicitly run hooks/effects or perform type inference. See [parameters.md](parameters.md). |
-| Type system for POO | Executable Type descriptors, structural contracts and guarded publication; Function optional/keyword/rest and ordered CaseFunction signatures implemented | Finite rank-one Self/Super schemes, explicit subtype bounds, structural Function variance and finite-candidate inference implemented in `types/relation.ss` / `prototype-types.ss`. Controlled guarded Mu approximants, open/closed Object rows, disjoint row substitution and finite row inference are implemented; see [row-types.md](row-types.md). Higher ranks, arbitrary predicates/unrestricted recursive/row/effect inference remain open; recognition alone does not prove host arity. See [prototype-types.md](prototype-types.md). |
+| Positional parameter specialization | Implemented: `types/parameters.ss` validates `.parameters` and performs persistent prefix binding with `.cc`; partial/full closure, malformed/excess refusal and checked FUN consumption tested | Explicit positional API closed with 13 Lean semantic laws. Specialization does not implicitly run hooks/effects or perform type inference. See [parameters.md](parameters.md). |
+| Type system for POO | Executable Type descriptors, structural contracts and guarded publication; Function optional/keyword/rest and ordered CaseFunction signatures implemented | Finite rank-one Self/Super schemes, explicit subtype bounds, structural Function variance and finite-candidate inference implemented in `types/relation.ss` / `types/prototype-types.ss`. Controlled guarded Mu approximants, open/closed Object rows, disjoint row substitution and finite row inference are implemented; see [row-types.md](row-types.md). Higher ranks, arbitrary predicates/unrestricted recursive/row/effect inference remain open; recognition alone does not prove host arity. See [prototype-types.md](prototype-types.md). |
 | Generic data structure library | Shared finite validation, explicit revisions/isomorphisms, aggregates, indexes, projections and five-style publication have concrete implementations; constructor delegation preserves independently partial empty/singleton/bulk operations. Set admission now shares Table's dynamic receiver/snapshot reentry guard. See the [source-grounded composition audit](collection-composition-audit.md). | General automatic discovery remains open. Recognition reuse requires explicit refinement/purity evidence; finite reentry detection does not establish arbitrary callback termination. |
 | Type-driven property-based testing | Implemented finite protocol: descriptor samplers, products, seeded replay, strict-domain bounded shrinking and stale-source refusal | Derived scalar leaves, guarded recursive List/Tuple/Pair/Union/Maybe/OrFalse graphs and Function call rows; explicit generators for other/refined Types and Function values. Automatic guarded recursive generators are implemented; unrestricted recursive carriers and universal verification remain open. See [recursive-generators.md](recursive-generators.md) and [generated-testing.md](generated-testing.md). The [next PBT acceptance units](pbt/architecture.md#feature-acceptance) prioritize reusable generator composition through Type boundaries, effective coverage, portable replay and bounded Function values; these finite
   protocols now have implementations and joint acceptance described in the RFC. |
@@ -702,7 +702,7 @@ and approval guards → named incarnation fences → scoped submission/exit → 
 same-name recovery → current `refine` / exact `bind-evidence`. It is implemented
 by `recursive-validation`, `recursive-staging`, `recursive-publication`,
 `recursive-approvals` and `recursive-coordination`, not a separate engine per
-scenario. `examples/recursive-coordination.ss` covers two names repeatedly failing,
+scenario. `t/fixtures/recursive-coordination.ss` covers two names repeatedly failing,
 recovering and exiting while a survivor remains live. Twelve Lean incarnation
 laws and 1112 checked attempts exercise the complete declared boundary; unchanged
 head/approval controls prevent lifecycle bugs being hidden by unrelated drift.
@@ -717,10 +717,10 @@ original feature backlog is explicitly grouped as follows:
 
 | Workstream | Concrete remaining acceptance target | Current anchor |
 | --- | --- | --- |
-| Representation optimization | Authoritative vector values and shared read/shape guards implemented; qualify automatic PIC/JIT policy separately | Protocol: `prototype-map.ss` / `slot-layout.ss` / `object.ss`; [representation.md](representation.md) |
-| Types and generated tests | Closed: optional/keyword/rest/case-lambda Function signatures; finite descriptor generators, bounded shrinking and replay. Closed: automatic guarded recursive container graphs, bounded generation/membership/shrinking and source-bound replay. Closed within the explicit finite algebra: rank-one prototype polymorphism, structural subtyping and budgeted complete candidate inference. Closed within bounds: guarded Mu expansion via safe recursion, observational Object field replacement and finite disjoint row inference. Open: unrestricted/higher-rank/recursive/row/effect inference and unrestricted recursive carrier generation; see [prototype-types.md](prototype-types.md) | Type-system/Property-based testing below; `type.ss` / `object-contract.ss` |
+| Representation optimization | Authoritative vector values and shared read/shape guards implemented; qualify automatic PIC/JIT policy separately | Protocol: `object/prototype-map.ss` / `object/slot-layout.ss` / `object.ss`; [representation.md](representation.md) |
+| Types and generated tests | Closed: optional/keyword/rest/case-lambda Function signatures; finite descriptor generators, bounded shrinking and replay. Closed: automatic guarded recursive container graphs, bounded generation/membership/shrinking and source-bound replay. Closed within the explicit finite algebra: rank-one prototype polymorphism, structural subtyping and budgeted complete candidate inference. Closed within bounds: guarded Mu expansion via safe recursion, observational Object field replacement and finite disjoint row inference. Open: unrestricted/higher-rank/recursive/row/effect inference and unrestricted recursive carrier generation; see [prototype-types.md](prototype-types.md) | Type-system/Property-based testing below; `type.ss` / `types/object-contract.ss` |
 | Collection protocol | Constructor delegation is closed across derived collections and five styles. Direct Set observation now shares complete admission and guarded delayed pulls; conditional recognition reuse still requires independent refinement/purity evidence. General automatic discovery remains a separate research goal. | [Composition audit](collection-composition-audit.md); Generic Data Structure Library below |
-| General MOP extension | Alternative-order certification and lawful custom adapters; general fragment/generic syntax beyond concrete bridges. Unrestricted recursion/termination is not certified by finite closure | Meta-Object Protocol below; `generalized-declaration.ss` / `meta-prototype.ss` |
+| General MOP extension | Alternative-order certification and lawful custom adapters; general fragment/generic syntax beyond concrete bridges. Unrestricted recursion/termination is not certified by finite closure | Meta-Object Protocol below; `mop/generalized-declaration.ss` / `mop/meta-prototype.ss` |
 | Interpreter project | A real Jsonnet/Nix implementation and its language-level correspondence/acceptance, not object examples | Classes below |
 
 These rows remain OPEN/PARTIAL. The earlier lifecycle, reflection, computed
@@ -729,7 +729,7 @@ in the main ledger. No all-TODO completion or universal host-correctness claim i
 made. Complete each workstream against these acceptance targets before using
 optimization studies to claim functional closure.
 
-The first four rows form one tested functional chain in `examples/lifecycle.ss`:
+The first four rows form one tested functional chain in `t/fixtures/lifecycle.ss`:
 checked nested Account construction → persistent focused revision → fresh
 constraint admission → current-tenant Reader/FUN observation → lazy delegate.
 `doc/alignment.md` records the Racket/Lean/Gerbil correspondence and proof limits.
@@ -750,7 +750,7 @@ Performance tuning of the earlier factory workflow is paused for functional work
 
 ### Recursive metalevel and declaration closure
 
-`meta-prototype.ss` `close-protocol` reuses `closure.ss`: inherited `equations`
+`mop/meta-prototype.ss` `close-protocol` reuses `graph/closure.ss`: inherited `equations`
 are solved from false, then inherited `cook` receives that exact least solution
 and builds the ordinary kernel passed to `bootstrap-protocol`. Facts describe
 finite positive metalevel components; a supported mutual dependency is allowed,
@@ -775,7 +775,7 @@ the corresponding pure closure and source/publication laws. See
 
 ### General fragment protocol and non-record macro
 
-`generalized-declaration.ss` provides ordinary extensible `Fragment.` metadata:
+`mop/generalized-declaration.ss` provides ordinary extensible `Fragment.` metadata:
 each descriptor chooses its own `focus`, `wrapper` and `method`, plus explicit
 extra `sources`. Compilation reuses the existing Appendix B lens compiler and
 generalized assembler. There is no closed tag enumeration of supported carriers.
@@ -799,21 +799,21 @@ callback/lens correctness follows. See [generalized-declarations.md](generalized
 
 ### Controlled raw closure and custom lens laws
 
-`generalized-closure.ss` now closes a generalized declaration only after actual
+`mop/generalized-closure.ss` now closes a generalized declaration only after actual
 adjacent raw states compare equal, within a fixed raw-step budget. It reuses the
 existing source-guarded step/cook operations and returns a receipt bound to its
 prepared owner/base. Budget, finite law and source/cooking refusals expose no
 partial candidate; publication retains the exact old receipt. A Gerbil Reader/FUN
 action composes successful closure with downstream observation.
 
-`lens-laws.ss` checks get-put, put-get and put-put on supplied immutable states
+`mop/lens-laws.ss` checks get-put, put-get and put-put on supplied immutable states
 and focus values. Check sources stay protected across raw steps and final cooking.
 These are finite counterexample controls. Lean `LensLaws` states the universal
 laws, proves their composition and discharges custom nested-product examples.
 `Generalized.closeWithin` proves actual fixedness, the raw-step bound, origin in
 the original seed and stability of every later original-seed unfolding.
 
-`examples/closed-declarations.ss` places comparable data in nested vector raw
+`benchmarks/workloads/closed-declarations.ss` places comparable data in nested vector raw
 state, closes a three-component dependency chain, then cooks existing standard
 method policy into a callable interface. Four raw evaluations include the final
 equality check. This does not assert equivalence of earlier finite observations
@@ -823,7 +823,7 @@ remains inconclusive about divergence. See [controlled-closure.md](controlled-cl
 
 ### Focused recursive components and final family admission
 
-`focused-closure.ss` now closes narrow components inside a wider non-record raw
+`mop/focused-closure.ss` now closes narrow components inside a wider non-record raw
 carrier, using captured outer lens checks and the existing bounded local closure.
 Actual old/new child values extend the finite law domain. Ordered stages compose
 with Gerbil FUN Reader `.map` and standard `foldr`; every source stays guarded
@@ -832,7 +832,7 @@ All final projected equations are checked again: separate lawful lenses need not
 be independent. Conflicting overlap refuses the complete publication; compatible
 overlap can pass. Every final check costs one extra raw step beyond local search.
 
-`examples/focused-services.ss` closes two nested-vector services with distinct
+`benchmarks/workloads/focused-services.ss` closes two nested-vector services with distinct
 policies and existing primary/around methods, preserving sibling/shared audit
 data. Gerbil controls cover actual replacement laws, overlap, budget, stale
 metadata, later source mutation, final cooking and Reader suffix suppression.
@@ -877,7 +877,7 @@ reused, even if the raw value is unchanged. Registered preparation/check sources
 stay protected until approval finishes. Strict Boolean approval and exact old
 publication retention cover closure, source, residual and callback failures.
 
-`examples/shared-feedback.ss` connects one shared quota node to two nested service
+`benchmarks/workloads/shared-feedback.ss` connects one shared quota node to two nested service
 branches in a four-node feedback ring, joint readiness, primary/around methods
 and current cross-service commitment/permission checks. Quota increases/decreases,
 approval rejection/retry and old snapshots have Gerbil controls and paired Lean
@@ -901,7 +901,7 @@ retained group sources refuse final publication; rebuild them by explicit graph
 source edits. All required groups and registered approval sources stay protected
 through ALWAYS-fresh joint approval. Failed candidates never become reuse bases.
 
-`examples/cached-feedback.ss` covers shared quota, two reader groups, a cross-group
+`benchmarks/workloads/cached-feedback.ss` covers shared quota, two reader groups, a cross-group
 edge, an independent feedback group, source increases/decreases, joint refusal/
 retry and permission-only edits. Refusing builders and identity checks verify
 skipping. Gerbil negative controls include removed inputs, illegal inter-group
@@ -941,7 +941,7 @@ no runtime speed, allocation or GC improvement follows from these controls.
 
 Multi-service membership contributions now join through `component-revision` and
 existing support revision/FUN publication, rejecting conflicting or stale edits
-before construction. `examples/component-migration.ss` replaces endpoints in two
+before construction. `benchmarks/workloads/component-migration.ss` replaces endpoints in two
 SCCs, migrates their shared input and changes two inputs in one jointly approved
 source. It checks partial deployment, detached old dependencies, provider erasure,
 exact clean reuse, conflicts and refusal/retry. This is finite generalized-protocol
@@ -1223,7 +1223,7 @@ forwarding, inner and Simula adapters reuse existing method interpreters. Empty
 raw groups can be explicit defaults; nested missing-slot errors are not treated
 as missing generic slots. No result or approval is cached by this bridge.
 
-`examples/declared-methods.ss` composes a shared base, two service branches,
+`benchmarks/workloads/declared-methods.ss` composes a shared base, two service branches,
 before/primary/after/around fragments and current-context Reader observation.
 Lean's `MethodDeclarations` proves source collection, coalescing, inherited block
 composition and equivalence to standard generic invocation. Gerbil tests cover
@@ -2346,7 +2346,7 @@ cold family admission, dual identifier swaps, shared-team migration, retained
 Function identities, genuine conflict refusal, retry and inverse recovery.
 Repeated edits, stored false, collisions, stale/empty-origin requests and invalid
 capability metadata retain explicit negative controls. Fold code lives in the
-existing table module's `table/fold.scm` include. Companion overlay/transport/index
+existing table module's `table/fold.ss` include. Companion overlay/transport/index
 proofs and charged preparation boundaries are in [table-fold.md](table-fold.md).
 Automatic equality/capability discovery remains a separate research boundary.
 
@@ -3764,7 +3764,7 @@ no registration after failed full admission. Lean connects concrete registration
 to the existing finite invalidation model; this is bounded cache-invalidation
 future work, not a gap in the author's original pure-by-default policy.
 
-Object read issuance/replay lives in `object/observation.scm`, included in the
+Object read issuance/replay lives in `object/observation.ss`, included in the
 existing Object namespace and tracked by standard make `extra-inputs`. There is
 no additional runtime image, cache, loader or namespace. Existing benchmark
 source identities include that input. Slot workload bodies reuse the existing

@@ -240,7 +240,7 @@ reuse the recursor's absolute prefix API. The generic three-argument `.foldl`
 contract is unchanged, including lawful forwarding/instrumentation overrides.
 Trie overrides must retain its declared ascending traversal law or override the
 change protocol consistently. Other table implementations keep the generic path.
-The helper is included from `trie/changes.scm` in the existing Trie module and is
+The helper is included from `trie/changes.ss` in the existing Trie module and is
 registered through standard make `extra-inputs`; it creates no namespace or cache.
 
 Reusing pair alignment exposed an existing common-prefix defect: changing a

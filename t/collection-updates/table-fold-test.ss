@@ -1,9 +1,9 @@
 ;;; Complete fold-state admission composes with sparse updates and representations.
 (export table-fold-test)
 (import :std/test :std/iter (only-in :std/error Error? Error-message ContractViolation?)
-        :clan/poo/object :clan/poo/mop :clan/poo/number :clan/poo/type :clan/poo/table :clan/poo/rationaldict :clan/poo/support/option
+        :clan/poo/object :clan/poo/mop :clan/poo/number :clan/poo/type :clan/poo/table :clan/poo/table/rationaldict :clan/poo/support/option
         (only-in :clan/poo/fun Wrapper.) (only-in :clan/poo/support/base number-comparer)
-        (only-in :clan/poo/t/table-testing box-table borrowing-table alist-table) (prefix-in :clan/poo/examples/service-collection service.))
+        (only-in :clan/poo/t/table-testing box-table borrowing-table alist-table) (prefix-in :clan/poo/t/fixtures/service-collection service.))
 
 ;; Refine a backend through its existing complete recognizer, never a new carrier.
 (def (even-table table)

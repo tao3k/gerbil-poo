@@ -2,7 +2,7 @@
 
 `table-styles` derives pure, mutable, linear, posh and classy protocols from one existing persistent table,
 including a `table-wrapper` representation. It remains part of `clan/poo/table`;
-`table/styles.scm` is a standard Gerbil include, not a second public namespace.
+`table/styles.ss` is a standard Gerbil include, not a second public namespace.
 This advances the general collection TODO and the proposal's future work, using
 the original text's pure-value / mutable-cell / consuming-reference construction.
 It does not introduce a static linear type system or destructive tree backend.
@@ -92,7 +92,7 @@ identities, checked by pointer identity under the official lock. This is semanti
 correspondence, not a proof of Gambit scheduling, mutex implementation, arbitrary
 user callbacks, exception-safe foreign resources, or compiler correctness.
 
-`examples/service-collection.ss` composes derived representations, mutable-to-linear
+`t/fixtures/service-collection.ss` composes derived representations, mutable-to-linear
 transfer, complete ordered batches and Reader/IO observation. Regression controls
 exercise all nine conversions, persistent snapshot aliasing, wrapper retention,
 late conflict and retry, reentrant/ABA changes, two real staged workers, stale
@@ -159,7 +159,7 @@ request: the original immutable-head check still allows at most one installation
 from a captured generation. There is no implicit retry, callback replay or
 backward-compatibility dispatch path.
 
-`examples/service-collection.ss:revise-ledger-receivers` composes a derived
+`t/fixtures/service-collection.ss:revise-ledger-receivers` composes a derived
 key/value representation, checked Function leaves, posh-to-classy transfer,
 ordered batches, transfer back and Reader/IO. The regression suite covers the
 25-way matrix, exact Function retention, inverse recovery, failed batch suppression

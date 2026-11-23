@@ -4,7 +4,7 @@
   :gerbil/runtime/gambit
   :std/iter
   :clan/poo/object
-  :clan/poo/rationaldict
+  :clan/poo/table/rationaldict
   :clan/poo/type)
 
 (def T (RationalDict String))

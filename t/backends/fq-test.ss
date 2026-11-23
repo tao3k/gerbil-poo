@@ -7,7 +7,7 @@
   (only-in :clan/poo/benchmarks/closure-measure report-process-counters)
   :std/debug/DBG
   :clan/poo/support/base :clan/poo/support/debug :clan/poo/support/testing
-  :clan/poo/object :clan/poo/mop :clan/poo/number :clan/poo/type :clan/poo/brace :clan/poo/fq)
+  :clan/poo/object :clan/poo/mop :clan/poo/number :clan/poo/type :clan/poo/brace :clan/poo/number/finite-field)
 
 
 (def F_3^2 {(:: @ [F_q.]) .p: 3 .n: 2 .xn: #(1 1)})
@@ -16,7 +16,7 @@
 (def (F_q<-F_2^n F)
   {(:: @ [F_q.] .<-n) .p: 2 .n: (.@ F .n) .xn: (.<-n (.@ F .xn))})
 (def fq-test
-  (test-suite "test suite for clan/poo/fq"
+  (test-suite "test suite for clan/poo/number/finite-field"
     ;; Private expansion helpers belong to this suite, not its module interface.
     (defrule (fqcheck (F <-n n<- + * inv expt) checks ...)
       (let ()

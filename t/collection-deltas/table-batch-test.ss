@@ -1,11 +1,11 @@
 ;;; Ordered table batches retain intermediate conflict checks and origin lineage.
 (export table-batch-test table-capture-test table-origins-test table-transport-test)
 (import :std/test :std/iter :std/error
-        :clan/poo/object :clan/poo/mop :clan/poo/number :clan/poo/type :clan/poo/table :clan/poo/rationaldict :clan/poo/support/option
+        :clan/poo/object :clan/poo/mop :clan/poo/number :clan/poo/type :clan/poo/table :clan/poo/table/rationaldict :clan/poo/support/option
         (only-in :clan/poo/fun Wrapper.) (only-in :clan/poo/brace @@method) (only-in :clan/poo/trie SimpleTrie)
         (only-in :clan/poo/t/table-testing alist-table borrowing-table)
         (only-in :clan/poo/support/base number-comparer)
-        (prefix-in :clan/poo/examples/service-collection service.))
+        (prefix-in :clan/poo/t/fixtures/service-collection service.))
 
 ;; Match protocol failures without accepting unrelated backend exceptions.
 (def (message? text)
@@ -319,10 +319,10 @@
       (check-equal? (.call target-fold .get (.call mapping .apply-delta updated retry)) 70))))
 
 ;; Retain the next original Suite and its case order in the same module.
-(include "table-batch/capture.scm")
+(include "table-batch/capture.ss")
 
 ;; Retain the next original Suite and its case order in the same module.
-(include "table-batch/origins.scm")
+(include "table-batch/origins.ss")
 
 ;; Retain the next original Suite and its case order in the same module.
-(include "table-batch/transport.scm")
+(include "table-batch/transport.ss")

@@ -108,7 +108,7 @@ thread limits and heap caps remain enabled; no machine/compiler verification is 
 
 ## Concentrated acceptance and proof scope
 
-`examples/row-services.ss` combines inferred audit rows, a higher-order handler,
+`t/fixtures/row-services.ss` combines inferred audit rows, a higher-order handler,
 shared recursive service trees and nested Function fields. Existing FUN checked
 admission runs before `refine`; exact subject/descriptor/context publication uses
 `bind-evidence`. Tests cover disjoint/wrong-kind/colliding row candidates, unique/

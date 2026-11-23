@@ -1,0 +1,70 @@
+;;; SPDX-License-Identifier: Apache-2.0 AND LGPL-2.1-or-later
+(import :std/test :clan/poo/object (only-in :clan/poo/object/slot-observation %call-with-recorded-slot-reads call-with-slot-read-observer))
+(export fallback-reflection-test)
+
+(def fallback-reflection-test
+  (test-suite "Lazy fallback reflection"
+    (test-case "prepared read presence neither forces a slot nor delivers a read"
+      (def forced 0)
+      (def delivered 0)
+      (def source (.o value: (begin (set! forced (1+ forced)) #f)))
+      (def (ready?)
+        (call-with-slot-read-observer
+          (lambda (_) (set! delivered (1+ delivered)))
+          (lambda () (object-prepared-read? source 'value))))
+      (check-equal? (ready?) #f)
+      (check-equal? forced 0)
+      (check-equal? (.ref source 'value) #f)
+      (check-equal? (ready?) #t)
+      (check-equal? forced 1)
+      (check-equal? delivered 0))
+    (test-case "local and reserved slots keep the delegate cold"
+      (def constructions 0)
+      (def value
+        (.mix slots: (list (cons 'local ($constant-slot-spec 1)))
+          (fallback-to
+            (lambda ()
+              (set! constructions (1+ constructions))
+              (.o local: 2 remote: 3 reserved: 4))
+            reserved: '(reserved))))
+      (check-equal? (.slot? value 'local) #t)
+      (check-equal? (.slot? value 'reserved) #f)
+      (check-exception (.get value reserved) NoApplicableMethod?)
+      (check-equal? constructions 0)
+      (check-equal? (.slot? value 'remote) #t)
+      (check-equal? (.slot? value 'missing) #f)
+      (check-equal? (.get value remote) 3)
+      (check-equal? (.get value local) 1)
+      (check-equal? (filter (lambda (key) (memq key '(local remote reserved))) (.all-slots value))
+                    '(local remote))
+      (check-equal? constructions 1))
+    (test-case "delegated cached values follow transitive slot invalidation"
+      (def config (.o port: 5432))
+      (def scope
+        (.o (:: self [])
+          plan: (with-slot-dependencies self (lambda () (list (.get config port))))))
+      (def leaf (fallback-to (lambda () scope)))
+      (def first (.get leaf plan))
+      (check-equal? first '(5432))
+      (check-eq? (.get leaf plan) first)
+      (.put! config 'port 5440)
+      ;; The leaf is the first demand after the edit.
+      (check-equal? (.get leaf plan) '(5440))
+      (check-eq? (.get leaf plan) (.get scope plan)))
+    (test-case "cyclic reflection refuses before publishing a query"
+      (def value (fallback-to (lambda () value)))
+      (check-exception (.slot? value 'missing) error?)
+      (check-exception (.all-slots value) error?))
+    (test-case "a new capture after an owner edit supplies current evidence"
+      (def owner (.o field: 1))
+      (def view (fallback-to (lambda () owner)))
+      (defvalues (before old-reads)
+        (%call-with-recorded-slot-reads (lambda () (.all-slots view))))
+      (check-equal? (and (memq 'field before) #t) #t)
+      (call-with-current-slot-reads old-reads void)
+      (.putslot! owner 'added ($constant-slot-spec 2))
+      (defvalues (after new-reads)
+        (%call-with-recorded-slot-reads (lambda () (.all-slots view))))
+      (check-equal? (and (memq 'added after) #t) #t)
+      (check-exception (call-with-current-slot-reads old-reads void) error?)
+      (call-with-current-slot-reads new-reads void))))

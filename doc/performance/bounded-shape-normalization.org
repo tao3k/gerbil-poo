@@ -1,0 +1,127 @@
+#+title: Bounded shape normalization through standard Scheme folds
+#+date: 2026-11-16
+
+* Change and proof
+
+Small shape preparation allocated a fresh symbolic membership table even
+when all receiver shapes reused the existing canonical index. For at most
+eight names, =object/slot-layout.ss= now uses Std =foldr= with Scheme =memq=.
+Larger name sets and hint-based updates retain their original hash algorithm.
+The bounded path performs at most 28 membership comparisons; no quadratic
+algorithm is applied to a large directory.
+
+Right-to-left admission, first refusal, last-occurrence order, the native seed
+draw, canonical sorting, independent receiver cells and the one weak interner
+are preserved. Unknown native-construction routes fall back as before.
+There is no new cache, loader, source interface, public flag or runtime carrier.
+
+[[https://github.com/tao3k/lean-poo/blob/d508e976c6aa99a1ac26af76a958f24db7232d9f/LeanPoo/Proof/Gerbil/ShapeAdmission.lean#L283][ShapeAdmission.BoundedNames at d508e97]] in Lean-POO proves hash/list membership coherence,
+state/error equality, bounded/hash selection, the seed prefix and arbitrary
+continuations after equal normalization. New theorem axioms are =propext=
+and =Quot.sound=. Native route/primitive conformance remains an executable
+obligation; the proof does not establish host timing, allocation or compilation.
+
+* Original complete capture
+
+Use the unchanged compiled =benchmarks/graph-capture-test.ss=. It creates
+10,000 names and captures 9,999 fresh Computation programs, retaining the
+original table. Source/order/row checks still execute after each capture.
+Program object creation and post-capture schedule validation lie outside
+the ORIGINAL timed capture interval. Gerbil import/startup and full Module
+admission are not included; this is not a 10,000-Module EVAL result.
+
+The first-capture path count is 9,999 two-name layouts (=sexp=, =reads=)
+and one scalar projection. A separate diagnostic counts them; its clocks
+are not performance samples. This corrected the earlier scalar-only target.
+
+Four alternating process pairs. CPU milliseconds INCLUDING GC:
+
+| Order | First reference / candidate | Later reference / candidate |
+|-------+-----------------------------+-----------------------------|
+| R,C   | 206.738 / 202.680           | 157.333 / 154.095           |
+| C,R   | 206.899 / 201.101           | 157.968 / 147.164           |
+| R,C   | 203.244 / 195.487           | 163.850 / 153.927           |
+| C,R   | 205.542 / 194.527           | 161.149 / 153.652           |
+
+All four directions improve separately for first and later capture.
+First CPU median: 206.140 to 198.294 ms (3.8%).
+Later CPU median: 159.5585 to 153.7895 ms (3.6%).
+First captures have two collections in each arm; later captures have one.
+Whole-operation allocation remains =#f= because GC occurs.
+
+First wall times, reference/candidate ms, are 207.484/329.040,
+207.593/204.016, 203.768/196.041 and 275.114/194.986.
+The first pair is a wall-time regression despite a CPU improvement.
+No host-load wait or alternate successful sample replaces that observation.
+This modest CPU improvement does not establish a universal latency bound.
+
+Guarded sampled process-tree footprint is 475,480,064--480,067,584 bytes
+for reference and 471,351,296--474,955,776 for candidate.
+All eight processes satisfy the same original checks and naturally exit zero.
+
+* Real SourceRole control
+
+Use the original Core =207524f= three-datum workload and sampler, adapting
+only retired MOP spelling and the std/test wrapper. Stock batches the datums;
+Generic makes three calls. Do not interpret their difference as dispatch alone.
+
+The MOP cohort additionally compiles public =d096006= lifecycle changes.
+No in-progress CLOS edits from another session are included. Both arms load
+the same original native benchmark and admission modules; only =slot-layout=
+changes. Per-arm median of the two original 128-admission Generic samples:
+
+| Order | Reference CPU ms | Candidate CPU ms |
+|-------+------------------+------------------|
+| R,C   | 73.9500          | 65.4975          |
+| C,R   | 65.2330          | 64.6450          |
+| R,C   | 65.2460          | 68.7345          |
+| C,R   | 67.0270          | 67.6000          |
+
+Two pairs improve and two regress: no stable SourceRole CPU benefit is
+established. Pooled medians are 65.919/65.969 ms; this must not be advertised
+as an optimization of Generic calls. Stock medians are approximately
+50.2745/50.309 ms; Core stock remains materially faster and is not deleted.
+
+Generic allocation is 30,204,928 bytes except the first candidate process's
+two samples at 30,236,672. Stock allocation is 49,731,072 except one candidate
+sample at 49,741,312. All CPU samples report zero collections. These occasional
+differences are retained, not normalized out. Sampled footprint ranges are
+364,347,392--368,017,408 vs 356,761,600--358,006,784 bytes.
+All eight native child tests/guards exit zero.
+
+* Semantics, negative control and qualification
+
+The principal native control set passes 132 cases. A final 32-case focus
+rechecks the strengthened width cases and public =d096006= lifecycle behavior;
+these overlap the principal set and must not be summed as distinct cases.
+Controls retain read-record mutation, index-sizing callbacks, missing/false
+values, RNG advancement, source ownership, route restoration, CLOS method
+behavior and callback-return revalidation.
+
+The matched negative build changes only =foldr= to =foldl=. Its rightmost
+refusal assertion returns 17 rather than 23 and naturally fails with exit 42.
+It is an actual logical failure, not an import error, timeout or OOM.
+The std/test log also prints HARNESS-OK before its final error; exit status
+and the error transcript are essential. The corrected focus naturally exits
+zero with no error/overflow markers.
+
+After alignment to public Lean =a097db4=, full =lake build LeanPoo= passes
+449 jobs. The existing proof audit and all 44 validation-supervisor tests pass.
+Existing unrelated linter warnings
+remain; the new theorem reports contain no sorry axiom.
+
+Gerbil =2591dcd= / Gambit =dcd677c=; =gxc -O -cc-options -O2= in both arms.
+The original 180-second and 4-GiB resource guards are unchanged. Only one
+C backend compiles at once. No prewarm beyond the original workload setup,
+test removal, alternate runner or consumer pin promotion is used.
+
+Logs, receipts and frozen native sources remain under ignored
+=.build/graph-capture/= with prefixes =bounded-graph-*=,
+=bounded-source-role-*= and =bounded-shape-*=. They are not Git payload.
+Earlier scalar-query, canonical-query and unique-source prototypes remain
+research snapshots and are not part of the production patch.
+
+Dynamic controls do not by themselves qualify the existing linked entry and
+fresh-process replay gates. Exact-commit Scheme CI must still establish those
+gates. Whole-root native dependency preparation, complete Module EVAL, real
+consumer package installation and the SourceRole stock target remain open.

@@ -7,26 +7,26 @@
         :clan/poo/object
         "closure-measure.ss"
         (prefix-in "metadata-paired-cases.ss" study.)
-        (runtime: :clan/poo/contract-family)
-        (prefix-in (only-in :clan/poo/contract-family family-bound family-built) contracts.)
-        (runtime: :clan/poo/generic-family)
-        (prefix-in (only-in :clan/poo/generic-family family-built family-has? family-ref
+        (runtime: :clan/poo/mop/contract-family)
+        (prefix-in (only-in :clan/poo/mop/contract-family family-bound family-built) contracts.)
+        (runtime: :clan/poo/mop/generic-family)
+        (prefix-in (only-in :clan/poo/mop/generic-family family-built family-has? family-ref
                    refresh) generics.)
-        (prefix-in :clan/poo/staged-publication staged.)
-        (runtime: :clan/poo/cyclic-publication)
-        (prefix-in (only-in :clan/poo/cyclic-publication failure-stage invoke probe
+        (prefix-in :clan/poo/graph/staged-publication staged.)
+        (runtime: :clan/poo/graph/cyclic-publication)
+        (prefix-in (only-in :clan/poo/graph/cyclic-publication failure-stage invoke probe
                    version-cache version-contract-family version-family
                    version-view) publication.)
-        (runtime: :clan/poo/examples/service-combination)
-        (prefix-in (only-in :clan/poo/examples/service-combination bound-preflight
+        (runtime: :clan/poo/benchmarks/workloads/service-combination)
+        (prefix-in (only-in :clan/poo/benchmarks/workloads/service-combination bound-preflight
                    bound-simula-model cached-simula-model compiled-context-model
                    context-preflight empty-storage-simula-model prepared-simula-model
                    shape-prepared-simula-model staged-simula-model) qualified.)
-        (prefix-in :clan/poo/examples/service-bundle bundle.)
-        (runtime: :clan/poo/examples/cyclic-access)
-        (prefix-in (only-in :clan/poo/examples/cyclic-access config equations) access.)
-        (runtime: :clan/poo/multimethod)
-        (prefix-in (only-in :clan/poo/multimethod multimethod?) dispatch.))
+        (prefix-in :clan/poo/benchmarks/workloads/service-bundle bundle.)
+        (runtime: :clan/poo/benchmarks/workloads/cyclic-access)
+        (prefix-in (only-in :clan/poo/benchmarks/workloads/cyclic-access config equations) access.)
+        (runtime: :clan/poo/mop/methods/dispatch)
+        (prefix-in (only-in :clan/poo/mop/methods/dispatch multimethod?) dispatch.))
 ;; One view-independent child supplies the actual no-binding control. Construction
 ;; is common module setup, not silently charged to any timed binding sample.
 (def shared-context-program (qualified.context-preflight #t))

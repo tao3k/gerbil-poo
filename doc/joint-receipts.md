@@ -20,7 +20,7 @@ one atomic transaction. Each individual candidate is still a whole atomic joint
 revision. Invalid/foreign receipts produce their ordinary failure outcomes. An
 improper input list refuses before the sequence starts; an empty list does nothing.
 
-`examples/joint-receipts.approve-revisions` prepares alternative endpoint `Change.`
+`benchmarks/workloads/joint-receipts.approve-revisions` prepares alternative endpoint `Change.`
 lists against one explicitly captured bundle, all sharing one native proposed
 policy object. It maps the existing declared phase/input streams into `stage-at`
 and `approve`, without installing. A failure raises to the caller with no helper

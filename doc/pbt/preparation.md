@@ -37,7 +37,7 @@ causes retain their meanings. No authority is invented for a raw callback invoke
 outside an owned action; an arbitrary custom factory still owns its internal
 callbacks until it returns.
 
-`examples/collection-properties.ss` exports `map-service-tests`: a fixed-key batch
+`t/fixtures/collection-properties.ss` exports `map-service-tests`: a fixed-key batch
 of two service Records with nested Function fields. The existing product trees
 supply value shrinking; the Map descriptor owns validation and its cardinality-plus-
 sum measure. An obsolete first measure refuses before a second callback or shrink

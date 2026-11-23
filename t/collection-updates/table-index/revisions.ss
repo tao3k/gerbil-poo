@@ -9,11 +9,11 @@
   :clan/poo/type
   :clan/poo/number
   :clan/poo/table
-  :clan/poo/rationaldict
+  :clan/poo/table/rationaldict
   :clan/poo/support/option
   (only-in :clan/poo/trie SimpleTrie)
   (only-in :clan/poo/t/table-testing alist-table borrowing-table box-table)
-  (prefix-in :clan/poo/examples/service-collection service.)
+  (prefix-in :clan/poo/t/fixtures/service-collection service.)
   (only-in :clan/poo/fun Wrapper.)
   (only-in :clan/poo/t/table-testing alist-table))
 

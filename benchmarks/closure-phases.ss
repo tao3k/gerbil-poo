@@ -1,6 +1,6 @@
 ;;; Fixed cases and columns; no duplicated field dictionaries or JSON versions.
 (export main)
-(import :gerbil/runtime/gambit :std/iter :clan/poo/closure "closure-measure.ss" "closure-cases.ss"
+(import :gerbil/runtime/gambit :std/iter :clan/poo/graph/closure "closure-measure.ss" "closure-cases.ss"
         (only-in "closure-scale-benchmark.ss" workload))
 (def phases '(compile-append compile-cold compile-auto prepare prepare-cached solve refresh construct))
 (def (main output)
@@ -30,7 +30,7 @@
   (write-datum output
     `(closure-phases
        (toolchain ,(gerbil-version-string) ,(system-version-string))
-       (sources ,@(source-digests '("closure.ss" "benchmarks/closure-measure.ss" "benchmarks/closure-cases.ss" "benchmarks/closure-phases.ss" "benchmarks/closure-scale-benchmark.ss")))
+       (sources ,@(source-digests '("graph/closure.ss" "benchmarks/closure-measure.ss" "benchmarks/closure-cases.ss" "benchmarks/closure-phases.ss" "benchmarks/closure-scale-benchmark.ss")))
        (columns family size gc round phase repetitions #(cpu wall gc-cpu collections bytes))
        (rows ,@(reverse rows))))
   (displayln "CLOSURE-PHASES-OK rows=" (length rows)))

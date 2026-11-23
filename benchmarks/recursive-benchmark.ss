@@ -5,19 +5,19 @@
         :clan/poo/object
         (only-in "closure-measure.ss" run-child)
         (prefix-in "recursive-cases.ss" study.)
-        (runtime: :clan/poo/recursive)
-        (prefix-in (only-in :clan/poo/recursive value-result) recursive.)
-        (runtime: :clan/poo/recursive-cache)
-        (prefix-in (only-in :clan/poo/recursive-cache empty receipt-result receipt? run) cached.)
-        (runtime: :clan/poo/recursive-handling)
-        (prefix-in (only-in :clan/poo/recursive-handling call-batch call-slot failure-stage
+        (runtime: :clan/poo/recursive/evaluation)
+        (prefix-in (only-in :clan/poo/recursive/evaluation value-result) recursive.)
+        (runtime: :clan/poo/recursive/cache)
+        (prefix-in (only-in :clan/poo/recursive/cache empty receipt-result receipt? run) cached.)
+        (runtime: :clan/poo/recursive/handling)
+        (prefix-in (only-in :clan/poo/recursive/handling call-batch call-slot failure-stage
                    result-failure result-next result-value session) handling.)
-        (prefix-in :clan/poo/examples/recursive-catalog catalog.)
-        (runtime: :clan/poo/examples/cyclic-access)
-        (prefix-in (only-in :clan/poo/examples/cyclic-access attestation attested-closure
+        (prefix-in :clan/poo/benchmarks/workloads/recursive-catalog catalog.)
+        (runtime: :clan/poo/benchmarks/workloads/cyclic-access)
+        (prefix-in (only-in :clan/poo/benchmarks/workloads/cyclic-access attestation attested-closure
                    config rebase-attested revise-attested start-attested) access.)
-        (runtime: :clan/poo/cyclic-publication)
-        (prefix-in (only-in :clan/poo/cyclic-publication version-view) publication.))
+        (runtime: :clan/poo/graph/cyclic-publication)
+        (prefix-in (only-in :clan/poo/graph/cyclic-publication version-view) publication.))
 ;; Each control constructs both programs/sessions/publication in identical order.
 ;; Completed errors/output refusals are expected observations, never timing failures.
 (def (workload scenario)

@@ -1,7 +1,7 @@
 # Declarative correlated collection indexes
 
 `table-indexes source declarations` derives a complete persistent table descriptor
-in the existing `clan/poo/table` interface. The standard `table/indexes.scm` include
+in the existing `clan/poo/table` interface. The standard `table/indexes.ss` include
 shares the original table/delta/Wrap implementation and `std/make extra-inputs`.
 It advances the general collection proposal's future work; it does not introduce a
 new database engine, global registry or automatic backend selection.
@@ -83,7 +83,7 @@ style lock protects owner installation, not a global metadata transaction.
 
 ## Implementation, proof and costs
 
-`examples/service-collection.ss` declares two RationalDict unique indexes and a
+`t/fixtures/service-collection.ss` declares two RationalDict unique indexes and a
 Trie team index, sharing primary RationalDict buckets and checked Functions.
 Regressions combine identifier swaps, repeated updates, deletion/reinsertion,
 team migration, late unique refusal, old-value precedence, undo/retry, empty-origin
@@ -183,7 +183,7 @@ future requests, never the already captured family. Backend discovery precedes
 ordered recipe compilation; original getter errors short-circuit the current
 phase. Effects already performed by callbacks are not rolled back.
 
-`examples/service-collection.ss` `publish-indexed-services` composes preparation,
+`t/fixtures/service-collection.ss` `publish-indexed-services` composes preparation,
 initial wrapping and the existing linear FUN/IO revision action. Tests combine
 computed-metadata refusal, unique conflict, explicit fresh retry, shared checked
 Functions, inverse restoration and stale-family refusal; additional controls cover
@@ -209,7 +209,7 @@ inverse/refusal controls inside them.
 ## Complete cache admission
 
 Cold construction and warm revisions share `checked-entry` in the existing
-`table/indexes.scm` module. Gerbil's standard `for/collect` prepares declarations
+`table/indexes.ss` module. Gerbil's standard `for/collect` prepares declarations
 in order; after one backend finishes, `require-table` recognizes its complete
 cache before the next recipe starts. It never normalizes or reconstructs the
 accepted cache. Shape-only backend updates and uniqueness claims cannot stand

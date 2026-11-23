@@ -170,7 +170,7 @@ constants tied to these measurements. The native repository has no remote CI.
 Runtime/source SHA256 and executable identity (the complete dependency manifest
 is checked by the native reader in each local receipt):
 - =method-combination.ss=: =b6209e9fe71f81687d3b211f5abc3a80b0ce795e69eaa0810380a09c686e1c26=
-- =examples/generalized-checkout.ss=: =ce7d92ab66e9c8d253c1358f3aed230e3e0d6d2fbe556305bffe2fbdc53433a9=
+- =benchmarks/workloads/generalized-checkout.ss=: =ce7d92ab66e9c8d253c1358f3aed230e3e0d6d2fbe556305bffe2fbdc53433a9=
 - =generalized-prototype.ss=: =2e6cdb62a50789de6506e1e48e8db6f5ebee19530be59321794f3686737dd778=
 - =benchmarks/factory-cases.ss=: =505086151a7960165d8851eb4798041996fbf2e599472b92b347303f5353726e=
 - =benchmarks/factory-benchmark.ss=: =4fa5bc62a63f596ddd12654d01c7ee22cac16c2d87e470ce87279e9e11cc47b9=

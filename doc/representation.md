@@ -23,7 +23,7 @@ Hints supply names only: the current seed owns all false/Function values and
 uncomputed cells. Successful dynamic growth publishes the new directory/cells
 together; source revision and read-provenance rules are unchanged.
 
-The included `representation/growth.scm` controls do not create another runtime
+The included `representation/growth.ss` controls do not create another runtime
 module. They compare hinted/full canonical shapes at every insertion position,
 including distinct uninterned symbols with the same spelling, and reject the
 cardinality-only shortcut. `shape-growth-workflow` combines lazy delegation,
@@ -136,7 +136,7 @@ continues to belong to the standard loader. These failure policies are distinct.
 
 ## Protocol and public operations
 
-`prototype-map.ss` uses private compact vectors and V19 `std/struct/rbtree`, not a second tree implementation.
+`object/prototype-map.ss` uses private compact vectors and V19 `std/struct/rbtree`, not a second tree implementation.
 It stores ordered contributions and a first-name index. Persistent updates copy
 balanced-tree paths, preserve later same-name methods and append new names. Input
 and reflection list spines/entry pairs are owned; values and SlotSpecs are shared.
@@ -149,14 +149,16 @@ and `.cc` use these snapshots. `.cc` shares unaffected tree paths and rebinds
 formulas to the new receiver; it does not retain an evaluated parent instance.
 `.removeslot!` and `.removedefault!` expose inherited contributions again.
 
-`slot-layout.ss` weakly interns a sorted unique symbolic shape. Symbol identities,
-including uninterned names, determine its process-local order. No serial number
-is a disk format or cross-process identity. Each live shape shares its name/index
+`object/slot-layout.ss` weakly interns a sorted unique symbolic shape. Full construction
+and incremental growth use the same identity order as the private name indices.
+Identity is checked first, then the stored symbol hash. Distinct symbols that
+share a hash use their process-local serial order. Offsets and serials are
+local to the running process. Each live shape shares its name/index
 mapping; each receiver owns its vector cells. The standard HashTable interface
 exposes the primary vector to ordinary lookup, IO and reflection. Instance
 preparation allocates uncomputed cells without demanding slot bodies; successful
-ordinary and inline reads publish to that same store. `object-layout` exposes
-that store by identity, and a site keeps only guards/offsets. There is no seeding
+ordinary and inline reads publish to that same store. Public layout inspection
+returns detached cells and a detached slot directory. A site keeps guards/offsets. There is no seeding
 preference or per-site value-policy field.
 
 A caller creates `make-slot-cache 'total`, then uses `.ref/inline receiver site`.
@@ -176,7 +178,7 @@ explicit instance assignment; these are separate existing protocols.
 `t/representations/representation-test.ss` exercises persistent snapshots, duplicate method order,
 uninterned symbols, live shape sharing, receiver switching, shared-parent diamonds,
 computed values, insert/delete/default/topology changes, failed edits, cycles and
-retry. `examples/representation-service.ss` composes checked ObjectContract/refine
+retry. `benchmarks/workloads/representation-service.ss` composes checked ObjectContract/refine
 with existing Reader/FUN bind and a reusable total access site. Every invocation
 still validates the candidate; a layout hit does not substitute for admission.
 
@@ -204,7 +206,7 @@ benchmarks are required before claiming any strategy is faster.
 ## Compact persistent prototype maps
 
 The concrete small-map item in the representation TODO is now implemented through
-`prototype-map.ss`, without another public namespace or object API. The default policy remains `tree`. Explicit
+`object/prototype-map.ss`, without another public namespace or object API. The default policy remains `tree`. Explicit
 `prototype-map entries policy: 'compact` selects private vectors through eight
 **contributions**, including duplicates. Existing snapshots preserve their policy;
 explicit `tree`/`compact` conversion owns a new snapshot with identical entries.
@@ -510,7 +512,7 @@ standard-library imports, not duplicated POO parser implementations. The probe
 uses compiled objects and unflushed filesystem caches; its wall times do not
 establish a disk-cold bound or repeated-evaluation defect.
 
-For a known downstream entry, `just example-representation` uses `defbuild-script`
+For a known downstream entry, `just benchmark-representation` uses `defbuild-script`
 and `std/make` to produce the ordinary loadable `representation-service` module
 and the distinct `representation-main` executable. The latter binds the exact
 same exported `main`, rather than providing another parser or business engine.
@@ -814,8 +816,8 @@ now supplies the explicit module and runtime binding, for example:
 
 ```
 representation-main -:max-heap=1G,debug=q \
-  clan/poo/examples/representation-service \
-  clan/poo/examples/representation-service#joint-main 64 indexed
+  clan/poo/benchmarks/workloads/representation-service \
+  clan/poo/benchmarks/workloads/representation-service#joint-main 64 indexed
 ```
 
 `entry-workflow` composes three actions with existing Observation/FUN bind/map:
@@ -826,7 +828,7 @@ width 64 is `#(#(6240 8256 10272 192) (30 33 3))`. Standard module caching share
 code/initialization, never validated receivers or business results. The ordinary
 service entry remains available as the explicitly selected `#main` binding.
 
-Public `just example-representation` runs BOTH bindings under BOTH access policies.
+Public `just benchmark-representation` runs BOTH bindings under BOTH access policies.
 The business binding is shared by the independently built dynamic reference and
 the shared-foundation program. The shared executable is appropriate for plugins
 requiring that foundation: a rebuilt core requires a rebuilt executable, while
@@ -1105,8 +1107,7 @@ This selective repair does not rewrite cached dependency graphs containing the
 old record. Those graphs still refuse before consumer work. The existing explicit
 `uninstantiate-object!` flush permits fresh computation and retry. Ordinary
 observer exceptions preserve their exact cause. Supported source revisions still
-invalidate old evidence; raw record setters and mutation of the deliberately
-borrowed `hash<-object` table remain outside this protocol.
+invalidate old evidence. Raw record setters are outside this protocol.
 
 This implements a concrete ownership discipline within the author's cached,
 purity-by-default choice (`poof.scrbl`, cache discussion at lines 1533–1553).
@@ -1373,7 +1374,7 @@ a previous result never bypasses a new hook refusal. This implements the author'
 observation that even inheritance-order recomputation below application code can
 be expensive, without extending mutation tracking to arbitrary language effects.
 
-`precedence-cache-workflow` in `examples/inherited-services.ss` combines repeated
+`precedence-cache-workflow` in `benchmarks/workloads/inherited-services.ss` combines repeated
 C3 queries, a shared declaration diamond, FUN revision and refused topology edits.
 The existing `just benchmark-prototype-traversal` includes `c3-hot` and
 `c3-workflow`, with AB/BA, A/A, B/B, natural, collected and post-GC controls.
@@ -1413,15 +1414,17 @@ only to their recorded source/ABI, not to a later module ownership revision.
 
 ## Authoritative vector values
 
-The default `slot-value-storage` is `vector`: `object-instance` returns the
-standard Gerbil `HashTable` interface over one receiver-local layout. Ordinary
-`.ref`, `.ref/cached`, printing, copy/iteration and inline sites share its cells.
-`object-layout` exposes that existing layout by identity; it never copies a hash
-value table. Creation hints do not erase computed cells. The explicit `hash`
+The default `slot-value-storage` is `vector`. Ordinary `.ref`, `.ref/cached`,
+printing and inline sites share the receiver-local cells. `object-instance`
+copies the prepared cells into a separate symbolic HashTable. `hash<-object`
+first demands the object's slots and then returns the same kind of snapshot.
+Use POO slot writes to change the receiver.
+`object-layout` and `slot-cache-layout` return independent layout snapshots.
+Internal preparation retains the authoritative layout. The explicit `hash`
 qualification remains a single symbolic value table; inline requests fall back
 to ordinary lookup and never create an auxiliary value vector.
 
-`slot-layout.ss` implements the actual core `HashTable` methods using the same
+`object/slot-layout.ss` implements the actual core `HashTable` methods using the same
 `bind-method!` convention as Gerbil runtime/hash. Unknown successful delegation
 prepares a complete new shape/cell arrangement before installing it. Sites retain
 the old immutable shape identity separately from the mutable layout. Evaluation
@@ -2003,7 +2006,7 @@ allocation remain charged; the old layout supplies only names, never values.
 Even an empty request still pays existing hint/cardinality preparation; it does
 not filter an old directory merely to produce an empty list.
 
-`representation/growth.scm` checks every subset of six distinct uninterned
+`representation/growth.ss` checks every subset of six distinct uninterned
 same-spelling symbols, duplicate/reordered requests, complete-constructor shape
 and offset equality, stale offset refusal, current false seeding, Function cell
 identity and receiver independence. A smaller replacement set is a negative
@@ -2164,7 +2167,7 @@ ordered/unique parent recording. Host identity interpretation, faithful finite
 weak registration, standard collectors and sequential publication are premises;
 callback termination, allocator/GC and compiler behavior are not theorems.
 
-Receiver-bound issuance/replay now lives in `object/observation.scm`, included
+Receiver-bound issuance/replay now lives in `object/observation.ss`, included
 under the EXISTING Object namespace. Standard make tracks it with `extra-inputs`;
 benchmark source identities include it and the existing Slot observation module.
 This adds no runtime image or namespace. Object and paired-runner sources remain

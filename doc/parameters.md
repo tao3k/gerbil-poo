@@ -60,7 +60,7 @@ Genuine method-body errors propagate. This does not add optional/keyword signatu
 to the separate `Fun` Type descriptor language or arbitrary case-lambda overloads;
 those remain in the type-system workstream.
 
-`examples/parameter-service.ss` combines a C3 diamond with one shared base fee,
+`t/fixtures/parameter-service.ss` combines a C3 diamond with one shared base fee,
 lexical region imports, explicit self/super names, partial/full `.parameters`
 binding, default/keyword/rest generic calls, final-self recomputation and a checked
 Reader/FUN action. Shape/type checks gate arithmetic/refinement and effects;
@@ -104,7 +104,7 @@ account` instead defines an initial snapshot at that point. Neither form adds
 public-reflection admission to raw field access. Use the existing `read-slot`
 boundary before public method invocation when current metadata is required.
 
-The existing `examples/declared-methods.ss` `prefixed-action` demonstrates that
+The existing `benchmarks/workloads/declared-methods.ss` `prefixed-action` demonstrates that
 whole chain with FUN approval, shared inheritance, method qualifiers, metadata
 refusal and retry. The implementation lowers whole groups through Gerbil core
 binding/definition forms; repeated lexical aliases retain nested shadowing,

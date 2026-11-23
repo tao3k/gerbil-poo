@@ -12,8 +12,8 @@
 (def (repetitions scenario) (if (eq? scenario 'publication) 32 128))
 ;; Bind runtime, examples, shared driver and native worker identity; no Lean input.
 (def workload-sources
-  (delete-duplicates/hash (append metadata.sources '("recursive.ss" "recursive-cache.ss" "recursive-handling.ss"
-    "proto.ss" "fun.ss" "examples/recursive-catalog.ss" "benchmarks/recursive-cases.ss"
+  (delete-duplicates/hash (append metadata.sources '("recursive/evaluation.ss" "recursive/cache.ss" "recursive/handling.ss"
+    "mop/prototype-composition.ss" "fun.ss" "benchmarks/workloads/recursive-catalog.ss" "benchmarks/recursive-cases.ss"
     "benchmarks/recursive-benchmark.ss" "benchmarks/recursive-suite.ss")) from-end?: #t))
 ;; Balanced ABBA across independent fresh children; every child warms all four controls.
 (def (side-order round pair) (if (memv round '(0 3)) pair (reverse pair)))

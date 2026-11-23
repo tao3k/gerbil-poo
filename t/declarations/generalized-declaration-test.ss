@@ -7,47 +7,47 @@
   :clan/poo/object
   :clan/poo/mop
   :clan/poo/number
-  :clan/poo/prototype-types
+  :clan/poo/types/prototype-types
   :clan/poo/types/relation
-  :clan/poo/method-declaration
-  (only-in :clan/poo/type RecordSlot)
-  (only-in :clan/poo/optional-validation call-with-current-catalogs)
-  (only-in :clan/poo/slot-observation call-with-slot-read-observer slot-read-receiver slot-read-key)
-  (prefix-in :clan/poo/examples/signature-service signature.)
+  :clan/poo/mop/methods/declaration
+  (only-in :clan/poo/type RecordSlot Bool Function Type Type. element? validate TypeError?)
+  (only-in :clan/poo/types/optional-validation call-with-current-catalogs)
+  (only-in :clan/poo/object/slot-observation call-with-slot-read-observer slot-read-receiver slot-read-key)
+  (prefix-in :clan/poo/t/fixtures/signature-service signature.)
   :std/iter
   (only-in :std/values first-value)
-  (prefix-in :clan/poo/declarative-metadata metadata.)
-  (prefix-in :clan/poo/multimethod multimethod.)
-  (prefix-in :clan/poo/dispatch-extension dispatch-extension.)
+  (prefix-in :clan/poo/mop/declarative-metadata metadata.)
+  (prefix-in :clan/poo/mop/methods/dispatch multimethod.)
+  (prefix-in :clan/poo/mop/methods/extension dispatch-extension.)
   :clan/poo/brace
-  :clan/poo/declaration
-  :clan/poo/generalized-declaration
-  (prefix-in :clan/poo/generalized-prototype gp.)
-  (prefix-in :clan/poo/examples/generalized-declarations generalized-declaration.service.)
-  :clan/poo/meta-prototype
-  :clan/poo/reflection
-  (prefix-in :clan/poo/examples/metaprotocol-services meta-prototype.service.)
-  :clan/poo/closure
-  :clan/poo/recursive-declaration
-  (prefix-in :clan/poo/recursive recursive.)
-  (prefix-in :clan/poo/examples/recursive-metaprotocol recursive-declaration.service.))
+  :clan/poo/object/declaration
+  :clan/poo/mop/generalized-declaration
+  (prefix-in :clan/poo/mop/generalized-prototype gp.)
+  (prefix-in :clan/poo/benchmarks/workloads/generalized-declarations generalized-declaration.service.)
+  :clan/poo/mop/meta-prototype
+  :clan/poo/object/reflection
+  (prefix-in :clan/poo/t/fixtures/metaprotocol-services meta-prototype.service.)
+  :clan/poo/graph/closure
+  :clan/poo/recursive/declaration
+  (prefix-in :clan/poo/recursive/evaluation recursive.)
+  (prefix-in :clan/poo/t/fixtures/recursive-metaprotocol recursive-declaration.service.))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (catalog-inference-test)
-  (let () (include "generalized-declaration/catalog-inference.scm")))
+  (let () (include "generalized-declaration/catalog-inference.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (declarative-metadata-test)
-  (let () (include "generalized-declaration/declarative-metadata.scm")))
+  (let () (include "generalized-declaration/declarative-metadata.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (generalized-declaration-test)
-  (let () (include "generalized-declaration/cases.scm")))
+  (let () (include "generalized-declaration/cases.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (meta-prototype-test)
-  (let () (include "generalized-declaration/meta-prototype.scm")))
+  (let () (include "generalized-declaration/meta-prototype.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (recursive-declaration-test)
-  (let () (include "generalized-declaration/recursive-declaration.scm")))
+  (let () (include "generalized-declaration/recursive-declaration.ss")))

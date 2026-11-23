@@ -2,15 +2,15 @@
 (export main workload)
 (import :std/iter
         :clan/poo/object
-        (runtime: :clan/poo/generalized-prototype)
-        (prefix-in (only-in :clan/poo/generalized-prototype Prepared? approximate
+        (runtime: :clan/poo/mop/generalized-prototype)
+        (prefix-in (only-in :clan/poo/mop/generalized-prototype Prepared? approximate
                    bind-context-observer prepared-protocol) gp.)
-        (runtime: :clan/poo/examples/generalized-checkout)
-        (prefix-in (only-in :clan/poo/examples/generalized-checkout
+        (runtime: :clan/poo/benchmarks/workloads/generalized-checkout)
+        (prefix-in (only-in :clan/poo/benchmarks/workloads/generalized-checkout
                    bind-envelope-items-report bind-envelope-report envelope-base
                    prepare-envelope prepare-envelope-items) checkout.)
-        (runtime: :clan/poo/method-combination)
-        (prefix-in (only-in :clan/poo/method-combination item) combination.)
+        (runtime: :clan/poo/mop/methods/combination)
+        (prefix-in (only-in :clan/poo/mop/methods/combination item) combination.)
         (prefix-in "factory-cases.ss" study.)
         (only-in "closure-measure.ss" run-child))
 ;; Identical fixed-field projection on both sides, matching the actual public report.

@@ -3,12 +3,12 @@
 This advances the paper's generalized-prototype **future work**. Racket Appendix B
 supplies `$lens-gen`: a getter, setter, wrapper and method compile into a delayed
 prototype; cooking supplies a separate consumed self interface. The native
-implementation reuses `generalized-prototype.ss`'s existing lens compiler and
+implementation reuses `mop/generalized-prototype.ss`'s existing lens compiler and
 assembler, adding a common declaration front end and extensible descriptors.
 
 ## Protocol and macro
 
-`generalized-declaration.ss` exports `Fragment`, `Fragment.`, `lens-fragment`,
+`mop/generalized-declaration.ss` exports `Fragment`, `Fragment.`, `lens-fragment`,
 `GeneralizedDeclaration.`, `prepare-fragments`, `.prototype`,
 `prepared-fragments?`, `fragment-names`, `observe-fragments` and `bind-fragments`.
 
@@ -63,7 +63,7 @@ the base. Finite depth is not an automatic fixed-point witness. `bind-fragments`
 returns the existing native FUN Reader action, checking sources on each new seed.
 No result or approval is reused across calls.
 
-For controlled closure, `generalized-closure.ss` now checks actual adjacent raw
+For controlled closure, `mop/generalized-closure.ss` now checks actual adjacent raw
 equality within a supplied step budget before returning a closed callable
 interface. See [controlled-closure.md](controlled-closure.md); the finite
 observation API itself keeps its original weaker boundary.
@@ -85,7 +85,7 @@ caller serialization. No arbitrary I/O rollback is claimed.
 
 ## Complex carriers and proofs
 
-`examples/generalized-declarations.ss` composes nested vector lenses with three
+`benchmarks/workloads/generalized-declarations.ss` composes nested vector lenses with three
 different focus types: rate, dependent fee and qualified method groups. A callable
 cooked interface shares demanded fields and prepares the existing standard around
 and primary methods. An outer audit field is preserved. After three stages, the

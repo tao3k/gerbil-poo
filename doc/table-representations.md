@@ -51,7 +51,7 @@ operations, states and deltas; construct a fresh descriptor to retry. Already
 returned immutable data is not revoked. Existing serialization/iteration semantics
 remain those of the public table protocol; arbitrary external IO is not rolled back.
 
-`examples/service-collection.ss` supplies `make-mirrored-ledger`: a transparent
+`t/fixtures/service-collection.ss` supplies `make-mirrored-ledger`: a transparent
 Gerbil record reuses RationalDict, negates keys and swaps a Tuple's checked Function
 and capacity into Pair fields. The resulting descriptor directly supports ordered
 revision batches, inverse, `table-isomorphism` data/delta transport, incremental
@@ -935,7 +935,7 @@ The public default methods now share complete recognition before backend work.
 list conversion); `.iter/key` preserves backend traversal (including Trie prefix
 pruning). These are implementation capabilities, not independent checked public
 observations. The generic fallback retains its existing fold/list traversal.
-`table/observation.scm` owns the complete boundary. Default cursors reuse the
+`table/observation.ss` owns the complete boundary. Default cursors reuse the
 existing mapped Iterator, capturing source/Key/Value/explicit-origin revisions
 and checking them before each pull, including repeated EOF. Issuance admits the
 whole immutable snapshot once; delayed pulls do not rescan it.

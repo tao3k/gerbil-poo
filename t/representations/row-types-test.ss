@@ -1,7 +1,8 @@
 ;;; Structural rows, guarded approximants and complete inferred contract workflows.
 (export row-types-test)
-(import :std/test :std/error :clan/poo/object :clan/poo/mop :clan/poo/types/relation :clan/poo/prototype-types
-        (prefix-in :clan/poo/examples/row-services service.))
+(import (only-in :clan/poo/type Object Function Bool Any element? TypeError? validate)
+        :std/test :std/error :clan/poo/object :clan/poo/mop :clan/poo/types/relation :clan/poo/types/prototype-types
+        (prefix-in :clan/poo/t/fixtures/row-services service.))
 ;; Match controlled failure categories without swallowing unrelated exceptions.
 (def (refusal-kind? expected)
   (lambda (cause) (and (type-refusal? cause) (eq? (type-refusal-kind cause) expected))))

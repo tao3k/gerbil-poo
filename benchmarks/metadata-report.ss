@@ -4,9 +4,9 @@
 ;; The producer and report use one definition of source identity and dimensions.
 ;; Inspecting a report never constructs a service, contract or publication family.
 ;; Exact source identities cover the producer and this admission definition.
-(def sources '("contract-family.ss" "build.ss" "dependency-analysis.ss" "generalized-graph.ss" "construction-cache.ss" "declarative-metadata.ss" "generic-family.ss" "staged-publication.ss" "cyclic-publication.ss" "dispatch-extension.ss" "multimethod.ss"
-               "closure.ss" "object.ss" "object/observation.scm" "slot-observation.ss" "mop.ss" "type.ss" "number.ss" "justfile"
-               "examples/shared-contracts.ss" "examples/construction-workflow.ss" "examples/service-metadata.ss" "examples/service-bundle.ss" "examples/protected-dispatch.ss" "examples/cyclic-access.ss"
+(def sources '("mop/contract-family.ss" "build.ss" "graph/computation.ss" "graph/schedule.ss" "graph/construction.ss" "mop/declarative-metadata.ss" "mop/generic-family.ss" "graph/staged-publication.ss" "graph/cyclic-publication.ss" "mop/methods/extension.ss" "mop/methods/dispatch.ss"
+               "graph/closure.ss" "object.ss" "object/representation.ss" "object/construction.ss" "object/slot-values.ss" "object/observation.ss" "object/slot-access.ss" "object/operations.ss" "object/syntax.ss" "object/mutation.ss" "object/slot-observation.ss" "mop.ss" "type.ss" "number.ss" "justfile"
+               "benchmarks/workloads/shared-contracts.ss" "benchmarks/workloads/construction-workflow.ss" "benchmarks/workloads/service-metadata.ss" "benchmarks/workloads/service-bundle.ss" "benchmarks/workloads/protected-dispatch.ss" "benchmarks/workloads/cyclic-access.ss"
                "benchmarks/closure-measure.ss" "benchmarks/metadata-benchmark.ss" "benchmarks/metadata-report.ss"))
 ;; Preserve the established ordered matrix, including refusal and full workflows.
 (def phases '(raw bound invoke wrap-build input-refuse output-refuse logic-refuse family-build family-warm revise refused-revise

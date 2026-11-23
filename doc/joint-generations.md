@@ -11,7 +11,7 @@ thread rendezvous and guarded owner installation remain reused.
 
 ## Correlate each concurrent result with its receipt
 
-`examples/joint-concurrency.install-concurrently` now accepts a pure `report:`
+`benchmarks/workloads/joint-concurrency.install-concurrently` now accepts a pure `report:`
 function of receipt, snapshot and failure. It runs in the caller while collecting
 worker result thunks, outside the owner lock. The default still returns the
 existing `(snapshot . failure)` pair; existing callers are unchanged. A client can

@@ -30,14 +30,14 @@ The old published facts never bootstrap an unsupported new cycle.
 
 ## Unified construction/publication operations
 
-`cyclic-publication.ss` stages least closure, cooked view, heterogeneous named
+`graph/cyclic-publication.ss` stages least closure, cooked view, heterogeneous named
 procedures or checked typed generics, and candidate admission as one version. Duplicate/invalid services,
 cooking exceptions, negative-watch conflicts or admission refusal preserve the identical old version. A
 fresh compile is explicit when topology changes. Published views are immutable by
 contract: callbacks and clients must not mutate them. Arbitrary external effects
 are not rolled back. Method indexes and raw fact storage are private.
 
-`examples/cyclic-access.ss` ports the exact ten CyclicAccess equations and cooked
+`benchmarks/workloads/cyclic-access.ss` ports the exact ten CyclicAccess equations and cooked
 view (including active indices), with two different service signatures, consent,
 revocation and admission refusal. All 32 source configurations are tested through
 real `.o` objects. This example keeps its original procedure services. The
@@ -74,7 +74,7 @@ the 20s deadline and Scheme's 1GiB heap bound; compile jobs keep 90s.
 # Closure lifecycle and standard-library implementation (v4)
 
 This advances the paper's generalized-protocol future work for finite positive
-Boolean equations. `closure.ss` now uses Gerbil's `for/fold`, `in-vector`, `iota`,
+Boolean equations. `graph/closure.ss` now uses Gerbil's `for/fold`, `in-vector`, `iota`,
 pattern matching and compiler-style private typed `using` contexts. Benchmark
 helpers share standard JSON, hash literals, `list->hash-table`, `map`, `cut`,
 `list-sort`, ports, digest and process libraries. Both native benchmark programs
@@ -137,7 +137,7 @@ terminate. There is no general reflective MOP, arbitrary effect handling or
 compiler/runtime verification claim.
 
 ```scheme
-(import :clan/poo/closure)
+(import :clan/poo/graph/closure)
 (def source (vector (literal #t) (either (fact 0) (fact 2)) (fact 1)))
 (def plan (compile-closure source))
 (def active (solve-closure plan))

@@ -32,7 +32,7 @@ Import the modules you use directly:
 ```
 
 The example is exported as a normal `*-test` suite for `gerbil test` discovery.
-See `examples/property-kernel.ss` for dependent packets, non-injective maps,
+See `t/fixtures/property-kernel.ss` for dependent packets, non-injective maps,
 lazy bounded shrinking, source invalidation and a model with logical handles.
 `testing/property/model.ss` owns model execution and repair; it does not instantiate
 a POO object or prescribe an application representation.
@@ -127,7 +127,7 @@ sampler's draw/shrink callback retires its inherited tree binding. Value-only
 shrinking requires an explicit callback when the original sample is unavailable;
 the library never guesses an inverse of a non-injective map.
 
-`examples/generated-batches.ss` demonstrates weighted dependent payloads, inherited
+`t/fixtures/generated-batches.ss` demonstrates weighted dependent payloads, inherited
 source invalidation, size scheduling, Reader/FUN, nested Function wrapping and
 seed/witness replay. Import its suite through ordinary Gerbil modules. The generic
 example's twenty cases also build and run in a separate stdlib-only project.
@@ -179,7 +179,7 @@ and a generator of result tuples. Map `function-procedure` through the existing
 generator algebra to derive a sampler for a POO Function descriptor. Calls outside
 those rows refuse. Multi-value and keyword calls use Gerbil's ordinary call path;
 there is no generated evaluator or second argument parser. See the executable
-[property workflows](../examples/property-workflows.ss) and the PBT RFC for bounds.
+[property workflows](../t/property/property-workflows-test.ss) and the PBT RFC for bounds.
 
 ## Standard TestSuite assertions and named arguments
 
@@ -232,7 +232,7 @@ The installed compiled Gerbil CLI can print `ERROR HARNESS` while returning zero
 TestResult still records the failure. This repository's existing Just admission
 requires case/harness success and rejects ERROR markers; downstream CI must use
 an entry that preserves those checks until its Gerbil release propagates failure
-status. The ordinary `examples/property-refusals.ss` module verifies all six PBT failure categories
+status. The ordinary `t/property/property-refusals.ss` module verifies all six PBT failure categories
 through the same public entry. It is invoked explicitly by the positive workflow
 suite; no temporary Scheme source, custom runner or fixture lifecycle is generated.
 
@@ -302,7 +302,7 @@ The returned generic inspection retains the sampler's Type/source stamps.
 Use `inspection-current?` before treating old diagnostics as current; rebuilding a
 sampler after a supported revision is explicit. These are caller-owned diagnostic
 values, not portable counterexample reports. See the dependent packet inspection
-and interruption controls in `examples/property-kernel.ss`.
+and interruption controls in `t/fixtures/property-kernel.ss`.
 
 ## Default POO test and debug workflow
 
@@ -328,7 +328,7 @@ and call it with a PropertyConfiguration Record. DDT formats report diagnostics
 when the tag is enabled and preserves the returned report. With tag #f the run
 still happens exactly once and no rendering occurs. Failed data remain available
 for the same shrinking and replay protocol. Debugging does not assert a passing
-property. See `examples/generated-batches.ss` for the full Record/FUN workflow.
+property. See `t/fixtures/generated-batches.ss` for the full Record/FUN workflow.
 The installed CLI exit-status caveat described above still applies; project
 acceptance retains its existing error admission guard.
 
@@ -381,7 +381,7 @@ Use the existing modules directly; application codecs carry only logical data:
 ```
 
 `decode-batch` uses ordinary Record construction to restore validation and Function
-wrapping, not serialized closures. See `examples/generated-batches.ss` for an
+wrapping, not serialized closures. See `t/fixtures/generated-batches.ss` for an
 executable downstream FUN/debug-to-corpus workflow. Import returns the property's
 Boolean result, with no sampling or shrinking. A stale sampler/codec refuses before
 decoding; a decoder that invalidates either source refuses before property effects.
@@ -401,7 +401,7 @@ It performs guarded precondition/domain/property calls, not a generation run.
 Rejected or non-Boolean preconditions cannot reach recognition or property effects.
 Labels, coverage thresholds, PRNG state, size policies and shrinking are untouched.
 Seed replay still owns complete generation/coverage behavior. See
-`examples/generated-batches.ss` for the Record/FUN-to-corpus policy workflow.
+`t/fixtures/generated-batches.ss` for the Record/FUN-to-corpus policy workflow.
 
 ## Callback stage admission
 
@@ -414,8 +414,8 @@ and resource budgets are unchanged. Dynamic sample leaves still belong to their
 node/consumer admission; this does not certify undeclared mutable payloads or
 undo effects already performed by a callback. Observers must be pure and accurate.
 
-See the 41-case independent `examples/property-kernel.ss` and the Record/FUN repair
-workflow in `examples/generated-batches.ss`. The latter explicitly rebuilds a sampler
+See the 41-case independent `t/fixtures/property-kernel.ss` and the Record/FUN repair
+workflow in `t/fixtures/generated-batches.ss`. The latter explicitly rebuilds a sampler
 after revision rather than silently refreshing an old generation closure, performs
 real shrinking and checks that concrete replay draws nothing while seeded replay
 repeats the full dependent construction schedule.
@@ -462,7 +462,7 @@ No automatic arbitrary Map/Record derivation is claimed. A custom refinement tha
 rejects generated subsets is a domain error unless the application supplies a
 suitable explicit generator/filter; it is not silently retried.
 
-See `examples/generated-batches.ss` for a Record/FUN workflow containing Maps of
+See `t/fixtures/generated-batches.ss` for a Record/FUN workflow containing Maps of
 Records with Functions, an aggregate falsification, structural/value shrinking,
 zero-draw inspection, source revision/refusal, fresh retry and portable logical
 entry encoding. Codecs own logical field/format identity and restore ordinary
@@ -522,7 +522,7 @@ demand through the existing `defonce`, and draw a fresh value for each occurrenc
 A selected unsupported Type still raises its original cause; it never becomes
 Any or triggers a type-based branch fallback. Unforced Type revisions and forced
 child dependencies still invalidate old reports. See [Demand-driven FunctionArguments child derivation](pbt/function-generation.md#demand-driven-functionarguments-child-derivation) of the RFC and the
-keyword/rest/multiple-return FUN workflow in `examples/generated-batches.ss`.
+keyword/rest/multiple-return FUN workflow in `t/fixtures/generated-batches.ss`.
 
 Typed `check-trace` now binds one execution to captured model and fixture
 **declarations**. Actual State still evolves; replacing a step/observer, editing
@@ -531,7 +531,7 @@ the existing stale-generation signal. A revision after `use` returns also refuse
 publication. Original exceptions and first-difference diagnostics remain intact,
 and the caller's ordinary scope owns cleanup. Retry prepares a fresh execution;
 there is no backend rollback. See [Revision-bound scoped differential trace execution](pbt/model-traces.md#revision-bound-scoped-differential-trace-execution) in the RFC and the indexed-collection/FUN
-revision example in `examples/generated-batches.ss`.
+revision example in `t/fixtures/generated-batches.ss`.
 Fixture epoch checks end with `use`, so teardown may normally retire its methods;
 model declarations remain checked until the fixture factory returns.
 
@@ -562,8 +562,8 @@ filters retain separate local quotas. See [Source-consistent bounded rejection s
 fresh retry, wrapped Function shrinking and source-consistent replay.
 
 To copy the independent worked suite into another standard Gerbil project, include
-`examples/property-kernel.ss`, `examples/property-products.ss` and
-`examples/property-filters.ss`, `examples/property-scopes.ss` and `examples/property-sizes.ss` and `examples/property-traces.ss` alongside the generic modules. The small
+`t/fixtures/property-kernel.ss`, `t/fixtures/property-products.ss` and
+`t/fixtures/property-filters.ss`, `t/fixtures/property-scopes.ss` and `t/fixtures/property-sizes.ss` and `t/fixtures/property-traces.ss` alongside the generic modules. The small
 functional groups register cases in the kernel's existing `:std/test` suite;
 the isolated package acceptance builds all ordinary helper modules and executes
 97 cases without installing POO.
@@ -599,14 +599,14 @@ concrete/seed replay and explicit fresh retry.
 natural steps/size before initialization. It uses the smaller cap and passes the
 original size to each state-dependent draw. Valid zero caps still initialize once
 but draw nothing; invalid limits never enter initialization. See [Exact bounded model draw configuration](pbt/data-generation.md#exact-bounded-model-draw-configuration) and
-`examples/property-traces.ss` plus the typed Record/FUN integration example.
+`t/fixtures/property-traces.ss` plus the typed Record/FUN integration example.
 
 Finite value policies admit proper outer spines at `list-deletions` and finite
 parameter results at `data-list-shrinks`. Model repair refuses malformed inputs;
 model shrinking delegates to that shared boundary. Each parameter callback keeps
 its source scope, so revision skips the next coordinate. `make-generator` lazy
 shrink Iterators retain their separate bounded consumption protocol. [Finite sequence preparation without prefix salvage](pbt/data-generation.md#finite-sequence-preparation-without-prefix-salvage) and
-`examples/generated-traces.ss` show typed Record/FUN failure, retry and replay
+`t/property/generated-traces-test.ss` show typed Record/FUN failure, retry and replay
 without partial packing.
 
 
@@ -616,7 +616,7 @@ the next action, not merely the eventual report. Initializer invalidation can no
 longer execute an obsolete draw suffix. Expected observation is explicitly
 sequenced before actual observation. Ordinary multi-values, false commands,
 original exceptions and `try`/`finally` cleanup keep their existing meanings.
-`examples/property-traces.ss` and `examples/generated-traces.ss` show generic and
+`t/fixtures/property-traces.ss` and `t/property/generated-traces-test.ss` show generic and
 Record/FUN refusal/retry without a second evaluator. Seven dependent-action laws
 in `PropertyScopes.lean` state the finite source/serial-callback premises; host
 unwinding remains executable evidence. See [Source-consistent generic model actions](pbt/model-traces.md#source-consistent-generic-model-actions) in the RFC for costs and scope.
@@ -626,7 +626,7 @@ unwinding remains executable evidence. See [Source-consistent generic model acti
 run-local ancestor checks. Normal child report publication is checked after its
 local catch/finish scopes unwind; it does not recursively invoke a terminated
 child's guard. Live parents may still receive non-passing child diagnostics.
-`examples/property-scopes.ss` and `examples/generated-products.ss` cover early
+`t/fixtures/property-scopes.ss` and `t/fixtures/generated-products.ss` cover early
 refusal, exact exceptions, cleanup, Record/Function wrapping and FUN retry/replay.
 The eight finite scope laws keep accurate observers and host scope fidelity as
 premises. No partial-write rollback or arbitrary callback interruption is claimed.
@@ -693,7 +693,7 @@ No per-value wrapping or extra generator call is introduced; see [Constructor-bo
 The isolated package still builds all twelve modules with `gerbil build` and runs
 all 140 current ordered cases through `gerbil test`. Its 60-second build and test limits,
 1 GiB Scheme heaps and inherited machine concurrency are unchanged. The root
-build and isolated build include one source-only `testing/property/build.scm`
+build and isolated build include one source-only `testing/property/build.ss`
 declaration; standard make tracks both that policy and the case include as
 `extra-inputs`. A source regression performs fresh standard builds to verify an
 unchanged input reuses its artifact and a changed policy rebuilds it.

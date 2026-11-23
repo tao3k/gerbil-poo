@@ -325,7 +325,7 @@ zero-weight branch independence. The Record/Function/FUN example rejects a stale
 generic field before drawing, explicitly reprepares, retains wrapping through
 shrinking and concrete/seed replay, and refuses both old samplers and later stale
 reports. The standalone library check now executes all 59 cases without POO.
-Product cases live in `examples/property-products.ss` and register with the
+Product cases live in `t/fixtures/property-products.ss` and register with the
 existing standard suite; the aggregate kernel stays below 1000 lines. The empty
 independent package copies and builds both ordinary modules, with no new namespace
 or test runner.
@@ -429,7 +429,7 @@ Four generic cases cover improper, cyclic and non-list spines; no initialization
 or prefix effects on refusal; malformed callback outputs; exact causes and charges;
 source revision before the next coordinate; unchanged finite proposal order; and
 bounded lazy Iterator admission. The independent package runs 87 standard cases.
-`examples/generated-traces.ss` keeps new typed evidence separate from the large
+`t/property/generated-traces-test.ss` keeps new typed evidence separate from the large
 batch module: Record commands with Function fields reject malformed parameter
 batches before candidate repair, retain diagnostic witnesses with zero delivered
 attempts, and replay/retry explicitly. A single codec-parametric Record/FUN fixture
@@ -619,9 +619,9 @@ Only fresh preparation sees changed endpoints. Custom predicates must faithfully
 admit their interval or supply an explicit generator. Float/Real/Number remain
 outside this exact profile; their absence is not silently repaired.
 
-`examples/property-numbers.ss` exercises the generic combinator, bounded windows,
+`t/fixtures/property-numbers.ss` exercises the generic combinator, bounded windows,
 strict shrinking, seed/concrete/corpus replay and stale ownership. The independent
-POO-free package now requires 145 cases. `examples/generated-products.ss` combines
+POO-free package now requires 145 cases. `t/fixtures/generated-products.ss` combines
 a five-bit balance, signed delta, modular mode and revised port range in a Record
 with a wrapped Function and FUN action. It detects wrapping arithmetic versus a
 saturating reference, replays the failure through a data-only codec, refuses a
@@ -671,7 +671,7 @@ Generic controls compare seeded string/keyword spellings, test constrained
 alphabets and lengths, sensitive Unicode and empty data, and replay an empty
 minimal failure. Independent admission now requires 148 cases. Typed regressions
 exercise strict spelling shrink rank and shared Keyword leaves in Tuple/List/Pair/
-OrFalse/Sum. `examples/generated-products.ss` exports `keyword-routing-action`:
+OrFalse/Sum. `t/fixtures/generated-products.ss` exports `keyword-routing-action`:
 a Record with Keyword fields and wrapped Function flows through a declared
 keyword parameter and FUN. The fault confuses an empty spelling with omission;
 the test detects it, preserves wrappers, replays seed/concrete/corpus witnesses,

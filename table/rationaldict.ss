@@ -1,0 +1,60 @@
+;;; Simple instance of the table interface: a wrapper for clan/pure/dict/rationaldict
+
+(export #t)
+
+(import
+  (only-in ../support/base λ number-comparer)
+  (only-in ../support/rationaldict
+           rationaldict-empty? empty-rationaldict
+           rationaldict-put rationaldict-ref rationaldict-has-key? rationaldict-remove
+           list->rationaldict rationaldict->list rationaldict-fold rationaldict-foldr
+           rationaldict? rationaldict=? rationaldict-iter)
+  (only-in ../type Rational Unit)
+  (only-in ../object .@)
+  (only-in ../brace @method)
+  (only-in ../mop/prototype define-type Any raise-type-error)
+  (only-in ../table Set<-Table. methods.table table-key-space table-comparer table-ordered-cursor))
+
+(define-type (RationalDict. @ [methods.table] Value)
+   ;; This backend's tree operations are payload-parametric and retain key equality.
+   .key-table: (cut table-key-space @ <>)
+   Key: Rational
+   Value: Any
+   ;; Carrier admission is separate from recursive normalization and recognition.
+   ;; The shared table protocol owns key/value wrappers, collisions and rebuilding.
+   .validate-shape: (lambda (source)
+     (unless (rationaldict? source) (raise-type-error @ source 'expected-rationaldict))
+     source)
+   ;; The standard RBTree comparator identifies exact/inexact numeric aliases.
+   ;; Declare that same equivalence; structural equal? would reject lawful bounds.
+   Comparer: (table-comparer Key number-comparer equal?: =)
+   ;; Reuse the standard in-order Iterator; positioning is linear prefix filtering.
+   .seek<-: (lambda (root lower inclusive?)
+     (table-ordered-cursor @ root lower inclusive? rationaldict-iter number-comparer =))
+   .empty: empty-rationaldict
+   ;; Standard RBTree predicate remains the structural backend capability.
+   .empty/key?: rationaldict-empty?
+   .ref: rationaldict-ref
+   .key?: rationaldict-has-key?
+   .acons: (lambda (k v d) (rationaldict-put d k v))
+   .remove: rationaldict-remove
+   .foldl: rationaldict-fold
+   .foldr: rationaldict-foldr
+   ;; Standard traversal remains beneath common whole-snapshot admission.
+   .iter/key: rationaldict-iter
+   ;; Standard RBTree bulk construction remains behind the checked public boundary.
+   .<-list/key: list->rationaldict
+   .list/key: rationaldict->list
+   .sexp<-: (lambda (x) `(list->rationaldict `,(rationaldict->list x)))
+   ;; Reuse standard RBTree equality beneath the common admission/Bool boundary.
+   .=?/key: (lambda (same? d1 d2) (rationaldict=? d1 d2 same?)))
+;; Construct the ordinary value-specialized descriptor; no value validation runs here.
+(def (RationalDict (Value Any))
+  (if (eq? Value Any) RationalDict.
+      {(:: @ RationalDict.) Value sexp: `(RationalDict ,(.@ Value sexp))}))
+
+(define-type (RationalSet @ [Set<-Table.])
+  Elt: Rational
+  Table: {(:: @T RationalDict.) Key: Elt Value: Unit}
+  ;; Public observations inherit the complete Set boundary and backend order.
+  )

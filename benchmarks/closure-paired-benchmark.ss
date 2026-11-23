@@ -1,6 +1,6 @@
 ;;; Balanced same-process controls. One vector per sample, no JSON dictionaries.
 (export main)
-(import :gerbil/runtime/gambit :std/iter :clan/poo/closure "closure-cases.ss" "closure-measure.ss"
+(import :gerbil/runtime/gambit :std/iter :clan/poo/graph/closure "closure-cases.ss" "closure-measure.ss"
         (only-in "closure-scale-benchmark.ss" workload))
 (def (main family size-text width-text)
   (def size (string->number size-text))

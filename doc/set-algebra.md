@@ -10,7 +10,7 @@ or destructive-storage research questions.
 
 ## One existing interface
 
-`Set<-Table.` stays in `clan/poo/table`; `table/sets.scm` is a standard compiler
+`Set<-Table.` stays in `clan/poo/table`; `table/sets.ss` is a standard compiler
 include tracked by `defbuild-script`. The set's `Table.Value` must be the standard
 `Unit` descriptor. The carrier stores an admitted element as a key and `(void)` as
 its value. The algebra uses existing backend merge, short-circuit traversal and
@@ -81,7 +81,7 @@ ordinary table-delta discovery. There is no second set-delta representation:
 (def changes (.call (.@ set Table) .diff before desired))
 ```
 
-`prepare-access-revision` in `examples/service-collection.ss` prepares that complete
+`prepare-access-revision` in `t/fixtures/service-collection.ss` prepares that complete
 policy once and returns the existing Reader/FUN installation-plus-IO action.
 Revocation wins over simultaneous grant. The action can install on a current
 snapshot; a changed expected key refuses before the IO consumer. Retry explicitly
@@ -423,7 +423,7 @@ second owner's permission 20. Removing the last owner removes that permission;
 inverse source deltas restore the grouped relation, and inverse target deltas
 restore target membership without reconstructing an inverse relation.
 
-`make-service-permission-image` in `examples/service-collection.ss` captures a
+`make-service-permission-image` in `t/fixtures/service-collection.ss` captures a
 persistent typed service catalog. Missing service assignments refuse; catalog
 and declared metadata changes invalidate old images. The existing
 `publish-access-image-action` publishes its exact delta through all five styles
@@ -464,7 +464,7 @@ refinement refusal leaves the original capability live. Metadata, foreign-owner
 and consumed-owner refusal precede the user modifier. A reentrant winner remains
 installed when an outer captured-generation modification loses.
 
-`examples/service-collection.ss` `revise-focused-access` composes a service's
+`t/fixtures/service-collection.ss` `revise-focused-access` composes a service's
 access field with this owned membership focus, then publishes the admitted
 snapshot through existing Reader/FUN/IO. An unrelated service field survives,
 precommit refusal suppresses IO, a fresh request retries, and existing table

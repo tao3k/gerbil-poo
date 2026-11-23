@@ -1,0 +1,142 @@
+;;; -*- Gerbil -*-
+;;; SPDX-FileCopyrightText: 2026 tao3k team and Contributors
+;;;
+;;; SPDX-License-Identifier: Apache-2.0 AND LGPL-2.1-or-later
+
+;;; POO CLOS instance state and generation migration values.
+
+(import :clan/poo/object
+        (only-in :clan/poo/mop/prototype element?)
+        (only-in :std/hash/misc hash-ref/default)
+        (only-in :std/list/list filter find foldl)
+        "types.ss" "objects.ss" "classes.ss" "funcs.ss")
+
+(export clos-instance?
+        make-slot-cell instance-state-value class-generation
+        instance-allocated-slot? effective-slot-identity make-instance-state
+        class-handler instance-slot-names effective-instance-slot-names
+        effective-slot-difference class-slot-difference
+        class-effective-slots-at-generation discarded-slot-property-list
+        migrated-instance-storage snapshot-instance-storage)
+
+;; : POOObject
+(def ClosInstanceState. (.ref ClosInstanceState 'proto))
+;; : (-> ClosClass Natural HashTable ClosInstanceState)
+(def (instance-state-value class-value generation-value storage-value)
+  (checked ClosInstanceState
+           (.o (:: @ ClosInstanceState.)
+               class: class-value generation: generation-value
+               storage: storage-value)
+           'invalid-instance-state))
+
+;; : (-> ClosClass Natural)
+(def (class-generation class-value)
+  (.ref class-value 'generation))
+
+;; : (-> ClosEffectiveSlotDefinition Boolean)
+(def (instance-allocated-slot? slot)
+  (eq? (.ref slot 'allocation) 'instance))
+
+;; : (-> ClosEffectiveSlotDefinition Symbol)
+(def (effective-slot-identity slot)
+  (.ref slot 'identity))
+
+;; : (-> ClosClass ClosInstanceState)
+(def (make-instance-state class-value)
+  (let ((storage-value (make-hash-table-eq))
+        (generation-value (class-generation class-value)))
+    (for-each
+     (lambda (slot)
+       (when (instance-allocated-slot? slot)
+         (hash-put! storage-value
+                    (effective-slot-identity slot) (make-slot-cell))))
+     (clos-class-effective-slots class-value))
+    (instance-state-value class-value generation-value storage-value)))
+
+;; : (-> SchemeValue Boolean)
+(def (clos-instance? value)
+  (and (object? value)
+       (.slot? value '%clos-state)
+       (element? ClosInstanceState (.ref value '%clos-state))))
+
+;; : (-> ClosClass Symbol (Maybe Procedure))
+(def (class-handler class-value handler-slot)
+  (let (owner
+        (find (lambda (candidate) (.ref candidate handler-slot))
+              (clos-class-precedence-list class-value)))
+    (and owner (.ref owner handler-slot))))
+
+;; : (-> ClosClass [Symbol])
+(def (instance-slot-names class-value)
+  (map effective-slot-identity
+       (filter instance-allocated-slot?
+               (clos-class-effective-slots class-value))))
+
+;; : (-> [ClosEffectiveSlotDefinition] [Symbol])
+(def (effective-instance-slot-names slots)
+  (map effective-slot-identity (filter instance-allocated-slot? slots)))
+
+;; : (-> [ClosEffectiveSlotDefinition] [ClosEffectiveSlotDefinition]
+;;        (values [Symbol] [Symbol]))
+(def (effective-slot-difference old-slots new-slots)
+  (let* ((old-names (effective-instance-slot-names old-slots))
+        (new-names (effective-instance-slot-names new-slots))
+        (old-index (clos-identity-index old-names))
+        (new-index (clos-identity-index new-names)))
+    (values (filter (lambda (name) (not (hash-key? old-index name))) new-names)
+            (filter (lambda (name) (not (hash-key? new-index name))) old-names))))
+
+;; : (-> ClosClass ClosClass (values [Symbol] [Symbol]))
+(def (class-slot-difference old-class new-class)
+  (effective-slot-difference (clos-class-effective-slots old-class)
+                             (clos-class-effective-slots new-class)))
+
+;; : (-> ClosClass Natural [ClosEffectiveSlotDefinition])
+(def (class-effective-slots-at-generation class-value generation-value)
+  (if (= generation-value (.ref class-value 'generation))
+    (clos-class-effective-slots class-value)
+    (or ((.ref class-value 'layout-history) generation-value)
+        (clos-fail 'missing-class-layout
+                   class: (.ref class-value 'identity)
+                   operation: 'update-instance-for-redefined-class))))
+
+;; : (-> ClosInstanceState [Symbol] [SchemeValue])
+(def (discarded-slot-property-list state discarded)
+  (reverse
+   (foldl
+    (lambda (slot-name result-rev)
+      (let (cell
+            (hash-ref/default (.ref state 'storage) slot-name (lambda () #f)))
+        (if (and cell (.ref cell 'bound?))
+          (cons (.ref cell 'value) (cons slot-name result-rev))
+          result-rev)))
+    '() discarded)))
+
+;; : (-> ClosInstanceState ClosClass HashTable)
+(def (migrated-instance-storage state new-class)
+  (let (new-storage (make-hash-table-eq))
+    (for-each
+     (lambda (slot)
+       (when (instance-allocated-slot? slot)
+         (let* ((slot-name (effective-slot-identity slot))
+                (old-cell
+                 (hash-ref/default (.ref state 'storage)
+                                   slot-name (lambda () #f))))
+           (hash-put! new-storage slot-name (or old-cell (make-slot-cell))))))
+     (clos-class-effective-slots new-class))
+    new-storage))
+
+;; The previous change-class view must not share mutable SlotCells with the
+;; current view. Values themselves retain the ordinary shallow-copy semantics.
+;; : (-> ClosInstanceState HashTable)
+(def (snapshot-instance-storage state)
+  (let (snapshot (make-hash-table-eq))
+    (hash-for-each
+     (lambda (slot-name cell)
+       (let (copy (make-slot-cell))
+         (when (.ref cell 'bound?)
+           (.put! copy 'value (.ref cell 'value))
+           (.put! copy 'bound? #t))
+         (hash-put! snapshot slot-name copy)))
+     (.ref state 'storage))
+    snapshot))

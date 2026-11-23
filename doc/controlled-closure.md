@@ -7,7 +7,7 @@ proof of arbitrary Scheme callback termination.
 
 ## Actual raw closure
 
-`generalized-closure.ss` exports `close-fragments`, `publish-closure`,
+`mop/generalized-closure.ss` exports `close-fragments`, `publish-closure`,
 `closure-action`, closed receipt inspectors and failure inspectors.
 
 ```scheme
@@ -17,7 +17,7 @@ proof of arbitrary Scheme callback termination.
 (service.report closed 2) ; (10 13 15 96 audit), failure is #f
 ```
 
-The example prefix denotes `examples/closed-declarations.ss`. Each iteration
+The example prefix denotes `benchmarks/workloads/closed-declarations.ss`. Each iteration
 checks admitted lens domains, performs one actual `step-fragments`, checks its
 result, then compares FULL adjacent raw values with native `equal?`. Only equality
 allows cooking and receipt creation. The receipt retains its prepared owner,
@@ -48,7 +48,7 @@ there is no implicit global capability revocation or external-I/O rollback.
 
 ## Custom lens laws
 
-`lens-laws.ss` provides:
+`mop/lens-laws.ss` provides:
 
 - `check-lens-laws lens states values`: finite get-put, put-get and put-put checks.
 - `lens-check lens values sources: [...]`: capture a nonempty value domain, the

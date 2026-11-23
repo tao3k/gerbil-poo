@@ -7,20 +7,20 @@
   :clan/poo/object
   :clan/poo/mop
   :clan/poo/types/relation
-  :clan/poo/prototype-types
-  :clan/poo/method-declaration
-  (prefix-in :clan/poo/examples/polymorphic-services service.)
+  :clan/poo/types/prototype-types
+  :clan/poo/mop/methods/declaration
+  (prefix-in :clan/poo/benchmarks/workloads/polymorphic-services service.)
   (only-in :std/number/misc uint-below?)
   (only-in :gerbil/runtime/gambit string->uninterned-symbol)
-  (prefix-in :clan/poo/examples/numeric-services numeric.)
-  (only-in :clan/poo/function-signature encode-arguments)
+  (prefix-in :clan/poo/t/fixtures/numeric-services numeric.)
+  (only-in :clan/poo/types/function-signature encode-arguments)
   :clan/poo/type)
 (import (only-in "scalar-inference/union.ss" union-inference-test))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (range-inference-test)
-  (let () (include "scalar-inference/range-inference.scm")))
+  (let () (include "scalar-inference/range-inference.ss")))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (scalar-inference-test)
-  (let () (include "scalar-inference/cases.scm")))
+  (let () (include "scalar-inference/cases.ss")))

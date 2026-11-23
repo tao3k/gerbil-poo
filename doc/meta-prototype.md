@@ -7,7 +7,7 @@ construction principle; the hook/elaboration APIs here are new concrete work.
 
 ## A self-describing protocol root
 
-`meta-prototype.ss` exports `bootstrap-protocol` and `bootstrap-protocol?`.
+`mop/meta-prototype.ss` exports `bootstrap-protocol` and `bootstrap-protocol?`.
 The input is an ordinary POO object supplying `compute-precedence-list` and
 `compute-slot`. The constructor reads inherited hook values, validates they are
 procedures and pins them as constant slots on a fresh root. That root's protocol
@@ -35,7 +35,7 @@ Raw struct/table mutation remains trusted, outside supported sealing/invalidatio
 
 ## Nonlocal declaration protocol
 
-`declaration.ss` exports `Declaration.`, `declaration-form`, `declaration-action`,
+`object/declaration.ss` exports `Declaration.`, `declaration-form`, `declaration-action`,
 `expand-declarations`, `object<-declaration-forms` and `.declare`.
 
 `Declaration.` is an ordinary inherited object with two operations:
@@ -87,7 +87,7 @@ macro system. Captured catalog membership changes require fresh elaboration.
 
 ## Complete workflow and proof boundary
 
-`examples/metaprotocol-services.ss` bootstraps a declaration expander that governs
+`t/fixtures/metaprotocol-services.ss` bootstraps a declaration expander that governs
 its OWN expansion metadata. An inherited `property` form emits a public field,
 public getter and private revision annotation; another form checks current
 approval. A shared source feeds billing/risk branches and a diamond join through

@@ -101,7 +101,7 @@ literals; no numeric rounding, coercion, predicate implication, complement
 reasoning or serialization conversion is inferred. Keyword and escape tokens
 remain outside all three intrinsic numeric families.
 
-examples/numeric-services.ss uses the existing qualified declaration factory,
+t/fixtures/numeric-services.ss uses the existing qualified declaration factory,
 prefix specialization and complete finite solver for a measurement Map paired
 with a higher-order calibrator. Gerbil's hash-key-value-map and compose implement
 explicit value conversion in the producer. Recursive Function wrappers protect

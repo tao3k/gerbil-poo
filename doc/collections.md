@@ -42,7 +42,7 @@ Deltas retain exact admitted values, including nested Function wrappers. Creatin
 one from raw, unwrapped procedures is not a substitute for recursive admission.
 Children and callback state must remain stable while snapshots are retained.
 
-`prepare-ledger-revision` in `examples/service-collection.ss` admits a new proposal
+`prepare-ledger-revision` in `t/fixtures/service-collection.ss` admits a new proposal
 with `checked-action` before discovering changes. Full admission may create new
 Function identities even in previously present entries. For identity-preserving
 incremental use, validate new payloads individually, build the persistent proposal
@@ -1030,7 +1030,7 @@ Postcommit IO effects are not rolled back. Empty and transient source batches
 retain all delta origins, so even a no-edit successor refuses after invalidation.
 Metadata writes retain the existing cross-thread serialization discipline.
 
-`make-team-capacity-fold` in `examples/service-collection.ss` groups typed service
+`make-team-capacity-fold` in `t/fixtures/service-collection.ss` groups typed service
 rows by team, preserving their admitted callbacks in the primary. Regressions cover
 RationalDict/Trie backends, zero-valued live groups, last-owner deletion, 32 mixed
 revisions against an independent list oracle, untouched-group callback refusal,
@@ -1167,7 +1167,7 @@ parallel validation/ownership engine is introduced.
 ## Complete collection IO
 
 Table and Set JSON, bytes and port codecs now share one guarded dispatch in the
-existing table module (`table/io.scm`). It retains the existing List/Pair codecs
+existing table module (`table/io.ss`). It retains the existing List/Pair codecs
 and wire formats. Trie now gives the collection protocol precedence over its raw
 node Wrapper, matching the existing representation-derived table ordering. Table
 payloads are bindings; Set payloads are elements. Encoding

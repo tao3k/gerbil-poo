@@ -81,7 +81,7 @@ a sampler's draw/shrink callback retires its inherited tree binding. An explicit
 value-only shrink callback remains necessary when no original sample is available;
 neither cached output lookup nor an inferred inverse substitutes for provenance.
 
-`examples/generated-batches.ss` covers weighted routes, length-dependent payloads,
+`t/fixtures/generated-batches.ss` covers weighted routes, length-dependent payloads,
 Record-owned nested Function wrapping, Reader/FUN, bounded size scheduling,
 recursive Tuple/Pair carriers, Function argument rows, both replays and stale
 configuration refusal. The stdlib-only generic example now has twenty independent
@@ -202,7 +202,7 @@ size growth or fallback domain. Nested filters keep independent quotas: two oute
 entries can each spend three inner entries. Shrink tombstones remain separately
 charged against the property consumer's existing shrink budget.
 
-`examples/property-filters.ss` groups the older quota/shrink controls with the new
+`t/fixtures/property-filters.ss` groups the older quota/shrink controls with the new
 retry matrix under the existing standard suite. Coverage includes draw, map,
 selection and inner-predicate revisions; multiple rejected owners; exact exception
 identity and scope restoration; nested quotas and strict Boolean predicates;
@@ -266,7 +266,7 @@ active; no new record hierarchy, namespace, runner, PRNG or persistent registry
 is introduced. Standard Gerbil continuation/iterator lifetimes remain in force;
 arbitrary user-captured continuations and payload aliases are not certified.
 
-Four generic controls in `examples/property-scopes.ss` cover earlier accepted and
+Four generic controls in `t/fixtures/property-scopes.ss` cover earlier accepted and
 discarded trials, inspection roots, rejected shrink provenance during replay,
 exact causes, nested outer-refusal priority, empty-source paused iteration,
 ordinary child demand after the scope ends and stable observer work across twelve
@@ -451,7 +451,7 @@ Five independent cases cover producer-owned product measures, simultaneous
 parent/child refusal in checks and inspection with balanced cleanup, reconfirm/
 encode/decode refusal before later work or port writes, exact codec exceptions,
 and finite fresh nesting with empty products. The independent library runs 97
-standard cases. `examples/generated-products.ss` keeps typed product examples
+standard cases. `t/fixtures/generated-products.ss` keeps typed product examples
 out of the already large batch module: shared Record/Function leaves compose
 through FUN, refuse before packing, preserve wrapping, and shrink/replay after
 fresh preparation. Separate controls cover unpack, per-field measure and pack.

@@ -35,7 +35,7 @@ labelled separately from requirements of the original paper.
    copying insertion and lookup.
 3. Appendix B's `$lens-gen` (`poof.scrbl:2130–2133`) separates getter, setter and
    method wrapper while delaying inherited method access. Existing
-   `generalized-prototype.ss:18–25` reuses this construction and the existing
+   `mop/generalized-prototype.ss:18–25` reuses this construction and the existing
    Lens protocol; Lean `Prototype/Lens.lean:15` and
    `Prototype/GeneralizedPrototype.lean:15` expose the corresponding ingredients.
 4. The separate collection proposal asks for incremental definitions and useful
@@ -49,16 +49,16 @@ AVL tree would duplicate a mature backend rather than improve this composition.
 ## P1: derived singleton construction substitutes the bulk constructor
 
 The existing singleton boundary already distinguishes the operations:
-`table/mapping.scm:11–21` selects `.singleton/key` for a singleton request and
+`table/mapping.ss:11–21` selects `.singleton/key` for a singleton request and
 `.<-list/key` for a bulk request. However:
 
-- `table/sets.scm:188–196` implements Set singleton through `Table.<-list`.
-- `table/order.scm` declares a bulk delegate but no singleton delegate.
-- `table/indexes.scm` declares bulk primary construction plus index initialization,
+- `table/sets.ss:188–196` implements Set singleton through `Table.<-list`.
+- `table/order.ss` declares a bulk delegate but no singleton delegate.
+- `table/indexes.ss` declares bulk primary construction plus index initialization,
   but no singleton delegate.
 - `table.ss`'s `table-wrapper` declares bulk translation/construction but no
   singleton delegate.
-- `table/styles.scm:532–534` correctly delegates its selected descriptor's
+- `table/styles.ss:532–534` correctly delegates its selected descriptor's
   singleton operation. Consequently all five Set presentations inherit the
   upstream substitution; another style wrapper would not repair it.
 
@@ -82,7 +82,7 @@ The core counterexample is reproducible in the normal built package environment:
 
 ```scheme
 (import :clan/poo/object :clan/poo/mop :clan/poo/type
-        :clan/poo/table :clan/poo/rationaldict :std/error)
+        :clan/poo/table :clan/poo/table/rationaldict :std/error)
 
 ;; Observe only this known refusal; unexpected exceptions must remain failures.
 (let* ((refusal (list 'singleton-refused))
@@ -145,9 +145,9 @@ are completed before resetting each counter.
 | Set insertion through Pure / Posh | 8 |
 | Set insertion through Mutable / Linear / Classy | 6 |
 
-The relevant chain is `require-set` (`table/sets.scm:22–24`), the point-method
+The relevant chain is `require-set` (`table/sets.ss:22–24`), the point-method
 Wrapper boundary (`:59–80`), and style `admitted` / `step`
-(`table/styles.scm:310–313`, `:413–425`). This identifies repeated recognizer
+(`table/styles.ss:310–313`, `:413–425`). This identifies repeated recognizer
 invocations, not a measured wall-time ratio or allocation/GC bound.
 
 A custom Set refinement is independent of the backing Table predicate. Recognition

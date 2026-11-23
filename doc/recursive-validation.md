@@ -73,7 +73,7 @@ those effects are not rolled back.
 ## Computed cycles and safe recursive work
 
 Productive computed Function fields can capture checked peer Functions across
-object backedges. `examples/recursive-validation.ss` combines this with:
+object backedges. `t/fixtures/recursive-validation.ss` combines this with:
 
 - A genuine positive Boolean cycle solved by existing `closure` least closure:
   `left = true OR right`, `right = left`. It does not choose an arbitrary warm seed.
@@ -154,7 +154,7 @@ dirty descriptor cannot smuggle old canonical edges into the new graph. Revocati
 cells follow retained References across several rounds, so later replacement also
 rejects capabilities originating before an intervening clean round.
 
-`examples/recursive-revision.ss` combines a shared checked Function provider, two
+`t/fixtures/recursive-revision.ss` combines a shared checked Function provider, two
 mutually recursive services, computed peer-method captures, a computed report and
 an independent node. A watched provider edit rebuilds four nodes (report 13→23),
 while a peer replacement rebuilds its SCC/report and retains provider/idle. Its
@@ -197,7 +197,7 @@ one name in a single batch refuses; resubmission after a later round is supporte
 The final nonempty/size/dependency checks run before any builder. This is catalog
 membership publication, not a cross-effect or concurrent transaction.
 
-`examples/recursive-migration.ss` exposes reusable provider, peer and summary recipe
+`t/fixtures/recursive-migration.ss` exposes reusable provider, peer and summary recipe
 constructors, plus stable report/meter/idle recipes. The matching Lean and Scheme
 workflow is:
 
@@ -256,7 +256,7 @@ rows or changing a representative alone does not report changed membership. A
 receipt is structural information, not permission to reuse a cached node or skip
 current approval. Obtaining a new receipt from a retired snapshot refuses.
 
-`examples/recursive-topology.ss` reuses the provider/peer/summary/meter recipes,
+`t/fixtures/recursive-topology.ss` reuses the provider/peer/summary/meter recipes,
 Tuple reference normalization and FUN publication. Eight services form four pairs;
 both pairs of SCCs merge simultaneously into quartets, split into different pairs,
 and merge across the original quartet boundary. Shared dependencies migrate to a
@@ -303,7 +303,7 @@ and input versions; closure refusal leaves that graph and its References current
 The request can be retried after refusal only while its exact checkpoint remains
 current; it grants no reservation or reusable approval of later states.
 
-`examples/recursive-staging.ss` composes guarded revision, whole-value `refine` and
+`t/fixtures/recursive-staging.ss` composes guarded revision, whole-value `refine` and
 existing `bind-evidence` through `Observation.` bind. Tests interleave multiple
 requests across seven actual graph states: simultaneous SCC merges/splits, shared
 provider addition/removal/migration, crossed merge refusal/re-staging, restored
@@ -341,7 +341,7 @@ graph. Retry consists of running preparation again, then publishing the new
 request through the existing guard. Preparation must terminate locally and leave
 the installed graph and metadata immutable.
 
-`examples/recursive-restaging.ss` derives provider additions/removals from current
+`t/fixtures/recursive-restaging.ss` derives provider additions/removals from current
 membership using standard map/filter, retaining the existing service, checked
 Function, computed summary and publication recipes. Eight rounds merge/split SCCs,
 migrate shared dependencies, restore primary-only membership, reintroduce the same
@@ -384,7 +384,7 @@ lock, and each revision family must use one handle. Graph requests must be exist
 guarded staging actions. Callbacks must return locally and leave graph metadata
 immutable outside supported operations.
 
-`examples/recursive-publication.ss` composes existing service `refine` and exact
+`t/fixtures/recursive-publication.ss` composes existing service `refine` and exact
 `bind-evidence` observers with per-entry contexts. Three entry points rotate across
 eight actual revisions: simultaneous SCC merges/splits, shared provider migration,
 provider removal/reintroduction, computed-reader changes and a local SCC body edit.
@@ -441,7 +441,7 @@ new Reference capabilities refuse, while reused clean predecessor capabilities
 remain valid. This reuses selective closure and its dependency propagation, rather
 than building an independent graph engine or undoing a committed graph afterward.
 
-`examples/recursive-approvals.ss` uses per-entry ceilings, a stricter joint budget,
+`t/fixtures/recursive-approvals.ss` uses per-entry ceilings, a stricter joint budget,
 existing computed-shape refinement and checked Function recipes. Three entries
 rotate through eight SCC/provider/computed rounds. Every round checks local success
 with joint refusal, preserved old pair/references, rejected failed-candidate
@@ -483,7 +483,7 @@ An observer exception after successful graph installation records the installed
 pair, and later rows still attempt against that pair. Historical snapshot references
 are observations, not renewed approvals or frozen copies of mutable metadata.
 
-`examples/recursive-competition.ss` reuses current/future policy objects and the
+`t/fixtures/recursive-competition.ss` reuses current/future policy objects and the
 existing joint-approval/service observers. Eight actual SCC/provider/computed
 rounds retain a losing future proposal for explicit preparation in the next round.
 Within each round, two requests share a proposed policy; proposed-policy ABA first

@@ -1,11 +1,11 @@
 (export coordinator-interleaving-test coordinator-prepared-test coordinator-retry-test)
 (import :std/test :std/sync/channel :std/sync/threads
         :clan/poo/object :clan/poo/mop :clan/poo/brace
-        (prefix-in :clan/poo/construction-cache cache.)
-        (prefix-in :clan/poo/examples/joint-receipts receipts.)
-        (prefix-in :clan/poo/joint-publication joint.)
-        (prefix-in :clan/poo/examples/joint-topology service.)
-        :clan/poo/examples/joint-coordination-rounds :clan/poo/examples/coordinator-rejoining
+        (prefix-in :clan/poo/graph/construction cache.)
+        (prefix-in :clan/poo/benchmarks/workloads/joint-receipts receipts.)
+        (prefix-in :clan/poo/graph/component/joint joint.)
+        (prefix-in :clan/poo/benchmarks/workloads/joint-topology service.)
+        :clan/poo/benchmarks/workloads/joint-coordination-rounds :clan/poo/benchmarks/workloads/coordinator-rejoining
         :clan/poo/t/joint-coordination-cases)
 ;; Private named state belongs to the supervisor; workers communicate by channel.
 (defstruct recovery (gate receipts threads failures restarts exits) final: #t)

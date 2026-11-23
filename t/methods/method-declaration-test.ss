@@ -8,47 +8,48 @@
   :clan/poo/object
   :clan/poo/support/option
   (only-in :clan/poo/number Integer)
-  (prefix-in :clan/poo/method-combination combination.)
-  (prefix-in :clan/poo/multimethod dispatch.)
-  (prefix-in :clan/poo/dispatch-extension extension.)
-  (prefix-in :clan/poo/declarative-metadata metadata.)
-  (prefix-in :clan/poo/cyclic-publication publication.)
-  (prefix-in :clan/poo/generic-family family.)
-  (prefix-in :clan/poo/examples/service-combination combined.)
-  (prefix-in :clan/poo/examples/service-bundle bundle.)
+  (prefix-in :clan/poo/mop/methods/combination combination.)
+  (prefix-in :clan/poo/mop/methods/dispatch dispatch.)
+  (prefix-in :clan/poo/mop/methods/extension extension.)
+  (prefix-in :clan/poo/mop/declarative-metadata metadata.)
+  (prefix-in :clan/poo/graph/cyclic-publication publication.)
+  (prefix-in :clan/poo/mop/generic-family family.)
+  (prefix-in :clan/poo/benchmarks/workloads/service-combination combined.)
+  (prefix-in :clan/poo/benchmarks/workloads/service-bundle bundle.)
   :std/error
   :clan/poo/mop
+  (only-in :clan/poo/type Any Bool Object define-type)
   :clan/poo/brace
-  :clan/poo/declaration
-  :clan/poo/method-declaration
-  :clan/poo/reflection
-  :clan/poo/recursive-declaration
-  (prefix-in :clan/poo/proto proto.)
-  (prefix-in :clan/poo/examples/declared-methods service.)
+  :clan/poo/object/declaration
+  :clan/poo/mop/methods/declaration
+  :clan/poo/object/reflection
+  :clan/poo/recursive/declaration
+  (prefix-in :clan/poo/mop/prototype-composition proto.)
+  (prefix-in :clan/poo/benchmarks/workloads/declared-methods service.)
   (only-in :std/list/list-builder with-list-builder)
-  (prefix-in :clan/poo/multimethod multimethod.)
-  (prefix-in :clan/poo/dispatch-extension dispatch-extension.))
+  (prefix-in :clan/poo/mop/methods/dispatch multimethod.)
+  (prefix-in :clan/poo/mop/methods/extension dispatch-extension.))
 
 ;; Give method-combination-test its own compiler function and private fixture scope.
 (def (make-method-combination-test)
-  (include "method-declaration/method-combination.scm"))
+  (include "method-declaration/method-combination.ss"))
 
 (def method-combination-test (make-method-combination-test))
 
 ;; Give method-declaration-test its own compiler function and private fixture scope.
 (def (make-method-declaration-test)
-  (include "method-declaration/cases.scm"))
+  (include "method-declaration/cases.ss"))
 
 (def method-declaration-test (make-method-declaration-test))
 
 ;; Give multimethod-test its own compiler function and private fixture scope.
 (def (make-multimethod-test)
-  (include "method-declaration/multimethod.scm"))
+  (include "method-declaration/multimethod.ss"))
 
 (def multimethod-test (make-multimethod-test))
 
 ;; Give typed-method-declaration-test its own compiler function and private fixture scope.
 (def (make-typed-method-declaration-test)
-  (include "method-declaration/typed-method-declaration.scm"))
+  (include "method-declaration/typed-method-declaration.ss"))
 
 (def typed-method-declaration-test (make-typed-method-declaration-test))

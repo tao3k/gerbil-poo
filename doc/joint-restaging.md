@@ -11,7 +11,7 @@ policies, opaque receipts and the guarded owner installation remain reused.
 
 ## Scoped coordinator IO
 
-`examples/joint-workers.call-with-installations` passes `start` and `receive` to a
+`benchmarks/workloads/joint-workers.call-with-installations` passes `start` and `receive` to a
 single coordinator callback. `start` creates one real worker, waits for its ready
 acknowledgement and returns a one-shot release procedure. `receive` observes one
 completed installation. The coordinator can build/approve/start new receipts while

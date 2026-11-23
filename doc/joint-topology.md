@@ -11,7 +11,7 @@ The paper does not specify these multi-service atomic lifecycle transactions.
 
 ## Different endpoint graphs, one current approval
 
-`examples/joint-topology` uses the same two native service families, but replaces
+`benchmarks/workloads/joint-topology` uses the same two native service families, but replaces
 the equal-settlement requirement with a practical shared TOTAL budget. Each service
 still independently checks current support, complete endpoint pairs, actual component
 equations, monitor, settlement and shared/local ceilings. Final joint admission

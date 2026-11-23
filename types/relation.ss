@@ -2,11 +2,11 @@
 (export check-function-path capture-type-catalog capture-type-data function-covers? function-signatures type-refusal? type-refusal-kind refuse-type bounded-type-data type-work scalar-recognizer type-constructor? type-expression substitute-type subtype-expression? subtype/checked? expression-type compile-expression normalize-type function-options function-expression function-template copy-type canonical-type)
 (import (only-in :std/list/alist plist->alist)
         (only-in :std/hash/misc hash-ensure-ref)
-        (only-in :std/list/list append-map map-in-order) (prefix-in ../function-signature signature.) ./syntax
-        (prefix-in ../recursive recursive.) ../object
-        (only-in ../mop Any Bool Function CaseFunction Type. Object Class.)
-        (only-in ../object-contract ObjectContract.)
-        (only-in ../optional-validation type-value-catalog capture-type-values
+        (only-in :std/list/list append-map map-in-order) (prefix-in ./function-signature signature.) ./syntax
+        (prefix-in ../recursive/evaluation recursive.) ../object
+        (only-in ../mop/prototype Any Bool Function CaseFunction Type. Object Class.)
+        (only-in ./object-contract ObjectContract.)
+        (only-in ./optional-validation type-value-catalog capture-type-values
                  catalog-type? catalog-current! catalog-descriptor catalog-contract link-catalog-sources! call-with-current-catalogs)
         (only-in ../number Number Real Float Z/ Integer UInt IntegerRange UIntN IntN UInt256 JsInt)
         (only-in ../type Rational TypeValuePair first-index-hash<-vector List Tuple Maybe OrFalse Pair Map Sum Union Or RecordSlot String Symbol Keyword Null Unit Bytes BytesN Bytes32 Bytes64 Exactly Enum.))

@@ -31,7 +31,7 @@ newly constructed speculative groups never become retry caches.
 
 ## Scenario and controls
 
-`examples/component-membership.ss` reuses the existing twelve-position lens
+`benchmarks/workloads/component-membership.ss` reuses the existing twelve-position lens
 universe, `service-revisions` Computation recipes and complete component builder.
 Initially E/F are unsupported, with SCCs `(shared a b)` and `(c d)`. Insertion of
 two bridge components plus rewiring merges `(shared a b c d e f)` and moves shared

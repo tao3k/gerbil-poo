@@ -2,14 +2,14 @@
 (export main sources phases widths rounds phase-repetitions)
 (import :gerbil/runtime/gambit :std/iter
         (only-in :clan/poo/object .o)
-        (prefix-in :clan/poo/closure closure.)
-        (prefix-in :clan/poo/cyclic-publication cyclic-publication.) (only-in :std/values first-value)
+        (prefix-in :clan/poo/graph/closure closure.)
+        (prefix-in :clan/poo/graph/cyclic-publication cyclic-publication.) (only-in :std/values first-value)
         "closure-measure.ss"
-        (prefix-in :clan/poo/multimethod multimethod.)
-        (prefix-in :clan/poo/dispatch-extension dispatch-extension.)
-        (prefix-in :clan/poo/examples/protected-dispatch protected-dispatch.))
-(def sources '("multimethod.ss" "dispatch-extension.ss" "cyclic-publication.ss" "closure.ss" "object.ss" "object/observation.scm" "slot-observation.ss" "mop.ss"
-               "number.ss" "type.ss" "justfile" "examples/protected-dispatch.ss" "benchmarks/closure-measure.ss" "benchmarks/dispatch-benchmark.ss"))
+        (prefix-in :clan/poo/mop/methods/dispatch multimethod.)
+        (prefix-in :clan/poo/mop/methods/extension dispatch-extension.)
+        (prefix-in :clan/poo/benchmarks/workloads/protected-dispatch protected-dispatch.))
+(def sources '("mop/methods/dispatch.ss" "mop/methods/extension.ss" "graph/cyclic-publication.ss" "graph/closure.ss" "object.ss" "object/representation.ss" "object/construction.ss" "object/slot-values.ss" "object/observation.ss" "object/slot-access.ss" "object/operations.ss" "object/syntax.ss" "object/mutation.ss" "object/slot-observation.ss" "mop.ss"
+               "number.ss" "type.ss" "justfile" "benchmarks/workloads/protected-dispatch.ss" "benchmarks/closure-measure.ss" "benchmarks/dispatch-benchmark.ss"))
 (def widths '(0 64 256))
 (def rounds 4)
 (def (phase-repetitions phase)

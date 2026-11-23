@@ -46,7 +46,7 @@ source registry, compatibility path or namespace is introduced.
 
 Four regression cases cover direct admission/measurement/shrink, measure revision,
 exact measure/shrink exceptions, and distinct scalar bridges sharing one owner.
-The Record/FUN example `source-tree-tests` in `examples/recursive-trees.ss` shares
+The Record/FUN example `source-tree-tests` in `t/fixtures/recursive-trees.ss` shares
 one strict Record leaf across List, Pair, Maybe and Tuple carriers. Its Function
 field keeps call validation. Declared predicate/measure revisions prevent the
 property from running; a fresh action shrinks an intentionally false service claim
@@ -232,7 +232,7 @@ and value-only shrinking keep the tag and child provenance. No tag switching,
 payload redraw, arbitrary Function synthesis or extra validator chain is added.
 The existing scalar/Record protocols retain Function wrappers.
 
-`examples/recursive-trees.ss` exposes `JournalCommand`, `JournalObservation`,
+`t/fixtures/recursive-trees.ss` exposes `JournalCommand`, `JournalObservation`,
 `journal-observation` and `tagged-journal-tests`. A normal Record/FUN action compares
 credit/debit/clear journals with an implementation that ignores debit. The
 regression reduces this fault to one debit of one, replays its seed and integer/
@@ -298,7 +298,7 @@ while retaining Function wrappers, replays seed/concrete/corpus witnesses, rejec
 a later Key revision and explicitly prepares a new report. No fixture parser or
 new framework is involved.
 
-The sampler suite is moved intact to `t/representations/property-testing/samplers.scm`,
+The sampler suite is moved intact to `t/representations/property-testing/samplers.ss`,
 with standard `extra-inputs` tracking. All old cases remain, and controls cover
 effective-Type ordering, known roots/dependencies, sampler-validation side effects,
 request-spine mutation, false exceptions, observer re-entry and fresh repair.

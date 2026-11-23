@@ -129,7 +129,7 @@ insufficient acceptance of the PBT implementation.
 ## Complex executable examples
 
 [`collection-properties.md`](../collection-properties.md) explains three runnable
-examples in `examples/collection-properties.ss`: interleaved unique-owner handoff,
+examples in `t/fixtures/collection-properties.ss`: interleaved unique-owner handoff,
 two-round service upgrades with retained receipts, and same-epoch ABA versus
 cross-epoch rejection. Each uses both backends and multiple seeded runs through
 `property-action`, with random suffixes after its required domain prefix.
@@ -246,7 +246,7 @@ seconds cover compilation, test preparation/execution and the paired study;
 the startup executable stage separately passed its unchanged 90-second gate.
 The current shared module entry avoids the former duplicate collection link.
 This closes that local build gate without retroactively accepting the failed
-run or proving a host adapter simulation premise. See the macOS receipt in
+run or proving a host adapter simulation premise. See the build protocol in
 `performance/build-summary.org` for the cache-cohort and timing boundaries.
 
 The published baseline CI was checked before this follow-up. Every later revision
@@ -319,7 +319,7 @@ this does not claim equivalence of arbitrary keyword languages or infer an
 unbounded function. Result-only shrinking preserves the finite input domain and
 branch currentness. Domains may be empty; every call then refuses.
 
-`examples/property-workflows.ss` is a downstream `:std/test` suite, with fresh-process
+`t/property/property-workflows-test.ss` is a downstream `:std/test` suite, with fresh-process
 replay through the existing module-action executable. The typed boundary is checked
 in `t/representations/property-testing-test.ss`. Lean models generation accounting,
 coverage thresholds from actual labels, bounded prefixes, identity refusal before

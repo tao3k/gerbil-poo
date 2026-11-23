@@ -7,7 +7,7 @@ isolation and concurrent publication are extensions built on those constructions
 
 ## Explicit supervision policy
 
-`examples/joint-coordination.call-with-coordinators` now gives each coordinator a
+`benchmarks/workloads/joint-coordination.call-with-coordinators` now gives each coordinator a
 standard child thread group under its detached root group. Normal return and a
 caught operation exception clean that coordinator's descendants before announcing
 its exit. The supervisor invokes `on-exit:` exactly once for each completed
@@ -32,7 +32,7 @@ it. Merely installing an `on-exit:` callback is not proof that an error was hand
 
 ## Shared complex revision chain
 
-`examples/joint-coordination-rounds.coordinate-revisions` extracts the existing
+`benchmarks/workloads/joint-coordination-rounds.coordinate-revisions` extracts the existing
 higher-order worker workflow for reuse. Each survivor independently captures,
 constructs, closes, approves and explicitly restages; older siblings remain pending.
 `t/joint-coordination-cases.check-revisions` shares all original whole-state and

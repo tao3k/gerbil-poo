@@ -1,7 +1,8 @@
 ;;; Bounded subtype, explicit polymorphism and complete finite inference controls.
 (export prototype-types-test)
-(import :std/test :std/error :clan/poo/object :clan/poo/mop :clan/poo/number :clan/poo/types/relation :clan/poo/prototype-types
-        (prefix-in :clan/poo/examples/polymorphic-services service.))
+(import (only-in :clan/poo/type Function Bool TypeError? element? validate Any)
+        :std/test :std/error :clan/poo/object :clan/poo/mop :clan/poo/number :clan/poo/types/relation :clan/poo/types/prototype-types
+        (prefix-in :clan/poo/benchmarks/workloads/polymorphic-services service.))
 
 ;; Require the exact bounded refusal so unrelated callback failures cannot pass.
 (def (type-message? text)

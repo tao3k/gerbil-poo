@@ -1,49 +1,49 @@
 ;;; Bound wrappers, refusals and cooked-family preparation, measured by Scheme.
 (export main sources phases rounds repetitions)
-(import (only-in "metadata-report.ss" sources phases rounds repetitions) :gerbil/runtime/gambit
+(import (only-in :clan/poo/type element?)
+        (only-in "metadata-report.ss" sources phases rounds repetitions) :gerbil/runtime/gambit
         :std/iter
         (only-in :clan/poo/object .cc .@ .o .call)
         :clan/poo/support/option
         (only-in :std/values first-value)
         "closure-measure.ss"
-        (runtime: :clan/poo/declarative-metadata)
-        (prefix-in (only-in :clan/poo/declarative-metadata atom both contract contract?
+        (runtime: :clan/poo/mop/declarative-metadata)
+        (prefix-in (only-in :clan/poo/mop/declarative-metadata atom both contract contract?
                    failure-phase failure? invoke predicate publish wrap) metadata.)
-        (only-in :clan/poo/mop element?)
         (only-in :clan/poo/number IntegerRange)
-        (prefix-in :clan/poo/examples/service-metadata service.)
-        (runtime: :clan/poo/examples/cyclic-access)
-        (prefix-in (only-in :clan/poo/examples/cyclic-access config equations) access.)
-        (runtime: :clan/poo/cyclic-publication)
-        (prefix-in (only-in :clan/poo/cyclic-publication failure-cause failure-stage
+        (prefix-in :clan/poo/benchmarks/workloads/service-metadata service.)
+        (runtime: :clan/poo/benchmarks/workloads/cyclic-access)
+        (prefix-in (only-in :clan/poo/benchmarks/workloads/cyclic-access config equations) access.)
+        (runtime: :clan/poo/graph/cyclic-publication)
+        (prefix-in (only-in :clan/poo/graph/cyclic-publication failure-cause failure-stage
                    failure? invoke version-cache version-contract-family
                    version-contract-invoker version-family version-service
                    version-source version-view version?) publication.)
-        (prefix-in :clan/poo/examples/service-bundle bundle.)
-        (prefix-in :clan/poo/examples/protected-dispatch protected.)
-        (runtime: :clan/poo/contract-family)
-        (prefix-in (only-in :clan/poo/contract-family choose-preparation family-bound
+        (prefix-in :clan/poo/benchmarks/workloads/service-bundle bundle.)
+        (prefix-in :clan/poo/benchmarks/workloads/protected-dispatch protected.)
+        (runtime: :clan/poo/mop/contract-family)
+        (prefix-in (only-in :clan/poo/mop/contract-family choose-preparation family-bound
                    family-built family-invoker family-prepared? family-ref prepare
                    refresh) contracts.)
-        (runtime: :clan/poo/examples/shared-contracts)
-        (prefix-in (only-in :clan/poo/examples/shared-contracts construct independent-source
+        (runtime: :clan/poo/benchmarks/workloads/shared-contracts)
+        (prefix-in (only-in :clan/poo/benchmarks/workloads/shared-contracts construct independent-source
                    model prepare-shared project-direct project-shared selected-model
                    selected-source shared-input source workflow-model) shared.)
-        (runtime: :clan/poo/generic-family)
-        (prefix-in (only-in :clan/poo/generic-family failure-stage family-built family-reused
+        (runtime: :clan/poo/mop/generic-family)
+        (prefix-in (only-in :clan/poo/mop/generic-family failure-stage family-built family-reused
                    prepare refresh) family.)
-        (prefix-in :clan/poo/staged-publication staged.)
-        (runtime: :clan/poo/multimethod)
-        (prefix-in (only-in :clan/poo/multimethod cache-size) multimethod.)
-        (runtime: :clan/poo/dispatch-extension)
-        (prefix-in (only-in :clan/poo/dispatch-extension snapshot) dispatch.)
-        (prefix-in :clan/poo/construction-cache cache.)
-        (runtime: :clan/poo/generalized-graph)
-        (prefix-in (only-in :clan/poo/generalized-graph define reschedule schedule
+        (prefix-in :clan/poo/graph/staged-publication staged.)
+        (runtime: :clan/poo/mop/methods/dispatch)
+        (prefix-in (only-in :clan/poo/mop/methods/dispatch cache-size) multimethod.)
+        (runtime: :clan/poo/mop/methods/extension)
+        (prefix-in (only-in :clan/poo/mop/methods/extension snapshot) dispatch.)
+        (prefix-in :clan/poo/graph/construction cache.)
+        (runtime: :clan/poo/graph/schedule)
+        (prefix-in (only-in :clan/poo/graph/schedule define reschedule schedule
                    schedule-order set-base) graph.)
-        (runtime: :clan/poo/dependency-analysis)
-        (prefix-in (only-in :clan/poo/dependency-analysis make-success need) code.)
-        (prefix-in :clan/poo/examples/construction-workflow workflow.))
+        (runtime: :clan/poo/graph/computation)
+        (prefix-in (only-in :clan/poo/graph/computation make-success need) code.)
+        (prefix-in :clan/poo/benchmarks/workloads/construction-workflow workflow.))
 ;; Matched unfactored control: the previous public constructor semantics.
 ;; This intentionally reconstructs invariant Types/Formula; it is not a runtime API.
 (def reference-units-type (IntegerRange min: 0))

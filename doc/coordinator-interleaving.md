@@ -8,7 +8,7 @@ concurrent recovery supervisor.
 
 ## Named recovery composition
 
-`examples/coordinator-rejoining.call-with-rejoining-coordinators` composes the
+`benchmarks/workloads/coordinator-rejoining.call-with-rejoining-coordinators` composes the
 existing supervisor's two hooks into one `recover(name, outcome)` callback. The
 callback handles the original outcome and returns an operation to run as a new
 instance, or `#f` to leave that name stopped. A private native eq-hash table routes

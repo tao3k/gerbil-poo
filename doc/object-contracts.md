@@ -1,6 +1,6 @@
 # Structural value contracts
 
-`clan/poo/object-contract` exports `ObjectContract.`, `TypeContract.`,
+`clan/poo/types/object-contract` exports `ObjectContract.`, `TypeContract.`,
 `as-value-contract` and `diagnose`. These are ordinary POO Types and slot methods.
 They have no dependency on POO Flow, module publication, graphs, provider schemas
 or an admission-receipt framework.
@@ -12,9 +12,9 @@ see [invocation evidence binding](evidence-binding.md). That operation belongs t
 ## Ordinary fields first
 
 ```scheme
-(import :clan/poo/object :clan/poo/mop
-        (only-in :clan/poo/type String)
-        :clan/poo/object-contract)
+(import :clan/poo/object
+        (only-in :clan/poo/type String Type. define-type)
+        :clan/poo/types/object-contract)
 
 (define-type (Port @ Type.)
   .element?: (lambda (value) (and (exact-integer? value) (<= 1 value 65535))))
@@ -64,7 +64,7 @@ consumers must use that returned value. Untouched scalar objects keep identity.
 The existing `declarative-metadata` invocation Contract composes directly:
 
 ```scheme
-(import (prefix-in :clan/poo/declarative-metadata metadata.))
+(import (prefix-in :clan/poo/mop/declarative-metadata metadata.))
 (def ServiceCall
   (metadata.contract (metadata.typed "service input" ServiceContract)
                      (metadata.typed "boolean output" Bool)
@@ -181,7 +181,7 @@ that exact validated/normalized value. There is no accepted-value cache. Functio
 Types therefore retain their wrapped function at this explicit execution boundary;
 multiple consumer return values and original validation exceptions are preserved.
 
-`examples/object-contracts.ss` combines existing Json I/O, key-preserving object
+`benchmarks/workloads/object-contracts.ss` combines existing Json I/O, key-preserving object
 construction, shape admission, persistent lens revision, two accumulated relations
 and checked output. Shape admission precedes arithmetic; relation repair can happen
 before the complete contract is demanded. Invalid data never reaches the consumer.
@@ -221,7 +221,7 @@ structural descriptor slots, without assuming nominal ancestry. Arbitrary custom
 `.diagnose` overrides must obey this protocol; no runtime subtype inference is
 provided. Added callbacks remain pure and descriptors immutable during use.
 
-`examples/contract-publication.ss` combines explicit capacity strengthening,
+`benchmarks/workloads/contract-publication.ss` combines explicit capacity strengthening,
 `checked-action` FUN admission and the existing `bind-evidence` / `publish`
 protocol. Invalid input suppresses the producer; stale context refuses the
 tentative result and returns the old state; a newly bound current invocation can
@@ -251,7 +251,7 @@ receiver. Validation has three stages:
 3. Run complete diagnostics, constraints and `refine` on the final object. Nested
    refinement therefore observes wrapped fields. A refusal returns no candidate.
 
-`examples/function-publication.ss` composes JSON service input, a nested engine,
+`t/fixtures/function-publication.ss` composes JSON service input, a nested engine,
 multiple returned values, a callback factory, cross-object refinement and FUN
 publication. `bind-evidence` receives the actual normalized root. An evidence
 record naming the raw source, a different descriptor or an old context fails;
@@ -301,7 +301,7 @@ appear inside List and Tuple; structural traversal defers their whole-object
 obligations until wrapping. External schema Types must provide their own validation
 and structural traversal adapters; this does not implement an external Schema DSL.
 
-`examples/container-publication.ss` composes JSON input with List → TaskSchema →
+`t/fixtures/container-publication.ss` composes JSON input with List → TaskSchema →
 Tuple → List of Function transforms, multiple callback results, cross-task tenant
 refinement, and FUN publication bound to the actual normalized root. Tests cover
 deep paths, empty containers, improper lists, wrong tuple carrier/arity, complete
@@ -354,7 +354,7 @@ also handles overlapping Function branches deterministically; it does not infer
 which future call signature the caller intended. Union JSON conversion retains
 its existing separate dispatch; this change does not serialize executable values.
 
-`examples/variant-publication.ss` composes Pair → Map → Sum → Union → refined
+`t/fixtures/variant-publication.ss` composes Pair → Map → Sum → Union → refined
 named Function schema, a separate approval Function, data-only JSON configuration,
 root tenant refinement and FUN/bind-evidence publication. Explicit route names
 control execution order. Tests cover improper Pairs, Function keys/values, custom
@@ -403,7 +403,7 @@ paths. Nested refinements receive checked callback fields, including when the
 carried Type is itself an ObjectContract or another container. TypeValuePair has
 no global catalog of permitted Types: each consumer owns its accepted interface.
 
-`examples/optional-publication.ss` composes Maybe → List → Tuple → TypeValuePair
+`t/fixtures/optional-publication.ss` composes Maybe → List → Tuple → TypeValuePair
 plugins with OrFalse → Maybe fallback, JSON configuration, root `refine`, ordered
 FUN execution and `bind-evidence` on the exact final root. The worked consumer
 explicitly allows its Transform interface, independently of generic Type validity.
@@ -428,13 +428,13 @@ capabilities/limitations, including executable value serialization, are unchange
 
 ## Record / Class recursive initialization
 
-`class-validation.ss` reuses the effective Slot protocols and recursive structure
+`types/class-validation.ss` reuses the effective Slot protocols and recursive structure
 visitor. `.slot.shape` checks required/optional fields and constants; the complete
 structure pass precedes all `.slot.validate` calls. Present fields normalize
 through their selected child Type on one persistent derived receiver, retaining
 computed dependencies rather than installing frozen getter results. Final Class membership retains custom Slot checks, sealing and
 constant equality. Unknown sealed fields are rejected by inventory without forcing
-their getters. `value-diagnostics.ss` keeps this protocol below the MOP dependency.
+their getters. `types/value-diagnostics.ss` keeps this protocol below the MOP dependency.
 
 `make-instance` / `.new/checked` receive prototype defaults and overrides, validate
 them, invoke `.instantiate` with the checked instance, then validate its result.
@@ -445,7 +445,7 @@ Record's existing single/multiple C3 metadata composition is reused; overrides,
 diamonds and parent-prototype-first observations have executable controls. This
 is structural inheritance, not an additional nominal ancestry guarantee.
 
-`examples/class-publication.ss` combines inherited callable defaults, a computed
+`t/fixtures/class-publication.ss` combines inherited callable defaults, a computed
 audit, optional Function plugin lists, initialization replacement, root refinement
 and FUN publication with exact `bind-evidence`. Tests include nested List/Tuple/
 TypeValuePair defaults, refined nested schemas, custom Slot dispatch, same-object
@@ -465,7 +465,7 @@ keyword Function arities remain open. Executable-value serialization is unchange
 
 ## Receiver-bound computed validation
 
-`validation-rebinding.ss` now supplies one higher-order normalizer for Class and
+`types/validation-rebinding.ss` now supplies one higher-order normalizer for Class and
 ObjectContract. Each selected field is an ordinary `$computed-slot-spec` layer:
 its inherited result is validated with the final receiver. Inherited formulas,
 computed closure capture and custom Slot dependencies all use checked siblings.
@@ -482,7 +482,7 @@ replaces its earlier candidate-read convention, which would recursively read the
 currently active slot. Custom Slot implementations in the tests use this protocol.
 Validators can run in dependency order, not necessarily declaration order.
 
-`examples/computed-publication.ss` composes Record metadata selection and an
+`t/fixtures/computed-publication.ss` composes Record metadata selection and an
 explicit inherited prototype/super formula, hook replacement of backend/bias,
 computed captured delegates and Function lists, a Function returning a Function,
 root `refine`, FUN and `bind-evidence`. Record metadata does not implicitly gain
@@ -519,7 +519,7 @@ including unobserved targets, must finally pass. Later Reference validation reta
 canonical identity and rechecks admission/current revision stamps. Ordinary
 validation outside this explicit scope remains immediate.
 
-`examples/recursive-validation.ss` combines productive computed peer Functions,
+`t/fixtures/recursive-validation.ss` combines productive computed peer Functions,
 existing positive least closure, safe recursive memo, FUN, root refinement and exact
 evidence. Immediate eager getter cycles still reject. Cross-owner descriptors,
 missing targets, failed deferred queues and stale graphs cannot return a closed
@@ -575,7 +575,7 @@ Backends supply carrier-only `.validate-shape` and their existing snapshot,
 `.empty`, `.key?` and persistent `.acons` operations. `table-element?` recognizes
 without creating wrappers; `validate-table` admits shape, normalizes every key
 then value, privately rebuilds changed entries, and checks final membership.
-The shared `validate-bindings` in `variant-validation.ss` also serves Map, using
+The shared `validate-bindings` in `types/variant-validation.ss` also serves Map, using
 standard ordered traversal. There is no Value=Any bypass of Key validation.
 
 RationalDict retains RBTree carrier admission. Trie separates full structural

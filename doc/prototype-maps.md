@@ -581,9 +581,9 @@ A warm-source-replacement regression additionally keeps source/child revisions,
 instances, layouts and issued credentials unchanged on carrier refusal. A corrected
 proper-list replacement advances both affected revisions once, revokes the old
 reads and refreshes inline access. Its finite frame law reuses the existing Lean
-publication boundary. Build-time localization and the rejected shared-VM experiment
-are recorded separately in performance/build-summary.org; neither is represented
-as a cold-query performance success.
+publication boundary. Native build admission, cache ownership and timing scope
+are documented in [the build protocol](performance/build-summary.org). Current
+acceptance comes from the actual revision and completed run.
 
 Final local acceptance passed 150 compiled modules / 1,876 cases in the single
 process (267.12 seconds), followed by the complete paired admission (17.63 seconds;

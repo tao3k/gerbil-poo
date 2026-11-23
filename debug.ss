@@ -3,7 +3,7 @@
   :std/format
   (only-in :std/func compose)
   ./support/base ./support/debug
-  ./object ./mop ./io ./type ./brace)
+  ./object ./mop/prototype ./io ./type ./brace)
 
 ;; A bit like DBG, but with types
 (defrules DDT ()

@@ -50,7 +50,7 @@ writes as covariant or infer semantic relations from prototype ancestry.
 A negative judgment means no derivation here, not a counterexample to an arbitrary
 semantic implication. Unsupported descriptors are refused even against Any.
 
-`prototype-types.ss` connects that algebra to `parameters.ss`:
+`types/prototype-types.ss` connects that algebra to `types/parameters.ss`:
 
 ```scheme
 (prototype-type prototype '(Self Super)
@@ -72,7 +72,7 @@ inference constructs an instance. Several valid assignments remain ambiguous;
 there is no first-match guess, sample-based inference, principal-type assertion,
 implicit widening, or inference of arbitrary predicate implication.
 
-`examples/polymorphic-services.ss` supplies both the appendix's higher-order
+`benchmarks/workloads/polymorphic-services.ss` supplies both the appendix's higher-order
 function prototype and a service whose output is narrower than its input. Existing
 `checked-action` Reader/FUN sequencing recursively wraps Function fields before
 `refine` whole-object checks. Exact `bind-evidence` subject/descriptor/context
@@ -240,7 +240,7 @@ silently discarded as a false subtype judgment. No such failure exposes a partia
 descriptor or builder result.
 
 `RoutingServiceType` and `infer-routing-service` in
-`examples/polymorphic-services.ss` bind Key as a prefix and jointly infer Self/Super
+`benchmarks/workloads/polymorphic-services.ss` bind Key as a prefix and jointly infer Self/Super
 from a Map-of-Sum-of-Function argument and Pair/Union expected result. The existing
 `.defgeneric` installs qualified typed fragments; `routing-service-action` composes
 Reader/FUN, a refined object root, exact `bind-evidence` publication and IO consumption.
@@ -293,7 +293,7 @@ nominal. Neither normalization nor Class construction sorts field lists
 or changes validator/default/hook order. These are observational derivations,
 not mutable-write permission or effectful validator equivalence.
 
-`RecordServiceType` in `examples/polymorphic-services.ss` returns a Record containing
+`RecordServiceType` in `benchmarks/workloads/polymorphic-services.ss` returns a Record containing
 required run/limit/bias and an optional callback. After fixing Self as a parameter
 prefix, the actual Integer argument, original Self <: Super bound and expected
 Record jointly select Super = Integer from the finite universe. The same inferred
@@ -1522,7 +1522,7 @@ it does not drop these rows or become a value-sensitive replacement certificate.
 
 This is a finite decidable omission in the existing protocol, not arbitrary
 predicate emptiness. `types/relation.ss` reuses `empty-type?`, the shared quota,
-standard presence-aware hash lookup and `function-signature.ss` normalization.
+standard presence-aware hash lookup and `types/function-signature.ss` normalization.
 Positive and negative witnesses are cached only inside one replacement request;
 exceptions/exhaustion cannot install a partial witness. Empty Lists/Maps/vectors,
 Maybe/OrFalse sentinels and procedures remain inhabited or unknown. A Never
@@ -1537,7 +1537,7 @@ Unknown predicates, unrestricted recursion and host procedure arity/totality
 remain outside the checker. Failed supplied validation still refuses before the
 body, output validation or overload fallback.
 
-`examples/signature-service.ss` now publishes a closed handler directory whose
+`t/fixtures/signature-service.ss` now publishes a closed handler directory whose
 Map values and refresh results share one Callback assignment. Gerbil case-lambda
 implements actual zero/two-argument callbacks; declared reserved one-argument and
 optional/rest slots are provably impossible. The whole declaration is inferred

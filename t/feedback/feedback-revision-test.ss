@@ -1,6 +1,6 @@
 (export feedback-revision-test)
-(import :std/test :clan/poo/object :clan/poo/mop :clan/poo/brace :clan/poo/generalized-closure
-        :clan/poo/feedback-closure :clan/poo/lens-laws (prefix-in :clan/poo/examples/shared-feedback service.)
+(import :std/test :clan/poo/object :clan/poo/mop :clan/poo/brace :clan/poo/mop/generalized-closure
+        :clan/poo/graph/feedback/closure :clan/poo/mop/lens-laws (prefix-in :clan/poo/benchmarks/workloads/shared-feedback service.)
         (prefix-in (only-in :clan/poo/fun Observation.) fun.))
 ;; Shared dependency invalidation, cross-service feedback and exact-candidate approval.
 (def feedback-revision-test

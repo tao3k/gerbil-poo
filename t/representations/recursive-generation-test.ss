@@ -1,9 +1,9 @@
 ;;; Automatic recursive generation, bounded membership, shrinking and replay.
 (export recursive-generation-test discovery-test carrier-tree-test)
-(import (only-in :clan/poo/examples/recursive-trees carrier-tree-test)
+(import (only-in :clan/poo/t/fixtures/recursive-trees carrier-tree-test)
         (only-in :std/list/list take drop) (prefix-in :clan/poo/testing/property/generator core.) :std/test :std/error :std/iter :clan/poo/object :clan/poo/mop :clan/poo/type :clan/poo/number
         :clan/poo/testing/generation-graph :clan/poo/testing/type
-        (prefix-in :clan/poo/examples/recursive-trees trees.)
+        (prefix-in :clan/poo/t/fixtures/recursive-trees trees.)
         (prefix-in :clan/poo/testing/property/replay corpus.))
 
 ;; Match only a controlled refusal and its precise resource tag.

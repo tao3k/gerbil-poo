@@ -1,5 +1,5 @@
 ;;; Gambit's own process statistics, as used by its time form. Data only IO.
-(export report-process-counters run-child measure measure-pair read-datum write-datum source-digests median mean monotonic-seconds monotonic-ticks monotonic-frequency)
+(export report-process-counters run-child measure qualified-metrics measure-pair read-datum write-datum source-digests median mean monotonic-seconds monotonic-ticks monotonic-frequency)
 (import :gerbil/runtime/gambit :std/iter :std/misc/ports :std/crypto/digest :std/encoding/hex)
 ;; Use the released runtime clock, without replacing process-statistics wall
 ;; time. mach_absolute_time and system time can disagree across suspension or
@@ -99,6 +99,15 @@
       (/ (+ (list-ref sorted (1- middle)) (list-ref sorted middle)) 2)))
 (def (mean values) (/ (apply + values) (length values)))
 
+;; A raw Gambit allocation delta is not an admitted byte count across GC. Reuse
+;; the paired-study rule for every report; preserve CPU/wall/GC and the raw input.
+;; This projection owns no timer, source callback, approval or shared cache.
+(def (qualified-metrics metrics)
+  (def raw (vector-ref metrics 4))
+  (vector (vector-ref metrics 0) (vector-ref metrics 1) (vector-ref metrics 2)
+          (vector-ref metrics 3)
+          (and (= (vector-ref metrics 3) 0) (exact-integer? raw) (>= raw 0) raw)))
+
 ;; Shared fixed-prefix native measurement, parameterized by semantic workload only.
 ;; Both metadata and recursive studies retain identical signed allocation/GC rules.
 (def (run-child scenario regime side actions count warmups)
@@ -109,7 +118,7 @@
   (defvalues (ok metrics) (measure (list-ref actions side) count))
   (unless ok (error "paired measured oracle"))
   (def raw (vector-ref metrics 4))
-  (unless (and (= (vector-ref metrics 3) 0) (>= raw 0)) (vector-set! metrics 4 #f))
+  (set! metrics (qualified-metrics metrics))
   (write (vector scenario regime side count metrics raw
     (vector (f64vector-ref prefix 6) (f64vector-ref prefix 7) (f64vector-ref prefix 9))))
   (newline))

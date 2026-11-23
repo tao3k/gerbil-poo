@@ -49,7 +49,7 @@ installation remains visible and rejects the stale outer attempt. Callback side
 effects are not rolled back. Persistent leaves are assumed immutable; physical
 exclusive ownership is not claimed.
 
-`examples/service-collection.ss` provides `split-ledger-action`: Reader/FUN
+`t/fixtures/service-collection.ss` provides `split-ledger-action`: Reader/FUN
 prepares both linear successors and the pivot before IO. The regression suite
 combines Function invocation, unique-index observations, inverse-delta recovery
 and fresh retry with that same action.

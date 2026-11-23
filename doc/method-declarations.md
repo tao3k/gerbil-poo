@@ -23,7 +23,7 @@ descriptor before editing; a rejected false offset leaves the original value.
 
 ## Prepared whole-form expansion
 
-`batch-expander` and `batch-action` in `examples/declared-methods.ss` prepare one
+`batch-expander` and `batch-action` in `benchmarks/workloads/declared-methods.ss` prepare one
 FUN traversal of static and spliced declarations, then derive a family above the
 existing shared C3 diamond. A form may contribute a complete before/primary/after
 group. The current context supplies tenant, surcharge and final approval; only a
@@ -135,7 +135,7 @@ the same complete receiver and established qualifier interpreter.
 current receiver result, around omission, primary refusal and missing-primary
 behavior. It assumes a supplied correct C3 owner order; existing C3 proofs handle
 linearization separately. It does not prove Gerbil macro expansion or all custom
-policy callbacks. Gerbil `examples/declared-methods.ss` and
+policy callbacks. Gerbil `benchmarks/workloads/declared-methods.ss` and
 `t/methods/method-declaration-test.ss` separately execute shared C3, descriptor invalidation,
 actual `.defgeneric` syntax, recursive roots, every adapter, and negative admission.
 No Lean checkout, serialized proof constant or compiler/runtime verification is
@@ -280,7 +280,7 @@ are not claimed to be bounded by type-work units. Process heap/deadline limits
 remain in the test/check harness. Earlier external callback/IO effects are not
 rolled back on refusal.
 
-`examples/polymorphic-services.ss` adds prefix/residual inference, prepared
+`benchmarks/workloads/polymorphic-services.ss` adds prefix/residual inference, prepared
 qualified dispatch, FUN approval and an IO consumer. The focused regression
 module covers nonunique/exhausted suppression, higher-order wrappers, literal
 field labels, full/empty parameter suffixes, stale bindings, nonlocal overrides,
@@ -340,7 +340,7 @@ Prepared and uncached standard/forwarding/inner continuations retain all results
 simple reductions still aggregate one policy result, and Simula returns Unit.
 Those policies do not invent extra values for an incompatible output signature.
 
-`examples/polymorphic-services.ss` connects residual inference, qualified methods,
+`benchmarks/workloads/polymorphic-services.ss` connects residual inference, qualified methods,
 `.defgeneric` optional/keyword/rest binding, a returned checked Function, FUN
 approval and IO consumption. `t/methods/inferred-declaration-test.ss` also covers varying
 case result counts on one warm effective cache, zero values, literal keywords,
@@ -369,7 +369,7 @@ complete finite search and whole-receiver declaration driver. An observation is:
 (field-path supplied-Type-arguments expected-output-Types)
 ```
 
-For example, the shared service in `examples/polymorphic-services.ss` uses:
+For example, the shared service in `benchmarks/workloads/polymorphic-services.ss` uses:
 
 ```scheme
 '(((.report) (Integer Integer scale: UInt Integer)
@@ -645,6 +645,6 @@ future work; it proves neither arbitrary mutation/rollback nor Scheme compilatio
 its `capture_error`, `refresh_error`, `eq` and `sound` laws retain the original
 selection. `Examples/Parameters.lean` distinguishes run's two outputs from audit's
 single output and checks later-request selection and failure ordering. Scheme's
-`examples/signature-service.ss` and candidate-inference regressions execute the
+`t/fixtures/signature-service.ss` and candidate-inference regressions execute the
 corresponding nested publication chain. Direct source/binding revision checks
 remain in force; no Any fallback or transitive callback stability is introduced.

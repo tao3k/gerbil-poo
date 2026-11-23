@@ -57,7 +57,7 @@ future work, not completion of the general collection library.
 
 This closes a concrete collection TODO: `.map/2` was listed but absent from
 `methods.table`, while Trie exposed only its carrier-specific traversal. The new
-standard include `table/mapping.scm` stays inside `clan/poo/table`. This advances
+standard include `table/mapping.ss` stays inside `clan/poo/table`. This advances
 the collection proposal's future work, reusing existing folds, writes, Option,
 metadata guards, FUN/IO and declared Trie mapping, without a new tree or namespace.
 
@@ -400,7 +400,7 @@ Explicit source inverses restore both joined observations; target inverses resto
 the public target independently. This does not atomically consume two separately
 owned public source objects or roll back external callback/postcommit IO effects.
 
-`make-service-routing-join` in `examples/service-collection.ss` joins Function-bearing
+`make-service-routing-join` in `t/fixtures/service-collection.ss` joins Function-bearing
 services to shared routing policies. Tests cover selective shared-policy changes,
 missing versus stored false, 24 mixed revisions against a full lookup oracle,
 different left/right key Types, source admission order, Pair alias shells,
