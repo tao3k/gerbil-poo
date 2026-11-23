@@ -1,3 +1,18 @@
+(define-type (PreZipping. @ [Type.]
+  ;; StepF :: Type <- Type
+  ;; PathF :: Type <- Type
+  .path-step ;; (OrFalse (Pair (StepF a) (PathF a))) <- (PathF a)
+  .step-down)) ;; (PathF a) <- (StepF a) (PathF a)
+
+(define-type (Zipping. @ [PreZipping.]
+  ;; Zipper = (Pair Node (PathF Node))
+  .zipper<- ;; Zipper <- T
+  .<-top-zipper ;; T <- Zipper
+  .stepUp)) ;; node <- (StepF Node) Node
+
+(define-type (FocusableZipping. @ [Zipping.]
+  .refocus)) ;; Zipper <- FocusKey Zipper
+
 ;;; Typed key focuses share the existing Lens, delta and ownership protocols.
 
 ;; Refuse incompatible keys before a backend comparison or any update callback.

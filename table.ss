@@ -30,21 +30,7 @@
   (only-in ./object .o object<-alist .all-slots .@ .ref .slot? .call .cc .mix .has? object-revision active-object-constructions instantiate-object!)
   (only-in ./type List Pair Sum Unit Bool))
 
-(defstruct %mapped-iterator (source transform guard) final: #t)
-;; Pull through the standard Iterator exactly once; preserve EOF without mapping it.
-(def (%mapped-next source transform)
-  (using (source :- Iterator)
-    (def value (source.next!))
-    (if (eq? value #!eof) #!eof (transform value))))
-(implement Iterator %mapped-iterator
-  (next! (lambda (self)
-    (if self.guard (self.guard (lambda () (%mapped-next self.source self.transform)))
-      (%mapped-next self.source self.transform)))))
-
-;; Optional guards cover the complete pull, even EOF. Ordinary iterator mapping
-;; keeps its original unguarded path and allocates no per-pull guard thunk.
-(def (iterator-map transform source (guard #f))
-  (Iterator (%mapped-iterator (iter source) transform guard)))
+(include "table/iterator.ss")
 
 (include "table/validation.ss")
 
@@ -59,21 +45,6 @@
 ;; Set presentation and algebra remain in the existing table module.
 (include "table/sets.ss")
 (include "table/io.ss")
-
-(define-type (PreZipping. @ [Type.]
-  ;; StepF :: Type <- Type
-  ;; PathF :: Type <- Type
-  .path-step ;; (OrFalse (Pair (StepF a) (PathF a))) <- (PathF a)
-  .step-down)) ;; (PathF a) <- (StepF a) (PathF a)
-
-(define-type (Zipping. @ [PreZipping.]
-  ;; Zipper = (Pair Node (PathF Node))
-  .zipper<- ;; Zipper <- T
-  .<-top-zipper ;; T <- Zipper
-  .stepUp)) ;; node <- (StepF Node) Node
-
-(define-type (FocusableZipping. @ [Zipping.]
-  .refocus)) ;; Zipper <- FocusKey Zipper
 
 (include "table/focus.ss")
 (include "table/observation.ss")
