@@ -55,17 +55,17 @@
   (only-in :gerbil/runtime/table raw-table? raw-table-for-each &raw-table-count &raw-table-table)
   (only-in ./support/base λ let-id-rule defonce awhen %graph-table-seed))
 
-(include "object/representation.scm")
-(include "object/construction.scm")
+(include "object/representation.ss")
+(include "object/construction.ss")
 
-(include "object/slot-values.scm")
+(include "object/slot-values.ss")
 ;; Receiver-bound observations share this module's object/Slot authority.
 (include "object/observation.ss")
 
-(include "object/slot-access.scm")
+(include "object/slot-access.ss")
 
-(include "object/operations.scm")
+(include "object/operations.ss")
 
-(include "object/syntax.scm")
+(include "object/syntax.ss")
 
-(include "object/mutation.scm")
+(include "object/mutation.ss")

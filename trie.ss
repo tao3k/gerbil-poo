@@ -71,7 +71,7 @@
 (defstruct $Path (costep steps) transparent: #t) ; costep: Costep steps: (List (Step t))
 (def ($Path-key path) ($Costep-key ($Path-costep path))) ;; key used in a path
 
-(include "trie/changes.scm")
+(include "trie/changes.ss")
 
 ;; Collection IO has precedence over the raw-node Wrapper codec, as in table-wrapper.
 (define-type (Trie. @ [methods.table Wrap.] ;; @ <: (Wrap T)

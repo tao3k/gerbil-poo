@@ -132,7 +132,7 @@
     "graph/scc"
     "graph/feedback"
     "object/reflection"
-    ,(production-module "object" ["object/representation.scm" "object/construction.scm" "object/slot-values.scm" "object/observation.ss" "object/slot-access.scm" "object/operations.scm" "object/syntax.scm" "object/mutation.scm"])
+    ,(production-module "object" ["object/representation.ss" "object/construction.ss" "object/slot-values.ss" "object/observation.ss" "object/slot-access.ss" "object/operations.ss" "object/syntax.ss" "object/mutation.ss"])
     "polynomial"
     "proto"
     "table/rationaldict"
@@ -145,7 +145,7 @@
       ["table/observation.ss" "table/io.ss" "table/fold.ss" "table/translation.ss" "table/focus.ss"
        "table/mapping.ss" "table/styles.ss" "table/sets.ss" "table/indexes.ss" "table/order.ss"]
       +gerbil-poo-cc-options+)
-    ,(production-module "trie" ["trie/changes.scm"])
+    ,(production-module "trie" ["trie/changes.ss"])
     "type"
     "testing/generation-graph"
     "testing/recursive-generation"

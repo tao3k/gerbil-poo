@@ -5,7 +5,7 @@
 ;; Inspecting a report never constructs a service, contract or publication family.
 ;; Exact source identities cover the producer and this admission definition.
 (def sources '("mop/contract-family.ss" "build.ss" "graph/computation.ss" "graph/schedule.ss" "graph/construction.ss" "declarative-metadata.ss" "mop/generic-family.ss" "graph/staged-publication.ss" "graph/cyclic-publication.ss" "mop/methods/extension.ss" "mop/methods/dispatch.ss"
-               "graph/closure.ss" "object.ss" "object/representation.scm" "object/construction.scm" "object/slot-values.scm" "object/observation.ss" "object/slot-access.scm" "object/operations.scm" "object/syntax.scm" "object/mutation.scm" "slot-observation.ss" "mop.ss" "type.ss" "number.ss" "justfile"
+               "graph/closure.ss" "object.ss" "object/representation.ss" "object/construction.ss" "object/slot-values.ss" "object/observation.ss" "object/slot-access.ss" "object/operations.ss" "object/syntax.ss" "object/mutation.ss" "slot-observation.ss" "mop.ss" "type.ss" "number.ss" "justfile"
                "examples/shared-contracts.ss" "examples/construction-workflow.ss" "examples/service-metadata.ss" "examples/service-bundle.ss" "examples/protected-dispatch.ss" "examples/cyclic-access.ss"
                "benchmarks/closure-measure.ss" "benchmarks/metadata-benchmark.ss" "benchmarks/metadata-report.ss"))
 ;; Preserve the established ordered matrix, including refusal and full workflows.
