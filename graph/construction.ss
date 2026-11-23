@@ -9,7 +9,7 @@
         :std/iter ../object (only-in ../mop/prototype define-type) ../support/option
         (only-in ../support/base %compare-symbol-identity %graph-table-seed %with-application-table-seeds)
         (only-in ../mop/lens-laws with-lens-checks)
-        (only-in ../slot-observation %call-with-recorded-slot-reads
+        (only-in ../object/slot-observation %call-with-recorded-slot-reads
                  %slot-read-active? slot-read-observers-compatible?)
         (prefix-in ./schedule graph.) (prefix-in ./computation computation.))
 (defstruct cache (source lookup evaluated retained scheduled base patch guards owned-run work) final: #t)

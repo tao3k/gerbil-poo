@@ -77,7 +77,7 @@
 ;; Read an already stored vector cell through the stock HashTable route.
 ;; A cold cell or an unsupported table returns absent-value. A stored #f
 ;; remains a value. This probe does not instantiate, demand, or issue a read.
-(extern namespace: clan/poo/read-route %prepared-vector-value %prepared-vector-values)
+(extern namespace: clan/poo/object/read-route %prepared-vector-value %prepared-vector-values)
 (def (%prepared-vector-slot-ref self slot)
   (let (instance (and (object? self) (object-%instance self)))
     (if (and instance (not (object-protocol self))
@@ -95,7 +95,7 @@
       (%prepared-vector-values instance first second third)
       (values absent-value absent-value absent-value))))
 
-(extern namespace: clan/poo/slot-observation %first-registered-read?)
+(extern namespace: clan/poo/object/slot-observation %first-registered-read?)
 
 ;; Use the native capture's first registration of both records. The caller
 ;; must have qualified the observer scope and supply only stock predicates.

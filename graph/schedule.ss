@@ -26,16 +26,16 @@
                  %index? %index-base %index-changes
                  %make-ordinal-buckets %ordinal-bucket-ref %ordinal-roster
                  %roster %roster-cold-index %roster-width %roster-position %roster-keys %roster-append %roster-retire)
-        (only-in ../slot-observation %call-with-recorded-slot-reads %record-slot-reads!
+        (only-in ../object/slot-observation %call-with-recorded-slot-reads %record-slot-reads!
                  %slot-read-active? slot-read-observers-compatible?)
         (only-in ./computation Computation.)
         ../object (only-in ../mop/prototype define-type) ../support/option)
 (extern namespace: clan/poo/graph/computation %computation-constructor-current?)
-(import (only-in ../read-route standard-symbol-table-writes?))
-(extern namespace: clan/poo/read-route %ordinal-index-routes-current? %gc-scratch-routes-current?
+(import (only-in ../object/read-route standard-symbol-table-writes?))
+(extern namespace: clan/poo/object/read-route %ordinal-index-routes-current? %gc-scratch-routes-current?
   %standard-symbol-table-lookup?)
 (extern namespace: clan/poo/object/prototype-map %stock-struct-construction?)
-(extern namespace: clan/poo/slot-observation %make-owned-list %borrow-owned-list)
+(extern namespace: clan/poo/object/slot-observation %make-owned-list %borrow-owned-list)
 (defstruct %schedule (source order reads adjacency ranks reverse supported work positions position-changes
                      rank-frontier owned roster) final: #t)
 (def schedule? %schedule?)

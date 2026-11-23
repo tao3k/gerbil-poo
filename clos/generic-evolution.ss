@@ -15,7 +15,7 @@
         clos-reinitialize-generic-function!)
 
 (extern namespace: clan/poo/object %with-slot-edit-protection %publish-slot-edits!)
-(extern namespace: clan/poo/slot-observation %make-owned-list %borrow-owned-list)
+(extern namespace: clan/poo/object/slot-observation %make-owned-list %borrow-owned-list)
 (extern namespace: clan/poo/clos/objects %dispatch-generation-field)
 
 (def +clos-unspecified-generic-option+

@@ -14,17 +14,17 @@
                  depend-on-object! object-%precedence-list with-slot-dependencies)
         (prefix-in (only-in :gerbil/runtime/mop slot-ref slot-set!) runtime.)
         (only-in :std/list/list foldl)
-        (only-in :clan/poo/slot-observation call-with-slot-read-observer
+        (only-in :clan/poo/object/slot-observation call-with-slot-read-observer
                  slot-read-key slot-read-receiver slot-read-dependencies slot-read-value
                  %call-with-recorded-slot-reads)
         (only-in :clan/poo/clos/objects make-effective-method make-invocation-frame)
-        (only-in :clan/poo/read-projection call-with-owned-read-projection
+        (only-in :clan/poo/object/read-projection call-with-owned-read-projection
                  current-owned-read-open-guard owned-read-value! owned-read-open!)
         :clan/poo/mop)
 
 (export clos-dispatch-test)
 
-(extern namespace: clan/poo/slot-observation
+(extern namespace: clan/poo/object/slot-observation
         %with-slot-read-registration-interval %first-registered-read?
         %call-with-private-slot-read-prefix)
 (extern namespace: clan/poo/clos/objects %frameless-method-body

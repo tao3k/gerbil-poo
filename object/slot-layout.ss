@@ -13,7 +13,7 @@
                  random-integer macro-max-fixnum32)
         (only-in ../support/base %compare-symbol-identity %graph-table-seed)
         (only-in ./state object-state-revision)
-        ../slot-observation
+        ./slot-observation
         (only-in :std/hash/misc hash-ensure-ref) :std/iter (only-in :std/list/list delete-duplicates/hash find foldr length<=n?))
 
 ;; Carry Gambit's macro definitions in this module's static source as well as
@@ -330,7 +330,7 @@
 ;; The fixed slot name belongs to the access site, not to the last receiver.
 (defalias slot-cache-name access-cache-name)
 ;; An old receiver layout is a shape hint only; its cells never seed a new owner.
-(extern namespace: clan/poo/slot-observation %owned-list-value)
+(extern namespace: clan/poo/object/slot-observation %owned-list-value)
 ;; A diagnostic layout owns its cells and directory. Even reflective edits
 ;; to its HashTable adapter or indices cannot affect the receiver's layout.
 (def (%layout-snapshot live)

@@ -3,7 +3,7 @@
 ;;; Call-local retention projection; MOP still owns read validity.
 (import :clan/poo/object
         (only-in :clan/poo/object/prototype-map prototype-map-length)
-        (only-in :clan/poo/slot-observation
+        (only-in :clan/poo/object/slot-observation
                  %call-with-recorded-slot-reads %record-slot-reads!
                  slot-read-receiver slot-read-dependencies slot-read-key slot-read-value
                  call-with-slot-read-observer slot-read-observers-compatible?
@@ -13,7 +13,7 @@
         make-owned-method-check call-with-owned-read-method-checks
         owned-read-fields-present? call-with-owned-source-reads)
 
-(extern namespace: clan/poo/slot-observation
+(extern namespace: clan/poo/object/slot-observation
   %revoke-slot-read-registration-interval! %current-slot-read-frame
   %call-with-inline-slot-read-observer)
 

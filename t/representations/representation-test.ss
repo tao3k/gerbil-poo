@@ -9,10 +9,10 @@
         (only-in :gerbil/runtime/loader reload-module! list-modules module-load-order)
         (only-in :std/io/tempfile call-with-temporary-directory)
         (only-in :clan/poo/io module-action)
-        (only-in :clan/poo/read-route make-read-issuer)
+        (only-in :clan/poo/object/read-route make-read-issuer)
         (only-in :clan/poo/mop Slot .new) (only-in :clan/poo/number Integer)
         (only-in :clan/poo/object/reflection reflect-slots read-slot write-slot!)
-        :clan/poo/object :clan/poo/object/prototype-map :clan/poo/object/slot-layout :clan/poo/slot-observation :clan/poo/mop/meta-prototype
+        :clan/poo/object :clan/poo/object/prototype-map :clan/poo/object/slot-layout :clan/poo/object/slot-observation :clan/poo/mop/meta-prototype
         (prefix-in :clan/poo/examples/representation-service service.)
         (prefix-in (only-in :clan/poo/examples/generalized-checkout prepare-checkout report) checkout.)
         (prefix-in (only-in :clan/poo/fun Observation.) fun.))

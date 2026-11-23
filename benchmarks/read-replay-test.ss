@@ -1,7 +1,7 @@
 ;;; POO-only replay comparison on one authenticated projection and read set.
 ;;; The standard compiler and Just test-file own preparation and execution.
 (export read-replay-test)
-(import :std/test :std/iter :clan/poo/object :clan/poo/slot-observation
+(import :std/test :std/iter :clan/poo/object :clan/poo/object/slot-observation
         (only-in :std/list/list take))
 (extern namespace: clan/poo/object call-with-issued-reads active-read-replays)
 

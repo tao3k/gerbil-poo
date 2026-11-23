@@ -4,7 +4,7 @@
         ../../mop/lens-laws
         (only-in :gerbil/runtime/thread with-lock)
         (only-in ../../support/base %graph-table-seed %with-graph-table-seeds %with-application-table-seeds)
-        (only-in ../../read-route gc-table-route-current?)
+        (only-in ../../object/read-route gc-table-route-current?)
         (prefix-in ../computation code.))
 (extern namespace: clan/poo/mop/generalized-declaration %fragment-preparation-current?)
 (extern namespace: clan/poo/mop/lens-laws %prepared-vector-lens?)

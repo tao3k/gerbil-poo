@@ -4,7 +4,7 @@
 ;;; replaced lookup method cannot run during that comparison.
 (export require-read-route! make-read-issuer standard-symbol-table-writes? gc-table-route-current?
         %issued-read? %read-issuance)
-(import (only-in ./object/slot-layout slot-value-storage make-slot-values) :std/error ./slot-observation
+(import (only-in ./slot-layout slot-value-storage make-slot-values) :std/error ./slot-observation
   (prefix-in (only-in :gerbil/runtime/mop object? object-class make-class-slot-accessor
                       class-slot-offset &class-type-slot-table &class-type-interface slot-ref slot-set!) read-runtime.)
   (only-in :gerbil/runtime/table raw-table? &raw-table-table &raw-table-hash &raw-table-test &raw-table-lock &raw-table-seed
@@ -52,14 +52,14 @@
 ;; Use SlotRead's generated field accessors. Public inspectors copy some
 ;; fields, and reflective name lookup can be redirected by a class edit.
 (extern
-  (record-key-field clan/poo/slot-observation#slot-read-key)
-  (record-instance-field clan/poo/slot-observation#slot-read-instance)
-  (record-value-field clan/poo/slot-observation#slot-read-value)
-  (record-current-field clan/poo/slot-observation#slot-read-current?)
-  (record-dependencies-field clan/poo/slot-observation#slot-read-dependencies)
-  (record-birth-field clan/poo/slot-observation#slot-read-birth)
-  (record-birth-set! clan/poo/slot-observation#slot-read-birth-set!))
-(extern namespace: clan/poo/slot-observation %slot-store-snapshot %owned-list-value)
+  (record-key-field clan/poo/object/slot-observation#slot-read-key)
+  (record-instance-field clan/poo/object/slot-observation#slot-read-instance)
+  (record-value-field clan/poo/object/slot-observation#slot-read-value)
+  (record-current-field clan/poo/object/slot-observation#slot-read-current?)
+  (record-dependencies-field clan/poo/object/slot-observation#slot-read-dependencies)
+  (record-birth-field clan/poo/object/slot-observation#slot-read-birth)
+  (record-birth-set! clan/poo/object/slot-observation#slot-read-birth-set!))
+(extern namespace: clan/poo/object/slot-observation %slot-store-snapshot %owned-list-value)
 
 ;; Can hash-put! reach Gerbil's symbolic writer without an adapter or callback?
 ;; Rehashing also uses the backend's hash/test, so check those and its lock.

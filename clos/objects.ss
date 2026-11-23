@@ -10,12 +10,12 @@
         (only-in :std/hash/misc hash-ref/default)
         (only-in :std/list/list iota map-in-order delete-duplicates/hash)
         (only-in :clan/poo/object/prototype-map prototype-map-ref)
-        (only-in :clan/poo/read-route require-read-route!)
-        (only-in :clan/poo/slot-observation
+        (only-in :clan/poo/object/read-route require-read-route!)
+        (only-in :clan/poo/object/slot-observation
           %slot-read-active? %call-with-recorded-slot-reads
           call-with-slot-read-observer slot-read-observers-compatible?)
         "types.ss" "funcs.ss"
-        (only-in :clan/poo/read-projection
+        (only-in :clan/poo/object/read-projection
           current-owned-read-open-guard owned-read-value! owned-read-open!))
 
 (export clos-any-specializer clos-class-specializer
@@ -49,11 +49,11 @@
 (extern namespace: clan/poo/object %with-slot-edit-protection %publish-slot-edits!
         %prepared-vector-slot-ref %owned-list-slot-spec %depend-on-object-except-slot!
         %prepared-slot-present? %call-with-fresh-slot-read-group %register-slot-dependencies!)
-(extern namespace: clan/poo/slot-observation %make-owned-list %borrow-owned-list owned-list?)
+(extern namespace: clan/poo/object/slot-observation %make-owned-list %borrow-owned-list owned-list?)
 (extern namespace: clan/poo/clos/funcs clos-distances-before?)
-(extern namespace: clan/poo/read-route %standard-symbol-table-lookup?)
+(extern namespace: clan/poo/object/read-route %standard-symbol-table-lookup?)
 (extern namespace: clan/poo/clos/types %stock-call-validator?)
-(extern namespace: clan/poo/slot-observation slot-read-key slot-read-value slot-read-receiver)
+(extern namespace: clan/poo/object/slot-observation slot-read-key slot-read-value slot-read-receiver)
 
 ;; A position only addresses an already applicable row. Index membership
 ;; never authorizes a method or replaces its original reads.

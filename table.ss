@@ -12,7 +12,7 @@
 
 (import
   (only-in ./types/variant-validation validate-bindings rebuild-bindings)
-  (only-in ./slot-observation %slot-read-active?)
+  (only-in ./object/slot-observation %slot-read-active?)
   (only-in :gerbil/runtime/thread with-lock)
   :std/interface
   :std/iter

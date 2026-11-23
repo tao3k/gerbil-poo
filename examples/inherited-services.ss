@@ -1,7 +1,7 @@
 ;;; Shared declaration revisions across inherited service branches and their join.
 (export make-services report revision-action protocol-action combined-action precedence-workflow precedence-cache-workflow callback-workflow query-workflow read-key-workflow)
 (import (only-in :std/error contract-violation-error?)
-        (only-in ../slot-observation call-with-slot-read-observer slot-read-key slot-read-receiver slot-read-value slot-read-dependencies)
+        (only-in ../object/slot-observation call-with-slot-read-observer slot-read-key slot-read-receiver slot-read-value slot-read-dependencies)
         ../object
         ../mop
         ../number

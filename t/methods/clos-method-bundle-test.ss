@@ -6,7 +6,7 @@
 (import (only-in :clan/poo/type element?) :std/test
         (only-in :clan/poo/object .def .o .ref seal-object! object-revision
                  replay-slot-reads!)
-        (only-in :clan/poo/slot-observation %call-with-recorded-slot-reads)
+        (only-in :clan/poo/object/slot-observation %call-with-recorded-slot-reads)
         (only-in :std/error Error? Error-message)
         (only-in :std/sync/threads thread-join!/error)
         :clan/poo/mop)

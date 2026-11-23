@@ -27,7 +27,7 @@
   :std/sync/channel
   :clan/poo/mop/lens-laws
   (only-in :clan/poo/types/class-validation required-slots?)
-  (only-in :clan/poo/slot-observation slot-read-key slot-read-receiver)
+  (only-in :clan/poo/object/slot-observation slot-read-key slot-read-receiver)
   (prefix-in :clan/poo/graph/component/publication publication.)
   (prefix-in :clan/poo/examples/component-requests component-requests.service.)
   (prefix-in :clan/poo/examples/component-rounds rounds.)

@@ -1,6 +1,6 @@
 ;;; Capture-local visitation reuses storage, never an admission verdict.
 (import :std/test :std/iter :clan/poo/object
-        (only-in :clan/poo/slot-observation %call-with-recorded-slot-reads
+        (only-in :clan/poo/object/slot-observation %call-with-recorded-slot-reads
                  call-with-slot-read-observer slot-read-key)
         (only-in :std/error Error? Error-message)
         (prefix-in (only-in :gerbil/runtime/mop slot-set!) runtime.)
@@ -8,7 +8,7 @@
 (export read-visit-workspace-test)
 (extern namespace: #f random-source-state-ref)
 (extern namespace: clan/poo/object call-with-issued-reads %bind-current-slot-reads)
-(extern namespace: clan/poo/slot-observation %projection-read-visit-index %current-slot-read-frame read-collection-thread read-collection-visit-index)
+(extern namespace: clan/poo/object/slot-observation %projection-read-visit-index %current-slot-read-frame read-collection-thread read-collection-visit-index)
 
 (def (bound-workspace-witness)
   (def witness (make-hash-table test: eq? weak-keys: #t))

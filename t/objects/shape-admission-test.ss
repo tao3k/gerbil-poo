@@ -15,7 +15,7 @@
 (extern namespace: clan/poo/object/slot-layout scalar-shape-routes-current? ordinary-shape-for-names
   intern-ordered-shape shapes shape-names shape-indices)
 (extern namespace: clan/poo/object compute-slot-funs! plain-root-slot-entries)
-(extern namespace: clan/poo/read-route %fixed-symbol-table-order?)
+(extern namespace: clan/poo/object/read-route %fixed-symbol-table-order?)
 
 (def (prototype)
   (vector-ref (prototype-table-table (runtime.&class-type-interface symbol-hash-table::t))

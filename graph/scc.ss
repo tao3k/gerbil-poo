@@ -23,9 +23,9 @@
                  %index %index-base %index-ref %index-fork %index-write! %index-retire! %index-overridden?
                  %make-ordinal-buckets %ordinal-bucket-ref %ordinal-roster %roster-cold-index)
         (only-in ./schedule %reverse-bucket-remove %reverse-bucket-add %for-each-reverse-bucket)
-        (only-in ../read-route gc-table-route-current? standard-symbol-table-writes?)
+        (only-in ../object/read-route gc-table-route-current? standard-symbol-table-writes?)
         ../object)
-(extern namespace: clan/poo/read-route %ordinal-index-routes-current?
+(extern namespace: clan/poo/object/read-route %ordinal-index-routes-current?
   %standard-symbol-table-lookup? %gc-scratch-routes-current? %gc-table-route-backend)
 (extern namespace: clan/poo/graph/schedule %declared-row-source %decode-ordinal-row
   %packed-rows? %packed-rows-names %packed-rows-buckets %packed-rows-offsets

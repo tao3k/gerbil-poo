@@ -13,7 +13,7 @@
 (export clos-redefine-class clos-make-instances-obsolete)
 
 (extern namespace: clan/poo/object %with-slot-edit-protection %publish-slot-edits!)
-(extern namespace: clan/poo/slot-observation %make-owned-list)
+(extern namespace: clan/poo/object/slot-observation %make-owned-list)
 
 (def +clos-unspecified+ (cons 'clos 'unspecified))
 

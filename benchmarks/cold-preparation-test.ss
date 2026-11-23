@@ -12,7 +12,7 @@
         (only-in :gerbil/runtime/interface &interface-descriptor-type interface-instance-object)
         (only-in :gerbil/runtime/hash HashTable::interface)
         (only-in :gerbil/runtime/table raw-table-for-each &raw-table-free &raw-table-table symbolic-hash)
-        (only-in :clan/poo/read-route standard-symbol-table-writes?)
+        (only-in :clan/poo/object/read-route standard-symbol-table-writes?)
         :clan/poo/object/prototype-map
         (only-in :std/list/list map-in-order)
         (only-in :std/hash/misc hash-ensure-modify!)

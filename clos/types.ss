@@ -9,7 +9,7 @@
 ;;; remain in their dedicated factors.
 
 (import :clan/poo/object
-        :clan/poo/read-projection
+        :clan/poo/object/read-projection
         (only-in :clan/poo/types/class-validation required-slots? with-present-slot)
         (only-in :clan/poo/mop/prototype prototype-instance?)
         (only-in :clan/poo/mop/prototype define-type Type. Class. Slot Bool Type element? raise-type-error)
@@ -32,11 +32,11 @@
 (extern namespace: clan/poo/object %ref-owned-list %registered-field-reader
   %prepared-vector-slots-ref object-read-value %register-slot-dependencies!
   object-construction-current?)
-(import (only-in :clan/poo/slot-observation %slot-read-active?
+(import (only-in :clan/poo/object/slot-observation %slot-read-active?
           slot-read-observers-compatible? %call-with-recorded-slot-reads
           slot-read-key slot-read-receiver))
-(extern namespace: clan/poo/slot-observation %borrow-owned-list)
-(extern namespace: clan/poo/read-projection %owned-closed-registration?)
+(extern namespace: clan/poo/object/slot-observation %borrow-owned-list)
+(extern namespace: clan/poo/object/read-projection %owned-closed-registration?)
 
 (def (%closed-registered-field-reader candidate)
   (and (%owned-closed-registration?) (%registered-field-reader candidate)))

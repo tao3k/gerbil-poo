@@ -10,7 +10,7 @@
         (only-in :clan/poo/object .ref .o .get .put! .putslot! $thunk-slot-spec .slot? object? object-revision
                  replay-slot-reads! object-read-issued? object-%instance)
         (only-in :clan/poo/mop clos-instance?)
-        (only-in :clan/poo/slot-observation
+        (only-in :clan/poo/object/slot-observation
           call-with-slot-read-observer without-observation %slot-read-active?)
         (prefix-in (only-in :gerbil/runtime/mop slot-ref slot-set!) runtime.)
         (only-in :clan/poo/clos/objects make-invocation-frame)

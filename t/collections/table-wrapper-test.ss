@@ -2,7 +2,7 @@
 (export table-wrapper-test)
 (import :std/test :std/iter :std/error
         (only-in :clan/poo/t/table-testing box-table make-boxed-table boxed-table-raw boxed-table?)
-        (only-in :clan/poo/slot-observation %call-with-recorded-slot-reads call-with-slot-read-observer
+        (only-in :clan/poo/object/slot-observation %call-with-recorded-slot-reads call-with-slot-read-observer
                  slot-read-receiver slot-read-key)
         :clan/poo/object :clan/poo/mop :clan/poo/number :clan/poo/type :clan/poo/table :clan/poo/table/rationaldict :clan/poo/support/option
         (only-in :clan/poo/fun Wrapper. IdWrap) (only-in :clan/poo/support/base number-comparer)

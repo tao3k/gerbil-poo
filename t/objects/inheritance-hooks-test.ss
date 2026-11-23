@@ -1,8 +1,8 @@
 (export inheritance-hooks-test)
-(import (only-in :clan/poo/slot-observation %call-with-recorded-slot-reads
+(import (only-in :clan/poo/object/slot-observation %call-with-recorded-slot-reads
                  slot-read-key slot-read-receiver)
         (only-in :clan/poo/types/class-validation required-slots?)
-        (only-in :clan/poo/read-route standard-symbol-table-writes?)
+        (only-in :clan/poo/object/read-route standard-symbol-table-writes?)
         (only-in :gerbil/runtime/hash HashTable::interface)
         (only-in :gerbil/runtime/interface &interface-descriptor-index prototype-table-table)
         (prefix-in (only-in :gerbil/runtime/mop slot-ref slot-set! object-class
@@ -13,7 +13,7 @@
         (only-in :clan/poo/examples/representation-service topology-workflow)
         :std/test :std/iter :clan/poo/object :clan/poo/mop :clan/poo/brace :clan/poo/number (only-in :clan/poo/type String define-type) :clan/poo/object/reflection
         (prefix-in :clan/poo/examples/inherited-services services.))
-(extern namespace: clan/poo/read-route %gc-scratch-routes-current?)
+(extern namespace: clan/poo/object/read-route %gc-scratch-routes-current?)
 ;; Exercise inheritance protocol composition through actual objects and hooks.
 (def inheritance-hooks-test
   (test-suite "inherited hooks mutation and declared reflection"

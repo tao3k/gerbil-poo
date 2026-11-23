@@ -66,7 +66,7 @@
 ;; Internal construction borrows the private result without per-call snapshot copies.
 (def (compute-precedence-list! self (heads '()))
   (list-copy (compute-object-precedence! self heads)))
-(extern namespace: clan/poo/read-route %gc-scratch-routes-current?)
+(extern namespace: clan/poo/object/read-route %gc-scratch-routes-current?)
 ;; Delegate ordering to core C4. Hook continuations receive independent snapshots;
 ;; compare against the private canonical order and retain only that canonical order.
 ;; Hook errors and changed/improper orders clear the candidate cache before escape.
@@ -126,7 +126,7 @@
           (for-each (lambda (define-slot) (define-slot scratch)) definitions)
           (cons (object-%slots scratch) (object-%defaults scratch)))))))
 (extern namespace: clan/poo/object/prototype-map specifications-entries)
-(extern namespace: clan/poo/read-route %fixed-symbol-table-order?)
+(extern namespace: clan/poo/object/read-route %fixed-symbol-table-order?)
 
 (def (plain-root-slot-entries self)
   (def precedence (object-%precedence-list self))

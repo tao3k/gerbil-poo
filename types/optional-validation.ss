@@ -5,7 +5,7 @@
 (import (only-in ../object .o .cc .ref .get .slot? .all-slots object?
                  depend-on-object! replay-slot-reads! reobserve-slot-reads!)
         (only-in :std/list/list delete-duplicates/hash map-in-order)
-        ../slot-observation ./value-diagnostics
+        ../object/slot-observation ./value-diagnostics
         (only-in ../mop/prototype Type Class element? validate raise-type-error)
         (only-in ./validation validate-container))
 

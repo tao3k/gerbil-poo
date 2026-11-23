@@ -2,7 +2,7 @@
 
 (import (only-in :clan/poo/type TypeError?) :std/test
         (only-in :clan/poo/object .cc .call .ref .put!)
-        (only-in :clan/poo/slot-observation
+        (only-in :clan/poo/object/slot-observation
                  call-with-slot-read-observer slot-read-key slot-read-receiver
                  %call-with-recorded-slot-reads)
         (only-in :clan/poo/trie UIntTrieSet make-Leaf make-Branch make-Skip make-Empty Branch-right-set!))

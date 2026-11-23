@@ -1,6 +1,6 @@
 ;;; Index sizing is an effect boundary unless its live delegate is stock.
 (import :std/test :clan/poo/object
-        (only-in :clan/poo/slot-observation %call-with-recorded-slot-reads slot-read-key)
+        (only-in :clan/poo/object/slot-observation %call-with-recorded-slot-reads slot-read-key)
         (only-in :std/error Error? Error-message)
         (prefix-in (only-in :gerbil/runtime/mop slot-ref slot-set!) runtime.))
 (export read-index-boundary-test)

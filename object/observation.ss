@@ -11,10 +11,10 @@
 ;; cannot redirect a signed edge or change what a newly loaded consumer reads.
 ;; Every call reads live fields; public structural inspectors still copy spines.
 (extern
-  (record-key-field clan/poo/slot-observation#slot-read-key)
-  (record-instance-field clan/poo/slot-observation#slot-read-instance)
-  (record-dependencies-field clan/poo/slot-observation#slot-read-dependencies)
-  (record-value-field clan/poo/slot-observation#slot-read-value))
+  (record-key-field clan/poo/object/slot-observation#slot-read-key)
+  (record-instance-field clan/poo/object/slot-observation#slot-read-instance)
+  (record-dependencies-field clan/poo/object/slot-observation#slot-read-dependencies)
+  (record-value-field clan/poo/object/slot-observation#slot-read-value))
 (def object-read-key record-key-field)
 (def object-read-dependencies record-dependencies-field)
 (def object-read-value record-value-field)
@@ -41,8 +41,8 @@
                         (hash-ref (object-%instance self) key absent-value))))))))
 ;; Trusted implementation access to the one existing writer; it remains absent
 ;; from the read-route public exports. Ordinary consumers receive only checks.
-(extern namespace: clan/poo/read-route %issue-read %pure-read-sweep? %read-index-size-effect-free?)
-(extern namespace: clan/poo/read-route %admitted-vector-read-fields!
+(extern namespace: clan/poo/object/read-route %issue-read %pure-read-sweep? %read-index-size-effect-free?)
+(extern namespace: clan/poo/object/read-route %admitted-vector-read-fields!
         %require-read-key! %require-read-route!)
 (def issue-object-read %issue-read)
 (def object-read-issued? %issued-read?)
@@ -143,7 +143,7 @@
       (and (eq? object-init (read-runtime.find-method object::t #f ':init!))
            (eq? state-init (read-runtime.find-method state-class #f ':init!))))))
 ;; Share authenticated finite traversal structure; each call owns fresh source guards.
-(extern namespace: clan/poo/slot-observation %projection-read-visit-index)
+(extern namespace: clan/poo/object/slot-observation %projection-read-visit-index)
 (defvalues (call-with-issued-reads %call-with-current-slot-reads %bind-current-slot-reads
             %call-with-fresh-slot-read-group
             %register-slot-dependencies!)

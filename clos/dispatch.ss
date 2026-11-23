@@ -12,7 +12,7 @@
         "types.ss" "objects.ss" "method-combination.ss"
         "funcs.ss"
         (only-in "lambda-list.ss" clos-rest-arguments)
-        (only-in :clan/poo/read-projection owned-read-open! owned-read-method! owned-read-hook-owner!))
+        (only-in :clan/poo/object/read-projection owned-read-open! owned-read-method! owned-read-hook-owner!))
 
 (export clos-compute-applicable-methods clos-call
         clos-compute-effective-method
@@ -32,12 +32,12 @@
         dispatch-publication-after dispatch-publication-after-execution)
 (extern namespace: clan/poo/clos/funcs clos-distances-before?)
 (extern namespace: clan/poo/clos/types %carrier-declarations-current?)
-(extern namespace: clan/poo/slot-observation %call-with-private-slot-read-prefix)
+(extern namespace: clan/poo/object/slot-observation %call-with-private-slot-read-prefix)
 (extern namespace: clan/poo/object %ref-owned-list %prepared-vector-slot-ref compute-object-precedence!
         object-construction-current? %call-with-fresh-slot-read-group)
-(extern namespace: clan/poo/read-projection %owned-private-registration?)
+(extern namespace: clan/poo/object/read-projection %owned-private-registration?)
 (extern namespace: clan/poo/object/slot-layout %fresh-vector-seeds-available? %advance-fresh-vector-seeds!)
-(extern namespace: clan/poo/slot-observation
+(extern namespace: clan/poo/object/slot-observation
         %with-slot-read-registration-interval %without-slot-read-registration-interval
         %revoke-slot-read-registration-interval!)
 

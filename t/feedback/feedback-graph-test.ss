@@ -4,8 +4,8 @@
         (only-in :std/list/list filter foldl delete-duplicates/hash take drop)
         (only-in :clan/poo/benchmarks/closure-measure measure)
         (only-in :clan/poo/graph/feedback/builder component-group-builder)
-        (only-in :clan/poo/read-route gc-table-route-current?)
-        (only-in :clan/poo/slot-observation %call-with-recorded-slot-reads
+        (only-in :clan/poo/object/read-route gc-table-route-current?)
+        (only-in :clan/poo/object/slot-observation %call-with-recorded-slot-reads
                  slot-read-receiver slot-read-key)
         (prefix-in (only-in :gerbil/runtime/mop object-class slot-ref slot-set! &class-type-interface
                            &class-type-slot-table class-slot-offset) runtime.)

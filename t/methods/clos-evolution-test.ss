@@ -8,7 +8,7 @@
 (import (only-in :std/test
                  test-suite test-case check-equal? check-exception check)
         (only-in :clan/poo/object .ref .put! seal-object! object-revision replay-slot-reads!)
-        (only-in :clan/poo/slot-observation call-with-slot-read-observer slot-read-receiver slot-read-key slot-read-value slot-read-instance)
+        (only-in :clan/poo/object/slot-observation call-with-slot-read-observer slot-read-receiver slot-read-key slot-read-value slot-read-instance)
         :clan/poo/mop)
 
 (export clos-evolution-test)

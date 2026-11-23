@@ -1,10 +1,10 @@
 (defstruct $slot-spec () transparent: #t) ;; = (SlotSpec A k)
 (defstruct ($constant-slot-spec $slot-spec) (value) transparent: #t) ;; constant value
-(extern namespace: clan/poo/slot-observation %make-owned-list %owned-list-value %borrow-owned-list
+(extern namespace: clan/poo/object/slot-observation %make-owned-list %owned-list-value %borrow-owned-list
         %slot-store-snapshot)
 (def (%owned-list-slot-spec values (copy list-copy))
   ($constant-slot-spec (%make-owned-list values copy)))
-(extern namespace: clan/poo/slot-observation owned-list? owned-list-copy)
+(extern namespace: clan/poo/object/slot-observation owned-list? owned-list-copy)
 (def (own-assigned-slot-value self slot value)
   (let (spec (prototype-map-ref (object-%slots self) slot))
     (if (and ($constant-slot-spec? spec)

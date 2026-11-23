@@ -16,7 +16,7 @@
         (only-in :clan/poo/graph/feedback publish-owned-feedback-graph graph-cache-partition graph-cache-ref graph-cache-values)
         (prefix-in :clan/poo/graph/component/publication publication.)
         (prefix-in :clan/poo/graph/component/revision revision.)
-        (only-in :clan/poo/slot-observation call-with-slot-read-observer slot-read-receiver slot-read-key)
+        (only-in :clan/poo/object/slot-observation call-with-slot-read-observer slot-read-receiver slot-read-key)
         (prefix-in (only-in :gerbil/runtime/mop slot-set!) runtime.)
         (prefix-in :clan/poo/graph/schedule graph.)
         (prefix-in :clan/poo/graph/construction cache.)

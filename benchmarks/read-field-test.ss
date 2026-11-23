@@ -1,7 +1,7 @@
 ;;; Same-process ABBA field-only study; the ordinary test tool owns execution.
 ;;; Full replay correctness remains in t/objects/issued-read-test.ss.
 (export read-field-test)
-(import :std/test :std/iter :clan/poo/object :clan/poo/slot-observation
+(import :std/test :std/iter :clan/poo/object :clan/poo/object/slot-observation
         (prefix-in (only-in :gerbil/runtime/mop slot-ref) runtime.))
 (extern namespace: clan/poo/object object-read-key)
 (def read-field-test

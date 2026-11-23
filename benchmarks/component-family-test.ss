@@ -2,7 +2,7 @@
 (export component-family-index-test)
 (import :std/test :std/iter :clan/poo/object :clan/poo/mop
         (only-in :gerbil/runtime/gambit default-random-source)
-        (only-in :clan/poo/read-route gc-table-route-current?)
+        (only-in :clan/poo/object/read-route gc-table-route-current?)
         (only-in :clan/poo/benchmarks/closure-measure measure qualified-metrics))
 (extern namespace: #f random-source-state-ref)
 (def (list-accepts? keys members)

@@ -40,7 +40,7 @@
     (object-read-query self (list 'presence slot)
       (cut object-slot-present? self slot) presence: slot)))
 
-(extern namespace: clan/poo/read-route %standard-symbol-table-lookup?)
+(extern namespace: clan/poo/object/read-route %standard-symbol-table-lookup?)
 
 ;; A positive prepared lookup calls neither a getter nor a reflection hook.
 ;; The caller owns key admission, observation and any fallback on a miss.

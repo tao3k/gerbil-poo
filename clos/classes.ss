@@ -8,7 +8,7 @@
 (import :clan/poo/object
         (only-in :clan/poo/mop/prototype element? Type raise-type-error)
         (only-in :clan/poo/type And)
-        (only-in :clan/poo/slot-observation %call-with-recorded-slot-reads %record-slot-reads!
+        (only-in :clan/poo/object/slot-observation %call-with-recorded-slot-reads %record-slot-reads!
                  %slot-read-active?)
         (only-in :std/hash/misc hash-ref/default hash-remove!)
         (only-in :std/list/list delete-duplicates/hash)
@@ -19,8 +19,8 @@
 (extern namespace: clan/poo/object %ref-owned-list %publish-slot-edits! %owned-list-slot-spec
         %with-slot-edit-protection object-construction-current? %put-assigned-slot!
         %replay-fresh-slot-reads!)
-(extern namespace: clan/poo/slot-observation %make-owned-list %borrow-owned-list)
-(extern namespace: clan/poo/read-route %gc-table-route-backend)
+(extern namespace: clan/poo/object/slot-observation %make-owned-list %borrow-owned-list)
+(extern namespace: clan/poo/object/read-route %gc-table-route-backend)
 (extern namespace: clan/poo/clos/types %capture-direct-slot-proof make-direct-slot-proof)
 
 (export ClosDirectSlotDefinition ClosEffectiveSlotDefinition ClosClass

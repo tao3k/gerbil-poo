@@ -2,10 +2,10 @@
 (export issued-read-test test-cleanup!)
 (import (only-in :clan/poo/object/slot-layout make-slot-cache slot-cache-layout slot-layout-put!
                  slot-value-storage slot-values-layout)
-        :std/iter :std/test :clan/poo/object :clan/poo/slot-observation
+        :std/iter :std/test :clan/poo/object :clan/poo/object/slot-observation
         (only-in :clan/poo/examples/representation-service replay-workflow)
         (only-in :clan/poo/examples/inherited-services read-key-workflow)
-        (only-in :clan/poo/read-route make-read-issuer %issued-read?)
+        (only-in :clan/poo/object/read-route make-read-issuer %issued-read?)
         (only-in :gerbil/runtime/gambit unbound-global-exception?)
         (prefix-in (only-in :gerbil/runtime/mop slot-ref slot-set! find-method bind-method! object-class
                             class-slot-offset &class-type-slot-table) runtime.)
@@ -305,7 +305,7 @@
     (def route-names
       (parameterize ((current-expander-context (make-top-context)))
         (map module-export-name
-          (module-context-export (core-import-module ':clan/poo/read-route)))))
+          (module-context-export (core-import-module ':clan/poo/object/read-route)))))
     (check-equal? (memq '%issue-read route-names) #f)
     (for-each (lambda (name) (check-equal? (memq name route-names) #f))
       '(record-key-field record-value-field record-current-field

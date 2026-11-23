@@ -5,7 +5,7 @@
 (export (except-out #t uint-trie-shape-height stock-uint-trie-shape?))
 
 (import
-  (only-in ./slot-observation slot-read-observers-compatible? %slot-read-active?)
+  (only-in ./object/slot-observation slot-read-observers-compatible? %slot-read-active?)
   :std/format :std/iter :std/number/misc :std/values
   ./support/base ./support/option
   ./object ./mop/prototype ./brace ./number ./type ./fun ./io ./table)

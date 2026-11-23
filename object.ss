@@ -37,9 +37,9 @@
   (only-in :std/error deferror-class Exception)
   (only-in :std/hash/misc hash->list/sort hash-ref/default hash-ensure-modify!)
   :std/iter
-  ./slot-observation
+  ./object/slot-observation
   (prefix-in (only-in :gerbil/runtime/mop object-class find-method) read-runtime.)
-  (only-in ./read-route standard-symbol-table-writes?
+  (only-in ./object/read-route standard-symbol-table-writes?
            %issued-read? %read-issuance)
   ./object/state
   ./object/prototype-map

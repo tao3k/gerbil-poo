@@ -12,7 +12,7 @@
         call-with-slot-read-observer %deliver-slot-read
         replay-slot-reads! reobserve-slot-reads! call-with-current-slot-reads object-read-issued? object-read-issuance)
 
-(import ../slot-observation
+(import ../object/slot-observation
         ../types/value-diagnostics
         ../types/function-signature
         ../types/class-validation

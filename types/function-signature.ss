@@ -3,7 +3,7 @@
 (import (only-in ../support/base require-value) (only-in :std/list/list map-in-order delete-duplicates/hash)
         (only-in :std/list/plist alist->plist)
         (only-in ../object .get replay-slot-reads!)
-        (only-in ../slot-observation %call-with-recorded-slot-reads %record-slot-reads!))
+        (only-in ../object/slot-observation %call-with-recorded-slot-reads %record-slot-reads!))
 
 ;; Decode Gerbil's keyword escapes without executing defaults or validators.
 ;; With no declared keyword API, retain positional keyword values verbatim.

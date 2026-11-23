@@ -519,7 +519,7 @@
                                      (set-cdr! (cdr cycle) cycle) cycle)))
           (check-exception (kernel '(a b) (lambda (_) bad) #f) error-object?)))))
 
-(extern namespace: clan/poo/read-route %gc-scratch-routes-current? %standard-symbol-table-lookup?)
+(extern namespace: clan/poo/object/read-route %gc-scratch-routes-current? %standard-symbol-table-lookup?)
 (extern namespace: clan/poo/graph/scc
   certify-active-tour certify-ordinal-whole certify-ordinal-components certify-ordinal-return)
 
