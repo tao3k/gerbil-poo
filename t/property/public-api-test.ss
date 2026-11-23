@@ -1,14 +1,14 @@
 (export public-api-test)
 (import (only-in :std/error Error? Error-message)
         (only-in :std/test test-suite test-case)
-        (only-in :clan/poo/object .o .mix .get .setslot!
+        (only-in :clan/poo/object .o .mix .get .call .setslot!
                  $constant-slot-spec object-read-current?)
         (only-in :clan/poo/mop clos-class clos-direct-slot-definition
                  clos-make-instance clos-reinitialize-instance clos-slot-value
                  call-with-slot-read-observer slot-read-key slot-read-receiver replay-slot-reads!)
         (only-in :clan/poo/io bytes<- <-bytes marshal)
         (only-in :clan/poo/type Bool List OrFalse Tuple)
-        (only-in :clan/poo/number UInt)
+        (only-in :clan/poo/number Integer IntN UInt UIntN)
         (prefix-in :clan/poo/support/testing pbt.))
 
 (def OptionalQuota (OrFalse UInt))
@@ -121,6 +121,35 @@
                    (if source? new-value expected-source)
                    (if source? expected-peer new-value)))))))
 
+(def (wire-value bytes)
+  (let loop ((index 0) (value 0))
+    (if (= index (u8vector-length bytes))
+      value
+      (loop (+ index 1) (+ (* 256 value) (u8vector-ref bytes index))))))
+
+(def (fixed-width-codec? descriptor input expected byte-count)
+  (def normalized (.call descriptor .normalize input))
+  (and (= normalized expected)
+       (let (encoded (bytes<- descriptor normalized))
+         (and (= (u8vector-length encoded) byte-count)
+              (= (wire-value encoded) (modulo expected (expt 256 byte-count)))
+              (= (<-bytes descriptor encoded) expected)))))
+
+(pbt.define-property fixed-width-wire ((offset Integer))
+  (andmap
+    (lambda (width)
+      (def modulus (expt 2 width))
+      (def half (quotient modulus 2))
+      (def byte-count (quotient (+ width 7) 8))
+      (def unsigned-input (+ modulus offset))
+      (def signed-input (- offset half))
+      (def residue (modulo signed-input modulus))
+      (def signed-value (if (< residue half) residue (- residue modulus)))
+      (and (fixed-width-codec? (UIntN width) unsigned-input
+                              (modulo unsigned-input modulus) byte-count)
+           (fixed-width-codec? (IntN width) signed-input signed-value byte-count)))
+    '(1 7 8 9 15 16 17 31 32 33 63 64 65)))
+
 (def public-api-test
   (test-suite "Properties of the public POO APIs"
     (test-case "Prototype overlays preserve precedence and inherited slots"
@@ -130,4 +159,6 @@
     (test-case "Typed packet encoding matches field order and round trips"
       (packet-wire-order seed: 43 cases: 64 size: 8))
     (test-case "Only reads affected by an edit become stale"
-      (inherited-quota-replay seed: 57 cases: 64 size: 8))))
+      (inherited-quota-replay seed: 57 cases: 64 size: 8))
+    (test-case "Fixed-width integers normalize and preserve big-endian wire values"
+      (fixed-width-wire seed: 73 cases: 64 size: 8))))

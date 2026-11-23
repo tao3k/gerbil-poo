@@ -12,6 +12,7 @@ compiled module loading. Gerbil owns compilation, runtime loading and cleanup.
 ## Property checks
 
 Run `just test-group property` for generated checks of prototype overlays,
-CLOS reconfiguration, typed packet encoding and read replay after edits. The
-package also runs the workflow and replay regressions through `gerbil test` in CI.
+CLOS reconfiguration, typed packet encoding, fixed-width integers and read
+replay after edits. CI also runs the workflow and replay regressions through
+`gerbil test`.
 Failures report the seed and shrunk inputs through the existing property helper.
