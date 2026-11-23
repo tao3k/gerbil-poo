@@ -10,7 +10,7 @@ Gerbil-POO is distributed under the Apache License, version 2.0. See the file [L
 
 ### Documentation
 
-Start at the [documentation index](doc/README.md).
+Start at the [documentation index](doc/README.md) or run the [examples](examples/README.md).
 
 See [Prototypes: Object-Orientation, Functionally](https://namin.seas.harvard.edu/pubs/scheme-poof.pdf)
 and the [Scheme Workshop 2021 talk](https://youtu.be/2szKoUQoNm8) for the original model.
