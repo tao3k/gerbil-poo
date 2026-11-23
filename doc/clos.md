@@ -62,9 +62,9 @@ accepts. The default initialization, reinitialization, and class-update
 methods call the same `shared-initialize` generic. It receives all slots,
 no slots, or only newly added slots as the mask for evaluating initforms.
 Explicit initargs can fill their slots regardless of the mask. The
-[pane example](../t/methods/duim-pane.ss) and its
-[extension](../t/methods/duim-pane-test.ss) show a method bundle adding
-initialization behavior from a separate module.
+[Inspector pane case](../examples/README.md#extend-and-migrate-an-inspector-pane)
+shows a method bundle extending initialization from another module and the
+same instance migrating to a more specialized class.
 The [lifecycle model](https://github.com/tao3k/lean-poo/blob/994f314b2c02491ae6cdca17152e86c9ceeb2444/LeanPoo/Object/ClosLifecycle.lean)
 checks operation-specific keyword admission, slot masks and method order.
 [HyperSpec initialization](https://www.lispworks.com/documentation/HyperSpec/Body/07_.htm) ·
