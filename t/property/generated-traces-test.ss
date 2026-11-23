@@ -1,9 +1,9 @@
 ;;; Typed finite shrinking composes existing Record contracts and FUN actions.
 (export trace-snapshot-test trace-request-test generated-traces-test)
 (import :std/test :std/error :std/iter
-        ../object ../mop ../type ../number ../testing/type ../support/option
-        (only-in ../testing/generation-graph generation-refusal?)
-        (only-in ../debug property-debug-action)
+        :clan/poo/object :clan/poo/mop :clan/poo/type :clan/poo/number :clan/poo/testing/type :clan/poo/support/option
+        (only-in :clan/poo/testing/generation-graph generation-refusal?)
+        (only-in :clan/poo/debug property-debug-action)
         (prefix-in :clan/poo/testing/property/generator core.))
 
 ;; Both malformed forms are finite graphs, detected by Gerbil's standard list?.

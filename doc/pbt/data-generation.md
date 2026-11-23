@@ -429,7 +429,7 @@ Four generic cases cover improper, cyclic and non-list spines; no initialization
 or prefix effects on refusal; malformed callback outputs; exact causes and charges;
 source revision before the next coordinate; unchanged finite proposal order; and
 bounded lazy Iterator admission. The independent package runs 87 standard cases.
-`examples/generated-traces-test.ss` keeps new typed evidence separate from the large
+`t/property/generated-traces-test.ss` keeps new typed evidence separate from the large
 batch module: Record commands with Function fields reject malformed parameter
 batches before candidate repair, retain diagnostic witnesses with zero delivered
 attempts, and replay/retry explicitly. A single codec-parametric Record/FUN fixture

@@ -115,6 +115,10 @@
     "inheritance-hooks-test"
     "issued-read-test"
     (gxc: "object-test" (extra-inputs: ("object/lifecycle.ss" "object/mop.ss" "object/cases.ss" "object/parameters.ss" "object/slot-observation.ss" "object/support.ss"))))
+    ("property"
+    "generated-traces-test"
+    "property-workflows-test")
+
     ("publication"
     (gxc: "joint-publication-test" (extra-inputs: ("joint-publication/approval-revision.ss" "joint-publication/joint-admission.ss" "joint-publication/joint-installation.ss" "joint-publication/cases.ss" "joint-publication/joint-receipts.ss"))))
     ("recovery"
@@ -197,7 +201,7 @@
       "coordination" "recovery" "revisions" "publication" "tools")
     ("prototypes" "collection-order" "collection-updates" "closure" "construction" "objects" "generalized"
       "components" "feedback" "recursion")
-    ("contracts" "contracts" "methods" "signatures")
+    ("contracts" "contracts" "methods" "signatures" "property")
     ("types" "declarations" "inference" "representations" "scalars")))
 
 ;; Public standard build scripts own parsing, freshness, parallel backend jobs

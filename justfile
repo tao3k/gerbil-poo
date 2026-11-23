@@ -81,7 +81,7 @@ _test-parallel:
     just --jobs "$workers" {{ test-context-recipe }}
 
 [parallel]
-_test-packages: (_test-groups "backends" "collection-deltas" "collection-styles" "collections" "coordination" "recovery" "revisions" "publication" "tools") (_test-groups "collection-order" "collection-updates" "closure" "construction" "objects" "generalized" "components" "feedback" "recursion") (_test-groups "contracts" "methods" "signatures") (_test-groups "declarations" "inference" "representations" "scalars")
+_test-packages: (_test-groups "backends" "collection-deltas" "collection-styles" "collections" "coordination" "recovery" "revisions" "publication" "tools") (_test-groups "collection-order" "collection-updates" "closure" "construction" "objects" "generalized" "components" "feedback" "recursion") (_test-groups "contracts" "methods" "signatures" "property") (_test-groups "declarations" "inference" "representations" "scalars")
 
 # Gerbil discovers and runs each selected suite from source.
 _test-groups +groups:
@@ -267,4 +267,4 @@ benchmark-cold-query: build-core
 # suite runs beside the general property suite rather than queuing behind it.
 # The official runner and each original fixture/case remain unchanged.
 [parallel]
-_test-shared-packages: (_test-groups "backends" "collection-deltas" "collection-styles" "collections" "coordination" "recovery" "revisions" "publication" "tools" "declarations" "inference" "representations/!collection-testing" "scalars") (_test-groups "collection-order" "collection-updates" "closure" "construction" "objects" "generalized" "components" "feedback" "recursion" "contracts" "methods" "signatures" "representations/collection-testing")
+_test-shared-packages: (_test-groups "backends" "collection-deltas" "collection-styles" "collections" "coordination" "recovery" "revisions" "publication" "tools" "declarations" "inference" "representations/!collection-testing" "scalars") (_test-groups "collection-order" "collection-updates" "closure" "construction" "objects" "generalized" "components" "feedback" "recursion" "contracts" "methods" "signatures" "property" "representations/collection-testing")

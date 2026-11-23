@@ -129,8 +129,8 @@
         (check (build-inputs (test-build-spec "recovery")) =>
           '((gxc: "coordinator-interleaving-test" (extra-inputs: ("../build.ss")))))
         (check (length parts) => 4)
-        (check (length all) => 88)
-        (check (length (filter (lambda (spec) (string-suffix? "-test" (cadr spec))) all)) => 82)
+        (check (length all) => 90)
+        (check (length (filter (lambda (spec) (string-suffix? "-test" (cadr spec))) all)) => 84)
         (for (name '("construction/graph-order-repair-test" "feedback/graph-algorithms-test"
                      "objects/class-diagnostics-test" "objects/shape-admission-test"
                      "methods/duim-pane" "methods/duim-pane-test"
@@ -144,7 +144,7 @@
                   '("feedback/graph-algorithms-test" "construction/graph-order-repair-test"))
               '("-cc-options" "-O2 -D___SINGLE_HOST_LIMIT=4096")
               '("-cc-options" "-Og -D___SINGLE_HOST_LIMIT=4096"))))
-        (check (length groups) => 25)
+        (check (length groups) => 26)
         (check (length (delete-duplicates/hash groups)) => (length groups))
         (check (apply + (map (lambda (group) (length (test-build-spec group))) groups)) => (length all))))
     (test-case "Just selects source test groups and keeps the core build independent"
