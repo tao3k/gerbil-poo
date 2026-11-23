@@ -4,7 +4,7 @@
 ;;; SPDX-License-Identifier: Apache-2.0 AND LGPL-2.1-or-later
 
 (import :std/test
-        (only-in :clan/poo/clos/funcs
+        (only-in :clan/poo/mop/clos/funcs
                  clos-function-name? clos-initarg-name?
                  clos-initarg-list? clos-initarg-ref
                  clos-initarg-index clos-initarg-index-first-of

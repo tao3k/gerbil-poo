@@ -21,7 +21,7 @@
         %replay-fresh-slot-reads!)
 (extern namespace: clan/poo/object/slot-observation %make-owned-list %borrow-owned-list)
 (extern namespace: clan/poo/object/read-route %gc-table-route-backend)
-(extern namespace: clan/poo/clos/types %capture-direct-slot-proof make-direct-slot-proof)
+(extern namespace: clan/poo/mop/clos/types %capture-direct-slot-proof make-direct-slot-proof)
 
 (export ClosDirectSlotDefinition ClosEffectiveSlotDefinition ClosClass
         clos-standard-object-class clos-direct-slot-definition

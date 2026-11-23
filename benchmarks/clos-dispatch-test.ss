@@ -5,17 +5,17 @@
         (only-in :clan/poo/object .o .ref replay-slot-reads!)
         (only-in :clan/poo/object/slot-observation %call-with-recorded-slot-reads
                  call-with-slot-read-observer)
-        (only-in :clan/poo/clos/objects require-clos-generic make-invocation-frame)
+        (only-in :clan/poo/mop/clos/objects require-clos-generic make-invocation-frame)
         (only-in :clan/poo/benchmarks/closure-measure measure median))
 (export clos-dispatch-test)
 (extern namespace: clan/poo/types/class-validation %prepared-local-slot?)
 (extern namespace: clan/poo/object %prepared-slot-present?)
 (extern namespace: clan/poo/object/slot-observation %delivery-observers)
 
-(extern namespace: clan/poo/clos/dispatch
+(extern namespace: clan/poo/mop/clos/dispatch
         arguments-valid! protocol-ranked-methods keyword-arguments-valid!
         prepare-default-effective-method execute-standard-effective-method)
-(extern namespace: clan/poo/clos/objects %published-method-positions)
+(extern namespace: clan/poo/mop/clos/objects %published-method-positions)
 
 (.defgeneric render (item &key ((color: color))))
 (.defmethod (render item &key ((color: color) item color?))

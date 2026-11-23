@@ -11,7 +11,7 @@
 (export .defgeneric .defmethod .generic-object
         (phi: +1 clos-generic-binding-identifier lower-optional-bindings lower-key-bindings))
 
-(extern namespace: clan/poo/clos/objects %make-clos-method)
+(extern namespace: clan/poo/mop/clos/objects %make-clos-method)
 
 (begin-syntax
   ;; A single application of a runtime binding to required parameters cannot

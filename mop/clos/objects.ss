@@ -50,9 +50,9 @@
         %prepared-vector-slot-ref %owned-list-slot-spec %depend-on-object-except-slot!
         %prepared-slot-present? %call-with-fresh-slot-read-group %register-slot-dependencies!)
 (extern namespace: clan/poo/object/slot-observation %make-owned-list %borrow-owned-list owned-list?)
-(extern namespace: clan/poo/clos/funcs clos-distances-before?)
+(extern namespace: clan/poo/mop/clos/funcs clos-distances-before?)
 (extern namespace: clan/poo/object/read-route %standard-symbol-table-lookup?)
-(extern namespace: clan/poo/clos/types %stock-call-validator?)
+(extern namespace: clan/poo/mop/clos/types %stock-call-validator?)
 (extern namespace: clan/poo/object/slot-observation slot-read-key slot-read-value slot-read-receiver)
 
 ;; A position only addresses an already applicable row. Index membership

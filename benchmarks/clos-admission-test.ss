@@ -3,7 +3,7 @@
 
 (import :std/iter :std/test :clan/poo/mop
         (only-in :clan/poo/object .ref)
-        (only-in :clan/poo/clos/lambda-list clos-key-argument)
+        (only-in :clan/poo/mop/clos/lambda-list clos-key-argument)
         (only-in :clan/poo/benchmarks/closure-measure measure median qualified-metrics))
 (export clos-admission-test)
 

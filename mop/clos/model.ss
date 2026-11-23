@@ -7,7 +7,7 @@
 ;;; These are pure model values, not mutable CLOS lifecycle instances.
 (import :clan/poo/object
         (only-in :clan/poo/mop/prototype prototype-instance?)
-        (only-in :clan/poo/clos/classes clos-class-effective-slots))
+        (only-in :clan/poo/mop/clos/classes clos-class-effective-slots))
 (export clos-model-prototype clos-model-validation-failure
         clos-model? clos-check-model)
 

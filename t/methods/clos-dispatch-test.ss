@@ -17,7 +17,7 @@
         (only-in :clan/poo/object/slot-observation call-with-slot-read-observer
                  slot-read-key slot-read-receiver slot-read-dependencies slot-read-value
                  %call-with-recorded-slot-reads)
-        (only-in :clan/poo/clos/objects make-effective-method make-invocation-frame)
+        (only-in :clan/poo/mop/clos/objects make-effective-method make-invocation-frame)
         (only-in :clan/poo/object/read-projection call-with-owned-read-projection
                  current-owned-read-open-guard owned-read-value! owned-read-open!)
         :clan/poo/mop)
@@ -27,9 +27,9 @@
 (extern namespace: clan/poo/object/slot-observation
         %with-slot-read-registration-interval %first-registered-read?
         %call-with-private-slot-read-prefix)
-(extern namespace: clan/poo/clos/objects %frameless-method-body
+(extern namespace: clan/poo/mop/clos/objects %frameless-method-body
         %published-dispatch dispatch-publication-order)
-(extern namespace: clan/poo/clos/dispatch applicable-ranked-methods project-published-order)
+(extern namespace: clan/poo/mop/clos/dispatch applicable-ranked-methods project-published-order)
 
 (def any-specializer (clos-any-specializer))
 (def animal-class (.o))

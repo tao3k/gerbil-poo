@@ -13,12 +13,12 @@
         (only-in :gerbil/runtime/gambit
                  call-with-output-string display-exception
                  with-exception-catcher)
-        (only-in :clan/poo/clos/declaration-ir
+        (only-in :clan/poo/mop/clos/declaration-ir
                  parse-clos-class-declaration-ir
                  parse-clos-generic-declaration-ir
                  clos-lambda-declaration-ir-required
                  clos-parameter-declaration-ir-kind)
-        (only-in :clan/poo/clos/declaration-ir-core parse-clos-lambda-list)
+        (only-in :clan/poo/mop/clos/declaration-ir-core parse-clos-lambda-list)
         (only-in :clan/poo/number Integer)
         :clan/poo/mop)
 

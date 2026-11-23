@@ -3,7 +3,7 @@
 
 (import :clan/poo/mop
         (only-in :clan/poo/object .o .mix compute-precedence-list!)
-        (only-in :clan/poo/clos/objects require-clos-generic make-invocation-frame)
+        (only-in :clan/poo/mop/clos/objects require-clos-generic make-invocation-frame)
         (only-in :clan/poo/benchmarks/closure-measure measure qualified-metrics write-datum)
         (only-in :gerbil/runtime/c3 c4-linearize)
         :std/iter
@@ -11,10 +11,10 @@
         (only-in :std/test test-suite test-case check-equal?))
 (export mop-lifecycle-test)
 
-(extern namespace: clan/poo/clos/dispatch
+(extern namespace: clan/poo/mop/clos/dispatch
         protocol-ranked-methods keyword-arguments-valid!
         prepare-default-effective-method execute-standard-effective-method)
-(extern namespace: clan/poo/clos/lifecycle
+(extern namespace: clan/poo/mop/clos/lifecycle
         require-initialization-arguments %clos-reinitialize-instance %clos-shared-initialize)
 
 (.defgeneric (prototype-width instance) slot: width)

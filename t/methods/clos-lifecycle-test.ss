@@ -13,15 +13,15 @@
         (only-in :clan/poo/object/slot-observation
           call-with-slot-read-observer without-observation %slot-read-active?)
         (prefix-in (only-in :gerbil/runtime/mop slot-ref slot-set!) runtime.)
-        (only-in :clan/poo/clos/objects make-invocation-frame)
+        (only-in :clan/poo/mop/clos/objects make-invocation-frame)
         (only-in :clan/poo/number Integer)
         (only-in :clan/poo/type Record Type. Type define-type element? Any validate TypeError? Bool Fun)
         :std/error
         :clan/poo/mop)
 
 (export clos-lifecycle-test)
-(extern namespace: clan/poo/clos/types %carrier-declarations-current?)
-(extern namespace: clan/poo/clos/objects %published-dispatch
+(extern namespace: clan/poo/mop/clos/types %carrier-declarations-current?)
+(extern namespace: clan/poo/mop/clos/objects %published-dispatch
   %published-dispatch-admission %dispatch-admission-current?)
 
 (define-type (LifecycleInstance @ Type.) .element?: clos-instance?)

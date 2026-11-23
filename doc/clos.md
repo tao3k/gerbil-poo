@@ -10,7 +10,7 @@ types and type declaration and validation operations from `:clan/poo/type`.
 ```
 
 `prototype-instance?` also accepts plain POO objects; it tests ancestry without
-reading business Slots. The `clos/*` files are implementation factors, not
+reading business Slots. The `mop/clos/*` files are implementation factors, not
 separate application entrypoints. Parsers, carrier guards, field validators and
 publication helpers remain internal. Factor implementations import their lower
 level dependencies directly rather than importing the MOP facade and creating
@@ -251,4 +251,4 @@ defines the conditions for reusing a checked descriptor within one call.
 Run the [method suites](../t/methods/) with `just test-group methods`. The
 [clause ledger](../t/methods/clause-ledger.ss) maps the 41 CLHS §7.7 entries
 to their conformance suites. The migrated sources retain their Apache-2.0
-and LGPL-2.1-or-later notices. [LGPL text](../clos/COPYING.LESSER)
+and LGPL-2.1-or-later notices. [LGPL text](../mop/clos/COPYING.LESSER)

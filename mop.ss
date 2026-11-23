@@ -9,12 +9,12 @@
         (rename-in (only-in "mop/prototype.ss" .defclass .defgeneric)
                    (.defclass .defprototype-class)
                    (.defgeneric .defreceiver-generic))
-        "clos/types.ss" "clos/objects.ss" "clos/generic-evolution.ss" "clos/classes.ss"
-        "clos/model.ss"
-        "clos/evolution.ss" "clos/lifecycle.ss" "clos/reflection.ss" "clos/dispatch.ss"
-        "clos/load-form.ss" "clos/mop.ss"
-        (except-in "clos/syntax.ss" .defclass .defgeneric)
-        (rename-in (only-in "clos/syntax.ss" .defclass .defgeneric)
+        "mop/clos/types.ss" "mop/clos/objects.ss" "mop/clos/generic-evolution.ss" "mop/clos/classes.ss"
+        "mop/clos/model.ss"
+        "mop/clos/evolution.ss" "mop/clos/lifecycle.ss" "mop/clos/reflection.ss" "mop/clos/dispatch.ss"
+        "mop/clos/load-form.ss" "mop/clos/profile.ss"
+        (except-in "mop/clos/syntax.ss" .defclass .defgeneric)
+        (rename-in (only-in "mop/clos/syntax.ss" .defclass .defgeneric)
                    (.defclass .defclos-class)
                    (.defgeneric .defclos-generic)))
 

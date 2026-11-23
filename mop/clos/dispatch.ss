@@ -24,14 +24,14 @@
         clos-call-next-method clos-next-method?
         clos-funcall clos-setf)
 
-(extern namespace: clan/poo/clos/objects
+(extern namespace: clan/poo/mop/clos/objects
         %published-method-positions %method-position method-positions-size %frameless-method-body
         %published-dispatch dispatch-publication-methods dispatch-publication-precedence
         %published-dispatch-admission %dispatch-admission-current? dispatch-admission? %stock-dispatch-read?
         dispatch-publication-positions dispatch-publication-order
         dispatch-publication-after dispatch-publication-after-execution)
-(extern namespace: clan/poo/clos/funcs clos-distances-before?)
-(extern namespace: clan/poo/clos/types %carrier-declarations-current?)
+(extern namespace: clan/poo/mop/clos/funcs clos-distances-before?)
+(extern namespace: clan/poo/mop/clos/types %carrier-declarations-current?)
 (extern namespace: clan/poo/object/slot-observation %call-with-private-slot-read-prefix)
 (extern namespace: clan/poo/object %ref-owned-list %prepared-vector-slot-ref compute-object-precedence!
         object-construction-current? %call-with-fresh-slot-read-group)

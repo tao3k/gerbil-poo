@@ -30,10 +30,10 @@
         clos-update-instance-for-redefined-class-generic
         clos-update-instance-for-different-class-generic)
 
-(extern namespace: clan/poo/clos/dispatch %prospective-instance-methods)
-(extern namespace: clan/poo/clos/classes %clos-initialize-supplied-slots!)
-(extern namespace: clan/poo/clos/objects %make-clos-method)
-(extern namespace: clan/poo/clos/dispatch %call-default-lifecycle)
+(extern namespace: clan/poo/mop/clos/dispatch %prospective-instance-methods)
+(extern namespace: clan/poo/mop/clos/classes %clos-initialize-supplied-slots!)
+(extern namespace: clan/poo/mop/clos/objects %make-clos-method)
+(extern namespace: clan/poo/mop/clos/dispatch %call-default-lifecycle)
 (extern namespace: clan/poo/object %publish-slot-edits! %with-slot-edit-protection)
 
 ;; : (-> ClosInstance [Symbol] [Symbol] [SchemeValue] SchemeValue ... ClosInstance)

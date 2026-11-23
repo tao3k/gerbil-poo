@@ -289,14 +289,14 @@
             (map module-export-name
               (module-context-export (core-import-module id)))))
         (for-each (lambda (name) (check (memq name mop-names) ? values)) public-names))
-      '(:clan/poo/clos/dispatch :clan/poo/clos/evolution
-        :clan/poo/clos/generic-evolution :clan/poo/clos/lifecycle
-        :clan/poo/clos/reflection :clan/poo/clos/load-form
-        :clan/poo/clos/mop :clan/poo/clos/model))
+      '(:clan/poo/mop/clos/dispatch :clan/poo/mop/clos/evolution
+        :clan/poo/mop/clos/generic-evolution :clan/poo/mop/clos/lifecycle
+        :clan/poo/mop/clos/reflection :clan/poo/mop/clos/load-form
+        :clan/poo/mop/clos/profile :clan/poo/mop/clos/model))
     (def clos-type-names
       (parameterize ((current-expander-context (make-top-context)))
         (map module-export-name
-          (module-context-export (core-import-module ':clan/poo/clos/types)))))
+          (module-context-export (core-import-module ':clan/poo/mop/clos/types)))))
     (check-equal? (memq 'prototype-instance? clos-type-names) #f)
     ;; Reject the retired project prefix across the complete public MOP surface.
     (for-each (lambda (name)
