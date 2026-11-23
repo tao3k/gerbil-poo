@@ -8,8 +8,8 @@
   :clan/poo/mop
   :clan/poo/number
   :clan/poo/brace
-  (prefix-in :clan/poo/examples/lifecycle lifecycle.)
-  (only-in :clan/poo/examples/representation-service closure-invalidation-workflow)
+  (prefix-in :clan/poo/t/fixtures/lifecycle lifecycle.)
+  (only-in :clan/poo/benchmarks/workloads/representation-service closure-invalidation-workflow)
   :std/assert
   :std/format
   (except-in :clan/poo/support/base ignore-errors)
@@ -22,7 +22,7 @@
   :std/error
   (for-syntax :gerbil/expander)
   (prefix-in :clan/poo/types/parameters parameters.)
-  (prefix-in :clan/poo/examples/parameter-service service.)
+  (prefix-in :clan/poo/t/fixtures/parameter-service service.)
   (prefix-in :clan/poo/mop/methods/declaration methods.)
   (prefix-in :clan/poo/mop/methods/combination combination.)
   :clan/poo/object/slot-observation

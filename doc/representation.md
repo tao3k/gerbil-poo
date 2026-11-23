@@ -178,7 +178,7 @@ explicit instance assignment; these are separate existing protocols.
 `t/representations/representation-test.ss` exercises persistent snapshots, duplicate method order,
 uninterned symbols, live shape sharing, receiver switching, shared-parent diamonds,
 computed values, insert/delete/default/topology changes, failed edits, cycles and
-retry. `examples/representation-service.ss` composes checked ObjectContract/refine
+retry. `benchmarks/workloads/representation-service.ss` composes checked ObjectContract/refine
 with existing Reader/FUN bind and a reusable total access site. Every invocation
 still validates the candidate; a layout hit does not substitute for admission.
 
@@ -512,7 +512,7 @@ standard-library imports, not duplicated POO parser implementations. The probe
 uses compiled objects and unflushed filesystem caches; its wall times do not
 establish a disk-cold bound or repeated-evaluation defect.
 
-For a known downstream entry, `just example-representation` uses `defbuild-script`
+For a known downstream entry, `just benchmark-representation` uses `defbuild-script`
 and `std/make` to produce the ordinary loadable `representation-service` module
 and the distinct `representation-main` executable. The latter binds the exact
 same exported `main`, rather than providing another parser or business engine.
@@ -816,8 +816,8 @@ now supplies the explicit module and runtime binding, for example:
 
 ```
 representation-main -:max-heap=1G,debug=q \
-  clan/poo/examples/representation-service \
-  clan/poo/examples/representation-service#joint-main 64 indexed
+  clan/poo/benchmarks/workloads/representation-service \
+  clan/poo/benchmarks/workloads/representation-service#joint-main 64 indexed
 ```
 
 `entry-workflow` composes three actions with existing Observation/FUN bind/map:
@@ -828,7 +828,7 @@ width 64 is `#(#(6240 8256 10272 192) (30 33 3))`. Standard module caching share
 code/initialization, never validated receivers or business results. The ordinary
 service entry remains available as the explicitly selected `#main` binding.
 
-Public `just example-representation` runs BOTH bindings under BOTH access policies.
+Public `just benchmark-representation` runs BOTH bindings under BOTH access policies.
 The business binding is shared by the independently built dynamic reference and
 the shared-foundation program. The shared executable is appropriate for plugins
 requiring that foundation: a rebuilt core requires a rebuilt executable, while
@@ -1374,7 +1374,7 @@ a previous result never bypasses a new hook refusal. This implements the author'
 observation that even inheritance-order recomputation below application code can
 be expensive, without extending mutation tracking to arbitrary language effects.
 
-`precedence-cache-workflow` in `examples/inherited-services.ss` combines repeated
+`precedence-cache-workflow` in `benchmarks/workloads/inherited-services.ss` combines repeated
 C3 queries, a shared declaration diamond, FUN revision and refused topology edits.
 The existing `just benchmark-prototype-traversal` includes `c3-hot` and
 `c3-workflow`, with AB/BA, A/A, B/B, natural, collected and post-GC controls.

@@ -173,11 +173,11 @@ benchmark-class-proto width='1000' samples='3': (build-benchmarks "class-proto")
 benchmark-object-scale regime='natural' policy='tree' width='all' depth='all': (build-benchmarks "object-scale")
     {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=5s 90s "$GERBIL_PATH/bin/object-scale-benchmark" {{ test-runtime-options }} "$1" "$2" "$3" "$4"
 
-example-representation: build-shared
-    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s "$GERBIL_PATH/bin/representation-main" {{ test-runtime-options }} clan/poo/examples/representation-service 'clan/poo/examples/representation-service#main' 64 symbolic
-    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s "$GERBIL_PATH/bin/representation-main" {{ test-runtime-options }} clan/poo/examples/representation-service 'clan/poo/examples/representation-service#main' 64 indexed
-    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s "$GERBIL_PATH/bin/representation-main" {{ test-runtime-options }} clan/poo/examples/representation-service 'clan/poo/examples/representation-service#joint-main' 64 symbolic
-    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s "$GERBIL_PATH/bin/representation-main" {{ test-runtime-options }} clan/poo/examples/representation-service 'clan/poo/examples/representation-service#joint-main' 64 indexed
+benchmark-representation: build-shared
+    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s "$GERBIL_PATH/bin/representation-main" {{ test-runtime-options }} clan/poo/benchmarks/workloads/representation-service 'clan/poo/benchmarks/workloads/representation-service#main' 64 symbolic
+    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s "$GERBIL_PATH/bin/representation-main" {{ test-runtime-options }} clan/poo/benchmarks/workloads/representation-service 'clan/poo/benchmarks/workloads/representation-service#main' 64 indexed
+    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s "$GERBIL_PATH/bin/representation-main" {{ test-runtime-options }} clan/poo/benchmarks/workloads/representation-service 'clan/poo/benchmarks/workloads/representation-service#joint-main' 64 symbolic
+    {{ platform-env }} {{ timeout-executable }} --signal=TERM --kill-after=3s 90s "$GERBIL_PATH/bin/representation-main" {{ test-runtime-options }} clan/poo/benchmarks/workloads/representation-service 'clan/poo/benchmarks/workloads/representation-service#joint-main' 64 indexed
 
 benchmark-representation-startup: build-shared
     {{ platform-env }} gerbil {{ test-runtime-options }} test -v 5 benchmarks/representation-startup.ss

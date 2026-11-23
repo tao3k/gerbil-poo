@@ -21,7 +21,7 @@ future work; it does not turn those sketches into a proved host implementation.
 | Mechanism | Gerbil facility / inspected source | POO decision |
 | --- | --- | --- |
 | Predicate contracts | `gerbil/core/contract.ss`: `using`, `list-of?`, `one-of`, `in-range-inclusive?` | Replaced repeated checks in Function admission, diagnostics, refinement, metadata evidence binding, finite type admission and generator configuration. The existing support module preserves the published refusal policy. |
-| Classes and interfaces | Core class-aware `using`, generated accessors; `std/interface.ss`, `std/instance.ss` | Use generated host structures for private state, and direct class-aware `using` in `examples/contract-interop.ss`. Dynamic prototype rows, descriptor validation and checked Function results remain POO operations. A host class assertion cannot recursively wrap an object graph. |
+| Classes and interfaces | Core class-aware `using`, generated accessors; `std/interface.ss`, `std/instance.ss` | Use generated host structures for private state, and direct class-aware `using` in `t/fixtures/contract-interop.ss`. Dynamic prototype rows, descriptor validation and checked Function results remain POO operations. A host class assertion cannot recursively wrap an object graph. |
 | Inheritance | `gerbil/runtime/c3.ss`: `c4-linearize` | Already reused by `object.ss`; there is no additional C4 implementation in this Scheme layer. POO still supplies lazy prototype computation, mutation guards and metadata. |
 | Method dispatch | Core `defmethod` / class method machinery | Use it for host classes. `multimethod.ss` retains typed tuple dispatch, persistent revisions, negative applicability guards and selectable combinations; these are not replaced by a single host method lookup. |
 | Composition | `std/func.ss`: `compose`, `rcompose`; `std/list/list.ss`: `map-in-order`, folds | Already used in IO, generalized prototypes and metadata. Existing FUN/Observation bind composes normalization before observation; replacing it with plain composition would discard its environment and sequencing protocol. |
@@ -66,7 +66,7 @@ keeps its separate Boolean-only decision policy.
 
 ## Ordered integration
 
-`examples/contract-interop.ss` composes the existing inferred recursive service
+`t/fixtures/contract-interop.ss` composes the existing inferred recursive service
 row, nested Function wrappers and whole-object `refine` with a Gerbil typed
 consumer. The publication entry point creates evidence from the **current
 checked subject**, then uses the existing exact `bind-evidence` publisher.
@@ -131,7 +131,7 @@ Retained after source comparison:
 - Gerbil's iterator API in this runtime has no exported mapping combinator.
   `table.ss` already implements its small mapper with the standard `Iterator`
   interface. Keep it rather than inventing an `in-map` import or adding eager
-  collection/coroutine state. `examples/service-collection.ss` reuses it and
+  collection/coroutine state. `t/fixtures/service-collection.ss` reuses it and
   registers a generated host class with standard `std.instance` / `Iterable`.
   Each pull uses the existing checked FUN action; no second iterator engine.
 - `vector-map/index` explicitly leaves callback order unspecified and currently
@@ -222,7 +222,7 @@ Retained after comparison:
   callback order. A generic filter/map rewrite would need a separate effect-order
   argument; no body/default/guard is speculatively evaluated for reflection.
 
-`examples/declared-methods.ss` extends its existing shared inheritance family
+`benchmarks/workloads/declared-methods.ss` extends its existing shared inheritance family
 with a private label override and an optional/keyword/rest summary method. The
 existing FUN Reader returns both charge and summary from fresh receiver data;
 method effects stay ordered and current context is not cached. Nine additional
@@ -448,7 +448,7 @@ catalog evaluation must remain before a read; stopping at the first matching
 name would skip other observable metadata effects. This audit retains that
 protocol rather than implementing another one.
 
-`examples/inherited-services.ss` composes one retained Simula program with the
+`benchmarks/workloads/inherited-services.ss` composes one retained Simula program with the
 existing FUN Observation action across a shared-source diamond and independent
 service families. Every callback uses current `read-slot`, not cached admission.
 Tests edit shared defaults, visibility and Type; refusal prevents settlement,
@@ -475,7 +475,7 @@ The explicit `@@method` escape retains the original Gerbil host-method binding.
 Inspected host owners are `core/sugar.ss` (`defalias`), `expander/top.ss`
 (`core-expand-define-alias%`) and `core/match.ss` (`defsyntax-for-match`).
 
-`examples/declared-methods.ss` `inspected-action` composes brace construction,
+`benchmarks/workloads/declared-methods.ss` `inspected-action` composes brace construction,
 nested brace matching, captured outer/local receivers, inherited standard method
 combination and current public reflection in one FUN observation. It reads the
 current method declaration before invocation; hiding the declaration refuses

@@ -10,9 +10,9 @@
                             &class-type-interface) runtime.)
         (only-in :gerbil/runtime/table symbolic-table-set!)
         (only-in :clan/poo/object/slot-layout make-slot-cache)
-        (only-in :clan/poo/examples/representation-service topology-workflow)
+        (only-in :clan/poo/benchmarks/workloads/representation-service topology-workflow)
         :std/test :std/iter :clan/poo/object :clan/poo/mop :clan/poo/brace :clan/poo/number (only-in :clan/poo/type String define-type) :clan/poo/object/reflection
-        (prefix-in :clan/poo/examples/inherited-services services.))
+        (prefix-in :clan/poo/benchmarks/workloads/inherited-services services.))
 (extern namespace: clan/poo/object/read-route %gc-scratch-routes-current?)
 ;; Exercise inheritance protocol composition through actual objects and hooks.
 (def inheritance-hooks-test

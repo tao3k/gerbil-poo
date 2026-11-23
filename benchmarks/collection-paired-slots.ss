@@ -10,7 +10,7 @@
         (only-in :clan/poo/object/slot-observation call-with-slot-read-observer slot-read-key)
         (only-in :gerbil/runtime/loader load-module)
         (only-in :gerbil/runtime/gambit string->uninterned-symbol)
-        (prefix-in :clan/poo/examples/representation-service service.))
+        (prefix-in :clan/poo/benchmarks/workloads/representation-service service.))
 
 ;; Compare indexed deletion against the supported complete-specification rebuild.
 ;; Construction and snapshot observation are charged in the cold/full paths.
@@ -28,8 +28,8 @@
 ;; The single-contribution control charges admission/collection without a prefix.
 (def (chain-workload size scenario)
   (def single? (eq? scenario 'chain-single))
-  (def enter (module-action "clan/poo/examples/representation-service"
-    'clan/poo/examples/representation-service#override-workflow))
+  (def enter (module-action "clan/poo/benchmarks/workloads/representation-service"
+    'clan/poo/benchmarks/workloads/representation-service#override-workflow))
   ;; Build both representations from fresh metadata inside every cold operation.
   (def (build opaque?)
     ;; Final receiver lookup stays lazy in both constructor encodings.
@@ -80,8 +80,8 @@
     (cons (string->symbol (string-append "visible-" (number->string n))) n))
     (list (cons 'enabled #f) (cons 'callback identity) (cons 'names payload))))
   (def source (force-object (object<-alist entries)))
-  (def enter (module-action "clan/poo/examples/representation-service"
-    'clan/poo/examples/representation-service#reflection-workflow))
+  (def enter (module-action "clan/poo/benchmarks/workloads/representation-service"
+    'clan/poo/benchmarks/workloads/representation-service#reflection-workflow))
   ;; A callback path must retain ordered effects, not just equal final counts.
   (def (enumerate owner borrowed?)
     (def seen '())
@@ -138,8 +138,8 @@
     (list (cons 'target #f) (cons 'kept identity) (cons 'target identity))))
   (def source (prototype-map entries))
   (def expected (filter (lambda (entry) (not (eq? (car entry) 'target))) entries))
-  (def enter (module-action "clan/poo/examples/representation-service"
-    'clan/poo/examples/representation-service#removal-workflow))
+  (def enter (module-action "clan/poo/benchmarks/workloads/representation-service"
+    'clan/poo/benchmarks/workloads/representation-service#removal-workflow))
   ;; Preserve finite reinsert order across gaps instead of reusing live count.
   (def (action remove)
     (lambda ()
@@ -172,8 +172,8 @@
   (def (action capacity)
     (def site (make-slot-cache 'total shapes: capacity))
     ;; Capturing the existing Reader action does not load or initialize a plugin.
-    (def enter (module-action "clan/poo/examples/representation-service"
-      'clan/poo/examples/representation-service#service-workflow))
+    (def enter (module-action "clan/poo/benchmarks/workloads/representation-service"
+      'clan/poo/benchmarks/workloads/representation-service#service-workflow))
     ;; Equal complete warming occurs before either measured side is selected.
     (for-each (cut .ref/inline <> site) owners)
     (lambda ()
@@ -301,7 +301,7 @@
         (.putslot! (car fixture) 'base ($constant-slot-spec 4)) (visit (cdr fixture) 1 4)
         (.putslot! (car fixture) 'base ($constant-slot-spec 3)) (visit (cdr fixture) 1 3)))
       ((slot-load-workflow) (lambda ()
-        (load-module "clan/poo/examples/representation-service")
+        (load-module "clan/poo/benchmarks/workloads/representation-service")
         ;; Keep initialization after the loader; Gerbil hoists internal defs.
         (let* ((access (and inline? (make-slot-cache 'total)))
                (total (for/fold (sum 0) (n (in-range size))

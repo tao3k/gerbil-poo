@@ -8,7 +8,7 @@ not concurrent algorithms supplied by the paper.
 
 ## Prepare before continuing
 
-`examples/coordinator-rejoining.rejoin-after` composes a preparation operation and
+`benchmarks/workloads/coordinator-rejoining.rejoin-after` composes a preparation operation and
 a continuation inside a replacement coordinator's own group. Preparation receives
 its exchange function; success passes exchange followed by ALL preparation return
 values to the continuation via standard `call-with-values`/`apply`. A preparation

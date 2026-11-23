@@ -13,7 +13,7 @@
     ((binding) 16384) ((factory preparation) 16) (else 64)))
 ;; Cover all added runtime, examples, source controls and standalone entry points.
 (def sources (delete-duplicates/hash (append metadata.sources
-  '("mop/generalized-prototype.ss" "examples/generalized-checkout.ss"
+  '("mop/generalized-prototype.ss" "benchmarks/workloads/generalized-checkout.ss"
     "benchmarks/binding-cases.ss" "benchmarks/binding-benchmark.ss" "benchmarks/binding-suite.ss")) from-end?: #t))
 ;; ABBA alternation is shared by direct and exact duplicate A/A controls.
 (def (side-order round pair) (if (memv round '(0 3)) pair (reverse pair)))

@@ -16,7 +16,7 @@
   :clan/poo/support/option
   (only-in :clan/poo/trie SimpleTrie SimpleTrieSet Branch Leaf)
   (only-in :clan/poo/t/table-testing alist-table box-table)
-  (prefix-in :clan/poo/examples/service-collection service.)
+  (prefix-in :clan/poo/t/fixtures/service-collection service.)
   (only-in :gerbil/runtime/mop slot-ref slot-set!)
   (only-in :std/list/alist aset arem alist?)
   (only-in :clan/poo/types/object-contract checked-action))

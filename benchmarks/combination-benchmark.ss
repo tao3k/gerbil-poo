@@ -4,8 +4,8 @@
         :clan/poo/object
         :clan/poo/mop
         :clan/poo/mop/methods/declaration
-        (runtime: :clan/poo/examples/declared-methods)
-        (prefix-in (only-in :clan/poo/examples/declared-methods make-account
+        (runtime: :clan/poo/benchmarks/workloads/declared-methods)
+        (prefix-in (only-in :clan/poo/benchmarks/workloads/declared-methods make-account
                    make-reporting-family typed-summary-action) service.)
         (prefix-in :clan/poo/mop/generalized-prototype gp.)
         (only-in :clan/poo/object/reflection read-slot)

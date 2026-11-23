@@ -129,7 +129,7 @@ insufficient acceptance of the PBT implementation.
 ## Complex executable examples
 
 [`collection-properties.md`](../collection-properties.md) explains three runnable
-examples in `examples/collection-properties.ss`: interleaved unique-owner handoff,
+examples in `t/fixtures/collection-properties.ss`: interleaved unique-owner handoff,
 two-round service upgrades with retained receipts, and same-epoch ABA versus
 cross-epoch rejection. Each uses both backends and multiple seeded runs through
 `property-action`, with random suffixes after its required domain prefix.

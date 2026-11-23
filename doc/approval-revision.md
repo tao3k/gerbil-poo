@@ -25,7 +25,7 @@ already published historical snapshot automatically. Head identity and approval
 version are separate checks. Changing a policy value away and back still leaves
 old guards stale. Revision equality is never inferred from equal policy values.
 
-`examples/component-requests.submit-current!` explicitly prepares fresh current
+`benchmarks/workloads/component-requests.submit-current!` explicitly prepares fresh current
 snapshot/guard captures and submits once. It does not retry automatically, rebase
 fragments, reuse denied candidate caches or choose a topology phase for the caller.
 After a rival changes topology, the caller selects the corresponding new phase.

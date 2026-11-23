@@ -11,12 +11,12 @@
   :clan/poo/graph/feedback
   (prefix-in :clan/poo/graph/component/joint joint.)
   (prefix-in :clan/poo/graph/construction cache.)
-  (prefix-in :clan/poo/examples/component-rounds rounds.)
-  (prefix-in :clan/poo/examples/joint-services joint-rounds.service.)
+  (prefix-in :clan/poo/benchmarks/workloads/component-rounds rounds.)
+  (prefix-in :clan/poo/benchmarks/workloads/joint-services joint-rounds.service.)
   :clan/poo/support/option
   (prefix-in :clan/poo/graph/computation code.)
   (prefix-in :clan/poo/graph/scc scc.)
-  (prefix-in :clan/poo/examples/joint-topology joint-topology.service.))
+  (prefix-in :clan/poo/benchmarks/workloads/joint-topology joint-topology.service.))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (joint-rounds-test)

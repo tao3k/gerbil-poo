@@ -15,11 +15,11 @@
   (prefix-in :clan/poo/graph/computation code.)
   (prefix-in :clan/poo/graph/construction cache.)
   (prefix-in :clan/poo/graph/schedule graph.)
-  (prefix-in :clan/poo/examples/cached-feedback service.)
+  (prefix-in :clan/poo/benchmarks/workloads/cached-feedback service.)
   (prefix-in (only-in :clan/poo/fun Observation.) fun.)
   :clan/poo/mop/generalized-closure
   :clan/poo/graph/feedback/closure
-  (prefix-in :clan/poo/examples/feedback-services services.))
+  (prefix-in :clan/poo/benchmarks/workloads/feedback-services services.))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (cyclic-access-test)

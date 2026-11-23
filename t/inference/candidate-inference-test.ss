@@ -16,8 +16,8 @@
   (prefix-in :clan/poo/mop/methods/extension extension.)
   (prefix-in :clan/poo/mop/methods/combination combination.)
   :clan/poo/mop/methods/declaration
-  (prefix-in :clan/poo/examples/polymorphic-services service.)
-  (prefix-in :clan/poo/examples/signature-service selected.)
+  (prefix-in :clan/poo/benchmarks/workloads/polymorphic-services service.)
+  (prefix-in :clan/poo/t/fixtures/signature-service selected.)
   (only-in :clan/poo/type Map Any Bool Object Function CaseFunction Type. element? validate TypeError?))
 
 ;; Construct once with the original private helper scope and declaration order.

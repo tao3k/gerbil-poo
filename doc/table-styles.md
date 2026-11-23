@@ -92,7 +92,7 @@ identities, checked by pointer identity under the official lock. This is semanti
 correspondence, not a proof of Gambit scheduling, mutex implementation, arbitrary
 user callbacks, exception-safe foreign resources, or compiler correctness.
 
-`examples/service-collection.ss` composes derived representations, mutable-to-linear
+`t/fixtures/service-collection.ss` composes derived representations, mutable-to-linear
 transfer, complete ordered batches and Reader/IO observation. Regression controls
 exercise all nine conversions, persistent snapshot aliasing, wrapper retention,
 late conflict and retry, reentrant/ABA changes, two real staged workers, stale
@@ -159,7 +159,7 @@ request: the original immutable-head check still allows at most one installation
 from a captured generation. There is no implicit retry, callback replay or
 backward-compatibility dispatch path.
 
-`examples/service-collection.ss:revise-ledger-receivers` composes a derived
+`t/fixtures/service-collection.ss:revise-ledger-receivers` composes a derived
 key/value representation, checked Function leaves, posh-to-classy transfer,
 ordered batches, transfer back and Reader/IO. The regression suite covers the
 25-way matrix, exact Function retention, inverse recovery, failed batch suppression

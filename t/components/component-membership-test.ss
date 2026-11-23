@@ -7,7 +7,7 @@
   (only-in :std/error Error-message)
   (only-in :gerbil/runtime/hash HashTable::interface)
   (prefix-in (only-in :gerbil/runtime/mop slot-ref slot-set! object-class) runtime.)
-  (prefix-in :clan/poo/examples/component-services owned-service.)
+  (prefix-in :clan/poo/benchmarks/workloads/component-services owned-service.)
   :clan/poo/object
   :clan/poo/mop
   :clan/poo/brace
@@ -20,19 +20,19 @@
   (prefix-in :clan/poo/graph/scc scc.)
   (prefix-in :clan/poo/graph/schedule graph.)
   (prefix-in :clan/poo/graph/computation code.)
-  (prefix-in :clan/poo/examples/component-membership component-membership.service.)
+  (prefix-in :clan/poo/benchmarks/workloads/component-membership component-membership.service.)
   (prefix-in :clan/poo/graph/component/revision revision.)
-  (prefix-in :clan/poo/examples/component-membership initial.)
-  (prefix-in :clan/poo/examples/component-migration component-migration.service.)
+  (prefix-in :clan/poo/benchmarks/workloads/component-membership initial.)
+  (prefix-in :clan/poo/benchmarks/workloads/component-migration component-migration.service.)
   :std/sync/channel
   :clan/poo/mop/lens-laws
   (only-in :clan/poo/types/class-validation required-slots?)
   (only-in :clan/poo/object/slot-observation slot-read-key slot-read-receiver)
   (prefix-in :clan/poo/graph/component/publication publication.)
-  (prefix-in :clan/poo/examples/component-requests component-requests.service.)
-  (prefix-in :clan/poo/examples/component-rounds rounds.)
+  (prefix-in :clan/poo/benchmarks/workloads/component-requests component-requests.service.)
+  (prefix-in :clan/poo/benchmarks/workloads/component-rounds rounds.)
   (only-in :std/list/list foldl find filter)
-  (prefix-in :clan/poo/examples/component-rounds component-rounds.service.))
+  (prefix-in :clan/poo/benchmarks/workloads/component-rounds component-rounds.service.))
 
 (extern namespace: clan/poo/graph/component/publication %request-lineage %lineage-invalidation
   %request-action %request-action-set!)

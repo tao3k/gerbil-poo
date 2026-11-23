@@ -10,8 +10,8 @@
   :clan/poo/types/relation
   :clan/poo/types/prototype-types
   :clan/poo/mop/methods/declaration
-  (prefix-in :clan/poo/examples/polymorphic-services service.)
-  (prefix-in :clan/poo/examples/signature-service fixture.)
+  (prefix-in :clan/poo/benchmarks/workloads/polymorphic-services service.)
+  (prefix-in :clan/poo/t/fixtures/signature-service fixture.)
   (prefix-in :clan/poo/types/function-signature signature.)
   :std/iter
   :std/list/list-builder

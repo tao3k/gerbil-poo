@@ -11,12 +11,12 @@
   (prefix-in :clan/poo/graph/schedule graph.)
   (prefix-in :clan/poo/graph/construction cache.)
   (only-in :std/values first-value)
-  (prefix-in :clan/poo/examples/construction-workflow workflow.)
-  (prefix-in :clan/poo/examples/service-bundle bundle.)
-  (prefix-in :clan/poo/examples/shared-contracts shared.)
+  (prefix-in :clan/poo/benchmarks/workloads/construction-workflow workflow.)
+  (prefix-in :clan/poo/benchmarks/workloads/service-bundle bundle.)
+  (prefix-in :clan/poo/benchmarks/workloads/shared-contracts shared.)
   (prefix-in :clan/poo/mop/contract-family contracts.)
   (prefix-in :clan/poo/graph/staged-publication staged.)
-  (prefix-in :clan/poo/examples/protected-dispatch protected.)
+  (prefix-in :clan/poo/benchmarks/workloads/protected-dispatch protected.)
   (prefix-in :clan/poo/graph/cyclic-publication publication.)
   (prefix-in :clan/poo/mop/methods/extension dispatch.)
   (prefix-in :clan/poo/mop/methods/dispatch multimethod.)
@@ -26,8 +26,8 @@
   :clan/poo/mop/focused-closure
   :clan/poo/mop/generalized-closure
   :clan/poo/mop/generalized-declaration
-  (prefix-in :clan/poo/examples/closed-declarations service.)
-  (prefix-in :clan/poo/examples/focused-services family.)
+  (prefix-in :clan/poo/benchmarks/workloads/closed-declarations service.)
+  (prefix-in :clan/poo/benchmarks/workloads/focused-services family.)
   (prefix-in (only-in :clan/poo/fun Observation.) fun.))
 
 ;; Construct once with the original private helper scope and declaration order.

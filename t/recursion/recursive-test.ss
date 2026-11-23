@@ -12,8 +12,8 @@
   (prefix-in :clan/poo/recursive/evaluation recursive.)
   (prefix-in :clan/poo/recursive/cache cached.)
   (prefix-in :clan/poo/recursive/handling handling.)
-  (prefix-in :clan/poo/examples/cyclic-access access.)
-  (prefix-in :clan/poo/examples/recursive-catalog catalog.)
+  (prefix-in :clan/poo/benchmarks/workloads/cyclic-access access.)
+  (prefix-in :clan/poo/benchmarks/workloads/recursive-catalog catalog.)
   (prefix-in :clan/poo/graph/cyclic-publication publication.)
   (prefix-in :clan/poo/mop/methods/dispatch dispatch.))
 

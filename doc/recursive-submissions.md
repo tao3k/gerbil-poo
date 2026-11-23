@@ -18,7 +18,7 @@ no thread scheduling, concurrent CAS, distributed arrival protocol or effect rol
 A callback failure after installation retains that installation in its receipt;
 new staging or an effect-only observation must be an explicit caller decision.
 
-`examples/recursive-submissions.ss` takes an observer factory and receipt consumer,
+`t/fixtures/recursive-submissions.ss` takes an observer factory and receipt consumer,
 composing existing FUN observers. Eight rounds enqueue current/future requests
 behind previous pending competitors before consuming them. Proposed-policy and
 installed-policy ABA separately invalidate requests; local admission then succeeds

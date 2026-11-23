@@ -129,7 +129,7 @@ remote exact-head CI is recorded separately in PR #13.
 Full local data remain ignored under =.build/=; no raw records, JSON or archives
 are committed. Final runtime/descriptor SHA256:
 - =generalized-prototype.ss=: =2e6cdb62a50789de6506e1e48e8db6f5ebee19530be59321794f3686737dd778=
-- =examples/generalized-checkout.ss=: =bffb75dc438720689fcbc458b1aec039184dbe8f1c472961646c02dc03d03fb3=
+- =benchmarks/workloads/generalized-checkout.ss=: =bffb75dc438720689fcbc458b1aec039184dbe8f1c472961646c02dc03d03fb3=
 - =benchmarks/binding-cases.ss=: =4fe6bfe1d38990d142d071004e2e1fa12dbdd3b8162550384b75ae435a6fd99f=
 - =benchmarks/binding-benchmark.ss=: =4b9dc98b34c63f1a81ab1de87e8a8043933ba93a8c9b10d5cef4c3f10e0fde45=
 - =benchmarks/binding-suite.ss=: =970cd5967fbdcdad2bcc6175eb9ac709826943eb5d5805a94cc7cfeb32f4a9f0=

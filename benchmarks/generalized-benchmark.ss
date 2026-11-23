@@ -1,7 +1,7 @@
 (export main workload)
 (import :clan/poo/object
-        (runtime: :clan/poo/examples/generalized-checkout)
-        (prefix-in (only-in :clan/poo/examples/generalized-checkout base declarations
+        (runtime: :clan/poo/benchmarks/workloads/generalized-checkout)
+        (prefix-in (only-in :clan/poo/benchmarks/workloads/generalized-checkout base declarations
                    nested-base nested-declarations nested-protocol nested-root
                    prepare-checkout prepare-nested protocol root) checkout.)
         (only-in "closure-measure.ss" run-child)

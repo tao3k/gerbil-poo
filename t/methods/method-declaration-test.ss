@@ -14,8 +14,8 @@
   (prefix-in :clan/poo/mop/declarative-metadata metadata.)
   (prefix-in :clan/poo/graph/cyclic-publication publication.)
   (prefix-in :clan/poo/mop/generic-family family.)
-  (prefix-in :clan/poo/examples/service-combination combined.)
-  (prefix-in :clan/poo/examples/service-bundle bundle.)
+  (prefix-in :clan/poo/benchmarks/workloads/service-combination combined.)
+  (prefix-in :clan/poo/benchmarks/workloads/service-bundle bundle.)
   :std/error
   :clan/poo/mop
   (only-in :clan/poo/type Any Bool Object define-type)
@@ -25,7 +25,7 @@
   :clan/poo/object/reflection
   :clan/poo/recursive/declaration
   (prefix-in :clan/poo/proto proto.)
-  (prefix-in :clan/poo/examples/declared-methods service.)
+  (prefix-in :clan/poo/benchmarks/workloads/declared-methods service.)
   (only-in :std/list/list-builder with-list-builder)
   (prefix-in :clan/poo/mop/methods/dispatch multimethod.)
   (prefix-in :clan/poo/mop/methods/extension dispatch-extension.))

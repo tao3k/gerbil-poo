@@ -1,6 +1,6 @@
 ;;; Actual Gerbil interfaces and containers under POO source/validation discipline.
 (export library-reuse-test)
-(import (prefix-in (only-in :clan/poo/examples/representation-service value-storage-workflow value-store-observation-workflow value-store-redemand-workflow slot-revision-workflow) representation.)
+(import (prefix-in (only-in :clan/poo/benchmarks/workloads/representation-service value-storage-workflow value-store-observation-workflow value-store-redemand-workflow slot-revision-workflow) representation.)
         :std/test :std/iter :std/error (only-in :gerbil/runtime/hash HashTable)
         (for-syntax :gerbil/expander)
         (only-in :gerbil/runtime/gambit string->uninterned-symbol)
@@ -8,7 +8,7 @@
         (prefix-in :clan/poo/object/reflection reflection.)
         (only-in :clan/poo/brace @method @@method)
         (rename-in (only-in :clan/poo/brace @method) (@method object-form))
-        (prefix-in :clan/poo/examples/declared-methods declared.)
+        (prefix-in :clan/poo/benchmarks/workloads/declared-methods declared.)
         (prefix-in :clan/poo/mop/methods/combination method.)
         (prefix-in :clan/poo/mop/methods/dispatch dispatch.)
         (prefix-in :clan/poo/mop/methods/extension extension.)
@@ -18,7 +18,7 @@
         :clan/poo/object :clan/poo/mop :clan/poo/number :clan/poo/types/object-contract :clan/poo/support/option :clan/poo/object/slot-layout
         (only-in :clan/poo/type Record List Tuple Any Type. validate TypeError? Fun)
         (prefix-in :clan/poo/types/validation containers.)
-        (prefix-in :clan/poo/examples/service-collection service.)
+        (prefix-in :clan/poo/t/fixtures/service-collection service.)
         (prefix-in :clan/poo/graph/computation code.)
         (prefix-in :clan/poo/graph/schedule graph.)
         (prefix-in :clan/poo/graph/construction cache.))

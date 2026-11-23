@@ -5,8 +5,8 @@
         (runtime: :clan/poo/mop/generalized-prototype)
         (prefix-in (only-in :clan/poo/mop/generalized-prototype Prepared? approximate
                    bind-context-observer prepared-protocol) gp.)
-        (runtime: :clan/poo/examples/generalized-checkout)
-        (prefix-in (only-in :clan/poo/examples/generalized-checkout
+        (runtime: :clan/poo/benchmarks/workloads/generalized-checkout)
+        (prefix-in (only-in :clan/poo/benchmarks/workloads/generalized-checkout
                    bind-envelope-items-report bind-envelope-report envelope-base
                    prepare-envelope prepare-envelope-items) checkout.)
         (runtime: :clan/poo/mop/methods/combination)

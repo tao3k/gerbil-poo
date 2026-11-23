@@ -8,7 +8,7 @@ scopes and the guarded owner installation remain reused.
 
 ## Standard-library scoped supervision
 
-`examples/joint-coordination.call-with-coordinators` runs distinct named operations
+`benchmarks/workloads/joint-coordination.call-with-coordinators` runs distinct named operations
 on real Gerbil threads. Each operation receives `exchange`: send a checkpoint to
 the supervisor, then wait for a one-shot reply. The supervisor's `next` passes the
 coordinator name, payload and reply procedure to a handler. Different coordinators

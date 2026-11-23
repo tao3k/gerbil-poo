@@ -17,7 +17,7 @@ proof of arbitrary Scheme callback termination.
 (service.report closed 2) ; (10 13 15 96 audit), failure is #f
 ```
 
-The example prefix denotes `examples/closed-declarations.ss`. Each iteration
+The example prefix denotes `benchmarks/workloads/closed-declarations.ss`. Each iteration
 checks admitted lens domains, performs one actual `step-fragments`, checks its
 result, then compares FULL adjacent raw values with native `equal?`. Only equality
 allows cooking and receipt creation. The receipt retains its prepared owner,

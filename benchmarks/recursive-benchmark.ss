@@ -12,9 +12,9 @@
         (runtime: :clan/poo/recursive/handling)
         (prefix-in (only-in :clan/poo/recursive/handling call-batch call-slot failure-stage
                    result-failure result-next result-value session) handling.)
-        (prefix-in :clan/poo/examples/recursive-catalog catalog.)
-        (runtime: :clan/poo/examples/cyclic-access)
-        (prefix-in (only-in :clan/poo/examples/cyclic-access attestation attested-closure
+        (prefix-in :clan/poo/benchmarks/workloads/recursive-catalog catalog.)
+        (runtime: :clan/poo/benchmarks/workloads/cyclic-access)
+        (prefix-in (only-in :clan/poo/benchmarks/workloads/cyclic-access attestation attested-closure
                    config rebase-attested revise-attested start-attested) access.)
         (runtime: :clan/poo/graph/cyclic-publication)
         (prefix-in (only-in :clan/poo/graph/cyclic-publication version-view) publication.))

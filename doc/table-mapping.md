@@ -400,7 +400,7 @@ Explicit source inverses restore both joined observations; target inverses resto
 the public target independently. This does not atomically consume two separately
 owned public source objects or roll back external callback/postcommit IO effects.
 
-`make-service-routing-join` in `examples/service-collection.ss` joins Function-bearing
+`make-service-routing-join` in `t/fixtures/service-collection.ss` joins Function-bearing
 services to shared routing policies. Tests cover selective shared-policy changes,
 missing versus stored false, 24 mixed revisions against a full lookup oracle,
 different left/right key Types, source admission order, Pair alias shells,

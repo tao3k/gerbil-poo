@@ -13,19 +13,19 @@ checks the runtime premises at its public boundary.
 | Delayed and idempotent preparation | ensureAdaptive | prepare-closure | Implemented; cached calls preserve object identity and do no new scan |
 | Dependency-equal syntax reshaping | reshape / reconfigure | reconfigure-closure | Implemented; ordered occurrences, fresh solve, new size admission |
 | Cooked snapshot and heterogeneous service family | CyclicPublication / StagedPublication | graph/cyclic-publication.ss | Named procedures and checked typed generics; duplicate checks and exact old identity on refusal |
-| Ten-fact cyclic access and lossy view | CyclicAccess | examples/cyclic-access.ss | Implemented and tested over 32 configurations; active is a list of indices |
+| Ten-fact cyclic access and lossy view | CyclicAccess | benchmarks/workloads/cyclic-access.ss | Implemented and tested over 32 configurations; active is a list of indices |
 | General prototype/class inheritance | C3 / GeneralizedInheritance | existing object.ss / mop.ss | Native C3 reused by `generalized-prototype.prepare-inheritance`; prepared finite hooks covered below |
 | Heterogeneous typed multi-dispatch and negative watches | Object.Multimethod / DispatchExtension / GenericFamily | multimethod.ss / dispatch-extension.ss / graph/cyclic-publication.ss | Runtime input/output descriptors, sparse ordered lookup, guarded candidates, bounded immutable caches, completed-candidate watches and per-service cache transport; dependent proof evidence remains Lean-only; GenericFamily.Model drives declared construction and negative checks |
 | Prepared effective methods and explicit nested cache owners | PreparedMultimethod; Multimethod.preparedStandard / preparedForwardingStandard / preparedSimple / preparedInner / preparedSimula; NestedMultimethod | multimethod.ss prepared-* / nested; method-combination.ss prepare-* | Implemented on the existing typed sparse dispatcher; one bounded resolution LRU, unconditional effective reuse, guarded reselection, joint invalidation and explicit multi-level child successor transport. Native owner checks definition AND invoker identity; performance remains horizon dependent |
 | Declared unconditional shape preparation before joint admission | PreparedMultimethod.prepareShape / prepareShape_preserves / prepareShape_probes / NestedMultimethod.call_retains; ShapePreparationBudget | multimethod.prepare-shape / dispatch-extension.prepare-shape / child-prepared-simula-model / shape-prepared-simula-model | Body/guard-free construction after completed method edits; actual calls retain their Type/C4 checks. Negative certificates transport the unchanged definition. Declared entries consume cache budget; guarded shapes remain unchanged. Explicit per-model selection; no result memoization |
 | Shared view-independent Simula definitions with current typed context | contextPreflight_equivalent / contextPreflightGeneric / ContextPreparationBudget | context-preflight / context-simula-model / context-prepared-simula-model | One immutable protected child definition is shared across views; current units/Object view are actual typed arguments. Outer projection/contracts still rebuild on capacity/invoice changes. First factory and added argument checks are explicitly charged; no cached view/result |
-| Declarative method/type/logical metadata | DeclarativeMetadata / ServiceMetadata | mop/declarative-metadata.ss / examples/service-metadata.ss | Native POO declarations, Type refinements, composed finite logic, bound invocation wrappers and cooked contract rebuilding; dependent evidence remains Lean-only; native staged models re-admit actual cache successors |
+| Declarative method/type/logical metadata | DeclarativeMetadata / ServiceMetadata | mop/declarative-metadata.ss / benchmarks/workloads/service-metadata.ss | Native POO declarations, Type refinements, composed finite logic, bound invocation wrappers and cooked contract rebuilding; dependent evidence remains Lean-only; native staged models re-admit actual cache successors |
 | Selective generic construction and warm-cache retention | GenericFamily.Source / Projection / refresh; StagedPublication.stageRefresh | mop/generic-family.ss / graph/staged-publication.ss / graph/cyclic-publication.ss | Implemented through native closed projections and atomic family refresh; changed source/inputs reconstruct and recheck negative watches; exact warm siblings retained; mop/contract-family.ss now also retains projected contracts and late-bound wrappers |
 | Prepared selection and controlled cost comparison | PreparationCosts.SelectionCache / SelectionCacheCosts / Observation / paired_delta | mop/contract-family.ss SelectionCache. / methods.inputs<-cached-selection; t/metadata-paired-* | Immutable prepared choice with arity fallback, first-class function capture, setup/guard amortization and per-pair GC decomposition; fresh-process source-bound native controls |
-| Costed preparation and invariant contract specialization | Contract.withMeaning / Contract.Checks.specialize_eq / SharedProjection.direct_source_eq / PreparationCosts / TemplateCosts | mop/declarative-metadata.ss with-meaning; mop/contract-family.ss PreparationCosts. / choose-source; examples/shared-contracts.ss budgeted-workflow-model | Direct/shared projection coherence, selector and initial validation costs, exact original contract semantics, 15-node shared settlement revision; finite native timing and allocation evidence only |
-| Shared heterogeneous contract preparation | ContractFamily.SharedProjection / Cache / refresh_project / cached_source_project | mop/contract-family.ss methods.inputs<-shared / examples/shared-contracts.ss | Source-bound common preparation, unchanged-context lookup retention, per-key descriptor/wrapper invalidation and existing cross-service joint approval reuse; matched changed-input regression retained |
+| Costed preparation and invariant contract specialization | Contract.withMeaning / Contract.Checks.specialize_eq / SharedProjection.direct_source_eq / PreparationCosts / TemplateCosts | mop/declarative-metadata.ss with-meaning; mop/contract-family.ss PreparationCosts. / choose-source; benchmarks/workloads/shared-contracts.ss budgeted-workflow-model | Direct/shared projection coherence, selector and initial validation costs, exact original contract semantics, 15-node shared settlement revision; finite native timing and allocation evidence only |
+| Shared heterogeneous contract preparation | ContractFamily.SharedProjection / Cache / refresh_project / cached_source_project | mop/contract-family.ss methods.inputs<-shared / benchmarks/workloads/shared-contracts.ss | Source-bound common preparation, unchanged-context lookup retention, per-key descriptor/wrapper invalidation and existing cross-service joint approval reuse; matched changed-input regression retained |
 | Projected contract construction and binding reuse | ContractFamily.Source / Family / bind / publish | mop/contract-family.ss / graph/staged-publication.ss / graph/cyclic-publication.ss | Implemented; exact descriptor/wrapper retention, constructor/executor/support invalidation, fresh-state invocation and admission provenance; constructors run only on changed inputs/source |
-| Safe recursive requests, current admission and source-bound memo | Recursive / RecursiveCache / RecursiveHandling / RecursiveDispatch / CyclicAccess | recursive.ss / recursive-cache.ss / recursive-handling.ss / examples/recursive-catalog.ss / access.start-attested | Explicit requests, source errors, depth/budget separation, cycle paths, sealed program-owned memo, current native Type admission, retained-state FUN actions and atomic attested publication implemented; evaluation proofs remain Lean-only; purity/immutable keys/local callback termination are correspondence premises |
+| Safe recursive requests, current admission and source-bound memo | Recursive / RecursiveCache / RecursiveHandling / RecursiveDispatch / CyclicAccess | recursive.ss / recursive-cache.ss / recursive-handling.ss / benchmarks/workloads/recursive-catalog.ss / access.start-attested | Explicit requests, source errors, depth/budget separation, cycle paths, sealed program-owned memo, current native Type admission, retained-state FUN actions and atomic attested publication implemented; evaluation proofs remain Lean-only; purity/immutable keys/local callback termination are correspondence premises |
 | Object construction syntax and positional specialization | Parameters / Prototype.SlotSpec | object.ss / support/object-syntax.ss / types/parameters.ss / support/syntax.ss | Keyword/lexical option lowering, persistent prefix specialization, delayed inherited aliases and existing generic optional/keyword/rest forwarding. Thirteen normalized semantic laws and actual macro/C3/FUN controls; no compiler/hygiene proof or optional Fun Type syntax claim. |
 | Named recursive coordinator lifecycle | RecursiveSubmissions / RecursiveRecovery / RecursiveCoordination | recursive-approvals.ss / recursive-coordination.ss | Shared publication with private per-name incarnation fencing, scope cleanup before exit policy, explicit restaging and independent survivor progress. Twelve incarnation laws and the 1112-attempt actual SCC workflow cover serialized operations; same-head/stamp rejection is checked separately from approval/head drift. This advances generalized MOP future work, not concurrent CAS or distributed recovery. |
 | General lenses, lossy cross-type migration and incremental component invalidation | ProjectedSelf / CarrierMigration / ConstructionCache | generalized-graph.ss / construction-cache.ss / graph/staged-publication.ss | Finite inspectable DAG rebuilding and source-bound invalidation implemented; arbitrary adapters and dependent evidence remain separate |
@@ -35,7 +35,7 @@ checks the runtime premises at its public boundary.
 `ObjectDiagnostics` and `ObjectContract` correspond to `types/object-contract.ss`. They establish ordered
 accumulation, phase refusal, finite field inventory/existence, explicit checker
 coherence and admission before a FUN consumer. The executable Json/lens scenario
-is `examples/object-contracts.ss`; the finite companion is
+is `benchmarks/workloads/object-contracts.ss`; the finite companion is
 `Examples/ObjectContracts.lean`. Immutable descriptor declarations, truthful slot
 views, lawful custom diagnostics and locally terminating callbacks are premises.
 Function wrapping remains at the existing Type validation boundary. General
@@ -115,7 +115,7 @@ future work; its module/type names are not names claimed to occur in the paper.
 | Initial construction | `CyclicPublication.prepare` | `cyclic-publication.prepare` |
 | Revision | `CyclicPublication.publish`, `publishRetained` | `cyclic-publication.publish`: retain `#f` selects `publish`, `#t` (default) selects `publishRetained` |
 | Named operation on a version | `CyclicPublication.Version.invoke` | `cyclic-publication.invoke`; result plus updated version, per-service checked cache transport |
-| Access example module | `LeanPoo.Functional.CyclicAccess` | `:clan/poo/examples/cyclic-access` |
+| Access example module | `LeanPoo.Functional.CyclicAccess` | `:clan/poo/benchmarks/workloads/cyclic-access` |
 | Access configuration / equations / cooked view | `CyclicAccess.Config`, `equations`, `cook` | `access.config`, `access.equations`, `access.cook` |
 | Access construction / revision | `CyclicAccess.start`, `revise` | `access.start-attested`, `revise-attested`, `rebase-attested`; actual evaluated Boolean, owner-bound memo, least re-solve and atomic refusal |
 | Multiple dispatch implementation | `Object.Multimethod`, `Specializer`, `MethodIndex` | `multimethod.ss`, private `specializer` / `method-index` records; `prototype`, `any` specializers |
@@ -128,7 +128,7 @@ namespace. For example:
 
 ```scheme
 (import (prefix-in :clan/poo/graph/cyclic-publication cyclic-publication.)
-        (prefix-in :clan/poo/examples/cyclic-access access.))
+        (prefix-in :clan/poo/benchmarks/workloads/cyclic-access access.))
 (defvalues (version failure) (access.start (access.config) #t))
 (defvalues (active updated) (cyclic-publication.invoke version 'explain))
 ```
@@ -266,7 +266,7 @@ remain historical receipts at their pinned source identities.
 compilation, existing typed dispatch, completed-candidate absence checks,
 contracts and exact-successor joint admission through native POO methods.
 `publication.probe` returns the checked result only; it discards tentative caches.
-The new [ServiceBundle example](../examples/service-bundle.ss) uses a real C4
+The new [ServiceBundle example](../benchmarks/workloads/service-bundle.ss) uses a real C4
 diamond, dynamic guards and a cross-service cache budget. A successful method
 can therefore be refused by joint admission without returning a new version.
 Lower-level cyclic publication without the optional readmission procedure still
@@ -318,7 +318,7 @@ validates the carrier without executing any body; shape watches inspect the
 same qualified data. Guard results still must be Boolean on each invocation.
 `append-policy` is persistent append, not destructive CLOS `nconc`.
 
-The complex `examples/service-combination.ss` models combine these constructors
+The complex `benchmarks/workloads/service-combination.ss` models combine these constructors
 with shared expansion, specialized reserve/cancel checks, selection budgeting,
 cross-service revision, current invoice binding and joint approval. Refusal
 preserves the exact published version. Lean's `Examples/AlignedServices` proves
@@ -635,7 +635,7 @@ lookup; output admission runs again even on a one-step hit. Input/schema/signatu
 refusal never enters memo. Completed errors/output refusals retain completed memo;
 FUN batch/actions stop with that actual state. `result-reused` describes direct root
 lookup, not the existence of shared nested hits; composed actions may report unknown.
-`examples/recursive-catalog` composes prototype override, shared nested requests and
+`benchmarks/workloads/recursive-catalog` composes prototype override, shared nested requests and
 typed multi-dispatch. Native Type catalogs cover these concrete immutable values;
 full Lean Dynamic catalog factories, wire codecs and dependent evidence are not
 claimed to have been ported by this module.
@@ -674,7 +674,7 @@ an unrestricted reflective MOP complete.
 | `PreparedHooks.step_eq`, `iterate_eq` | correspondence target for immutable native compiled snapshots |
 | `HookCosts.shared_le_repeated` | supplied additive work bound for positive observation counts, independent of timings |
 
-`examples/generalized-checkout.ss` composes a shared-ancestor diamond, price and
+`benchmarks/workloads/generalized-checkout.ss` composes a shared-ancestor diamond, price and
 rebate lenses, existing prepared sum effective methods, cooked-self dependency,
 an unchanged audit frame, and native FUN observation bind/map. The matching Lean
 triangular example checks finite depths one/two and the audit frame; it abstracts
@@ -812,7 +812,7 @@ controls. Earlier +84.156us/+60.563us results retain their historical identities
 | Existing functional lens composition and skew focus laws | `slots-lens` folds the existing `Lens.compose`; `.lens` quotes a static path; empty path is identity |
 | `fallbackTo_present`, `fallbackTo_missing` | `fallback-to` reuses the missing-method protocol; local slots, including `#f`, bypass delegate forcing |
 | `guardSlot_cycle`, `guardSlot_fresh` | Active `(receiver . slot)` stack scoped with a Gerbil parameter; `CyclicSlot` reports the repeated path without inspecting/forcing values |
-| `Examples/AlignedServices.lean` lifecycle controls | `examples/lifecycle.ss`, `t/objects/lifecycle-test.ss`: typed nested revision, cross-field refusal/recovery, current tenant, lazy source, hook/delegate cycles and retry after error |
+| `Examples/AlignedServices.lean` lifecycle controls | `t/fixtures/lifecycle.ss`, `t/objects/lifecycle-test.ss`: typed nested revision, cross-field refusal/recovery, current tenant, lazy source, hook/delegate cycles and retry after error |
 
 The chain uses existing Class/Type descriptors, persistent `.cc`, Lens and native
 Reader/FUN mapping; it does not add another object evaluator. Nested admission is
@@ -849,7 +849,7 @@ those hooks part of the paper's Racket implementation.
 | Existing `Proof.invalidatedNodes` and descendant laws; `Object.invalidateCaches_descendant/once/frame` | Registered weak reverse source edges, all derived caches cleared together, diamonds visited once, unaffected owners retained |
 | `Object.guardedEdit`, `publishEdit_sealed` | Active-closure preflight, optional sealing and checked parent topology edits; sequential supported APIs |
 | Existing Slot/Descriptor validation; `DescriptorReflection.publicSlots_visible`, `readSlot_hidden/valid`, `writeSlot_rejected/admitted` | `object<-declarations`, Class bridge, inherited public metadata, typed public reads/writes and metadata-driven recompile |
-| `Examples/InheritedHooks.lean` | `examples/inherited-services.ss`, `t/objects/inheritance-hooks-test.ss` |
+| `Examples/InheritedHooks.lean` | `benchmarks/workloads/inherited-services.ss`, `t/objects/inheritance-hooks-test.ss` |
 
 Protocol source edits invalidate owners; descriptor/type edits recompile declaration
 specifications instead of retaining stale defaults/constants/computations. Reflected
@@ -872,7 +872,7 @@ transformed values, then verify recovery after protocol correction.
 | `DeclarativeMetadata.expandForms_append/refused` | `declaration-action`: native Reader/FUN bind/map chain, source-order expansion, same current context and first-error stop |
 | `DeclarativeMetadata.elaborate_source`, `Catalog.names_valid` | Inherited expansion/finalization followed by complete descriptor/name checking and reserved public/private catalogs |
 | `publishDeclarations_refused` | No candidate receiver is returned after an expansion/finalizer/validation error; external I/O is not rolled back |
-| `Examples/MetaBootstrap.lean` | `examples/metaprotocol-services.ss`, `t/declarations/meta-prototype-test.ss`: property/getter/annotation expansion, shared branches, refusal/recovery and revisions |
+| `Examples/MetaBootstrap.lean` | `t/fixtures/metaprotocol-services.ss`, `t/declarations/meta-prototype-test.ss`: property/getter/annotation expansion, shared branches, refusal/recovery and revisions |
 
 The new hook/elaboration protocol advances the paper's future work; it is not
 asserted to be the paper's literal Racket API. Captured anchors need fresh bootstrap
@@ -897,7 +897,7 @@ fragments while repeated active keys still refuse. Fresh memo per context preven
 old approvals or descriptors crossing revisions. Existing catalog admission is
 shared by the direct and recursive paths.
 
-`Examples/RecursiveMetaprotocol.lean` and `examples/recursive-metaprotocol.ss`
+`Examples/RecursiveMetaprotocol.lean` and `t/fixtures/recursive-metaprotocol.ss`
 combine mutually dependent meta components, shared service declarations and a
 whole-object total. Native controls additionally check getter values, actual
 shared request counts, source mutation rejection and current refusal/recovery.
@@ -918,7 +918,7 @@ original instance. Recursive declaration roots reuse this same finalization.
 Lean `collectFragments_append/coalesce`, `fragmentSpecification_append` and
 `declaredGeneric_standard/fragments` prove source collection, coalescing,
 inherited block composition and standard invocation semantics. The paired
-`Examples/DeclaredMethods.lean` / `examples/declared-methods.ss` exercise a shared
+`Examples/DeclaredMethods.lean` / `benchmarks/workloads/declared-methods.ss` exercise a shared
 base, two branches, all standard qualifiers and current Reader data. Native
 controls additionally cover macro syntax, every adapter, mutable descriptor
 invalidation, rest/zero arguments, collision admission and nested error handling.
@@ -965,7 +965,7 @@ counterexample checks on visited immutable states and declared focus values;
 native passes are NOT imported as universal Lean witnesses. Check dependencies
 stay protected through the entire staged closure, including cooking.
 
-`Examples/ClosedPrototypes.lean` / `examples/closed-declarations.ss` pair nested
+`Examples/ClosedPrototypes.lean` / `benchmarks/workloads/closed-declarations.ss` pair nested
 products/vectors, a three-component dependency chain and existing standard method
 cooking. Four raw steps include final verification. Native controls additionally
 cover all three law counterexamples, sampling limitations, source/cooking failures
@@ -988,7 +988,7 @@ Lean `LensIndependent` and `LensLaws.pair` state/prove the extra composition law
 `Generalized.closeFocused_fixed/frame`, `fixed_preserved` and
 `validateFocused_sound` prove local fixedness, explicit frame preservation and
 final admission. `Examples/ClosedPrototypes.lean` pairs two audited product
-services with `examples/focused-services.ss` vectors and existing effective methods.
+services with `benchmarks/workloads/focused-services.ss` vectors and existing effective methods.
 Native tests distinguish concrete finite lens checking from universal premises.
 Each final equation check adds one raw step beyond the local search budget.
 This advances future work: arbitrary mutual feedback, global convergence,
@@ -1003,7 +1003,7 @@ checked before publication. Complete components, not arbitrary method fragments,
 define the equations; nonlocal declaration finalization runs once. Lean
 `FeedbackClosure` proves admission, provenance, bounds and conditional completeness;
 `Examples/FeedbackServices.lean` proves capped-ring convergence/acceptance from any
-typed seed, paired with native `examples/feedback-services.ss` and negative controls.
+typed seed, paired with native `benchmarks/workloads/feedback-services.ss` and negative controls.
 This advances future work; see [feedback-closure.md](feedback-closure.md) for finite
 lens checks, extra residual work, staged cooking and remaining recursion limits.
 
@@ -1015,7 +1015,7 @@ for exact revision/selective reconstruction guarantees, source guards and contro
 Explicit structural strengthening pairs `object-contract.refine` with Lean
 `Functional.ObjectContractRefinement`; exact invocation association pairs the
 existing `declarative-metadata.bind-evidence` with `Functional.EvidenceBinding`.
-`examples/contract-publication.ss` / `Examples/ObjectContracts.lean` cover current
+`benchmarks/workloads/contract-publication.ss` / `Examples/ObjectContracts.lean` cover current
 binding, stale contexts, original policy refusal, nested bindings and fresh retry.
 These extend the paper's future work under immutable reference interpretation and
 lawful diagnostic hooks; they do not establish authentication or effect rollback.
@@ -1035,7 +1035,7 @@ future work and retains the distinction between recognition and wrapping.
 | Global structure, complete field batch, final membership/refinement | `Functional.ObjectContract.validateObject`, `validateFields`, `ClassValidation.initialized_membership`, `initialized_refinement` | Class `.validate`, `.diagnose-shape`, `.diagnose`; persistent derived replacement |
 | Inherited descriptor choice | `ClassValidation.resolve`, override/inherited selection laws, with supplied linearization | Existing Record/C3 effective-slots; single/multiple/diamond controls |
 | Checked hook lifecycle | `ClassValidation.instantiate` and hook sequencing/error/final laws | Existing `instantiate`, `make-instance`, `.new/checked`; same-reference mutation control |
-| Full service and exact association | `Examples/ClassContracts.lean`, existing refinement/binding laws | `examples/class-publication.ss`, existing FUN `publication-action` / `bind-evidence` |
+| Full service and exact association | `Examples/ClassContracts.lean`, existing refinement/binding laws | `t/fixtures/class-publication.ss`, existing FUN `publication-action` / `bind-evidence` |
 
 Prototype defaults and C3 resolution are supplied to the finite model; lookup
 laws alone do not prove C3. Host identity correspondence, arbitrary lexical-capture
@@ -1055,7 +1055,7 @@ ancestry. Bootstrap Type validation retains descriptor identity.
 | Computed alias sees checked dependency | `ValidationRebinding.step`, `dependency`, `alias_value`; concrete `ComputedContracts.captured_checked` | Shared `validation-rebinding.rebind-validation` used by Class and ObjectContract |
 | Custom validator reads checked siblings | Existing recursive `Interaction` permits final-self requests during validation | Slot `.slot.validate (slot name original receiver)` |
 | Shared memo, dependency/error refusal | Existing program-indexed `Cached.Receipt`; `memo_agrees`, dependency/source error laws and `batch_error` | Existing per-receiver caches and `CyclicSlot`; force all selected fields before final checks |
-| Hook revisions, higher-order result, refinement/binding | Existing Class/refinement/binding laws plus `Examples/ComputedContracts.lean` | `examples/computed-publication.ss`, FUN publication, exact `bind-evidence` |
+| Hook revisions, higher-order result, refinement/binding | Existing Class/refinement/binding laws plus `Examples/ComputedContracts.lean` | `t/fixtures/computed-publication.ss`, FUN publication, exact `bind-evidence` |
 
 The source generator represents effective inherited specifications and explicit
 instance assignments; C3 resolution/assignment correspondence and host identity
@@ -1077,7 +1077,7 @@ MOP future work without a Scheme dependency on the Lean checkout.
 | Canonical cycles, aliases and distinct nodes | `assemble`, `edge_preserved`, `shared_target`, `distinct_targets` | Allocate all receivers before normalization; one target per named Reference |
 | All nodes normalized before whole-graph obligations | `collect_apply`, `collect_complete`, phase error laws and `requirements` | Shared `.validation-fields`, split rebinding and isolated deferred nested obligations |
 | Productive computed work and Boolean cycles | Existing certified recursive memo and `PositiveEquations.least`; concrete backedge theorem | Existing Interaction/memo/current Type boundary and `closure` least closure |
-| Root refinement and exact publication | Existing refinement/binding laws, `bound_root`, `Examples/RecursiveContracts.lean` | `examples/recursive-validation.ss`, FUN and `bind-evidence` |
+| Root refinement and exact publication | Existing refinement/binding laws, `bound_root`, `Examples/RecursiveContracts.lean` | `t/fixtures/recursive-validation.ss`, FUN and `bind-evidence` |
 
 The graph protocol advances future work; it is not already present wholesale in
 the paper's Racket code. Named catalog/host identity/receiver preparation and
@@ -1095,7 +1095,7 @@ descriptors and recursive recognition. Selective graph revision extends generali
 MOP future work. Gerbil `recursive-validation.ss` reuses the existing closure,
 final-self rebinding, deferred checks and revision stamps; explicit node recipes
 add declared invalidation closure, retained canonical caches, current-reference
-checking and failure-safe sequential retirement. `examples/recursive-revision.ss`
+checking and failure-safe sequential retirement. `t/fixtures/recursive-revision.ss`
 composes two cyclic services with shared checked Functions, computed reports,
 refinement and bound FUN evidence. Lean `Functional.RecursiveRevision` composes
 existing checked reachability and finite graph closure proofs. Source/read
@@ -1134,7 +1134,7 @@ completeness and sequential source discipline remain explicit.
 ### Deferred recursive revisions
 
 Gerbil `recursive-staging` corresponds to Lean `Functional.RecursiveStaging`;
-`examples/recursive-staging.ss` and `Examples/RecursiveStaging.lean` interleave
+`t/fixtures/recursive-staging.ss` and `Examples/RecursiveStaging.lean` interleave
 requests over the same seven topology/migration/computed states. Exact host graph
 identity corresponds to monotone logical revisions, complete watch stamps to the
 explicit stamp parameter. Both reuse existing all-node closure and selective cache

@@ -14,8 +14,8 @@
 ;; Library and test compilation retain the standard concurrent backend budget.
 (def build (let ((links (pkg-config-libs "openssl")))
   (defbuild-script `(
-    (gxc: "examples/closed-declarations" "-cc-options" "-O2")
-    (gxc: "examples/component-services" "-cc-options" "-O2")
+    (gxc: "benchmarks/workloads/closed-declarations" "-cc-options" "-O2")
+    (gxc: "benchmarks/workloads/component-services" "-cc-options" "-O2")
     (gxc: "benchmarks/closure-benchmark-support" "-cc-options" "-O2")
     (gxc: "benchmarks/closure-cases" "-cc-options" "-O2")
     (gxc: "benchmarks/closure-measure" "-cc-options" "-O2")

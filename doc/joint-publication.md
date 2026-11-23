@@ -47,7 +47,7 @@ crash durability and distributed transactions remain outside this protocol.
 
 ## Practical native scenes
 
-`examples/joint-services` creates two actual compact service graphs under shared
+`benchmarks/workloads/joint-services` creates two actual compact service graphs under shared
 limit=12 and independent local policies. Both endpoints must agree on settlement.
 A joint batch replaces shared/local approval objects and merges both SCC workflows,
 producing settlement=24 at both endpoints. Stable independent feedback receipts

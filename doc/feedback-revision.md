@@ -38,7 +38,7 @@ also retains the old family.
 
 ## Complex shared-dependency workflow
 
-`examples/shared-feedback.ss` / `Examples/SharedFeedback.lean` align:
+`benchmarks/workloads/shared-feedback.ss` / `Examples/SharedFeedback.lean` align:
 
 1. One shared quota node, computed from current policy metadata.
 2. Two nested service pairs with cyclic edges A←B←C←D←A. Every allocation reads

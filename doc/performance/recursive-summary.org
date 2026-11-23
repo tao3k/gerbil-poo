@@ -61,13 +61,13 @@ source errors retain completed memo. RequestAction. composes retained-state call
 through FUN, and ordered batches stop at the first refusal without losing its
 completed state. Composed result reuse metadata can be unknown.
 
-examples/recursive-catalog.ss composes inherited head override, nested shared
+benchmarks/workloads/recursive-catalog.ss composes inherited head override, nested shared
 chain/callback requests, current output ceilings, callback removal, partial batch
 resume and typed multi-dispatch with an unchanged business ledger. Native function
 references use symbols in this concrete example; this is not a general port of
 Lean Dynamic descriptor factories, wire codecs or dependent evidence.
 
-examples/cyclic-access.ss now has start-attested/revise-attested/rebase-attested.
+benchmarks/workloads/cyclic-access.ss now has start-attested/revise-attested/rebase-attested.
 An actual Boolean evaluation receipt seeds the original ten positive equations;
 least re-solving and existing joint publication remain authoritative. Completed
 false revokes release. Any recursive/source/publication refusal retains the exact

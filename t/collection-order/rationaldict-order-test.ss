@@ -3,7 +3,7 @@
 (import :std/test :std/error :std/iter :clan/poo/object :clan/poo/mop :clan/poo/number :clan/poo/type :clan/poo/table
         :clan/poo/table/rationaldict :clan/poo/support/option (only-in :clan/poo/fun Wrapper.)
         (only-in :clan/poo/support/base number-comparer)
-        (prefix-in :clan/poo/examples/service-collection service.))
+        (prefix-in :clan/poo/t/fixtures/service-collection service.))
 
 ;; Compare a precise protocol cause, without treating unrelated errors as refusal.
 (def (message? text)

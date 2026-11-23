@@ -11,9 +11,9 @@
   (setenv "GAMBOPT" (string-append (if options (string-append options ",") "") "max-heap=2G,debug=q")))
 (def build (let ((links (pkg-config-libs "openssl")))
   (defbuild-script
-      `((gxc: "examples/representation-service" "-cc-options" "-O2")
-        (gxc: "examples/generalized-checkout" "-cc-options" "-O2")
-        (gxc: "examples/inherited-services" "-cc-options" "-O2")
+      `((gxc: "benchmarks/workloads/representation-service" "-cc-options" "-O2")
+        (gxc: "benchmarks/workloads/generalized-checkout" "-cc-options" "-O2")
+        (gxc: "benchmarks/workloads/inherited-services" "-cc-options" "-O2")
         (gxc: "benchmarks/closure-measure" "-cc-options" "-O2")
         (gxc: "benchmarks/representation-startup" "-cc-options" "-O2")
         (gxc: "benchmarks/prototype-map-benchmark" "-cc-options" "-O2")

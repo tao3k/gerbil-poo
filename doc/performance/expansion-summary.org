@@ -9,7 +9,7 @@ registration-provenance callback remains charged separately. The default
 ~Projection.~ keeps separate reconstruction for constructors that observe fresh
 identity or mutate reconstructed values. No new module namespace is introduced.
 
-~examples/shared-contracts.expanded-model / expanded-workflow-model~ compose this
+~benchmarks/workloads/shared-contracts.expanded-model / expanded-workflow-model~ compose this
 method with captured dynamic contract selection, existing constructors/wrappers,
 cooked interfaces, negative watches and joint approval. Actual call-count controls
 show cold reconstruction 6 -> 3 for three generics; invoice-only revision expands

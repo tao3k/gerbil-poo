@@ -8,7 +8,7 @@
   :clan/poo/graph/closure
   :clan/poo/object
   (prefix-in :clan/poo/graph/cyclic-publication cyclic-publication.)
-  (prefix-in :clan/poo/examples/cyclic-access access.)
+  (prefix-in :clan/poo/benchmarks/workloads/cyclic-access access.)
   :clan/poo/mop
   :clan/poo/brace
   :clan/poo/support/option

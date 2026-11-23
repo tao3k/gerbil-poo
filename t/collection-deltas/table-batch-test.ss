@@ -5,7 +5,7 @@
         (only-in :clan/poo/fun Wrapper.) (only-in :clan/poo/brace @@method) (only-in :clan/poo/trie SimpleTrie)
         (only-in :clan/poo/t/table-testing alist-table borrowing-table)
         (only-in :clan/poo/support/base number-comparer)
-        (prefix-in :clan/poo/examples/service-collection service.))
+        (prefix-in :clan/poo/t/fixtures/service-collection service.))
 
 ;; Match protocol failures without accepting unrelated backend exceptions.
 (def (message? text)

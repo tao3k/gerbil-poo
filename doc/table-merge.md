@@ -69,7 +69,7 @@ child-type, index or root refusal exposes no staged result and preserves the
 original left owner for retry unless the callback itself already published a
 winner.
 
-`merge-ledger-action` in `examples/service-collection.ss` composes Reader/FUN,
+`merge-ledger-action` in `t/fixtures/service-collection.ss` composes Reader/FUN,
 linear ownership and IO. Tests combine callback-bearing services, correlated
 indexes, approval refusal, fresh retry and inverse-delta recovery before IO.
 

@@ -57,7 +57,7 @@ new publication; old cooked snapshots are not globally revoked.
 
 ## Complex native and Lean examples
 
-`examples/cached-feedback.ss` uses one quota node, two capped feedback groups with
+`benchmarks/workloads/cached-feedback.ss` uses one quota node, two capped feedback groups with
 a shared quota dependency, a further left→right dependency and one independent
 feedback group. Each group reuses the existing three-service ring and method
 combination; `CappedFeedback.lean` extracts that same construction for Lean reuse.

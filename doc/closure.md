@@ -37,7 +37,7 @@ fresh compile is explicit when topology changes. Published views are immutable b
 contract: callbacks and clients must not mutate them. Arbitrary external effects
 are not rolled back. Method indexes and raw fact storage are private.
 
-`examples/cyclic-access.ss` ports the exact ten CyclicAccess equations and cooked
+`benchmarks/workloads/cyclic-access.ss` ports the exact ten CyclicAccess equations and cooked
 view (including active indices), with two different service signatures, consent,
 revocation and admission refusal. All 32 source configurations are tested through
 real `.o` objects. This example keeps its original procedure services. The

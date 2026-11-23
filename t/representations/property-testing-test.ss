@@ -10,13 +10,13 @@
         (only-in :clan/poo/types/function-signature encode-arguments)
         (only-in :clan/poo/testing/generation-graph generation-refusal? generation-refusal-kind graph-sources-current?)
         (only-in :clan/poo/support/option some)
-        (only-in :clan/poo/examples/signature-service signature-preparation-test failure-preparation-test inspection-request-test)
-        (prefix-in :clan/poo/examples/signature-service service.)
-        (only-in :clan/poo/examples/representation-service slot-revision-workflow)
-        (prefix-in (only-in :clan/poo/examples/collection-properties map-service-tests map-service-action service-value-generator service-batch-action service-factory-action) collection.)
-        (only-in :clan/poo/examples/property-kernel property-kernel-test)
-        (only-in :clan/poo/examples/generated-batches generated-batches-test)
-        (only-in :clan/poo/examples/generated-products generated-products-test product-row-test handoff-test))
+        (only-in :clan/poo/t/fixtures/signature-service signature-preparation-test failure-preparation-test inspection-request-test)
+        (prefix-in :clan/poo/t/fixtures/signature-service service.)
+        (only-in :clan/poo/benchmarks/workloads/representation-service slot-revision-workflow)
+        (prefix-in (only-in :clan/poo/t/fixtures/collection-properties map-service-tests map-service-action service-value-generator service-batch-action service-factory-action) collection.)
+        (only-in :clan/poo/t/fixtures/property-kernel property-kernel-test)
+        (only-in :clan/poo/t/fixtures/generated-batches generated-batches-test)
+        (only-in :clan/poo/t/fixtures/generated-products generated-products-test product-row-test handoff-test))
 
 (import (only-in "property-testing/preparation.ss" make-preparation-suites))
 
@@ -32,10 +32,11 @@
 (def (write-program path forms)
   (call-with-output-file path (lambda (port)
     (for-each (lambda (form) (write form port) (newline port)) forms))))
-;; An isolated standard project has only the generic modules and their example.
+;; An isolated standard project has only the generic modules and their workload.
 ;; Its official GERBIL_PATH is empty of POO; compiler and runtime keep 1-GiB bounds.
 (def (check-independent-library)
   (def source-root (current-directory))
+  (def fixtures (path-expand "t/fixtures" source-root))
   (def timeout (car (run-process ["sh" "-c" "command -v gtimeout || command -v timeout"]
     coprocess: read-all-as-lines)))
   (call-with-temporary-directory "property-library-" (lambda (project)
@@ -50,13 +51,13 @@
     (create-directory* (path-expand "testing/property" project))
     (copy-file (path-expand "testing/property/build.ss" source-root)
       (path-expand "testing/property/build.ss" project))
-    (create-directory* (path-expand "examples" project))
+    (def project-workloads (path-expand "examples" project))
+    (create-directory* (path-expand "property-kernel" project-workloads))
     (for-each (lambda (file)
-      (copy-file (path-expand file source-root) (path-expand file project)))
-      '("examples/property-products.ss" "examples/property-numbers.ss" "examples/property-filters.ss" "examples/property-scopes.ss" "examples/property-replay.ss" "examples/property-sizes.ss" "examples/property-traces.ss" "examples/property-kernel.ss"))
-    (create-directory* (path-expand "examples/property-kernel" project))
-    (copy-file (path-expand "examples/property-kernel/cases.ss" source-root)
-      (path-expand "examples/property-kernel/cases.ss" project))
+        (copy-file (path-expand file fixtures) (path-expand file project-workloads)))
+      '("property-products.ss" "property-numbers.ss" "property-filters.ss"
+        "property-scopes.ss" "property-replay.ss" "property-sizes.ss"
+        "property-traces.ss" "property-kernel.ss" "property-kernel/cases.ss"))
     (write-program (path-expand "build.ss" project)
       '((import :std/build-script)
         (include "testing/property/build.ss")

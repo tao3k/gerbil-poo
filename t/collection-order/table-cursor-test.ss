@@ -5,7 +5,7 @@
         (only-in :clan/poo/fun Wrapper.) (only-in :clan/poo/trie SimpleTrie)
         (only-in :clan/poo/support/base number-comparer)
         (only-in :clan/poo/t/table-testing box-table)
-        (prefix-in :clan/poo/examples/service-collection service.))
+        (prefix-in :clan/poo/t/fixtures/service-collection service.))
 
 ;; Match metadata refusal without accepting unrelated backend/type failures.
 (def (message? text)

@@ -21,7 +21,7 @@
     (gxc: "benchmarks/closure-measure" "-cc-options" "-O2")
     (gxc: "benchmarks/metadata-paired-cases" "-cc-options" "-O2")
     (gxc: "benchmarks/metadata-paired-suite" "-cc-options" "-O2")
-    (gxc: "examples/generalized-checkout" "-cc-options" "-O2")
+    (gxc: "benchmarks/workloads/generalized-checkout" "-cc-options" "-O2")
     (exe: "benchmarks/binding/binding-benchmark-main" bin: "binding-benchmark" "-cc-options" "-D___SINGLE_HOST_LIMIT=10000" "-ld-options" ,links)
     (exe: "benchmarks/binding/binding-suite-main" bin: "binding-suite" "-cc-options" "-D___SINGLE_HOST_LIMIT=10000" "-ld-options" ,links)) parallelize: #f) main))
 ;; Close the standard executor on refusal; no project process registry is used.

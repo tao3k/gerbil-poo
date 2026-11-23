@@ -1,8 +1,8 @@
 (export main workload)
 (import :std/iter
         :clan/poo/object
-        (runtime: :clan/poo/examples/generalized-checkout)
-        (prefix-in (only-in :clan/poo/examples/generalized-checkout envelope-base
+        (runtime: :clan/poo/benchmarks/workloads/generalized-checkout)
+        (prefix-in (only-in :clan/poo/benchmarks/workloads/generalized-checkout envelope-base
                    envelope-report nested-base prepare-envelope prepare-nested
                    prepare-nested-unfused) checkout.)
         (runtime: :clan/poo/mop/generalized-prototype)

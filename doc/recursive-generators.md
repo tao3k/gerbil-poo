@@ -78,7 +78,7 @@ The Lean trace model independently checks the proposed finite productions; it is
 not extraction or a machine-level verification of Gerbil's dynamic-program table,
 compiler, arbitrary scalar callbacks, PRNG distribution or heap identity.
 `Examples/RecursiveGenerators.lean` supplies finite shared-tree, partial-trace,
-quota, callback and source-depth controls. Scheme `examples/recursive-trees.ss`
+quota, callback and source-depth controls. Scheme `t/fixtures/recursive-trees.ss`
 combines mutually recursive Message/Batch descriptors, shared children, safe
 service evaluation, Reader/FUN testing, counterexample shrinking and replay.
 General recursive carrier laws, arbitrary closure synthesis and type inference
@@ -90,6 +90,6 @@ source boundary. Registered invalidation in membership stops before measure;
 invalidation in measure/shrink stops the next sibling request. Direct operations
 retain `GenerationRefusal(stale)` and original callback exceptions. The transient
 checker is scoped to one preparation/observation, while returned samples retain
-their existing graph observer. `source-tree-tests` in `examples/recursive-trees.ss`
+their existing graph observer. `source-tree-tests` in `t/fixtures/recursive-trees.ss`
 shows strict Record/Function leaves shared across carriers, FUN refusal/retry and
 both replays. P31 in the PBT RFC records the finite proof and cost boundaries.

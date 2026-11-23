@@ -2,7 +2,7 @@
 (import (only-in :clan/poo/type Function Object Bool TypeError? Any CaseFunction)
         :std/test :std/error :clan/poo/object :clan/poo/mop :clan/poo/number :clan/poo/types/parameters :clan/poo/types/prototype-types :clan/poo/types/relation
         :clan/poo/object/declaration :clan/poo/mop/methods/declaration
-        (prefix-in :clan/poo/examples/polymorphic-services service.)
+        (prefix-in :clan/poo/benchmarks/workloads/polymorphic-services service.)
         (prefix-in :clan/poo/mop/methods/dispatch dispatch.) (prefix-in :clan/poo/mop/methods/extension extension.)
         (prefix-in :clan/poo/mop/declarative-metadata metadata.) (prefix-in :clan/poo/mop/methods/combination combination.))
 ;; Match typed refusal categories independently of prose or unrelated exceptions.

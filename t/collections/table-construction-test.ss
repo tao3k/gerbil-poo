@@ -16,7 +16,7 @@
   (only-in :clan/poo/fun Wrapper.)
   (only-in :clan/poo/t/table-testing box-table alist-table borrowing-table)
   (only-in :clan/poo/support/base number-comparer)
-  (prefix-in :clan/poo/examples/service-collection service.)
+  (prefix-in :clan/poo/t/fixtures/service-collection service.)
   (only-in :clan/poo/brace @@method)
   :std/misc/ports
   (only-in :clan/poo/t/table-testing alist-table))

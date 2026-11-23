@@ -13,8 +13,8 @@
         (only-in :clan/poo/mop Slot .new) (only-in :clan/poo/number Integer)
         (only-in :clan/poo/object/reflection reflect-slots read-slot write-slot!)
         :clan/poo/object :clan/poo/object/prototype-map :clan/poo/object/slot-layout :clan/poo/object/slot-observation :clan/poo/mop/meta-prototype
-        (prefix-in :clan/poo/examples/representation-service service.)
-        (prefix-in (only-in :clan/poo/examples/generalized-checkout prepare-checkout report) checkout.)
+        (prefix-in :clan/poo/benchmarks/workloads/representation-service service.)
+        (prefix-in (only-in :clan/poo/benchmarks/workloads/generalized-checkout prepare-checkout report) checkout.)
         (prefix-in (only-in :clan/poo/fun Observation.) fun.))
 
 ;; Match protocol refusal rather than accepting unrelated arithmetic exceptions.
@@ -976,7 +976,7 @@
     (replay-slot-reads! reads (lambda (_owner _key) (void))))
   (test-case "standard module import keeps recipes lazy across a checked multi-service workflow"
     (def original service.Service)
-    (def module ':clan/poo/examples/representation-service)
+    (def module ':clan/poo/benchmarks/workloads/representation-service)
     (check-eq? (import-module module #f #t) (import-module module #f #t))
     (check (eq? original service.Service) => #t)
     (def a (.cc service.Service capacity: 10)) (def b (.cc service.Service capacity: 20))

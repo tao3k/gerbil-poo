@@ -1,0 +1,46 @@
+;;; ConstructionWorkflow's shared settlement graph, using Gerbil computations.
+(export graph model start revise value)
+(import :std/iter
+        ../../object
+        ../../support/option
+        (runtime: :clan/poo/graph/computation)
+        (prefix-in (only-in ../../graph/computation both choose deny inspect make-success
+                   need success-value success?) code.)
+        (runtime: :clan/poo/graph/schedule)
+        (prefix-in (only-in ../../graph/schedule declaration) graph.)
+        (runtime: :clan/poo/graph/construction)
+        (prefix-in (only-in ../../graph/construction Builder. cache-ref) cache.)
+        (prefix-in ../../graph/staged-publication staged.)
+        (prefix-in ../../graph/cyclic-publication publication.)
+        (prefix-in ./service-bundle bundle.))
+(def keys '(total release invoice settlement tax risk reserve freight cover audit gate input discount blocked permit))
+(def (need key transform) (code.need key transform))
+(def (both left right combine) (code.both (need left identity) (need right identity) combine))
+(def (graph input (discount #f))
+  (graph.declaration keys
+    (list (cons 'freight (need 'input (lambda (n) (+ 2 (quotient n 5)))))
+          (cons 'cover (need 'input (lambda (n) (+ 3 (quotient n 7)))))
+          (cons 'reserve (both 'freight 'cover (lambda (f c) (+ (* 10 f) c))))
+          (cons 'tax (need 'reserve (lambda (n) (+ 2 (quotient n 5)))))
+          (cons 'risk (code.choose (code.inspect 'discount identity) identity
+                        (need 'input (cut quotient <> 3)) (need 'input (cut quotient <> 6))))
+          (cons 'settlement (both 'tax 'risk +)) (cons 'invoice (need 'settlement identity))
+          (cons 'audit (need 'input (lambda (n) (+ 1 (quotient n 4)))))
+          (cons 'release (both 'invoice 'audit +)) (cons 'gate (code.deny 'blocked 0))
+          (cons 'total (both 'release 'gate +)))
+    (list (cons 'input (some (code.make-success input)))
+          (cons 'discount (and discount (some (code.make-success discount)))))))
+(def (value cache key)
+  (def selected (cache.cache-ref cache key))
+  (unless (and (some? selected) (code.success? (some-value selected))) (error "component unavailable" key selected))
+  (code.success-value (some-value selected)))
+(def model
+  (.mix (.cc staged.methods.construction<-cache builder: (.cc cache.Builder.))
+    (.cc bundle.model cook: (lambda (policy cache)
+      (def total (value cache 'total))
+      (def invoice-number (value cache 'invoice))
+      (.o (capacity total) (price (.@ policy price))
+          (invoice (string-append "invoice:" (number->string invoice-number))) (release (>= total 0)))))))
+(def (start source policy) (staged.prepare model source policy))
+(def (revise old source policy (builder (.cc cache.Builder.)))
+  (staged.publish (.cc model builder: builder) old source policy))

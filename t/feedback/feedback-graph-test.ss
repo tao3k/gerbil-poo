@@ -16,7 +16,7 @@
         :clan/poo/mop/generalized-closure (prefix-in :clan/poo/graph/scc scc.)
         (prefix-in :clan/poo/graph/schedule graph.) (prefix-in :clan/poo/graph/computation code.)
         (prefix-in :clan/poo/graph/construction cache.)
-        (prefix-in :clan/poo/examples/component-services service.)
+        (prefix-in :clan/poo/benchmarks/workloads/component-services service.)
         (prefix-in (only-in :clan/poo/fun Observation.) fun.))
 (extern namespace: clan/poo/graph/feedback group-code)
 (extern (start-owned-cache-quotient clan/poo/graph/construction#%start-owned-quotient))

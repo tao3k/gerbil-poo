@@ -27,7 +27,7 @@ process watchdog and heap limit, not proved by fuel.
 ## Acceptance and boundaries
 
 `Examples/GeneratedCalls.lean` belongs in the top-level Examples directory.
-The Scheme `examples/signature-service.ss` combines optional List callback fields,
+The Scheme `t/fixtures/signature-service.ss` combines optional List callback fields,
 keyword defaults, recursive Function wrapping, descriptor-driven call generation
 and Reader/FUN consumption. Both repositories retain their complete checks and
 resource limits. No Scheme runtime or test imports a Lean checkout.
@@ -76,12 +76,12 @@ without drawing. Fixed/modular endpoints must be exact finite integers. A draw
 has at most twice size plus one choices; arithmetic cost still depends on endpoint
 bit widths. Capture invalidation retires old samplers and reports; prepare a fresh
 sampler to observe changed bounds. See the numeric cases and Record/Function/FUN
-service in `examples/property-numbers.ss` and `examples/generated-products.ss`.
+service in `t/fixtures/property-numbers.ss` and `t/fixtures/generated-products.ss`.
 
 Keyword spelling generation uses the same Unicode scalar list tree as String and
 Symbol. Empty keywords are values, not missing parameters. Use the ordinary
 FunctionArguments descriptor for positional/optional/keyword/rest rows; it owns
-the escape boundary. The keyword-routing action in `examples/generated-products.ss`
+the escape boundary. The keyword-routing action in `t/fixtures/generated-products.ss`
 shows Record/Function/FUN composition, corpus replay and fresh repair. Content
 shrinking preserves exact carriers; symbolic refinement still requires an explicit
 sampler. No string is evaluated or treated as module syntax.
@@ -90,7 +90,7 @@ Explicit `map-generator` requests own their original finite key and dependency
 spines. Key/Value metadata is observed in order under first-version authority;
 a getter that revises an earlier participant refuses preparation. A failure
 preserves its original callback cause and effects; prepare a new Map sampler to
-retry. `map-service-action` in `examples/collection-properties.ss` demonstrates
+retry. `map-service-action` in `t/fixtures/collection-properties.ss` demonstrates
 how a custom two-service tree retains that same Map guard through typed FUN,
 Function wrappers and portable replay. No new parser or validator chain is used.
 
@@ -100,7 +100,7 @@ dependency spines and returned source spines are copied before later preparation
 source identities retain their earliest versions. Original getter exceptions and
 binding errors remain distinct from stale refusal. Prepare a fresh bridge/action
 after correction. `service-value-generator` and `service-batch-action` in
-`examples/collection-properties.ss` show shared Record/Function producers, FUN,
+`t/fixtures/collection-properties.ss` show shared Record/Function producers, FUN,
 shrinking, portable replay and fresh retry. No hidden dependency inference or deep
 payload snapshot is promised.
 
@@ -120,14 +120,14 @@ Typed `map-generator` admits this directory before computed Key/Value/sampler
 metadata, then binds the values under its existing guard. Invalid limits and
 duplicate keys cannot execute later factories. Empty zero-budget directories
 remain valid and preserve typed source obligations. See the service-directory
-retry example in `examples/collection-properties.ss` and [Prepared finite hash directories before typed declaration binding](pbt/type-discovery.md#prepared-finite-hash-directories-before-typed-declaration-binding) in the RFC.
+retry example in `t/fixtures/collection-properties.ss` and [Prepared finite hash directories before typed declaration binding](pbt/type-discovery.md#prepared-finite-hash-directories-before-typed-declaration-binding) in the RFC.
 
 Bridge and specification binding use the same captured stamp set. Metadata getters,
 owned recipes and fallback binding are checked before the next stage; a factory
 returning #f may use the raw path only while its sources remain current. A generic
 tree yielding false is a present tree, not a missing recipe. Nested core probes
 inherit the preparation scope, which is released before ordinary execution.
-`service-factory-action` in `examples/collection-properties.ss` shows a deferred
+`service-factory-action` in `t/fixtures/collection-properties.ss` shows a deferred
 Record/Function recipe, bounded probe, FUN, shrinking, three replay forms and
 fresh corrected preparation. Direct arbitrary host effects are not transactional.
 
@@ -149,7 +149,7 @@ still depend on earlier generated arguments through the original bind tree.
 compositions, using constructor thunks and one callback over the admitted domains.
 A failed construction has no run report; standard assertions retain Gerbil's
 TestResult behavior. Ordinary invocation options are caller-evaluated arguments.
-The named service case in `examples/collection-properties.ss` shows typed Record/
+The named service case in `t/fixtures/collection-properties.ss` shows typed Record/
 Function generators, FUN delivery, three replay forms and fresh correction without
 retaining a transient construction checker. See [Ordered named-property declaration preparation](pbt/preparation.md#ordered-named-property-declaration-preparation) of the RFC for the boundary.
 
@@ -162,7 +162,7 @@ of merely stopping after a complete batch has already been built. Explicit
 `shrink-trace` calls retain the finite-list inspection contract. Each reached
 parameter callback must still return a finite proper list. Exact exceptions and
 previously charged work are retained on interruption; budget cutoff is not EOF.
-`collection-request-action` in `examples/collection-properties.ss` composes this
+`collection-request-action` in `t/fixtures/collection-properties.ss` composes this
 with an indexed backend, a Record/Function product, FUN, replay and fresh repair.
 See [Demand-driven dependency-repaired trace trees](pbt/model-traces.md#demand-driven-dependency-repaired-trace-trees) in the RFC for the finite proof and work-count boundaries.
 
@@ -253,10 +253,10 @@ scope; the library never interns it silently. This applies recursively to codec
 identities and payloads. Export refusal occurs before writing; import refusal
 occurs before decoding, though input bytes may already have been read.
 
-`examples/collection-properties.ss` contains a complete Record/Function/FUN
+`t/fixtures/collection-properties.ss` contains a complete Record/Function/FUN
 service-handle workflow: real shrinking, rejected raw-handle export, validated
 Tuple IDs, wrapped Record reconstruction, stale-source refusal and fresh retry.
-`examples/property-replay.ss` registers the generic copying and token controls.
+`t/fixtures/property-replay.ss` registers the generic copying and token controls.
 Both run through the usual `gerbil build` and `gerbil test`, without a Lean checkout.
 
 ### Finite Function return tuples
@@ -274,7 +274,7 @@ Each returned tuple is admitted and shallow-copied before the next row draws.
 `'()` delivers zero values and `'(#f)` delivers one false value. An invalid tuple
 refuses before later rows; there is no implicit scalar-to-tuple conversion.
 Payloads and advanced producers' hidden preimages keep their existing source and
-immutability laws. `examples/collection-properties.ss` demonstrates a typed
+immutability laws. `t/fixtures/collection-properties.ss` demonstrates a typed
 Record/Function/FUN service, first-row refusal, explicit repair, shrinking,
 validated wire tuples, portable restoration and stale-source rejection.
 
@@ -290,5 +290,5 @@ A procedure-valued `size:` still requires an explicit finite `size-limit:` and
 is evaluated only during execution. Its actual result and exact callback failure
 remain in the run diagnostics. Reader/FUN still captures known owners and reads
 configuration first, then admits the normalized request before factory binding.
-The nested Function/List service in `examples/signature-service.ss` demonstrates
+The nested Function/List service in `t/fixtures/signature-service.ss` demonstrates
 constant failure/repair, scheduled execution, shrinking, replay and source refusal.

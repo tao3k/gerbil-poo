@@ -17,14 +17,14 @@
         (prefix-in (only-in :clan/poo/graph/cyclic-publication failure-stage invoke probe
                    version-cache version-contract-family version-family
                    version-view) publication.)
-        (runtime: :clan/poo/examples/service-combination)
-        (prefix-in (only-in :clan/poo/examples/service-combination bound-preflight
+        (runtime: :clan/poo/benchmarks/workloads/service-combination)
+        (prefix-in (only-in :clan/poo/benchmarks/workloads/service-combination bound-preflight
                    bound-simula-model cached-simula-model compiled-context-model
                    context-preflight empty-storage-simula-model prepared-simula-model
                    shape-prepared-simula-model staged-simula-model) qualified.)
-        (prefix-in :clan/poo/examples/service-bundle bundle.)
-        (runtime: :clan/poo/examples/cyclic-access)
-        (prefix-in (only-in :clan/poo/examples/cyclic-access config equations) access.)
+        (prefix-in :clan/poo/benchmarks/workloads/service-bundle bundle.)
+        (runtime: :clan/poo/benchmarks/workloads/cyclic-access)
+        (prefix-in (only-in :clan/poo/benchmarks/workloads/cyclic-access config equations) access.)
         (runtime: :clan/poo/mop/methods/dispatch)
         (prefix-in (only-in :clan/poo/mop/methods/dispatch multimethod?) dispatch.))
 ;; One view-independent child supplies the actual no-binding control. Construction

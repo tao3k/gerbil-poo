@@ -83,7 +83,7 @@ style lock protects owner installation, not a global metadata transaction.
 
 ## Implementation, proof and costs
 
-`examples/service-collection.ss` declares two RationalDict unique indexes and a
+`t/fixtures/service-collection.ss` declares two RationalDict unique indexes and a
 Trie team index, sharing primary RationalDict buckets and checked Functions.
 Regressions combine identifier swaps, repeated updates, deletion/reinsertion,
 team migration, late unique refusal, old-value precedence, undo/retry, empty-origin
@@ -183,7 +183,7 @@ future requests, never the already captured family. Backend discovery precedes
 ordered recipe compilation; original getter errors short-circuit the current
 phase. Effects already performed by callbacks are not rolled back.
 
-`examples/service-collection.ss` `publish-indexed-services` composes preparation,
+`t/fixtures/service-collection.ss` `publish-indexed-services` composes preparation,
 initial wrapping and the existing linear FUN/IO revision action. Tests combine
 computed-metadata refusal, unique conflict, explicit fresh retry, shared checked
 Functions, inverse restoration and stale-family refusal; additional controls cover

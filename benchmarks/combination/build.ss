@@ -21,7 +21,7 @@
     (gxc: "benchmarks/combination-suite" "-cc-options" "-O2")
     (gxc: "benchmarks/metadata-paired-cases" "-cc-options" "-O2")
     (gxc: "benchmarks/metadata-paired-suite" "-cc-options" "-O2")
-    (gxc: "examples/declared-methods" "-cc-options" "-O2")
+    (gxc: "benchmarks/workloads/declared-methods" "-cc-options" "-O2")
     (exe: "benchmarks/combination/combination-benchmark-main" bin: "combination-benchmark" "-cc-options" "-D___SINGLE_HOST_LIMIT=10000" "-ld-options" ,links)
     (exe: "benchmarks/combination/combination-suite-main" bin: "combination-suite" "-cc-options" "-D___SINGLE_HOST_LIMIT=10000" "-ld-options" ,links)) parallelize: #f) main))
 ;; Close the standard executor on refusal; no project process registry is used.

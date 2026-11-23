@@ -16,8 +16,8 @@
   :clan/poo/support/option
   (only-in :clan/poo/trie SimpleTrie SimpleTrieSet)
   (only-in :clan/poo/t/table-testing alist-table box-table)
-  (prefix-in :clan/poo/examples/service-collection service.)
-  (prefix-in (only-in :clan/poo/examples/contract-publication publication-action) publication.)
+  (prefix-in :clan/poo/t/fixtures/service-collection service.)
+  (prefix-in (only-in :clan/poo/benchmarks/workloads/contract-publication publication-action) publication.)
   (prefix-in :clan/poo/mop/declarative-metadata metadata.))
 
 ;; Construct once with the original private helper scope and declaration order.

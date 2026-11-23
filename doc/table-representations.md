@@ -51,7 +51,7 @@ operations, states and deltas; construct a fresh descriptor to retry. Already
 returned immutable data is not revoked. Existing serialization/iteration semantics
 remain those of the public table protocol; arbitrary external IO is not rolled back.
 
-`examples/service-collection.ss` supplies `make-mirrored-ledger`: a transparent
+`t/fixtures/service-collection.ss` supplies `make-mirrored-ledger`: a transparent
 Gerbil record reuses RationalDict, negates keys and swaps a Tuple's checked Function
 and capacity into Pair fields. The resulting descriptor directly supports ordered
 revision batches, inverse, `table-isomorphism` data/delta transport, incremental

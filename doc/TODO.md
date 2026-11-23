@@ -702,7 +702,7 @@ and approval guards → named incarnation fences → scoped submission/exit → 
 same-name recovery → current `refine` / exact `bind-evidence`. It is implemented
 by `recursive-validation`, `recursive-staging`, `recursive-publication`,
 `recursive-approvals` and `recursive-coordination`, not a separate engine per
-scenario. `examples/recursive-coordination.ss` covers two names repeatedly failing,
+scenario. `t/fixtures/recursive-coordination.ss` covers two names repeatedly failing,
 recovering and exiting while a survivor remains live. Twelve Lean incarnation
 laws and 1112 checked attempts exercise the complete declared boundary; unchanged
 head/approval controls prevent lifecycle bugs being hidden by unrelated drift.
@@ -729,7 +729,7 @@ in the main ledger. No all-TODO completion or universal host-correctness claim i
 made. Complete each workstream against these acceptance targets before using
 optimization studies to claim functional closure.
 
-The first four rows form one tested functional chain in `examples/lifecycle.ss`:
+The first four rows form one tested functional chain in `t/fixtures/lifecycle.ss`:
 checked nested Account construction → persistent focused revision → fresh
 constraint admission → current-tenant Reader/FUN observation → lazy delegate.
 `doc/alignment.md` records the Racket/Lean/Gerbil correspondence and proof limits.
@@ -813,7 +813,7 @@ laws, proves their composition and discharges custom nested-product examples.
 `Generalized.closeWithin` proves actual fixedness, the raw-step bound, origin in
 the original seed and stability of every later original-seed unfolding.
 
-`examples/closed-declarations.ss` places comparable data in nested vector raw
+`benchmarks/workloads/closed-declarations.ss` places comparable data in nested vector raw
 state, closes a three-component dependency chain, then cooks existing standard
 method policy into a callable interface. Four raw evaluations include the final
 equality check. This does not assert equivalence of earlier finite observations
@@ -832,7 +832,7 @@ All final projected equations are checked again: separate lawful lenses need not
 be independent. Conflicting overlap refuses the complete publication; compatible
 overlap can pass. Every final check costs one extra raw step beyond local search.
 
-`examples/focused-services.ss` closes two nested-vector services with distinct
+`benchmarks/workloads/focused-services.ss` closes two nested-vector services with distinct
 policies and existing primary/around methods, preserving sibling/shared audit
 data. Gerbil controls cover actual replacement laws, overlap, budget, stale
 metadata, later source mutation, final cooking and Reader suffix suppression.
@@ -877,7 +877,7 @@ reused, even if the raw value is unchanged. Registered preparation/check sources
 stay protected until approval finishes. Strict Boolean approval and exact old
 publication retention cover closure, source, residual and callback failures.
 
-`examples/shared-feedback.ss` connects one shared quota node to two nested service
+`benchmarks/workloads/shared-feedback.ss` connects one shared quota node to two nested service
 branches in a four-node feedback ring, joint readiness, primary/around methods
 and current cross-service commitment/permission checks. Quota increases/decreases,
 approval rejection/retry and old snapshots have Gerbil controls and paired Lean
@@ -901,7 +901,7 @@ retained group sources refuse final publication; rebuild them by explicit graph
 source edits. All required groups and registered approval sources stay protected
 through ALWAYS-fresh joint approval. Failed candidates never become reuse bases.
 
-`examples/cached-feedback.ss` covers shared quota, two reader groups, a cross-group
+`benchmarks/workloads/cached-feedback.ss` covers shared quota, two reader groups, a cross-group
 edge, an independent feedback group, source increases/decreases, joint refusal/
 retry and permission-only edits. Refusing builders and identity checks verify
 skipping. Gerbil negative controls include removed inputs, illegal inter-group
@@ -941,7 +941,7 @@ no runtime speed, allocation or GC improvement follows from these controls.
 
 Multi-service membership contributions now join through `component-revision` and
 existing support revision/FUN publication, rejecting conflicting or stale edits
-before construction. `examples/component-migration.ss` replaces endpoints in two
+before construction. `benchmarks/workloads/component-migration.ss` replaces endpoints in two
 SCCs, migrates their shared input and changes two inputs in one jointly approved
 source. It checks partial deployment, detached old dependencies, provider erasure,
 exact clean reuse, conflicts and refusal/retry. This is finite generalized-protocol
@@ -1223,7 +1223,7 @@ forwarding, inner and Simula adapters reuse existing method interpreters. Empty
 raw groups can be explicit defaults; nested missing-slot errors are not treated
 as missing generic slots. No result or approval is cached by this bridge.
 
-`examples/declared-methods.ss` composes a shared base, two service branches,
+`benchmarks/workloads/declared-methods.ss` composes a shared base, two service branches,
 before/primary/after/around fragments and current-context Reader observation.
 Lean's `MethodDeclarations` proves source collection, coalescing, inherited block
 composition and equivalence to standard generic invocation. Gerbil tests cover

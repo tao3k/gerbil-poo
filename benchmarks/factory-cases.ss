@@ -14,7 +14,7 @@
     ((factory factory-history preparation) 16) (else 64)))
 ;; Reuse the native source manifest, covering every new entry point and runtime input.
 (def sources (delete-duplicates/hash (append metadata.sources
-  '("mop/generalized-prototype.ss" "examples/generalized-checkout.ss" "benchmarks/factory-cases.ss"
+  '("mop/generalized-prototype.ss" "benchmarks/workloads/generalized-checkout.ss" "benchmarks/factory-cases.ss"
     "benchmarks/factory-benchmark.ss" "benchmarks/factory-suite.ss")) from-end?: #t))
 ;; Alternate direct and exact duplicate controls in ABBA order across four rounds.
 (def (side-order round pair) (if (memv round '(0 3)) pair (reverse pair)))

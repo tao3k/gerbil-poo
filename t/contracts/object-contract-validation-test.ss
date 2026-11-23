@@ -7,20 +7,20 @@
   :clan/poo/mop
   :clan/poo/number
   :clan/poo/types/object-contract
-  (prefix-in :clan/poo/examples/function-publication workflow.)
-  (prefix-in :clan/poo/examples/object-contracts service.)
-  (prefix-in :clan/poo/examples/contract-publication publication.)
+  (prefix-in :clan/poo/t/fixtures/function-publication workflow.)
+  (prefix-in :clan/poo/benchmarks/workloads/object-contracts service.)
+  (prefix-in :clan/poo/benchmarks/workloads/contract-publication publication.)
   (prefix-in :clan/poo/mop/declarative-metadata metadata.)
   (only-in :clan/poo/type Maybe Maybe. OrFalse OrFalse. TypeValuePair List Tuple String
            Any Bool Fun Type. element? validate TypeError?)
-  (prefix-in :clan/poo/examples/optional-publication pipeline.)
+  (prefix-in :clan/poo/t/fixtures/optional-publication pipeline.)
   :std/iter
   (only-in :std/values first-value)
   (prefix-in :clan/poo/graph/closure closure.)
   (prefix-in :clan/poo/mop/methods/dispatch multimethod.)
   (prefix-in :clan/poo/mop/methods/extension dispatch-extension.)
   (prefix-in :clan/poo/graph/cyclic-publication cyclic-publication.)
-  (prefix-in :clan/poo/examples/protected-dispatch protected-dispatch.))
+  (prefix-in :clan/poo/benchmarks/workloads/protected-dispatch protected-dispatch.))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (object-contract-validation-test)

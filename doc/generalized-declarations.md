@@ -85,7 +85,7 @@ caller serialization. No arbitrary I/O rollback is claimed.
 
 ## Complex carriers and proofs
 
-`examples/generalized-declarations.ss` composes nested vector lenses with three
+`benchmarks/workloads/generalized-declarations.ss` composes nested vector lenses with three
 different focus types: rate, dependent fee and qualified method groups. A callable
 cooked interface shares demanded fields and prepares the existing standard around
 and primary methods. An outer audit field is preserved. After three stages, the

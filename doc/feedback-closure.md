@@ -65,7 +65,7 @@ GC bound, performance improvement or Scheme runtime proof is claimed.
 
 ## Complex ring and proofs
 
-`examples/feedback-services.ss` and `Examples/FeedbackServices.lean` align a
+`benchmarks/workloads/feedback-services.ss` and `Examples/FeedbackServices.lean` align a
 three-service capped allocation ring A ← B ← C ← A, joint approval and shared
 audit data. With cap=3, every allocation becomes 3 after three rounds, approval
 becomes true after the fourth, and a fifth whole raw transition verifies stability.

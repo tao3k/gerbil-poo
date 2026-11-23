@@ -2,8 +2,8 @@
 (export collection-testing-test collection-properties-test)
 (import :std/test :std/error :std/iter (only-in :std/list/list take) :clan/poo/object :clan/poo/mop :clan/poo/type :clan/poo/number
         :clan/poo/testing/type :clan/poo/support/option
-        (prefix-in :clan/poo/examples/collection-testing collection.)
-        (only-in :clan/poo/examples/collection-properties collection-properties-test))
+        (prefix-in :clan/poo/t/fixtures/collection-testing collection.)
+        (only-in :clan/poo/t/fixtures/collection-properties collection-properties-test))
 
 ;; A small dependency oracle isolates sequence repair from table implementation.
 (def Command (Tuple (Enum make use) UInt))

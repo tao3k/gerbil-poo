@@ -11,7 +11,7 @@
 | Recursive evaluation | [Evaluation](../recursive/evaluation.ss), [validation, topology and publication](recursive-validation.md) |
 | Benchmarks | [Graph and publication](graph-benchmark.org), [Slot hook selection](performance/protocol-selection.org), [Slot read replay](performance/read-replay.org) |
 | Collections | [Collection APIs](collections.md), [table indexes](table-indexes.md) |
-| I/O | [Byte I/O example](../examples/byte-io.ss) |
+| I/O | [Byte I/O API](../io.ss) · [I/O tests](../t/tools/io-test.ss) |
 | Testing | [Property tests](property-kernel.md), [build and test commands](test-execution.md), [CI checks](ci-checks.md) |
 | Formal models | [LeanPoo](https://github.com/tao3k/lean-poo) |
 

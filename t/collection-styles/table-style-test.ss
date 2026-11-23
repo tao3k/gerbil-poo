@@ -16,7 +16,7 @@
   :clan/poo/support/option
   (only-in :clan/poo/trie SimpleTrie SimpleTrieSet TrieSet.)
   (only-in :clan/poo/t/table-testing alist-table)
-  (prefix-in :clan/poo/examples/service-collection service.)
+  (prefix-in :clan/poo/t/fixtures/service-collection service.)
   :std/sync/channel)
 
 ;; Construct once with the original private helper scope and declaration order.

@@ -49,7 +49,7 @@ A false debug tag disables rendering while still executing the explicitly called
 action. Configuration revisions are captured as sources, so edits during a run
 refuse admission. Loading a module defines these tools; generation starts at the
 explicit test/action call. See [the downstream guide](doc/property-kernel.md),
-[Record/FUN examples](examples/generated-batches.ss), and the
+[Record/FUN regression cases](t/fixtures/generated-batches.ss), and the
 [PBT design RFC](doc/pbt-design-rfc.md).
 
 ### HACKING

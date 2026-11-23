@@ -17,7 +17,7 @@
     (gxc: "benchmarks/closure-measure" "-cc-options" "-O2")
     (gxc: "benchmarks/dispatch-benchmark" "-cc-options" "-O2")
     (gxc: "benchmarks/dispatch-report" "-cc-options" "-O2")
-    (gxc: "examples/protected-dispatch" "-cc-options" "-O2")
+    (gxc: "benchmarks/workloads/protected-dispatch" "-cc-options" "-O2")
     (exe: "benchmarks/dispatch/dispatch-benchmark-main" bin: "dispatch-benchmark" "-cc-options" "-D___SINGLE_HOST_LIMIT=10000" "-ld-options" ,links)
     (exe: "benchmarks/dispatch/dispatch-report-main" bin: "dispatch-report" "-cc-options" "-D___SINGLE_HOST_LIMIT=10000" "-ld-options" ,links)) parallelize: #f) main))
 ;; Close the standard executor on refusal; no project process registry is used.

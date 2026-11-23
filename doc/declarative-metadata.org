@@ -49,7 +49,7 @@ External mutation and arbitrary effects cannot be undone by retaining a value.
 
 * Service composition
 
-~examples/service-metadata.ss~ reuses CyclicAccess's ten Boolean equations and
+~benchmarks/workloads/service-metadata.ss~ reuses CyclicAccess's ten Boolean equations and
 cooked view. It declares heterogeneous quote/reserve/cancel signatures, compiles
 existing dispatch edits, attaches a positive-units/output refinement and the
 permission/conservation rule, and probes the completed family before publication.
@@ -118,7 +118,7 @@ without one it retains its documented construction-only admission semantics.
 Native staged models always supply one. A caller cannot claim cache-sensitive
 approval for the lower-level construction-only form.
 
-~examples/service-bundle.ss~ composes the actual C4 diamond, Financial/Card
+~benchmarks/workloads/service-bundle.ss~ composes the actual C4 diamond, Financial/Card
 contributions, a current-argument Invoice/Bank guard, shape/call absence watches,
 reservation refinements, relational conservation, quote/cancel coherence and a
 joint cache budget. A first quote may pass while a successful reservation is

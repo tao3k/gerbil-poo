@@ -21,11 +21,11 @@
   :clan/poo/mop/lens-laws
   :clan/poo/mop/generalized-declaration
   :clan/poo/mop/generalized-closure
-  (prefix-in :clan/poo/examples/closed-declarations service.)
-  (prefix-in :clan/poo/examples/generalized-declarations finite.)
+  (prefix-in :clan/poo/benchmarks/workloads/closed-declarations service.)
+  (prefix-in :clan/poo/benchmarks/workloads/generalized-declarations finite.)
   (prefix-in (only-in :clan/poo/fun Observation.) fun.)
   (prefix-in :clan/poo/mop/generalized-prototype gp.)
-  (prefix-in :clan/poo/examples/generalized-checkout checkout.))
+  (prefix-in :clan/poo/benchmarks/workloads/generalized-checkout checkout.))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (binding-benchmark-test)

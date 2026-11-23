@@ -7,8 +7,8 @@
         (only-in :clan/poo/type List Fun TypeError?)
         (only-in :clan/poo/object/slot-layout make-slot-cache)
         (only-in :clan/poo/benchmarks/prototype-map-benchmark reference-reflection reference-read-slot)
-        (prefix-in :clan/poo/examples/representation-service service.)
-        (prefix-in :clan/poo/examples/inherited-services inherited.))
+        (prefix-in :clan/poo/benchmarks/workloads/representation-service service.)
+        (prefix-in :clan/poo/benchmarks/workloads/inherited-services inherited.))
 
 ;; Construct one current typed constant; source edits use the existing Slot protocol.
 (def (descriptor n (hidden? #f)) (.new Slot type: Integer constant: n hidden: hidden?))

@@ -104,7 +104,7 @@ the exact old publication. Refused candidates never become a retry cache.
 
 ## Executable scenario
 
-`examples/component-services.ss` uses a non-record vector carrier and native
+`benchmarks/workloads/component-services.ss` uses a non-record vector carrier and native
 functional lenses. A shared quota feeds left/right services; they initially form
 a feedback pair. Settlement consumes both; an independent capped self-loop must
 survive every shared revision. Removing right's read of left splits the pair;

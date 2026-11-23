@@ -33,7 +33,7 @@ metadata/callbacks retain the existing immutable, pure, locally total discipline
 
 ## Practical native alignment
 
-`examples/shared-approvals.start` creates one domain and maps the existing service
+`benchmarks/workloads/shared-approvals.start` creates one domain and maps the existing service
 constructor over independent local policies, pairing each with the exact same
 shared object. It reuses all source recipes, fixed lenses, bounded whole-SCC closure,
 FUN staging and current-policy restaging. No service-specific copy of shared

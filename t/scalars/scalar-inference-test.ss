@@ -9,10 +9,10 @@
   :clan/poo/types/relation
   :clan/poo/types/prototype-types
   :clan/poo/mop/methods/declaration
-  (prefix-in :clan/poo/examples/polymorphic-services service.)
+  (prefix-in :clan/poo/benchmarks/workloads/polymorphic-services service.)
   (only-in :std/number/misc uint-below?)
   (only-in :gerbil/runtime/gambit string->uninterned-symbol)
-  (prefix-in :clan/poo/examples/numeric-services numeric.)
+  (prefix-in :clan/poo/t/fixtures/numeric-services numeric.)
   (only-in :clan/poo/types/function-signature encode-arguments)
   :clan/poo/type)
 (import (only-in "scalar-inference/union.ss" union-inference-test))

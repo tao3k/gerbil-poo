@@ -7,8 +7,8 @@
         :clan/poo/graph/feedback
         (runtime: :clan/poo/graph/component/joint)
         (prefix-in (only-in :clan/poo/graph/component/joint approval current head) joint.)
-        (prefix-in :clan/poo/examples/joint-topology service.)
-        :clan/poo/examples/joint-coordination-rounds)
+        (prefix-in :clan/poo/benchmarks/workloads/joint-topology service.)
+        :clan/poo/benchmarks/workloads/joint-coordination-rounds)
 ;; Checkpoint provenance retains the reply for its specific coordinator.
 (defstruct checkpoint (name value reply) final: #t)
 ;; Explicit final-round marker is separate from repeating topology phase names.

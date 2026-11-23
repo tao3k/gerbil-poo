@@ -186,13 +186,13 @@ classification symbols remain API errors; they are not accepted as reports.
 Interrupted shrinking retains the last confirmed witness, charged attempts and
 accepted steps, but cannot certify a minimum or authorize concrete replay.
 
-Six generic regression cases in `examples/property-scopes.ss` cover execution and
+Six generic regression cases in `t/fixtures/property-scopes.ss` cover execution and
 inspection, nested effect suppression/unwinding, secondary errors, built-in outcome
 precedence, partial shrink progress and explicit seed replay. They register in the
 existing independent standard TestSuite; the isolated stdlib-only library grows
 from 97 to 103 cases. There is no new module inventory or test runner.
 
-`service-classification-action` in `examples/generated-products.ss` provides the
+`service-classification-action` in `t/fixtures/generated-products.ss` provides the
 complete downstream composition. POO owns a strict service Record with UInt count
 and checked Function, typed sampler sources and validation. The independent runner
 owns the application error classifier and generic report. Reader/FUN bind delivers

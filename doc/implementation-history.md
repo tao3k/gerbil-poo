@@ -9,7 +9,7 @@ The authoritative open-feature ledger and acceptance boundary are in [TODO.md](T
 The standard qualified combiner and simple policies now have native POO
 constructors in `method-combination.ss`, integrated through `multimethod.standard`
 and `multimethod.simple` with existing Type/guard/negative-watch publication.
-`examples/service-combination.ss` composes them with shared contract checks and
+`benchmarks/workloads/service-combination.ss` composes them with shared contract checks and
 atomic multi-service revisions. This implements a concrete part of the above
 method-combination direction; the unified generalized MOP remains future work.
 See `alignment.md` for the Racket/Lean/Scheme correspondence and the remaining
@@ -52,7 +52,7 @@ required. See performance/simula-owner-summary.org for source-specific results.
 explicit request/FUN chain, exact program-owner memo, separate source errors and
 cycle/exhaustion diagnostics, and repeated CURRENT Type admission. Native catalog
 examples cover shared subrequests, output-policy/callback revocation, partial batch
-completion and typed dispatch. `examples/cyclic-access` can now obtain its Boolean
+completion and typed dispatch. `benchmarks/workloads/cyclic-access` can now obtain its Boolean
 from an actual recursive receipt, revise from least closure and retain old memo on
 publication refusal. These bounded concrete cases close the earlier explicit-seed
 gap; they do not complete the general MOP or arbitrary callback termination/codec
@@ -146,7 +146,7 @@ subtype inference, generators and arbitrary callback proofs remain open.
 
 Explicit structural strengthening now uses `object-contract.refine`, preserving
 the full parent report and gating additional obligations through receiver-aware
-inherited computation. `examples/contract-publication.ss` combines this with FUN
+inherited computation. `benchmarks/workloads/contract-publication.ss` combines this with FUN
 admission and the existing exact-reference `declarative-metadata.bind-evidence`
 helper. Stale context refusal, prior-rule preservation, nested binding and retry
 from the current template have Scheme controls and corresponding Lean laws.
@@ -159,11 +159,11 @@ wrap Function fields before whole-object obligations/refinement. The FUN chain
 binds evidence to the final normalized subject; raw/stale/mismatched evidence
 is rejected. Multiple values, higher-order inputs/results, derived validators,
 ancestry preservation and failure/retry have executable controls and pure Lean
-laws. See `examples/function-publication.ss` and [object-contracts.md](object-contracts.md).
+laws. See `t/fixtures/function-publication.ss` and [object-contracts.md](object-contracts.md).
 List/Tuple containers now recursively normalize their elements, preserve exact
 tuple arity and give indexed diagnostics. Finite named-field schemas reuse
 ObjectContract, including schema-in-container and container-in-schema refinement.
-`examples/container-publication.ss` adds nested batch dispatch/transforms and exact
+`t/fixtures/container-publication.ss` adds nested batch dispatch/transforms and exact
 normalized-subject binding with refusal/retry. Lean `ContainerValidation` proves
 ordered position, length, arity, refusal and final refinement laws.
 Pair/Map/Sum/Union now recursively validate and install their checked children
@@ -178,7 +178,7 @@ Maybe/OrFalse now preserve their distinct void/#f sentinels and bypass child Typ
 lookup on absence. Present values recursively wrap and must satisfy the selected
 child Type even when normalization returns a sentinel. TypeValuePair now validates
 the cdr (fixing whole-pair validation), retains its exact Type and installs the
-checked payload. `examples/optional-publication.ss` combines optional typed plugin
+checked payload. `t/fixtures/optional-publication.ss` combines optional typed plugin
 lists, optional fallback, root refinement and exact binding with refusal/retry.
 Lean `OptionalValidation` proves the selected-child and dependent-payload laws.
 Class initialization now recursively validates effective inherited Slot Types,
@@ -186,7 +186,7 @@ including callable defaults, computed methods and nested containers. Checked
 factories validate before and after initialization hooks; same-object hook returns
 do not bypass the final check. Record metadata composition has single/multiple
 inheritance and diamond controls with pre-observed parent prototypes. Custom Slot
-normalization and final membership are retained. `examples/class-publication.ss`
+normalization and final membership are retained. `t/fixtures/class-publication.ss`
 combines initialization, refinement, FUN and exact evidence publication. Bootstrap
 Type validation preserves descriptor identity. Lean `ClassValidation` proves the
 finite Slot, selected-metadata and initialization/refinement laws. This advances
@@ -212,7 +212,7 @@ Finite recursive object validation now has an explicit named-catalog closure:
 checks every node, defers nested whole-value obligations until all batches finish,
 and refuses foreign owners/stale revisions. Productive computed Function backedges
 compose with the existing safe recursive memo and positive least closure in
-`examples/recursive-validation.ss`. The 19 new controls cover shared targets,
+`t/fixtures/recursive-validation.ss`. The 19 new controls cover shared targets,
 cyclic identity, nested refinement, failed queue unwinding, owner/stale rejection,
 eager cycles, finite-budget refusal, FUN/refine/evidence and retry. The Lean model
 proves catalog/graph admission and reference laws; host correspondence and callback
@@ -236,7 +236,7 @@ Retained caches keep their original evidence stamps, refusing edits during a
 rebuild rather than re-stamping stale values. Old dirty/removed Reference
 capabilities refuse across later rounds, and exact
 per-attempt Reference checking blocks transplantation of old dirty descriptors.
-`examples/recursive-revision.ss` connects these controls with `refine` and exact
+`t/fixtures/recursive-revision.ss` connects these controls with `refine` and exact
 `bind-evidence`. Lean `Functional.RecursiveRevision` proves finite dependency,
 selective-construction, generation/refusal, final-admission and pure-failure laws.
 This advances generalized MOP future work. Complete declared reads, immutable
@@ -248,7 +248,7 @@ Multi-round recursive catalog edits now have `reconfigure-validation` and the
 FUN-compatible `reconfiguration-action`. Distinct additions/removals/replacements
 are validated before construction; survivors keep recipes, final dangling targets
 refuse, and same-name resubmission after removal cannot revive old References.
-`examples/recursive-migration.ss` covers six rounds of provider add/remove/shared
+`t/fixtures/recursive-migration.ss` covers six rounds of provider add/remove/shared
 migration, downstream addition, computed-footprint change, late refusal/retry and
 refine/bound-evidence publication, including equal-output reader replacement.
 Lean `Functional.RecursiveMigration` fills mathematical named catalog/index lowering

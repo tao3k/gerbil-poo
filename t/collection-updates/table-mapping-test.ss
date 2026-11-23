@@ -3,7 +3,7 @@
 (import :std/test :std/error :std/iter (only-in :clan/poo/brace @@method)
         :clan/poo/object :clan/poo/mop :clan/poo/type :clan/poo/number :clan/poo/table :clan/poo/table/rationaldict :clan/poo/support/option
         (only-in :clan/poo/trie SimpleTrie) (only-in :clan/poo/t/table-testing box-table borrowing-table) (only-in :clan/poo/t/table-testing alist-table)
-        (prefix-in :clan/poo/examples/service-collection service.))
+        (prefix-in :clan/poo/t/fixtures/service-collection service.))
 
 ;; Keep protocol refusals separate from arbitrary callback exceptions.
 (def (message? text)

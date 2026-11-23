@@ -11,22 +11,22 @@
         (prefix-in (only-in :clan/poo/mop/declarative-metadata atom both contract contract?
                    failure-phase failure? invoke predicate publish wrap) metadata.)
         (only-in :clan/poo/number IntegerRange)
-        (prefix-in :clan/poo/examples/service-metadata service.)
-        (runtime: :clan/poo/examples/cyclic-access)
-        (prefix-in (only-in :clan/poo/examples/cyclic-access config equations) access.)
+        (prefix-in :clan/poo/benchmarks/workloads/service-metadata service.)
+        (runtime: :clan/poo/benchmarks/workloads/cyclic-access)
+        (prefix-in (only-in :clan/poo/benchmarks/workloads/cyclic-access config equations) access.)
         (runtime: :clan/poo/graph/cyclic-publication)
         (prefix-in (only-in :clan/poo/graph/cyclic-publication failure-cause failure-stage
                    failure? invoke version-cache version-contract-family
                    version-contract-invoker version-family version-service
                    version-source version-view version?) publication.)
-        (prefix-in :clan/poo/examples/service-bundle bundle.)
-        (prefix-in :clan/poo/examples/protected-dispatch protected.)
+        (prefix-in :clan/poo/benchmarks/workloads/service-bundle bundle.)
+        (prefix-in :clan/poo/benchmarks/workloads/protected-dispatch protected.)
         (runtime: :clan/poo/mop/contract-family)
         (prefix-in (only-in :clan/poo/mop/contract-family choose-preparation family-bound
                    family-built family-invoker family-prepared? family-ref prepare
                    refresh) contracts.)
-        (runtime: :clan/poo/examples/shared-contracts)
-        (prefix-in (only-in :clan/poo/examples/shared-contracts construct independent-source
+        (runtime: :clan/poo/benchmarks/workloads/shared-contracts)
+        (prefix-in (only-in :clan/poo/benchmarks/workloads/shared-contracts construct independent-source
                    model prepare-shared project-direct project-shared selected-model
                    selected-source shared-input source workflow-model) shared.)
         (runtime: :clan/poo/mop/generic-family)
@@ -43,7 +43,7 @@
                    schedule-order set-base) graph.)
         (runtime: :clan/poo/graph/computation)
         (prefix-in (only-in :clan/poo/graph/computation make-success need) code.)
-        (prefix-in :clan/poo/examples/construction-workflow workflow.))
+        (prefix-in :clan/poo/benchmarks/workloads/construction-workflow workflow.))
 ;; Matched unfactored control: the previous public constructor semantics.
 ;; This intentionally reconstructs invariant Types/Formula; it is not a runtime API.
 (def reference-units-type (IntegerRange min: 0))

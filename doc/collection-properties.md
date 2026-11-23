@@ -1,6 +1,6 @@
 # Complex model-driven collection properties
 
-Gerbil-POO’s `examples/collection-properties.ss` is a runnable `:std/test` example, not a
+Gerbil-POO’s `t/fixtures/collection-properties.ss` is a runnable `:std/test` example, not a
 second property-testing framework. Its `collection-properties-test` suite is
 re-exported by the checked `t/representations/collection-testing-test.ss` module, so normal local
 and CI checks run it alongside the reusable trace-protocol controls.

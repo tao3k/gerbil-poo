@@ -21,7 +21,7 @@ still win after the staging check; the existing submit/install checks then refus
 This is optimistic preparation, not a lock held across callbacks or an automatic
 retry loop. A new invocation explicitly recomputes from current source and metadata.
 
-`examples/joint-services.stage-current` uses this hook to derive a new shared POO
+`benchmarks/workloads/joint-services.stage-current` uses this hook to derive a new shared POO
 policy from the current native policy object and stage both endpoint phases. Other
 policy fields remain inherited. Installed/proposed metadata and contribution lists
 retain the existing immutable/extensional discipline. Hidden callback dependencies

@@ -13,7 +13,7 @@
   (only-in :clan/poo/type RecordSlot Bool Function Type Type. element? validate TypeError?)
   (only-in :clan/poo/types/optional-validation call-with-current-catalogs)
   (only-in :clan/poo/object/slot-observation call-with-slot-read-observer slot-read-receiver slot-read-key)
-  (prefix-in :clan/poo/examples/signature-service signature.)
+  (prefix-in :clan/poo/t/fixtures/signature-service signature.)
   :std/iter
   (only-in :std/values first-value)
   (prefix-in :clan/poo/mop/declarative-metadata metadata.)
@@ -23,14 +23,14 @@
   :clan/poo/object/declaration
   :clan/poo/mop/generalized-declaration
   (prefix-in :clan/poo/mop/generalized-prototype gp.)
-  (prefix-in :clan/poo/examples/generalized-declarations generalized-declaration.service.)
+  (prefix-in :clan/poo/benchmarks/workloads/generalized-declarations generalized-declaration.service.)
   :clan/poo/mop/meta-prototype
   :clan/poo/object/reflection
-  (prefix-in :clan/poo/examples/metaprotocol-services meta-prototype.service.)
+  (prefix-in :clan/poo/t/fixtures/metaprotocol-services meta-prototype.service.)
   :clan/poo/graph/closure
   :clan/poo/recursive/declaration
   (prefix-in :clan/poo/recursive/evaluation recursive.)
-  (prefix-in :clan/poo/examples/recursive-metaprotocol recursive-declaration.service.))
+  (prefix-in :clan/poo/t/fixtures/recursive-metaprotocol recursive-declaration.service.))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (catalog-inference-test)

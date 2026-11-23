@@ -128,7 +128,7 @@ after edits; a single slot checker cannot infer them.
 
 ## Complete functional controls
 
-`examples/inherited-services.ss` composes a shared declaration source, inherited
+`benchmarks/workloads/inherited-services.ss` composes a shared declaration source, inherited
 audit hooks, two service branches, a diamond join and a Reader/FUN revision action.
 Tests cover invalid writes, shared revision, hidden-metadata refusal/recovery,
 private non-demand, sealed-source refusal, protocol replacement and retry after a

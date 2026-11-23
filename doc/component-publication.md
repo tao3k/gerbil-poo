@@ -78,7 +78,7 @@ that traversal or wire Yuanxu `.refresh`; it adds no loader or approval cache.
 
 ## Practical examples and controls
 
-`examples/component-requests.ss` composes the existing multi-round service recipes,
+`benchmarks/workloads/component-requests.ss` composes the existing multi-round service recipes,
 lens family, whole-group builder and both current service policies. Its small
 higher-order staging adapter adds an optional admission continuation for controlled
 interleaving. Production constructors/approval predicates remain pure and locally

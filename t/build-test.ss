@@ -103,7 +103,9 @@
       (for-each (lambda (program)
         (check (member "-O2 -D___SINGLE_HOST_LIMIT=10000" program) ? pair?))
         startup)
-      (check (ormap (cut string-prefix? "examples/" <>) (map cadr core)) => #f))
+      (for-each (lambda (directory)
+        (check (ormap (cut string-prefix? directory <>) (map cadr core)) => #f))
+        '("examples/" "t/fixtures/" "benchmarks/workloads/")))
     (test-case "shared graph preserves included-source dependencies and package order"
       (let (complete (build-inputs (test-build-spec)))
         (check (and (member '(gxc: "collection-order/table-cursor-test"

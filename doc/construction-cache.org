@@ -158,7 +158,7 @@ and the [[https://github.com/tao3k/gerbil-poo/blob/f9d56443b3b56be6dfbac73441fe0
 
 * Shared settlement example
 
-~examples/construction-workflow.ss~ reuses ConstructionWorkflow's fifteen keys:
+~benchmarks/workloads/construction-workflow.ss~ reuses ConstructionWorkflow's fifteen keys:
 input feeds freight/cover/audit, tax/risk merge at settlement, invoice/audit merge
 at release, and the absence of blocked feeds total. It composes the existing C4
 ServiceBundle and its quote/reserve/cancel metadata and negative-watch rules.
@@ -316,7 +316,7 @@ for sources that do not implement the shared protocol. An empty/default source
 still has the original semantics. Current support and duplicates are checked for
 all keys before any shared preparation, descriptor construction or wrapper binding.
 
-~examples/shared-contracts.ss~ composes this mixin with existing reserve/cancel
+~benchmarks/workloads/shared-contracts.ss~ composes this mixin with existing reserve/cancel
 constructors, typed generic projections and staged publication. Price revisions
 retain both contracts and wrappers and skip both stable business probes. Capacity
 and invoice changes jointly rebuild affected descriptors; invoice-only changes
@@ -468,7 +468,7 @@ identity, projected-input equality, empty-seed validation and negative watches
 remain mandatory. The extra expansion callback retains registration provenance
 on failure. Identity-sensitive or mutating constructors must keep the default.
 
-~examples/shared-contracts~ exports ~expanded-generics / expanded-model /
+~benchmarks/workloads/shared-contracts~ exports ~expanded-generics / expanded-model /
 expanded-workflow-model~. They combine dynamic contract selection, shared generic
 expansion, cooked interfaces, warm siblings and joint approval. Native tests
 count real calls: three cold changed keys expand three times; invoice-only

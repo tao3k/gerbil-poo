@@ -87,7 +87,7 @@ macro system. Captured catalog membership changes require fresh elaboration.
 
 ## Complete workflow and proof boundary
 
-`examples/metaprotocol-services.ss` bootstraps a declaration expander that governs
+`t/fixtures/metaprotocol-services.ss` bootstraps a declaration expander that governs
 its OWN expansion metadata. An inherited `property` form emits a public field,
 public getter and private revision annotation; another form checks current
 approval. A shared source feeds billing/risk branches and a diamond join through

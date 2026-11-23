@@ -21,8 +21,8 @@
     (gxc: "benchmarks/recursive-benchmark" "-cc-options" "-O2")
     (gxc: "benchmarks/recursive-cases" "-cc-options" "-O2")
     (gxc: "benchmarks/recursive-suite" "-cc-options" "-O2")
-    (gxc: "examples/cyclic-access" "-cc-options" "-O2")
-    (gxc: "examples/recursive-catalog" "-cc-options" "-O2")
+    (gxc: "benchmarks/workloads/cyclic-access" "-cc-options" "-O2")
+    (gxc: "benchmarks/workloads/recursive-catalog" "-cc-options" "-O2")
     (exe: "benchmarks/recursive/recursive-benchmark-main" bin: "recursive-benchmark" "-cc-options" "-D___SINGLE_HOST_LIMIT=10000" "-ld-options" ,links)
     (exe: "benchmarks/recursive/recursive-suite-main" bin: "recursive-suite" "-cc-options" "-D___SINGLE_HOST_LIMIT=10000" "-ld-options" ,links)) parallelize: #f) main))
 ;; Close the standard executor on refusal; no project process registry is used.

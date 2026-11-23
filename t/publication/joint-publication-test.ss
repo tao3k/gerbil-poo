@@ -17,15 +17,15 @@
   (prefix-in :clan/poo/graph/component/publication publication.)
   (prefix-in :clan/poo/graph/component/revision revision.)
   (prefix-in :clan/poo/graph/computation code.)
-  (prefix-in :clan/poo/examples/component-requests approval-revision.service.)
+  (prefix-in :clan/poo/benchmarks/workloads/component-requests approval-revision.service.)
   (prefix-in :clan/poo/graph/component/joint joint.)
-  (prefix-in :clan/poo/examples/component-rounds rounds.)
-  (prefix-in :clan/poo/examples/joint-topology joint-admission.service.)
-  (prefix-in :clan/poo/examples/joint-topology joint-installation.service.)
+  (prefix-in :clan/poo/benchmarks/workloads/component-rounds rounds.)
+  (prefix-in :clan/poo/benchmarks/workloads/joint-topology joint-admission.service.)
+  (prefix-in :clan/poo/benchmarks/workloads/joint-topology joint-installation.service.)
   :clan/poo/mop/lens-laws
-  (prefix-in :clan/poo/examples/joint-services joint-publication.service.)
-  (prefix-in :clan/poo/examples/joint-topology joint-receipts.service.)
-  (prefix-in :clan/poo/examples/joint-receipts receipts.))
+  (prefix-in :clan/poo/benchmarks/workloads/joint-services joint-publication.service.)
+  (prefix-in :clan/poo/benchmarks/workloads/joint-topology joint-receipts.service.)
+  (prefix-in :clan/poo/benchmarks/workloads/joint-receipts receipts.))
 
 ;; Construct once with the original private helper scope and declaration order.
 (defvalues (approval-revision-test)

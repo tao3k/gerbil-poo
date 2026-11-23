@@ -242,7 +242,7 @@ recognizers always return false, remain opaque. Empty List/Map, Maybe's void and
 OrFalse's false remain inhabited; invariant Map keys and ordered Union trees
 retain their existing rules.
 
-`infer-plugin-service` in `examples/polymorphic-services.ss` composes the complete
+`infer-plugin-service` in `benchmarks/workloads/polymorphic-services.ss` composes the complete
 finite solver with existing specialization, typed declarations and the shared
 FUN/refine/bind-evidence publication action. Its regression fixture keeps a live
 Function-valued dependent plugin, removes only a provably absent optional layout
@@ -282,7 +282,7 @@ malformed; larger metadata is unsupported; insufficient work is exhausted. Each
 parser pass charges one visit per 64 metadata bits, at most 64 visits, separately
 from the shared syntax/search/compilation work. Catalog and wrapper quotas persist.
 
-`examples/numeric-services.ss` now includes rational sensor batches converted to
+`t/fixtures/numeric-services.ss` now includes rational sensor batches converted to
 residue tables, checked calibrators and checked batch callbacks. Conversion is
 explicit producer behavior using standard hash mapping and composition. A second
 real relay preserves exceptional flonums through the joint Rational/Float view.

@@ -11,8 +11,8 @@
         (only-in :clan/poo/object/slot-layout make-slot-cache slot-value-storage make-slot-values make-slot-layout slot-layout-index slot-layout-ref
           slot-values-layout slot-cache-bind! slot-cache-index)
         (only-in :clan/poo/object/reflection reflect-slots read-slot)
-        (prefix-in :clan/poo/examples/representation-service service.)
-        (only-in :clan/poo/examples/inherited-services precedence-cache-workflow))
+        (prefix-in :clan/poo/benchmarks/workloads/representation-service service.)
+        (only-in :clan/poo/benchmarks/workloads/inherited-services precedence-cache-workflow))
 
 ;; These controls compare current safe public snapshot composition with direct
 ;; ordered traversal/root sharing, including single-field and complete workflows.
@@ -43,8 +43,8 @@
       (if single? (list (cons 'target identity)) entries)) policy: 'compact)
     defaults: (prototype-map (if single? [] (list (cons 'enabled #f) (cons 'callback identity))) policy: 'compact)))
   (.put! override 'total -999)
-  (def enter (module-action "clan/poo/examples/representation-service"
-    'clan/poo/examples/representation-service#composition-workflow))
+  (def enter (module-action "clan/poo/benchmarks/workloads/representation-service"
+    'clan/poo/benchmarks/workloads/representation-service#composition-workflow))
   ;; An admitted map callback sees ordered values, never a mutable private pair.
   (def (walk direct?)
     (def seen '())
@@ -111,8 +111,8 @@
       (for/collect (n (in-range size))
         (cons (make-symbol "field-" n) (.new Slot type: Integer constant: n))) policy: 'compact)))
   (def warm (template))
-  (def enter (module-action "clan/poo/examples/representation-service"
-    'clan/poo/examples/representation-service#catalog-workflow))
+  (def enter (module-action "clan/poo/benchmarks/workloads/representation-service"
+    'clan/poo/benchmarks/workloads/representation-service#catalog-workflow))
   ;; Both fresh receivers use identical metadata, policy and normal lazy admission.
   (def (copy source direct?)
     (make-object slots: (object-%slots source) defaults: (object-%defaults source)
@@ -189,8 +189,8 @@
       (cons (make-symbol "field-" n) (.new Slot type: Integer constant: n)))))
   (def owner (and (memq scenario '(declaration-hot-single declaration-hot declaration-missing declaration-observed)) (fresh)))
   (when owner (read-slot owner name) (reference-read-slot owner name))
-  (def enter (module-action "clan/poo/examples/representation-service"
-    'clan/poo/examples/representation-service#catalog-workflow))
+  (def enter (module-action "clan/poo/benchmarks/workloads/representation-service"
+    'clan/poo/benchmarks/workloads/representation-service#catalog-workflow))
   ;; The full publication's inspector demands every typed declared field before
   ;; returning ordinary values to the existing shared FUN/refinement pipeline.
   (def (inspect read)
@@ -550,7 +550,7 @@
                 (unless (eq? (slot-layout-ref layout (slot-layout-index layout added)) absent-value)
                   (error "shape extension forced an uncomputed cell"))))
             (begin
-              (load-module "clan/poo/examples/representation-service")
+              (load-module "clan/poo/benchmarks/workloads/representation-service")
               (let* ((recipe (.o inherit: [service.Service (object<-alist entries)] tariff: 3))
                      (owners (for/collect (n (in-range 4)) (.o inherit: [recipe] capacity: n)))
                      (site (make-slot-cache 'total)) (delivered 0)

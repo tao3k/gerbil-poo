@@ -37,7 +37,7 @@ The base/seed and callbacks retain the usual immutable/pure/local-total premises
 
 ## Complex scenario
 
-`examples/service-revisions.ss` has twelve positions: primary/backup quota,
+`benchmarks/workloads/service-revisions.ss` has twelve positions: primary/backup quota,
 shared dependency, six service endpoints, unchanged monitor, joint settlement and
 an independent feedback loop. Initially SCCs include `(shared a b)` and `(c d)`;
 `e` and `f` are separate readers. One final batch splits the first group, moves

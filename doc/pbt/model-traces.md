@@ -37,7 +37,7 @@ Function wrappers without installing an additional wrapper chain in the kernel.
 Dependency repair uses the same model fold; shrinking and both replay forms use
 the ordinary property runner and fresh scoped fixtures.
 
-`examples/property-kernel.ss` combines shared producers, normalized contracted
+`t/fixtures/property-kernel.ss` combines shared producers, normalized contracted
 callbacks, dependency repair, a faulty consumer, shrinking and both replays.
 Separate late-domain/normalization-failure controls require zero fixture opens.
 The POO Record regression rejects an invalid callback argument before its body
