@@ -54,7 +54,9 @@
     "recursive/cache"
     "recursive/handling"
     "fun"
-    ,(apply production-module "io" [] "" (include-gambit-sharp))
+    ,(apply production-module "io"
+      ["io/bytes.ss" "io/representation.ss" "io/serialization.ss" "io/gambit-writer.ss"]
+      "" (include-gambit-sharp))
     "types/validation-rebinding"
     "types/value-diagnostics"
     "types/class-validation"
