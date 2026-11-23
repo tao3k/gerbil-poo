@@ -4,7 +4,7 @@ Build Gerbil-POO once from the repository root, then run the case directories.
 
 ```sh
 gerbil build
-gerbil test examples/...
+gerbil test examples/t/...
 ```
 
 | Case | Application problem | POO features |
@@ -14,7 +14,8 @@ gerbil test examples/...
 | [Inspector pane](pane/README.md) | Extend a live pane and handle typed events after switching its role | Class and Slot, C4, method bundles, multiple dispatch, instance migration |
 | [Progressive release](release-control/README.md) | Promote only the reviewed and analyzed artifact and roll back to the stable build | Finite cyclic closure, publication, prototype methods, Appendix B combination |
 
-Each directory contains its source, explanation, and runnable `*-test.ss`.
+Each case directory contains its source and explanation. The matching
+[`t/<case>/`](t) directory contains the runnable `*-test.ss`.
 For deeper coverage see the [API index](../doc/README.md) and
 [property testing guide](../doc/property-kernel.md).
 Regression fixtures live in [`t/`](../t) and performance workloads in

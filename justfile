@@ -63,7 +63,7 @@ test: build-core
     just _test-parallel
     just test-examples
 
-test-examples +files='examples/...':
+test-examples +files='examples/t/...':
     just _test "$@"
 
 test-single-process: build-core

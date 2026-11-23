@@ -5,7 +5,7 @@ the tests. The representation job prepares the linked programs for the runtime
 checks and benchmark studies.
 
 Each test group runs its sources through `gerbil test`. The shared build
-job also checks the build declarations and runs `gerbil test examples/...` through `just test-examples`. The
+job also checks the build declarations and runs `gerbil test examples/t/...` through `just test-examples`. The
 representation and benchmark jobs retain their separate workloads and
 resource limits. The test matrix runs on cache hits as well.
 The SCC benchmark compiles its timed test modules with their declared

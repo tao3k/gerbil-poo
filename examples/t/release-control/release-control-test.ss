@@ -2,7 +2,7 @@
 (import (only-in :std/test test-suite test-case check check-equal?)
         (only-in :clan/poo/object .o .get .mix)
         (only-in :clan/poo/graph/cyclic-publication version-view probe failure-stage)
-        "./policy.ss")
+        "../../release-control/policy.ss")
 
 (def candidate
   (.o artifact: 'build-42 requested-by: 'release-bot

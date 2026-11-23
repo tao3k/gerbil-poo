@@ -1,7 +1,7 @@
 (export service-configuration-test)
 (import (only-in :clan/poo/object .o .get)
         (only-in :std/test test-suite test-case check-equal?)
-        "./service-configuration.ss")
+        "../../service-configuration/service-configuration.ss")
 
 (def service-configuration-test
   (test-suite "Service configuration"

@@ -6,10 +6,10 @@ Appendix B method fragments publish a production command for the accepted
 snapshot.
 
 ```sh
-gerbil test examples/release-control
+gerbil test examples/t/release-control
 ```
 
-The [runnable case](release-control-test.ss) follows build 42 from review to
+The [runnable case](../t/release-control/release-control-test.ss) follows build 42 from review to
 rollback.
 
 - A release bot cannot approve its own build. An independent approval leaves

@@ -3,7 +3,7 @@
         (only-in :clan/poo/object .o .get .call seal-object!)
         (only-in :std/error Error? Error-message)
         (only-in :clan/poo/graph/computation success-value error?)
-        "./triage.ss")
+        "../../support-agent/triage.ss")
 
 (def (ticket id sensitive-request?)
   (.o question: "How do I update my delivery address?"

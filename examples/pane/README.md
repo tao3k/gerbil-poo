@@ -6,10 +6,10 @@ that accepts `theme:`. An app can install the method bundle and open a request
 trace in the existing pane.
 
 ```sh
-gerbil test examples/pane
+gerbil test examples/t/pane
 ```
 
-The [runnable case](pane-test.ss) creates a dark pane at width 120 and
+The [runnable case](../t/pane/pane-test.ss) creates a dark pane at width 120 and
 reconfigures it to light. It migrates the same object to InspectorPane,
 keeps the theme and width, and reads the multiple-inheritance order.
 Terminal rendering combines class and target specializers with

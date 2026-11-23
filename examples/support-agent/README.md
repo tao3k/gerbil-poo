@@ -6,10 +6,10 @@ objects. A persistent Table stores approved article snapshots by ID and a FUN
 Reader supplies the provider. Human review and delivery are separate steps.
 
 ```sh
-gerbil test examples/support-agent
+gerbil test examples/t/support-agent
 ```
 
-The [runnable cases](support-agent-test.ss) exercise these decisions.
+The [runnable cases](../t/support-agent/support-agent-test.ss) exercise these decisions.
 
 - A draft scored 91 passes the default threshold of 85. Raising the threshold
   to 95 sends it to a human and invalidates the old draft for delivery. Restoring

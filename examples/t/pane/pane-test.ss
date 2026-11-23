@@ -5,7 +5,7 @@
                  clos-class-of clos-class-precedence-list clos-shared-initialize-generic)
         (only-in :std/test test-suite test-case check check-equal? check-exception)
         (only-in :clan/poo/type TypeError?)
-        "./pane.ss" "./theme.ss")
+        "../../pane/pane.ss" "../../pane/theme.ss")
 
 (def pane-test
   (test-suite "Extend and migrate a pane across modules"
