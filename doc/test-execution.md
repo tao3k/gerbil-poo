@@ -8,3 +8,10 @@ Both delegate discovery and execution to `gerbil test` with the existing
 
 The representation benchmark package declares the artifacts used to test
 compiled module loading. Gerbil owns compilation, runtime loading and cleanup.
+
+## Property checks
+
+Run `just test-group property` for generated checks of prototype overlays,
+CLOS reconfiguration and typed packet encoding, plus the property workflow
+and replay regressions. CI runs this package through the standard Gerbil runner.
+Failures report the seed and shrunk inputs through the existing property helper.

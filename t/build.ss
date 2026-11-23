@@ -117,7 +117,8 @@
     (gxc: "object-test" (extra-inputs: ("object/lifecycle.ss" "object/mop.ss" "object/cases.ss" "object/parameters.ss" "object/slot-observation.ss" "object/support.ss"))))
     ("property"
     "generated-traces-test"
-    "property-workflows-test")
+    "property-workflows-test"
+    "public-api-test")
 
     ("publication"
     (gxc: "joint-publication-test" (extra-inputs: ("joint-publication/approval-revision.ss" "joint-publication/joint-admission.ss" "joint-publication/joint-installation.ss" "joint-publication/cases.ss" "joint-publication/joint-receipts.ss"))))
