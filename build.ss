@@ -147,7 +147,7 @@
        "table/protocol.ss" "table/focus.ss" "table/mapping.ss" "table/styles.ss" "table/sets.ss" "table/indexes.ss" "table/order.ss"]
       +gerbil-poo-cc-options+)
     ,(production-module "trie" ["trie/changes.ss"])
-    "type"
+    ,(production-module "type" ["types/sum.ss"])
     "testing/generation-graph"
     "testing/recursive-generation"
     "testing/property/generator"
