@@ -28,8 +28,8 @@
    (darwin
     ;; Gambit loads this AOT module as a Mach-O bundle. Math symbols such as
     ;; pow are resolved from the host runtime when the bundle is loaded.
-    (production-module "fq" [] "" "-ld-options" "-Wl,-undefined,dynamic_lookup"))
-   (else "fq")))
+    (production-module "number/finite-field" [] "" "-ld-options" "-Wl,-undefined,dynamic_lookup"))
+   (else "number/finite-field")))
 
 (def +gerbil-poo-build-spec+
   `("brace"
@@ -135,7 +135,7 @@
     "graph/feedback"
     "object/reflection"
     ,(production-module "object" ["object/representation.ss" "object/construction.ss" "object/slot-values.ss" "object/observation.ss" "object/slot-access.ss" "object/operations.ss" "object/syntax.ss" "object/mutation.ss"])
-    "polynomial"
+    "number/polynomial"
     "proto"
     "table/rationaldict"
     ;; std/make tracks the standard include as an explicit compiler input.

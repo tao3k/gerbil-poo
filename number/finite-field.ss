@@ -14,8 +14,8 @@
   :std/error
   :std/iter
   :std/number/misc
-  (only-in ./support/base undefined)
-  ./object ./mop/prototype ./brace ./number ./type)
+  (only-in ../support/base undefined)
+  ../object ../mop/prototype ../brace ../number ../type)
 
 
 ;; TODO: refactor into two things, one for generic Galois extension, another specialized for GL(q).

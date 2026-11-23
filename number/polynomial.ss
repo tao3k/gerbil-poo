@@ -9,7 +9,7 @@
   (only-in :std/vector/vector subvector-reverse-for-each/index)
   :std/values
   :std/debug/DBG
-  ./object ./mop/prototype ./brace ./number ./type)
+  ../object ../mop/prototype ../brace ../number ../type)
 
 (defrule (let0 (x init) body ...) (let ((x init)) body ... x))
 

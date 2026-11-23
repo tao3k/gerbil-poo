@@ -1,5 +1,5 @@
 (def polynomial-test
-  (test-suite "test suite for clan/poo/polynomial"
+  (test-suite "test suite for clan/poo/number/polynomial"
     ;; Keep suite-private expansion helpers out of the published interface.
     (defrule (fqcheck (F <-n n<- + * inv expt) checks ...)
       (let ()
