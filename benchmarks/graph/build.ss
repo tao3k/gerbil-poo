@@ -1,4 +1,4 @@
-#!/usr/bin/env -S gxi -:max-heap=1G,debug=q
+#!/usr/bin/env -S gxi -:max-heap=2G,debug=q
 (import :std/build-script
         (rename-in (only-in "../../build.ss" project-build-source)
           (project-build-source this-source-file))
