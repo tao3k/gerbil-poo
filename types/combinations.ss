@@ -79,10 +79,10 @@
 ;; TODO: have a better generic sexp function?
 (def (Exactly value) {(:: @ Exactly.) (value) sexp: `(Exactly ,(:sexp value))})
 
-(define-type Null (Exactly '()))
-(define-type False (Exactly #f))
-(define-type True (Exactly #t))
-(define-type Unit (Exactly (void)))
+(define-type (Null @ (Exactly '())) .gerbil-type: null::t)
+(define-type (False @ (Exactly #f)) .gerbil-type: boolean::t)
+(define-type (True @ (Exactly #t)) .gerbil-type: boolean::t)
+(define-type (Unit @ (Exactly (void))) .gerbil-type: void::t)
 
 (def (first-index-hash<-vector values)
   (def indices (make-hash-table size: (vector-length values)))

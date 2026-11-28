@@ -1,5 +1,5 @@
 (defstruct $slot-spec () transparent: #t) ;; = (SlotSpec A k)
-(defstruct ($constant-slot-spec $slot-spec) (value) transparent: #t) ;; constant value
+(defstruct ($constant-slot-spec $slot-spec) (value) transparent: #t final: #t) ;; constant value
 (extern namespace: clan/poo/object/slot-observation %make-owned-list %owned-list-value %borrow-owned-list
         %slot-store-snapshot)
 (def (%owned-list-slot-spec values (copy list-copy))
@@ -12,13 +12,14 @@
              (list? value))
       (%make-owned-list value (owned-list-copy ($constant-slot-spec-value spec)))
       value)))
-(defstruct ($thunk-slot-spec $slot-spec) (thunk) transparent: #t) ;; thunk
-(defstruct ($self-slot-spec $slot-spec) (fun) transparent: #t) ;; fun to be passed self as argument, not super
+(defstruct ($thunk-slot-spec $slot-spec) (thunk) transparent: #t final: #t) ;; thunk
+(defstruct ($self-slot-spec $slot-spec) (fun) transparent: #t final: #t) ;; fun to be passed self as argument, not super
+;; Intentionally non-final: downstream Yuanxu extends $computed-slot-spec for source-located slots.
 (defstruct ($computed-slot-spec $slot-spec) (fun) transparent: #t) ;; fun to be passed self and superfun as arguments
 
 ;; These existing constructors explicitly ignore the prior effective thunk.
 ;; Never infer this property from a Function body or a successful cached value.
-(def (slot-spec-discards-super? spec)
+(def (slot-spec-discards-super? spec) => :boolean
   (or ($constant-slot-spec? spec) ($thunk-slot-spec? spec) ($self-slot-spec? spec)))
 ;; Lists are most-specific first. Standard reverse/foldl builds only the suffix
 ;; retained after the last super-independent contribution, without recursive

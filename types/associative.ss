@@ -1,4 +1,5 @@
 (define-type (Map. @ [methods.string&bytes&marshal<-json Type.] Key Value)
+  .gerbil-type: HashTable::interface
   .validate: (lambda (value) (validate-map @ Key Value value))
   .diagnose: (lambda (value location) (map-shape @ Key Value value location diagnose-value))
   .diagnose-shape: (lambda (value location (check-field diagnose-structure))
@@ -19,6 +20,7 @@
 
 ;; Normalize declared Record options into the existing effective Slot metadata.
 (def (RecordSlot type . options)
+  (validate Type type)
   (object<-alist
    (acons 'type type
           (map (match <> ([k . v] (cons (make-symbol k) v))) (plist->alist options)))))
@@ -27,8 +29,14 @@
 ;; Initialization-time defaults/compute/optional policy remains owned by Slot.
 (def (Record . args)
   (def supers (if (or (null? args) (keyword? (car args))) [] (pop! args)))
+  (def field-specs (plist->alist args))
+  (def normalized
+    (map (match <> ([kw type . options]
+                    (cons (make-symbol kw) (apply RecordSlot type options))))
+         field-specs))
   {(:: @ (cons supers Class.))
-   slots: =>.+ (object<-alist
-                (map (match <> ([kw type . options]
-                                (cons (make-symbol kw) (apply RecordSlot type options))))
-                     (plist->alist args)))})
+   sexp: `(Record ,@(append-map
+                      (match <> ([kw type . options]
+                                 (list kw (cons (.@ type sexp) options))))
+                      field-specs))
+   slots: =>.+ (object<-alist normalized)})

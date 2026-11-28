@@ -1,5 +1,7 @@
 ;;; Persistent ordered prototype specifications: compact vectors and standard trees.
-(export prototype-map? prototype-map prototype-map-policy prototype-map-list prototype-map-keys
+(export (rename-out specifications (specifications %specifications))
+        specifications::t
+        prototype-map? prototype-map prototype-map-policy prototype-map-list prototype-map-keys
         prototype-map-merge-first prototype-map-filter prototype-map-length prototype-map-ref prototype-map-for-each prototype-map-fold-key prototype-map-put prototype-map-remove)
 (import :std/struct/rbtree :std/iter
         (only-in :gerbil/runtime/mop &class-type-constructor &class-type-methods
@@ -13,16 +15,18 @@
 
 ;; Entries retain contribution order, including repeated methods for one slot.
 ;; Names point to the first contribution, matching the public replacement protocol.
-(defstruct specifications (entries names count next compact?))
+(defstruct specifications (entries names count next compact?) final: #t)
 ;; Count contributions, not distinct names: repeated methods still occupy cells.
 ;; This bounds each compact scan/copy; larger maps retain the standard tree path.
 (def small-map-limit 8)
 ;; Search by symbol identity and stop at the FIRST contribution, including index 0.
 ;; The private vector and entry pairs are never exposed to snapshot consumers.
 (def (small-index entries name)
-  (let loop ((index 0))
-    (and (< index (vector-length entries))
-      (if (eq? name (car (vector-ref entries index))) index (loop (1+ index))))))
+  (using ((entries :- :vector) (name :- :symbol))
+    (let ((len (vector-length entries)))
+      (let loop ((index 0))
+        (and (fx< index len)
+          (if (eq? name (car (vector-ref entries index))) index (loop (fx+ index 1))))))))
 ;; Empty snapshots are immutable roots, not cached mutable builders. Sharing them
 ;; avoids allocating two empty trees for each undeclared receiver; persistent put
 ;; still creates a successor. Deleted tree roots retain their own ordinal history.
@@ -35,21 +39,21 @@
 (defalias prototype-map? specifications?)
 ;; Capture one private entry pair while retaining the original value/SlotSpec.
 ;; The existing symbolic-specification refusal remains the constructor policy.
-(def (capture-entry entry)
+(def (capture-entry entry) => :pair
   (unless (and (pair? entry) (symbol? (car entry))) (error "symbolic specification required"))
   (cons (car entry) (cdr entry)))
-(def (capture-compact-map entries)
+(def (capture-compact-map (entries :- :list)) => specifications
   (let* ((count (length entries))
          (rows (make-vector count #f)))
     (let fill ((rest entries) (index 0))
       (unless (null? rest)
         (vector-set! rows index (capture-entry (car rest)))
-        (fill (cdr rest) (1+ index))))
+        (fill (cdr rest) (fx+ index 1))))
     (make-specifications rows #f count count #t)))
 ;; Observe the selected policy, independent of the current physical backend.
 ;; A promoted compact snapshot retains its policy for subsequent removal/demotion.
-(def (prototype-map-policy source)
-  (if (specifications-compact? source) 'compact 'tree))
+(def (prototype-map-policy (source : specifications)) => :symbol
+  (if source.compact? 'compact 'tree))
 ;; Select storage explicitly with the core contract binder. New lists default to
 ;; trees; an existing snapshot retains its policy unless conversion is requested.
 ;; Backend changes capture fresh pairs; policy-only tree views share immutable
@@ -163,18 +167,18 @@
 ;; Detect repeated names using existing private positions, without building a
 ;; second set. Tree positions are a scalar for a unique name and a pair otherwise.
 ;; Small vectors remain bounded by eight; standard folds inspect existing positions.
-(def (distinct-specifications? source)
-  (def entries (specifications-entries source))
+(def (distinct-specifications? (source :- specifications)) => :boolean
+  (def entries source.entries)
   (if (vector? entries)
     (for/fold (unique? #t) (index (in-range (vector-length entries)))
       (and unique? (= index (small-index entries (car (vector-ref entries index))))))
     (rbtree-fold (lambda (_name positions unique?) (and unique? (not (pair? positions))))
-      #t (specifications-names source))))
+      #t source.names)))
 ;; Standard backend right folds visit private entries without iterator setup or
 ;; snapshot export. Only private consumers see pairs; public callbacks still get
 ;; names/payloads. Reverse visitation preserves ordinary ordered result spines.
-(def (fold-specifications-right source consume initial)
-  (def storage (specifications-entries source))
+(def (fold-specifications-right (source :- specifications) consume initial)
+  (def storage source.entries)
   (if (vector? storage)
     (vector-fold-right/index (lambda (_index rest entry) (consume entry rest)) initial storage)
     (rbtree-foldr (lambda (_ordinal entry rest) (consume entry rest)) initial storage)))
@@ -184,46 +188,43 @@
 ;; snapshots and append copies are unnecessary. Standard ordered deduplication
 ;; and final pair capture retain first-name priority and result ownership.
 ;; This projection is for keyed catalogs, not method-chain composition.
-(def (prototype-map-merge-first sources policy: (policy #f))
-  (using (sources :~ list?)
-    (def roots (filter (lambda (source) (positive? (prototype-map-length source))) sources))
-    (cond ((null? roots) (prototype-map [] policy: policy))
-          ((and (null? (cdr roots)) (distinct-specifications? (car roots)))
-            (prototype-map (car roots) policy: policy))
-          (else (prototype-map
-            (delete-duplicates/hash
-              (foldr (lambda (root rest) (fold-specifications-right root cons rest)) [] roots)
-              key: car table: (make-hash-table-eq) from-end?: #t) policy: policy)))))
+(def (prototype-map-merge-first (sources :~ list?) policy: (policy #f)) => specifications
+  (def roots (filter (lambda (source) (positive? (prototype-map-length source))) sources))
+  (cond ((null? roots) (prototype-map [] policy: policy))
+        ((and (null? (cdr roots)) (distinct-specifications? (car roots)))
+          (prototype-map (car roots) policy: policy))
+        (else (prototype-map
+          (delete-duplicates/hash
+            (foldr (lambda (root rest) (fold-specifications-right root cons rest)) [] roots)
+            key: car table: (make-hash-table-eq) from-end?: #t) policy: policy))))
 ;; Filter in RIGHT-TO-LEFT callback order, retaining contribution order and values.
 ;; All-pass returns the exact source: no replacement vector/tree or policy change.
 ;; A partial result keeps the existing policy; original callback exceptions stop
 ;; immediately and publish no result. Prior callback effects are not rolled back.
-(def (prototype-map-filter source keep?)
-  (using (keep? :~ procedure?)
-    (def retained 0)
-    ;; Fold private storage directly: the predicate receives only name/payload,
-    ;; and partial reconstruction captures pairs before any result can escape.
-    (def (keep-entry entry rest)
-      (if (keep? (car entry) (cdr entry))
-        (begin (set! retained (1+ retained)) (cons entry rest)) rest))
-    (def entries (fold-specifications-right source keep-entry []))
-    (if (= retained (specifications-count source)) source
-      (prototype-map entries policy: (prototype-map-policy source)))))
+(def (prototype-map-filter (source : specifications) (keep? :~ procedure?)) => specifications
+  (def retained 0)
+  ;; Fold private storage directly: the predicate receives only name/payload,
+  ;; and partial reconstruction captures pairs before any result can escape.
+  (def (keep-entry entry rest)
+    (if (keep? (car entry) (cdr entry))
+      (begin (set! retained (fx+ retained 1)) (cons entry rest)) rest))
+  (def entries (fold-specifications-right source keep-entry []))
+  (if (= retained source.count) source
+    (prototype-map entries policy: (prototype-map-policy source))))
 ;; Delegate ordered traversal to the existing compact vector or standard RBTree.
 ;; This private iterator never crosses the snapshot boundary.
-(def (in-specifications source)
-  (let (entries (specifications-entries source))
+(def (in-specifications (source :- specifications))
+  (let (entries source.entries)
     (if (vector? entries) (in-vector entries) (in-rbtree-values entries))))
 ;; Deliver only symbols and shared payloads, never private entry pairs/handles.
 ;; Standard iteration preserves order and stops at the original callback refusal.
-(def (prototype-map-for-each source consume)
-  (using (consume :~ procedure?)
-    (for (entry (in-specifications source)) (consume (car entry) (cdr entry)))))
+(def (prototype-map-for-each (source : specifications) (consume :~ procedure?))
+  (for (entry (in-specifications source)) (consume (car entry) (cdr entry))))
 ;; Names need an owned spine, without exporting/copying every unused entry pair.
-(def (prototype-map-keys source)
+(def (prototype-map-keys (source : specifications)) => :list
   (for/collect (entry (in-specifications source)) (car entry)))
 ;; Return fresh list/entry pairs so caller edits cannot corrupt retained snapshots.
-(def (prototype-map-list source)
+(def (prototype-map-list (source : specifications)) => :list
   (for/collect (entry (in-specifications source))
     (cons (car entry) (cdr entry))))
 ;; Resolve the FIRST contribution through the existing ordinal/name index. False
@@ -235,54 +236,55 @@
   (if (vector? entries)
     (let (index (small-index entries name))
       (if index (cdr (vector-ref entries index)) default))
-    (let (positions (rbtree-ref (specifications-names source) name #f))
-      (if positions
-        (cdr (rbtree-ref entries (if (pair? positions) (car positions) positions))) default))))
+    (using (source :- specifications)
+      (let (positions (rbtree-ref source.names name #f))
+        (if positions
+          (cdr (rbtree-ref entries (if (pair? positions) (car positions) positions))) default)))))
 ;; Fold ALL contributions for one name in chronological order. The private
 ;; name/ordinal index is authoritative; no side index, payload snapshot or
 ;; receiver binding is constructed. Large maps query only matching ordinals.
 ;; The duplicate spine retains the first ordinal then later ones newest-first.
 ;; Reverse that tail before any consumer call; never collapse it to first/last.
 ;; Payloads stay opaque and are delivered at their original callback positions.
-(def (prototype-map-fold-key source name consume initial)
-  (using ((name :~ symbol?) (consume :~ procedure?))
-    (def entries (specifications-entries source))
-    (if (vector? entries)
-      (for/fold (result initial) (entry (in-vector entries))
-        (if (eq? (car entry) name) (consume (cdr entry) result) result))
-      (let (positions (rbtree-ref (specifications-names source) name #f))
-        (cond
-          ((not positions) initial)
-          ((not (pair? positions)) (consume (cdr (rbtree-ref entries positions)) initial))
-          (else
-            (let (later (reverse (cdr positions)))
-              (for/fold (result (consume (cdr (rbtree-ref entries (car positions))) initial))
-                        (at later)
-                (consume (cdr (rbtree-ref entries at)) result)))))))))
+(def (prototype-map-fold-key (source : specifications) (name :~ symbol?) (consume :~ procedure?) initial)
+  (def entries source.entries)
+  (if (vector? entries)
+    (for/fold (result initial) (entry (in-vector entries))
+      (if (eq? (car entry) name) (consume (cdr entry) result) result))
+    (let (positions (rbtree-ref source.names name #f))
+      (cond
+        ((not positions) initial)
+        ((not (pair? positions)) (consume (cdr (rbtree-ref entries positions)) initial))
+        (else
+          (let (later (reverse (cdr positions)))
+            (for/fold (result (consume (cdr (rbtree-ref entries (car positions))) initial))
+                      (at later)
+              (consume (cdr (rbtree-ref entries at)) result))))))))
 ;; Copy a bounded compact vector or standard balanced-tree paths. Promotion keeps
 ;; every contribution in order; all later same-name methods retain their identity.
 (def (prototype-map-put source name value)
   (unless (symbol? name) (error "symbolic specification required"))
   (def entries (specifications-entries source))
-  (if (vector? entries)
-    (let (index (small-index entries name))
-      (if index
-        (let (next (vector-copy entries))
-          (vector-set! next index (cons name value))
-          (make-specifications next #f (specifications-count source) (specifications-count source) #t))
-        (let (next (vector-append entries (vector (cons name value))))
-          (if (<= (vector-length next) small-map-limit)
-            (make-specifications next #f (vector-length next) (vector-length next) #t)
-            (tree-map (vector->list next) #t)))))
-    (let* ((positions (rbtree-ref (specifications-names source) name #f))
-           (index (and positions (if (pair? positions) (car positions) positions)))
-           (next (specifications-next source)))
-      (make-specifications
-        (rbtree-put entries (or index next) (cons name value))
-        (if index (specifications-names source)
-          (rbtree-put (specifications-names source) name next))
-        (+ (specifications-count source) (if index 0 1))
-        (+ next (if index 0 1)) (specifications-compact? source)))))
+  (using (source :- specifications)
+    (if (vector? entries)
+      (let (index (small-index entries name))
+        (if index
+          (let (next (vector-copy entries))
+            (vector-set! next index (cons name value))
+            (make-specifications next #f source.count source.count #t))
+          (let (next (vector-append entries (vector (cons name value))))
+            (if (<= (vector-length next) small-map-limit)
+              (make-specifications next #f (vector-length next) (vector-length next) #t)
+              (tree-map (vector->list next) #t)))))
+      (let* ((positions (rbtree-ref source.names name #f))
+             (index (and positions (if (pair? positions) (car positions) positions)))
+             (next source.next))
+        (make-specifications
+          (rbtree-put entries (or index next) (cons name value))
+          (if index source.names
+            (rbtree-put source.names name next))
+          (+ source.count (if index 0 1))
+          (+ next (if index 0 1)) source.compact?)))))
 ;; Remove every direct contribution for a name; inherited contributions are untouched.
 ;; Compact filtering reuses std/vector. Tree deletion delegates only the indexed
 ;; ordinals to persistent RBTree removal; surviving ordinals are never renumbered.
@@ -290,21 +292,20 @@
 ;; Explicit compact policy still demotes at eight live contributions; missing
 ;; names preserve the exact snapshot. Non-symbol keys refuse before traversal.
 ;; Payloads are not deeply copied.
-(def (prototype-map-remove source name)
-  (using (name :~ symbol?)
-    (def entries (specifications-entries source))
-    (if (vector? entries)
-      (if (small-index entries name)
-        (let (next (vector-filter (lambda (entry) (not (eq? (car entry) name))) entries))
-            (make-specifications next #f (vector-length next) (vector-length next) #t)) source)
-      (let (indexed (rbtree-ref (specifications-names source) name #f))
-        (if indexed
-          (let* ((positions (if (pair? indexed) indexed (list indexed)))
-                 (ordered (for/fold (tree entries) (index positions) (rbtree-remove tree index)))
-                 (count (- (specifications-count source) (length positions)))
-                 (next (make-specifications ordered
-                         (rbtree-remove (specifications-names source) name)
-                         count (specifications-next source) (specifications-compact? source))))
-            (if (and (specifications-compact? source) (<= count small-map-limit))
-              (prototype-map (prototype-map-list next) policy: 'compact) next))
-          source)))))
+(def (prototype-map-remove (source : specifications) (name :~ symbol?)) => specifications
+  (def entries source.entries)
+  (if (vector? entries)
+    (if (small-index entries name)
+      (let (next (vector-filter (lambda (entry) (not (eq? (car entry) name))) entries))
+          (make-specifications next #f (vector-length next) (vector-length next) #t)) source)
+    (let (indexed (rbtree-ref source.names name #f))
+      (if indexed
+        (let* ((positions (if (pair? indexed) indexed (list indexed)))
+               (ordered (for/fold (tree entries) (index positions) (rbtree-remove tree index)))
+               (count (- source.count (length positions)))
+               (next (make-specifications ordered
+                       (rbtree-remove source.names name)
+                       count source.next source.compact?)))
+          (if (and source.compact? (<= count small-map-limit))
+            (prototype-map (prototype-map-list next) policy: 'compact) next))
+        source))))

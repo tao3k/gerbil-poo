@@ -25,7 +25,7 @@
 ;; Receiver-local metadata uses the existing persistent map and invalidation
 ;; boundary. No process registry or additional namespace is introduced. Private
 ;; maps never escape; descriptor contents remain registered mutable sources.
-(defstruct declaration-index (all visible))
+(defstruct declaration-index (all visible) final: #t)
 ;; Metadata callbacks/observers can invalidate an owner. Refuse the old query
 ;; before publishing a visibility map or returning a stale reflected result.
 (def (require-declaration-revision self revision)
@@ -35,39 +35,43 @@
 ;; symbol, exactly as standard delete-duplicates/hash from-end does. An observed
 ;; lookup also authenticates owner membership through the existing names query;
 ;; descriptor-only reads cannot account for topology/membership changes alone.
-(def (effective-declarations self)
+(def (effective-declarations self) => declaration-index
   (def revision (object-revision self))
   (instantiate-object! self)
   (when (%slot-read-active?) (.all-slots self))
   (require-declaration-revision self revision)
-  (or (object-%declaration-index self)
-    (let (index (make-declaration-index
-      (prototype-map-merge-first (map object-%declarations (object-%precedence-list self))
-        policy: 'compact) #f))
-      (require-declaration-revision self revision)
-      (set! (object-%declaration-index self) index)
-      index)))
+  (using (self :- object)
+    (let (idx (or self.%declaration-index
+                (let (index (make-declaration-index
+                  (prototype-map-merge-first (map object-%declarations self.%precedence-list)
+                    policy: 'compact) #f))
+                  (require-declaration-revision self revision)
+                  (set! self.%declaration-index index)
+                  index)))
+      (using (idx :- declaration-index) idx))))
 ;; Preserve the original foldr visibility-read order and exact first exception.
 ;; The list and its entry pairs belong only to this query. Never publish a partial
 ;; public index after a getter refusal or a supported edit during observation.
 (def (visible-declarations self index)
-  (def revision (object-revision self))
-  (def entries (foldr (lambda (entry rest)
-    (if (.@ (cdr entry) hidden) rest (cons entry rest))) []
-    (prototype-map-list (declaration-index-all index))))
-  (require-declaration-revision self revision)
-  entries)
+  (using (index :- declaration-index)
+    (def revision (object-revision self))
+    (def entries (foldr (lambda (entry rest)
+      (if (.@ (cdr entry) hidden) rest (cons entry rest))) []
+      (prototype-map-list index.all)))
+    (require-declaration-revision self revision)
+    entries))
 ;; Only unobserved requests reuse visibility. Observed calls still deliver every
 ;; actual hidden-field read in its original order; successful admission itself is
 ;; never cached. Empty visible maps are successful values, distinct from #f.
 (def (public-declarations self index)
-  (or (declaration-index-visible index)
-    (let* ((revision (object-revision self))
-           (visible (prototype-map-filter (declaration-index-all index)
-             (lambda (_name descriptor) (not (.@ descriptor hidden))))))
-      (require-declaration-revision self revision)
-      (set! (declaration-index-visible index) visible)
-      visible)))
+  (using (index :- declaration-index)
+    (or index.visible
+      (let* ((revision (object-revision self))
+             (visible (prototype-map-filter index.all
+               (lambda (_name descriptor) (not (.@ descriptor hidden))))))
+        (require-declaration-revision self revision)
+        (set! index.visible visible)
+        visible))))
 ;; Reflect metadata without demanding slot VALUES. Hidden-inclusive inspection
 ;; does not read visibility flags. Every public result owns its list/entry pairs.
 (def (reflect-slots self include-hidden?: (include-hidden? #f))

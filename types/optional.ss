@@ -13,6 +13,8 @@
 (def (Maybe type) {(:: @ Maybe.) (type) sexp: `(Maybe ,(.@ type sexp))})
 
 (define-type (OrFalse. @ [methods.bytes<-marshal Type.] type)
+  .gerbil-type: (let (gt (and (.slot? type '.gerbil-type) (.@ type .gerbil-type)))
+                  (and gt (list 'nullable gt)))
   .validate: (lambda (value) (validate-optional @ not (lambda () type) value))
   .diagnose: (lambda (value location) (optional-shape not (lambda () type) value location diagnose-value))
   .diagnose-shape: (lambda (value location (check-field diagnose-structure))
@@ -25,3 +27,10 @@
                               (else (write-u8 0 port))))
   .unmarshal: (λ (port) (and (not (zero? (read-u8 port))) (unmarshal type port))))
 (def (OrFalse type) {(:: @ OrFalse.) (type) sexp: `(OrFalse ,(.@ type sexp))})
+
+;; Gerbil v0.19 first-class `#f`-nullable Type aligned with `:?` / `(Maybe T)` in `:gerbil/core`.
+;; Retains POO's existing `Maybe` (`#!void | T`) and `OrFalse` 100% unchanged.
+(define-type (Nullable. @ OrFalse.))
+(def (Nullable type)
+  (validate Type type)
+  {(:: @ Nullable.) (type) sexp: `(Nullable ,(.@ type sexp))})

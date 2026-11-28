@@ -44,9 +44,9 @@
 ;;; Runtime memq preserves identity comparison; length difference yields its
 ;;; position in the finite C4 precedence list without a project-local walker.
 ;; : (forall (a) (-> a [a] (Maybe Natural)))
-(def (identity-index target values)
-  (let (tail (memq target values))
-    (and tail (- (length values) (length tail)))))
+(def (identity-index target items)
+  (let (tail (memq target items))
+    (and tail (fx- (length items) (length tail)))))
 
 ;; Read the canonical C4 order only for the duration of this scalar query.
 (def (prototype-precedence-position target argument)
@@ -63,34 +63,35 @@
 ;;; Logical class precedence follows the identity-preserved class generation;
 ;;; POO prototypes remain the sole source of its C4 order.
 ;; : (-> SchemeValue (Maybe ClosClass))
-(def (argument-clos-class argument)
-  (and (clos-instance-state-bearing? argument)
-       (.ref (.ref argument '%clos-state) 'class)))
+(def (argument-clos-class argument) => (Maybe object)
+  (let (cls (and (clos-instance-state-bearing? argument)
+                 (.ref (.ref argument '%clos-state) 'class)))
+    (and cls (using (cls :- object) cls))))
 
 ;; : (-> SchemeValue SchemeValue (Maybe Natural))
-(def (class-target-distance target argument)
+(def (class-target-distance target argument) => (Maybe :fixnum)
   (and (object? argument)
        (let* ((argument-class (argument-clos-class argument))
               (index
                (and argument-class
                     (clos-class-precedence-position
                      argument-class target))))
-         (and index (+ index 1)))))
+         (and index (using (index :- :fixnum) (fx+ index 1))))))
 
 ;; : (-> SchemeValue Natural)
-(def (universal-specializer-distance argument)
-  (+ 2 (if (object? argument)
-         (let (argument-class (argument-clos-class argument))
-           (length (if argument-class
-                     (clos-class-precedence-list argument-class)
-                     (or (object-%precedence-list argument)
-                         (compute-object-precedence! argument)))))
-         0)))
+(def (universal-specializer-distance argument) => :fixnum
+  (fx+ 2 (if (object? argument)
+           (let (argument-class (argument-clos-class argument))
+             (length (if argument-class
+                       (clos-class-precedence-list argument-class)
+                       (or (object-%precedence-list argument)
+                           (compute-object-precedence! argument)))))
+           0)))
 
 ;;; Eql ranks before every class; a class rank is its runtime C4 distance; the
 ;;; universal specializer follows every applicable class.
 ;; : (-> ClosSpecializer SchemeValue (Maybe Natural))
-(def (specializer-distance specializer argument)
+(def (specializer-distance specializer argument) => (Maybe :fixnum)
   (case (.ref specializer 'kind)
     ((eql) (and (eqv? argument (.ref specializer 'target)) 0))
     ((class)
@@ -99,12 +100,12 @@
      (and (object? argument)
           (let (index
                 (prototype-precedence-position (.ref specializer 'target) argument))
-            (and index (+ index 1)))))
+            (and index (fx+ index 1)))))
     ((any) (universal-specializer-distance argument))
     (else #f)))
 
 ;; : (-> ClosMethod [SchemeValue] (Maybe (Vector Natural)))
-(def (method-distances method arguments)
+(def (method-distances method arguments) => (Maybe :vector)
   (let (distances
         (map specializer-distance
              (%ref-owned-list method 'specializers)

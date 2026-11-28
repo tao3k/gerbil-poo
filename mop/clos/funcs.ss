@@ -134,20 +134,21 @@
 ;; Both live C4 distances and the published candidate order use this
 ;; lexicographic comparison and retain declaration order on ties.
 (def (clos-distances-before? left right precedence-order)
-  (let loop ((remaining precedence-order))
-    (and (pair? remaining)
-         (let* ((position (car remaining))
-                (l (vector-ref left position))
-                (r (vector-ref right position)))
-           (cond ((< l r) #t)
-                 ((> l r) #f)
-                 (else (loop (cdr remaining))))))))
+  (using ((left :- :vector) (right :- :vector) (precedence-order :- :list))
+    (let loop ((remaining precedence-order))
+      (and (pair? remaining)
+           (let* ((position (car remaining))
+                  (l (vector-ref left position))
+                  (r (vector-ref right position)))
+             (cond ((< l r) #t)
+                   ((> l r) #f)
+                   (else (loop (cdr remaining)))))))))
 
 ;; One bounded vector pass proves that values are exactly 0..size-1.
-(def (clos-natural-permutation? values size)
-  (and (list? values) (= (length values) size)
+(def (clos-natural-permutation? entries size)
+  (and (list? entries) (= (length entries) size)
        (let (seen (make-vector size #f))
-         (let loop ((rest values))
+         (let loop ((rest entries))
            (cond
             ((null? rest) #t)
             ((or (not (exact-integer? (car rest)))

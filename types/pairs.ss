@@ -1,4 +1,5 @@
 (define-type (Pair. @ [methods.bytes<-marshal Type.] left right)
+  .gerbil-type: pair::t
   .validate: (lambda (value) (validate-pair @ left right value))
   .diagnose: (lambda (value location) (pair-shape @ left right value location diagnose-value))
   .diagnose-shape: (lambda (value location (check-field diagnose-structure))

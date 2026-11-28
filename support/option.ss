@@ -2,7 +2,7 @@
 
 (export #t)
 
-(defstruct some (value) transparent: #t)
+(defstruct some (value) transparent: #t final: #t)
 
 (def (option-ref x)
   (match x ((some value) value) (else (error "no value" x))))
