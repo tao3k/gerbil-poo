@@ -151,7 +151,8 @@
     ,(production-module "trie" ["trie/representation.ss" "trie/changes.ss" "trie/protocol.ss" "trie/types.ss"])
     ,(production-module "type"
       ["types/sequences.ss" "types/scalar-codecs.ss" "types/combinations.ss"
-       "types/pairs.ss" "types/optional.ss" "types/associative.ss" "types/sum.ss"])
+       "types/pairs.ss" "types/optional.ss" "types/associative.ss" "types/sum.ss"
+       "types/gerbil-types.ss"])
     "testing/generation-graph"
     "testing/recursive-generation"
     "testing/property/generator"

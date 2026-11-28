@@ -132,8 +132,8 @@
         (check (build-inputs (test-build-spec "recovery")) =>
           '((gxc: "coordinator-interleaving-test" (extra-inputs: ("../build.ss")))))
         (check (length parts) => 4)
-        (check (length all) => 91)
-        (check (length (filter (lambda (spec) (string-suffix? "-test" (cadr spec))) all)) => 85)
+        (check (length all) => 92)
+        (check (length (filter (lambda (spec) (string-suffix? "-test" (cadr spec))) all)) => 86)
         (for (name '("construction/graph-order-repair-test" "feedback/graph-algorithms-test"
                      "objects/class-diagnostics-test" "objects/shape-admission-test"
                      "methods/duim-pane" "methods/duim-pane-test"

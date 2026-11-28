@@ -65,7 +65,8 @@
                                  after after-execution admission) final: #t)
 
 (def (%dispatch-publication-current? plan)
-  (= (object-revision (dispatch-publication-owner plan)) 1))
+  (using (plan :- dispatch-publication)
+    (= (object-revision plan.owner) 1)))
 
 (def (%published-dispatch generic)
   (def overrides (object-%overrides generic))
@@ -73,20 +74,23 @@
     (and overrides (%standard-symbol-table-lookup? overrides)
          (hash-get overrides '%method-positions)))
   (and (dispatch-publication? plan)
-       (eq? generic (dispatch-publication-generic plan))
-       (%dispatch-publication-current? plan)
-       plan))
+       (using (plan :- dispatch-publication)
+         (and (eq? generic plan.generic)
+              (%dispatch-publication-current? plan)
+              plan))))
 
-(def (%published-method-positions generic)
+(def (%published-method-positions generic) => (Maybe method-positions)
   (let (value (%prepared-vector-slot-ref generic '%method-positions))
     (cond ((method-positions? value) value)
           ((and (dispatch-publication? value)
-                (eq? generic (dispatch-publication-generic value)))
-           (dispatch-publication-positions value))
+                (using (value :- dispatch-publication)
+                  (eq? generic value.generic)))
+           (using (pos (dispatch-publication-positions value) :- method-positions) pos))
           (else #f))))
 
 (def (%method-position index method)
-  ((method-positions-lookup index) method))
+  (using (index :- method-positions)
+    (index.lookup method)))
 
 ;; The Class publisher assigns an owned CPL to this generation. Updating
 ;; the direct-subclass roster leaves that assignment intact. Foreign or

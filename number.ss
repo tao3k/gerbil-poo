@@ -21,6 +21,7 @@
 
 ;; TODO: basic interface for arithmetics, with proper type signatures.
 (define-type (Number @ Type. .validate)
+  .gerbil-type: number::t
   .element?: number?
   .sexp<-: identity
   .add: +
@@ -36,6 +37,7 @@
   .=?: (cut = <> <>))
 
 (define-type (Real @ Number)
+  .gerbil-type: real::t
   .element?: real?
   ;; function taking two entries a, b.
   ;; -- If a = b then returns 0;
@@ -56,6 +58,7 @@
   .min: min)
 
 (define-type (Integer @ [Real] .string<- .<-string)
+  .gerbil-type: integer::t
   .element?: exact-integer?
   .json<-: (lambda (x) (if (<= (integer-length x) 53) x (.string<- x)))
   .<-json: (lambda (x) (if (exact-integer? x) x (.<-string x)))
@@ -139,6 +142,7 @@
   (u8vector-double-ref bytes 0 big))
 
 (define-type (Float @ [methods.marshal<-fixed-length-bytes Real] .validate)
+  .gerbil-type: flonum::t
   .element?: flonum?
   .length-in-bytes: 8
   .json<-: identity

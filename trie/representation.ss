@@ -1,8 +1,8 @@
 (defstruct $Trie () transparent: #t)
-(defstruct (Empty $Trie) () transparent: #t)
-(defstruct (Leaf $Trie) (value) transparent: #t)
-(defstruct (Branch $Trie) (height left right) transparent: #t) ;; height of the top bit, not integer-length
-(defstruct (Skip $Trie) (height bits-height bits child) transparent: #t) ;; bits-height is similarly top bit of bits, the number of valid bits in bits is (1+ bits-height)
+(defstruct (Empty $Trie) () transparent: #t final: #t)
+(defstruct (Leaf $Trie) (value) transparent: #t final: #t)
+(defstruct (Branch $Trie) (height left right) transparent: #t final: #t) ;; height of the top bit, not integer-length
+(defstruct (Skip $Trie) (height bits-height bits child) transparent: #t final: #t) ;; bits-height is similarly top bit of bits, the number of valid bits in bits is (1+ bits-height)
 
 ;; Return each validated subtree height to its parent. The canonical UInt
 ;; carrier needs one visit per node and no repeated method lookup. Failures
@@ -32,8 +32,8 @@
 (def stock-uint-trie-shape? (lambda (_descriptor _tree) #f))
 
 (defstruct $Step () transparent: #t)
-(defstruct (BranchStep $Step) (branch) transparent: #t)
-(defstruct (SkipStep $Step) (bits-height) transparent: #t)
+(defstruct (BranchStep $Step) (branch) transparent: #t final: #t)
+(defstruct (SkipStep $Step) (bits-height) transparent: #t final: #t)
 
 ;; The height in a Costep (context for applying a step) is the height of the current trie so far,
 ;; *before* next step is taken. It is -1 if a leaf, the length of the key *minus one* for another node,
@@ -44,7 +44,9 @@
 ;; The key in a Costep is the bits *above* the height, to be multiplied by 2**(height+1),
 ;; to get the actual key of the start of the current trie,
 ;; i.e. prepend those Costep bits as high bits to the bits provided by the subtrie-in-focus as low bits.
-(defstruct $Costep (height key) transparent: #t) ; height: (Or Height '(-1 #f)) key: Key
-(defstruct $Unstep (left right skip) transparent: #t) ;; left: (Fun trunk <- Key Height trunk branch) right: (Fun trunk <- Key Height branch trunk) skip: (Fun trunk <- Key Height Height Key trunk) ;; the first argument, key, only contains the high bits and must be shifted by 1+ the second argument Height, to get the full key for the first element of the trie node resulting from unstepping. ;; trunk is conceptually branch plus optional path-dependent information
-(defstruct $Path (costep steps) transparent: #t) ; costep: Costep steps: (List (Step t))
-(def ($Path-key path) ($Costep-key ($Path-costep path))) ;; key used in a path
+(defstruct $Costep (height key) transparent: #t final: #t) ; height: (Or Height '(-1 #f)) key: Key
+(defstruct $Unstep (left right skip) transparent: #t final: #t) ;; left: (Fun trunk <- Key Height trunk branch) right: (Fun trunk <- Key Height branch trunk) skip: (Fun trunk <- Key Height Height Key trunk) ;; the first argument, key, only contains the high bits and must be shifted by 1+ the second argument Height, to get the full key for the first element of the trie node resulting from unstepping. ;; trunk is conceptually branch plus optional path-dependent information
+(defstruct $Path (costep steps) transparent: #t final: #t) ; costep: Costep steps: (List (Step t))
+(def ($Path-key path)
+  (using (costep ($Path-costep path) :- $Costep)
+    costep.key)) ;; key used in a path

@@ -76,49 +76,58 @@
 ;;; Class IRs own declaration order and the two class-level slot hooks.
 (defclass clos-class-declaration-ir
   (name supers slots default-initargs slot-missing slot-unbound documentation
-        metaclass source))
+        metaclass source)
+  final: #t)
 ;;; Slot IRs preserve repeatable accessor options separately from singular
 ;;; allocation, initform, type, and documentation options.
 (defclass clos-slot-declaration-ir
   (name allocation initargs initform readers writers type
-        documentation source))
+        documentation source)
+  final: #t)
 ;;; Generic IRs separate lambda-list shape from dispatch precedence and
 ;;; method-combination selection.
 (defclass clos-generic-declaration-ir
   (name lambda-list argument-precedence-order method-combination protocol documentation
-        generic-function-class method-class declarations methods source))
+        generic-function-class method-class declarations methods source)
+  final: #t)
 ;;; A generic's method-combination reference retains its hygienic descriptor
 ;;; name separately from the option forms supplied to that combination type.
 (defclass clos-method-combination-reference-declaration-ir
-  (name arguments source))
+  (name arguments source)
+  final: #t)
 ;;; Method IRs retain the original body syntax for hygienic lexical lowering.
 (defclass clos-method-declaration-ir
-  (name qualifier lambda-list body source))
+  (name qualifier lambda-list body source)
+  final: #t)
 ;;; Short method-combination IRs retain the operator as syntax while order
 ;;; and identity policy become closed expansion-time data.
 (defclass clos-method-combination-declaration-ir
-  (name operator order identity-with-one-argument documentation source))
+  (name operator order identity-with-one-argument documentation source)
+  final: #t)
 ;;; Long-form IRs separate declarative qualifier groups from the hygienic
 ;;; Scheme body that executes the effective method.
 (defclass clos-long-method-combination-declaration-ir
   (name lambda-list groups arguments arguments-whole generic-function
-        declarations documentation body source))
+        declarations documentation body source)
+  final: #t)
 ;;; Group IRs preserve matcher syntax because predicate identifiers must
 ;;; resolve in the declaration's lexical context.
 (defclass clos-method-group-declaration-ir
-  (name matchers order required description source))
+  (name matchers order required description source)
+  final: #t)
 ;;; Lambda-list IRs keep parameter families distinct so congruence can be
 ;;; computed without reparsing source forms.
 (defclass clos-lambda-declaration-ir
-  (required optional rest key? keys allow-other-keys aux source))
+  (required optional rest key? keys allow-other-keys aux source)
+  final: #t)
 ;;; Required parameter IRs distinguish universal, class, prototype, and eql dispatch.
-(defclass clos-parameter-declaration-ir (variable kind target source))
+(defclass clos-parameter-declaration-ir (variable kind target source) final: #t)
 ;;; Optional parameter IRs preserve default and supplied-p ownership.
-(defclass clos-optional-declaration-ir (variable initform supplied source))
+(defclass clos-optional-declaration-ir (variable initform supplied source) final: #t)
 ;;; Key parameter IRs separate the external key name from its lexical name.
-(defclass clos-key-declaration-ir (name variable initform supplied source))
+(defclass clos-key-declaration-ir (name variable initform supplied source) final: #t)
 ;;; Aux IRs remain execution-only and do not enter dispatch metadata.
-(defclass clos-aux-declaration-ir (variable initform source))
+(defclass clos-aux-declaration-ir (variable initform source) final: #t)
 
 ;;; Every grammar failure carries a stable category in the expansion message,
 ;;; while the original syntax object retains source location and lexical scope.

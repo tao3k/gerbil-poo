@@ -43,37 +43,42 @@
 ;; Expose the existing primary vector by identity, without seeding another store.
 ;; The explicit hash qualification stays symbolic and never allocates a second cache.
 (extern namespace: clan/poo/object/slot-layout %layout-snapshot access-cache-layout)
-(def (%live-object-layout self previous: (previous #f))
+(def (%live-object-layout self previous: (previous :? %slot-layout := #f)) => (Maybe %slot-layout)
   (instantiate-object! self previous: previous)
-  (or (object-%layout self)
-    (let (layout (slot-values-layout (object-%instance self)))
-      (when layout (set! (object-%layout self) layout)) layout)))
-(def (object-layout self)
+  (using (self :- object)
+    (let (l (or self.%layout
+                (let (v (slot-values-layout self.%instance))
+                  (when v (set! self.%layout v)) v)))
+      (and l (using (l :- %slot-layout) l)))))
+(def (object-layout self) => (Maybe %slot-layout)
   (%layout-snapshot (%live-object-layout self)))
 ;; Sites retain offsets, never values. Observed/bootstrap reads use ordinary .ref;
 ;; live layouts certify preparation and are discarded by supported edits.
 ;; Failures bind no guard; absent names never become certified indices.
 (def (.ref/inline self cache)
-  (def slot (slot-cache-name cache))
-  (if (%slot-read-active?) (.ref self slot)
-    (let (prepared (object-%layout self))
-      (if (and (not prepared) (bootstrap-anchor self slot)) (.ref self slot)
-        (let (layout (or prepared (%live-object-layout self previous: (access-cache-layout cache))))
-          (if (not layout) (.ref self slot)
-            (let* ((revision (object-revision self))
-                   (hit (slot-cache-hit? cache self revision layout))
-                   (index (or hit (slot-cache-index cache layout)))
-                   (stored (if index (slot-layout-ref layout index) absent-value)))
-              (if (and hit (not (eq? stored absent-value))) (%owned-list-value stored)
-                ;; Cold sites and evicted cells share ordinary cycle-aware demand.
-                ;; Only successful demand publishes the final-shape access guard.
-                (let* ((shape (slot-layout-shape layout))
-                       (value (if (eq? stored absent-value) (.ref self slot) (%owned-list-value stored)))
-                       (same-shape? (eq? shape (slot-layout-shape layout))))
-                  ;; Recheck after callbacks: a shared site may have rebound to another owner.
-                  (unless (slot-cache-hit? cache self revision layout)
-                    (slot-cache-bind! cache self revision layout
-                      (if same-shape? index (slot-layout-index layout slot)))) value)))))))))
+  (using (cache : %slot-access-cache)
+    (def slot cache.name)
+    (if (%slot-read-active?) (.ref self slot)
+      (let (prepared (object-%layout self))
+        (using (self :- object)
+          (if (and (not prepared) (bootstrap-anchor self slot)) (.ref self slot)
+            (let (l (or prepared (%live-object-layout self previous: cache.layout)))
+              (if (not l) (.ref self slot)
+                (using (l :- %slot-layout)
+                  (let* ((revision (object-revision self))
+                         (hit (slot-cache-hit? cache self revision l))
+                         (index (or hit (slot-cache-index cache l)))
+                         (stored (if index (slot-layout-ref l index) absent-value)))
+                    (if (and hit (not (eq? stored absent-value))) (%owned-list-value stored)
+                      ;; Cold sites and evicted cells share ordinary cycle-aware demand.
+                      ;; Only successful demand publishes the final-shape access guard.
+                      (let* ((s l.shape)
+                             (value (if (eq? stored absent-value) (.ref self slot) (%owned-list-value stored)))
+                             (same-shape? (eq? s l.shape)))
+                        ;; Recheck after callbacks: a shared site may have rebound to another owner.
+                        (unless (slot-cache-hit? cache self revision l)
+                          (slot-cache-bind! cache self revision l
+                            (if same-shape? index (slot-layout-index l slot)))) value))))))))))))
 ;; Read an already stored vector cell through the stock HashTable route.
 ;; A cold cell or an unsupported table returns absent-value. A stored #f
 ;; remains a value. This probe does not instantiate, demand, or issue a read.

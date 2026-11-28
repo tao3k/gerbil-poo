@@ -15,34 +15,35 @@
    %declarations
    %declaration-index ;; lazy effective/visible catalog; cleared with every source revision
    %bootstrap) ;; explicit constant hook anchors; only the self-hosted root uses them : (Listof Symbol) ; definition order for all slot keys
-  constructor: :init!)
+  final: #t constructor: :init!)
 (defmethod {:init! object}
   (lambda (self ;; : (Object A)
       supers: (supers '()) ;; : (Listof Objects) ;; Actually, can be a pair-tree of Object's and nulls.
       slots: (slots '()) ;; : (Listof (Pair Symbol (SlotSpec ? ?)))
       defaults: (defaults '())
       protocol: (protocol #f) declarations: (declarations '()) bootstrap: (bootstrap #f)) ;; : (Listof (Pair Symbol ?))
-    (set! (object-%supers self) (flatten supers))
-    (set! (object-%slots self) (prototype-map slots))
-    (set! (object-%defaults self) (prototype-map defaults))
-    (set! (object-%instance self) #f)
-    (set! (object-%reads self) #f)
-    (set! (object-%layout self) #f)
-    (set! (object-%precedence-list self) #f)
-    (set! (object-%slot-funs self) #f)
-    (set! (object-%all-slots self) #f)
-    (set! (object-%state self) (make-object-state))
-    (set! (object-%protocol self) protocol)
-    (set! (object-%overrides self) #f)
-    (set! (object-%declarations self) (prototype-map declarations))
-    (set! (object-%declaration-index self) #f)
-    (set! (object-%bootstrap self) bootstrap)
-    ;; The finite direct catalog is a source at construction, including clones.
-    ;; Register all descriptors before any C3/definition hook can evaluate one.
-    (prototype-map-for-each (object-%declarations self)
-      (lambda (_name descriptor) (depend-on-object! self descriptor)))
-    (for-each (cut depend-on-object! self <>) (object-%supers self))
-    (when protocol (depend-on-object! self protocol))))
+    (using (self :- object)
+      (set! self.%supers (flatten supers))
+      (set! self.%slots (prototype-map slots))
+      (set! self.%defaults (prototype-map defaults))
+      (set! self.%instance #f)
+      (set! self.%reads #f)
+      (set! self.%layout #f)
+      (set! self.%precedence-list #f)
+      (set! self.%slot-funs #f)
+      (set! self.%all-slots #f)
+      (set! self.%state (make-object-state))
+      (set! self.%protocol protocol)
+      (set! self.%overrides #f)
+      (set! self.%declarations (prototype-map declarations))
+      (set! self.%declaration-index #f)
+      (set! self.%bootstrap bootstrap)
+      ;; The finite direct catalog is a source at construction, including clones.
+      ;; Register all descriptors before any C3/definition hook can evaluate one.
+      (prototype-map-for-each self.%declarations
+        (lambda (_name descriptor) (depend-on-object! self descriptor)))
+      (for-each (cut depend-on-object! self <>) self.%supers)
+      (when protocol (depend-on-object! self protocol)))))
 
 ;; Public topology reflection owns its spine; parent objects retain their identity.
 ;; Internal construction/lookup borrows %supers, avoiding public snapshot copies.
@@ -58,9 +59,10 @@
 ;; validation can retain them on a fresh receiver without copying computed caches;
 ;; ordinary prototype inheritance still does not inherit these assignments.
 (def (object-override-specifications self)
-  (if (object-%overrides self)
-    (map (lambda (entry) (cons (car entry) ($constant-slot-spec (cdr entry))))
-         (hash->list/sort (object-%overrides self) symbol<?)) '()))
+  (let (overrides (object-%overrides self))
+    (if overrides
+      (map (lambda (entry) (cons (car entry) ($constant-slot-spec (cdr entry))))
+           (hash->list/sort overrides symbol<?)) '())))
 
 ;; Inspect one direct contribution without constructing the receiver or copying its catalog.
 (def (object-direct-slot-specification self name (default #f))
@@ -79,13 +81,18 @@
 ;; Track dependencies on prototypes, protocol objects and declaration descriptors.
 (def (depend-on-object! self source)
   (unless (object? source) (error "object dependency required"))
-  (depend-on-state! (object-%state source) self (object-%state self)))
+  (let ((dst-state (object-%state self)))
+    (using ((source :- object) (dst-state :- %object-state))
+      (depend-on-state! source.%state self dst-state))))
 ;; The caller must have captured a materialized assignment independent of
 ;; this slot. Ordinary reads and unclassified edits keep whole-owner edges.
 (def (%depend-on-object-except-slot! self source slot)
-  (depend-on-state! (object-%state source) self (object-%state self) slot))
+  (using ((self :- object) (source :- object))
+    (depend-on-state! source.%state self self.%state slot)))
 ;; Read-only revision identity for source-bound external caches.
-(def (object-revision self) (object-state-revision (object-%state self)))
+(def (object-revision self)
+  (using (state (object-%state self) :- %object-state)
+    state.revision))
 ;; SOURCES is an ordered list of POO objects. REVISIONS is the list captured
 ;; by (map object-revision sources) when a Lens or fragment was prepared.
 ;; Both lists must end together and every live revision must match its snapshot.
@@ -106,12 +113,13 @@
 ;; Clear all derived state together. Explicit instance assignments remain separate.
 (def (clear-object-cache! self)
   (set! (object-%declaration-index self) #f)
-  (set! (object-%reads self) #f)
-  (set! (object-%instance self) #f)
-  (set! (object-%layout self) #f)
-  (set! (object-%precedence-list self) #f)
-  (set! (object-%slot-funs self) #f)
-  (set! (object-%all-slots self) #f))
+  (using (self :- object)
+    (set! self.%reads #f)
+    (set! self.%instance #f)
+    (set! self.%layout #f)
+    (set! self.%precedence-list #f)
+    (set! self.%slot-funs #f)
+    (set! self.%all-slots #f)))
 ;; Refuse mutation during evaluation anywhere in the affected dependency closure.
 (def (check-object-edit self state)
   (when (or (memq self (active-object-constructions))
@@ -124,14 +132,16 @@
   (invalidate-state! self (object-%state self) check-object-edit clear-object-cache!))
 ;; Sealed sources reject all supported writes; invalidation alone remains allowed.
 (def (before-object-edit! self (edited-slot #f))
-  (def state (object-%state self))
-  (when (object-state-sealed? state) (error "sealed prototype"))
-  (invalidate-state! self state check-object-edit clear-object-cache! edited-slot))
+  (using (state (object-%state self) :- %object-state)
+    (when state.sealed? (error "sealed prototype"))
+    (invalidate-state! self state check-object-edit clear-object-cache! edited-slot)))
 ;; Seal the current receiver's specifications and explicit instance assignments.
 ;; Ancestors can still change through the invalidation protocol unless sealed too.
 (def (seal-object! self)
-  (check-object-edit self (object-%state self))
-  (set! (object-state-sealed? (object-%state self)) #t) self)
+  (using (state (object-%state self) :- %object-state)
+    (check-object-edit self state)
+    (set! state.sealed? #t)
+    self))
 ;; Replace direct specifications, invalidating every retained dependent cache.
 (def (object-slots-set! self slots)
   (def next (prototype-map slots))
@@ -169,8 +179,10 @@
 ;; The explicit metalevel base exposes only its pinned hook values. Ordinary
 ;; objects and arbitrary cycles retain the normal construction/slot guards.
 (def (bootstrap-anchor self name)
-  (and (object? self) (eq? (object-%protocol self) self) (object-%bootstrap self)
-       (assq name (object-%bootstrap self))))
+  (and (object? self)
+       (using (self :- object)
+         (and (eq? self.%protocol self) self.%bootstrap
+              (assq name self.%bootstrap)))))
 ;; Invoke one optional inherited hook. The continuation is the existing engine,
 ;; not a second evaluator; hook errors propagate and never install partial caches.
 (def (invoke-object-hook self name next . args)

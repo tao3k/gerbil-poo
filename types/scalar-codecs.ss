@@ -7,6 +7,7 @@
   .json<-: .string<-
   .<-json: .<-string)
 (define-type (Bytes @ [methods.bytes Type.])
+  .gerbil-type: u8vector::t
   .sexp<-: (lambda (x) `(hex-decode ,(hex-encode x)))
   .element?: u8vector?
   .Length: UInt
@@ -14,6 +15,7 @@
   .marshal: (lambda (x port) (marshal .Length (u8vector-length x) port) (write-u8vector* x port))
   .unmarshal: (lambda (port) (def n (unmarshal .Length port)) (unmarshal-n-u8 n port)))
 (define-type (BytesN. @ [methods.bytes Type.] n)
+  .gerbil-type: u8vector::t
   .element?: (λ (x) (and (u8vector? x) (= (u8vector-length x) n)))
   .validate: (λ (x)
                (unless (u8vector? x) (raise-type-error @ x))
@@ -34,6 +36,7 @@
 (def Bytes64 (BytesN 64 'Bytes64))
 
 (define-type (String @ [methods.marshal<-bytes Type.])
+  .gerbil-type: string::t
   .element?: string?
   .Bytes: Bytes
   .zero: ""
@@ -54,11 +57,13 @@
   .<-json: .<-string
   .json<-: .string<-)
 (define-type (Symbol @ [methods.json&bytes&marshal<-string Type.])
+  .gerbil-type: symbol::t
   .element?: symbol?
   .sexp<-: (cut list 'quote <>)
   .<-string: string->symbol
   .string<-: symbol->string)
 (define-type (Keyword @ [methods.json&bytes&marshal<-string Type.])
+  .gerbil-type: keyword::t
   .element?: keyword?
   .sexp<-: identity
   .<-string: string->keyword

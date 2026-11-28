@@ -15,6 +15,7 @@
    length))
 
 (define-type (Tuple. @ [methods.bytes<-marshal Type.] types)
+  .gerbil-type: vector::t
   type-list: (vector->list types)
   .validate: (lambda (value) (validate-tuple @ types value))
   .diagnose: (lambda (value location) (tuple-shape @ types value location diagnose-value))
@@ -41,6 +42,7 @@
   {(:: @ Tuple.) (types) sexp: `(Tuple ,@(map (cut .@ <> sexp) type-list))})
 
 (define-type (List. @ [methods.bytes<-marshal methods.string<-json Type.] type)
+  .gerbil-type: list::t
   .Length: UInt
   .validate: (lambda (value) (validate-list @ type value))
   .diagnose: (lambda (value location) (list-shape @ type value location diagnose-value))

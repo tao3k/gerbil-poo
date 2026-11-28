@@ -105,6 +105,7 @@
     "class-diagnostics-test"
     "inheritance-hooks-test"
     "issued-read-test"
+    "typed-kernel-test"
     (gxc: "object-test" (extra-inputs: ("object/lifecycle.ss" "object/mop.ss" "object/cases.ss" "object/parameters.ss" "object/slot-observation.ss" "object/support.ss"))))
     ("property"
     "generated-traces-test"

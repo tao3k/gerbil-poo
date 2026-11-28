@@ -6,7 +6,7 @@
         (only-in ./value-diagnostics diagnose-structure)
         (only-in ./validation-rebinding rebind-validation finish-validation)
         (prefix-in (only-in ../fun Observation.) fun.)
-        (only-in ../object .o .cc .get .ref .slot? .all-slots .call object?
+        (only-in ../object .o .cc .get .ref .slot? .all-slots .call object::t object?
                  compute-precedence-list!)
         (only-in ../mop/prototype Type Type. define-type .defgeneric element? validate raise-type-error))
 
@@ -145,6 +145,7 @@
                             extra-fields constraints obligations
                             prepared-responsibilities prepared-constraints prepared-obligations
                             prepared-validation .diagnose-shape .diagnose)
+  .gerbil-type: object::t
   identity: 'object
   responsibilities: (.o)
   required-prototype: #f

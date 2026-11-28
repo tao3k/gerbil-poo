@@ -1,16 +1,19 @@
 ;;; Mutation ownership and transitive invalidation, independent of slot evaluation.
-(export make-object-state object-state-revision object-state-sealed?
+(export (rename-out object-state (object-state %object-state))
+        object-state::t object-state?
+        make-object-state object-state-revision object-state-sealed?
         object-state-sealed?-set! depend-on-state! invalidate-state!
         prepare-invalidation)
 (import (only-in :gerbil/runtime/hash HashTable))
 ;; Weak child keys prevent a retained prototype from keeping abandoned instances alive.
-(defstruct object-state (revision sealed? dependents) constructor: :init!)
+(defstruct object-state (revision sealed? dependents) final: #t constructor: :init!)
 ;; Allocate dependency storage lazily; leaf objects need no weak table.
 (defmethod {:init! object-state}
   (lambda (self)
-    (set! (object-state-revision self) 0)
-    (set! (object-state-sealed? self) #f)
-    (set! (object-state-dependents self) #f)))
+    (using (self :- object-state)
+      (set! self.revision 0)
+      (set! self.sealed? #f)
+      (set! self.dependents #f))))
 ;; A filtered edge ignores only one direct assignment. Its payload never
 ;; holds the weak key. A second registration can widen the edge.
 (defstruct slot-excluded-edge (state slot) final: #t)
@@ -20,15 +23,16 @@
 (def (depend-on-state! parent child child-state (excluded-slot #f))
   (unless (object-state-dependents parent)
     (set! (object-state-dependents parent) (HashTable (make-table test: eq? weak-keys: #t))))
-  (let* ((index (object-state-dependents parent))
-         (prior (and excluded-slot (hash-get index child))))
-    (hash-put! index child
-      (if (and excluded-slot
-               (or (not prior)
-                   (and (slot-excluded-edge? prior)
-                        (eq? excluded-slot (slot-excluded-edge-slot prior)))))
-        (make-slot-excluded-edge child-state excluded-slot)
-        child-state))))
+  (using (parent :- object-state)
+    (let* ((index parent.dependents)
+           (prior (and excluded-slot (hash-get index child))))
+      (hash-put! index child
+        (if (and excluded-slot
+                 (or (not prior)
+                     (and (slot-excluded-edge? prior)
+                          (eq? excluded-slot (slot-excluded-edge-slot prior)))))
+          (make-slot-excluded-edge child-state excluded-slot)
+          child-state)))))
 
 ;; A scoped visit is also an affected owner, but has not opened its whole row.
 (defstruct scoped-visit (state slot) final: #t)
@@ -36,9 +40,10 @@
 ;; One admitted owner advances once before its existing cache-clear callback.
 ;; Clear failures keep their original effects; this is not effect rollback.
 (def (clear-state! owner state clear)
-  (set! (object-state-revision state) (+ 1 (object-state-revision state)))
-  (clear owner)
-  (void))
+  (using (state :- object-state)
+    (set! state.revision (+ 1 state.revision))
+    (clear owner)
+    (void)))
 ;; Root preflight precedes strategy selection: it may register a dependency.
 ;; A still-pristine leaf needs no traversal table or pending-owner spine. Any
 ;; retained weak table, including an empty one, keeps the complete graph path.

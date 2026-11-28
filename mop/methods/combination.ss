@@ -18,7 +18,7 @@
 ;; Contribution prototype; registration validates the admitted qualifier set.
 (define-type (Contribution. @ [] qualifier body) .type: Contribution)
 ;; Evidence stores only a revision and symbol, never its weak key or body closure.
-(defstruct contribution-evidence (revision qualifier))
+(defstruct contribution-evidence (revision qualifier) final: #t)
 ;; Default constructor/Type revisions identify the known constant-slot protocol.
 (def contribution-constructor-revision (object-revision Contribution.))
 ;; Type protocol edits disable evidence reuse and retain current Type validation.
@@ -27,10 +27,12 @@
 (def contribution-evidence-table (make-hash-table test: eq? weak-keys: #t))
 ;; Reuse only constructor evidence with an unchanged Type and receiver revision.
 ;; Grouping and bodies are still evaluated by the ordinary current interpreter.
-(def (registered-contribution value)
+(def (registered-contribution value) => (Maybe contribution-evidence)
   (and (= (object-revision Contribution) contribution-type-revision)
     (let (evidence (hash-get contribution-evidence-table value))
-      (and evidence (= (contribution-evidence-revision evidence) (object-revision value)) evidence))))
+      (and evidence
+           (using (evidence :- contribution-evidence)
+             (and (= evidence.revision (object-revision value)) evidence))))))
 ;; Construct a checked body and constant qualifier using the current POO prototype.
 ;; Record evidence only for known symbols under the default constructor/Type;
 ;; custom prototypes and later mutations use the same current validation protocol.

@@ -49,7 +49,7 @@
      (else (sn) (wr-fields)))))
 
 (defstruct TV (type value) ;; Typed Value
-  transparent: #t)
+  transparent: #t final: #t)
 (defmethod (@method :wr TV)
   (lambda (self writeenv)
     (def style (writeenv-style writeenv))

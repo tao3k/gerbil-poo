@@ -8,31 +8,39 @@
 
 (import :std/iter :std/struct/rbtree (only-in ./base number-comparer))
 
-(defstruct rationaldict (tree) transparent: #t)
+(defstruct rationaldict (tree) transparent: #t final: #t)
 ;; Standard RBTree requires a fixnum comparison result, even for rational/bignum
 ;; keys. Reuse the existing three-way numeric comparer instead of subtraction.
 (def empty-rationaldict (rationaldict (RBTree number-comparer)))
 (def absent (gensym 'absent))
 
-(def (rationaldict-empty? dict) (rbtree-empty? (rationaldict-tree dict)))
+(def (rationaldict-empty? dict)
+  (using (dict : rationaldict) (rbtree-empty? dict.tree)))
 (def (rationaldict-ref dict key
                        (default (cut error "rationaldict-ref: missing key" dict key)))
-  (def value (rbtree-ref (rationaldict-tree dict) key absent))
-  (if (eq? value absent) (default) value))
+  (using (dict : rationaldict)
+    (def value (rbtree-ref dict.tree key absent))
+    (if (eq? value absent) (default) value)))
 (def (rationaldict-put dict key value)
-  (rationaldict (rbtree-put (rationaldict-tree dict) key value)))
+  (using (dict : rationaldict)
+    (rationaldict (rbtree-put dict.tree key value))))
 (def (rationaldict-remove dict key)
-  (rationaldict (rbtree-remove (rationaldict-tree dict) key)))
+  (using (dict : rationaldict)
+    (rationaldict (rbtree-remove dict.tree key))))
 (def (rationaldict-has-key? dict key)
-  (not (eq? absent (rbtree-ref (rationaldict-tree dict) key absent))))
+  (using (dict : rationaldict)
+    (not (eq? absent (rbtree-ref dict.tree key absent)))))
 (def (rationaldict-keys dict)
-  (for/collect ((key (in-rbtree-keys (rationaldict-tree dict)))) key))
+  (using (dict : rationaldict)
+    (for/collect ((key (in-rbtree-keys dict.tree))) key)))
 (def (rationaldict-values dict)
-  (for/collect ((value (in-rbtree-values (rationaldict-tree dict)))) value))
-(def (list->rationaldict entries)
+  (using (dict : rationaldict)
+    (for/collect ((value (in-rbtree-values dict.tree))) value)))
+(def (list->rationaldict (entries :~ list?)) => rationaldict
   ;; V19 owns the transient construction path; only the completed tree escapes.
   (rationaldict (list->rbtree number-comparer entries)))
-(def (rationaldict->list dict) (rbtree->list (rationaldict-tree dict)))
+(def (rationaldict->list dict)
+  (using (dict : rationaldict) (rbtree->list dict.tree)))
 (def (rationaldict-iter dict (from #f))
   (def entries (iter (rationaldict-tree dict)))
   (if from

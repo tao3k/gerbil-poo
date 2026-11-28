@@ -32,7 +32,7 @@
         (only-in ../support/syntax call<-formals)
         (only-in ../support/repr repr pr)
         (only-in ../object replay-slot-reads! reobserve-slot-reads! call-with-current-slot-reads object-read-issued? object-read-issuance
-           make-object object object? .def/ctx .cc .mix .ref .@ .get .has? .call
+           make-object object object::t object? .def/ctx .cc .mix .ref .@ .get .has? .call
            .all-slots with-slots .slot? .putslot! .putdefault! .for-each!
            object-%precedence-list compute-precedence-list!
            object-precedence-ready? object-find-in-precedence
@@ -222,9 +222,11 @@
   .=?: equal?)
 
 (define-type (Object @ Type.)
+  .gerbil-type: object::t
   .element?: object? .sexp<-: identity) ;; TODO: improve on that
 
 (define-type (Bool @ Type.)
+  .gerbil-type: boolean::t
   .length-in-bytes: 1
   .element?: boolean?
   .sexp<-: identity
@@ -240,6 +242,7 @@
   (and (object? x) (every (cut element? type <>) (object-values x))))
 
 (define-type (MonomorphicObject. @ Type. type) ;; all the values are of given type
+  .gerbil-type: object::t
   .element?: (cut monomorphic-object? type <>)
   .sexp<-: (lambda (x) `(.o ,@(append-map (match <> ([s . v] [(make-keyword s) (sexp<- type v)])) (.alist x))))
   .json<-: (lambda (x) (list->hash-table (map (match <> ([s . v] (cons s (json<- type v)))) (.alist x))))
@@ -256,6 +259,7 @@
 ;; TODO: Incremental amortized O(1) recursive-data validation needs its own cache laws.
 (def (refuse-function-value type value) (raise-type-error type value))
 (define-type (Function. @ Type. outputs inputs)
+  .gerbil-type: procedure::t
   optional: [] keywords: [] required-keywords: [] rest: #f
   signatures: (list @)
   .element?: procedure?
@@ -358,6 +362,7 @@
 
 (define-type (Class. class Type. slots sexp sealed) ;; this is the class descriptor for class descriptor objects.
   .type: Class
+  .gerbil-type: object::t
   effective-slots:
    (let (slot-base (.@ .type slot-descriptor-class proto))
      (map-object-values (cut .mix <> slot-base) slots))
